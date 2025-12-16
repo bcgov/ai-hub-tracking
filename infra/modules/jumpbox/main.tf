@@ -178,7 +178,10 @@ echo "SSH access is ready. Connect via Azure Bastion using SSH."
 
   tags = var.common_tags
   lifecycle {
-    ignore_changes = [tags]
+    ignore_changes = [
+      tags,
+      identity # Ignore identity changes to avoid conflicts with user-assigned identities by platform team, they assign something like `bcgov-managed-lz-live-uami`
+    ]
   }
 }
 

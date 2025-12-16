@@ -60,6 +60,10 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
+# Variables tracking configuration source
+USE_TFVARS=false
+TFVARS_ARGS=()
+
 # =============================================================================
 # Logging Functions
 # =============================================================================
@@ -186,6 +190,48 @@ setup_azure_auth() {
     log_success "Azure authentication configured"
 }
 
+# Check if tfvars file exists, otherwise validate required environment variables
+setup_variables_source() {
+    log_info "Checking variables configuration..."
+    
+    if [[ -f "$TFVARS_FILE" ]]; then
+        USE_TFVARS=true
+        TFVARS_ARGS=("-var-file=$TFVARS_FILE")
+        log_success "Using terraform.tfvars file"
+    else
+        log_info "terraform.tfvars not found, validating environment variables..."
+        
+        # Required variables for all deployments
+        local required_vars=(
+            "TF_VAR_app_name"
+            "TF_VAR_subscription_id"
+            "TF_VAR_tenant_id"
+            "TF_VAR_location"
+            "TF_VAR_resource_group_name"
+            "TF_VAR_vnet_name"
+            "TF_VAR_vnet_resource_group_name"
+            "TF_VAR_vnet_address_space"
+        )
+        
+        local missing_vars=()
+        for var in "${required_vars[@]}"; do
+            if [[ -z "${!var:-}" ]]; then
+                missing_vars+=("$var")
+            fi
+        done
+        
+        if [[ ${#missing_vars[@]} -gt 0 ]]; then
+            log_error "Missing required environment variables:"
+            for var in "${missing_vars[@]}"; do
+                log_error "  - $var"
+            done
+            exit 1
+        fi
+        
+        log_success "All required environment variables are set"
+    fi
+}
+
 # =============================================================================
 # Terraform Commands
 # =============================================================================
@@ -252,8 +298,7 @@ tf_plan() {
     ensure_initialized
     cd "$INFRA_DIR"
     
-    local plan_args=()
-    plan_args+=("-var-file=$TFVARS_FILE")
+    local plan_args=("${TFVARS_ARGS[@]}")
     
     # Add any additional arguments passed
     plan_args+=("$@")
@@ -268,8 +313,7 @@ tf_apply() {
     ensure_initialized
     cd "$INFRA_DIR"
     
-    local apply_args=()
-    apply_args+=("-var-file=$TFVARS_FILE")
+    local apply_args=("${TFVARS_ARGS[@]}")
     
     # Auto-approve in CI mode
     if [[ "${CI:-false}" == "true" ]]; then
@@ -294,8 +338,7 @@ tf_destroy() {
     ensure_initialized
     cd "$INFRA_DIR"
     
-    local destroy_args=()
-    destroy_args+=("-var-file=$TFVARS_FILE")
+    local destroy_args=("${TFVARS_ARGS[@]}")
     
     # Auto-approve in CI mode
     if [[ "${CI:-false}" == "true" ]]; then
@@ -330,7 +373,7 @@ tf_refresh() {
     log_info "Refreshing Terraform state..."
     cd "$INFRA_DIR"
     
-    terraform refresh -var-file="$TFVARS_FILE" "$@"
+    terraform refresh "${TFVARS_ARGS[@]}" "$@"
     
     log_success "State refreshed"
 }
@@ -364,6 +407,7 @@ main() {
         *)
             check_prerequisites
             setup_azure_auth
+            setup_variables_source  # Check for tfvars or environment variables
             ;;
     esac
     
