@@ -247,71 +247,70 @@ resource "azurerm_automation_runbook" "start_vm" {
 """
 Start Jumpbox VM Runbook
 This runbook starts the VM using the Automation Account's managed identity.
-Uses Azure REST API directly to avoid package dependency issues.
+Uses Azure Automation environment variables for authentication.
 """
 
 import json
-import http.client
-import time
+import os
+import sys
 
 # VM Configuration (injected by Terraform)
 SUBSCRIPTION_ID = "${data.azurerm_subscription.current.subscription_id}"
 RESOURCE_GROUP = "${var.resource_group_name}"
 VM_NAME = "${var.app_name}-jumpbox"
 
-def get_access_token():
+def get_automation_token():
     """
-    Get access token using managed identity from IMDS endpoint.
-    This works automatically in Azure Automation with system-assigned identity.
+    Get access token using Azure Automation's built-in managed identity.
+    Uses IDENTITY_ENDPOINT and IDENTITY_HEADER environment variables.
     """
-    conn = http.client.HTTPConnection("169.254.169.254")
-    headers = {"Metadata": "true"}
+    import urllib.request
+    import urllib.error
+    
+    identity_endpoint = os.environ.get("IDENTITY_ENDPOINT")
+    identity_header = os.environ.get("IDENTITY_HEADER")
+    
+    if not identity_endpoint or not identity_header:
+        raise Exception("IDENTITY_ENDPOINT or IDENTITY_HEADER not set. Ensure managed identity is enabled on the Automation Account.")
+    
     resource = "https://management.azure.com/"
-    api_version = "2018-02-01"
+    token_url = f"{identity_endpoint}?resource={resource}&api-version=2019-08-01"
     
-    conn.request(
-        "GET",
-        f"/metadata/identity/oauth2/token?api-version={api_version}&resource={resource}",
-        headers=headers
-    )
+    req = urllib.request.Request(token_url)
+    req.add_header("X-IDENTITY-HEADER", identity_header)
+    req.add_header("Metadata", "true")
     
-    response = conn.getresponse()
-    if response.status != 200:
-        raise Exception(f"Failed to get access token: {response.status} {response.reason}")
-    
-    data = json.loads(response.read().decode())
-    return data["access_token"]
+    try:
+        response = urllib.request.urlopen(req, timeout=30)
+        data = json.loads(response.read().decode())
+        return data["access_token"]
+    except urllib.error.HTTPError as e:
+        body = e.read().decode() if e.fp else ""
+        raise Exception(f"Failed to get token: {e.code} {e.reason} - {body}")
 
 def start_vm(access_token):
     """
     Start the VM using Azure REST API.
     """
-    conn = http.client.HTTPSConnection("management.azure.com")
+    import urllib.request
+    import urllib.error
     
-    headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Content-Type": "application/json"
-    }
+    url = f"https://management.azure.com/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}/start?api-version=2023-07-01"
     
-    # Start VM API endpoint
-    url = f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/{RESOURCE_GROUP}/providers/Microsoft.Compute/virtualMachines/{VM_NAME}/start?api-version=2023-07-01"
+    req = urllib.request.Request(url, data=b"", method="POST")
+    req.add_header("Authorization", f"Bearer {access_token}")
+    req.add_header("Content-Type", "application/json")
     
-    conn.request("POST", url, body="", headers=headers)
-    response = conn.getresponse()
-    
-    if response.status == 202:
-        print(f"VM start initiated successfully (async operation)")
-        # Get operation status URL from headers
-        location = response.getheader("Azure-AsyncOperation") or response.getheader("Location")
-        if location:
-            print(f"Tracking operation: {location}")
+    try:
+        response = urllib.request.urlopen(req, timeout=60)
+        print(f"VM start initiated successfully (status: {response.status})")
         return True
-    elif response.status == 200:
-        print(f"VM started successfully")
-        return True
-    else:
-        body = response.read().decode()
-        raise Exception(f"Failed to start VM: {response.status} {response.reason} - {body}")
+    except urllib.error.HTTPError as e:
+        if e.code == 202:
+            print(f"VM start initiated successfully (async operation - 202)")
+            return True
+        body = e.read().decode() if e.fp else ""
+        raise Exception(f"Failed to start VM: {e.code} {e.reason} - {body}")
 
 def main():
     print(f"Starting VM: {VM_NAME}")
@@ -320,7 +319,7 @@ def main():
     
     try:
         print("Acquiring access token using managed identity...")
-        token = get_access_token()
+        token = get_automation_token()
         print("Access token acquired successfully")
         
         print("Sending start command to VM...")
@@ -329,7 +328,7 @@ def main():
         
     except Exception as e:
         print(f"ERROR: {str(e)}")
-        raise
+        sys.exit(1)
 
 if __name__ == "__main__":
     main()
@@ -348,9 +347,10 @@ resource "azurerm_automation_schedule" "weekday_start" {
   automation_account_name = azurerm_automation_account.jumpbox.name
   frequency               = "Week"
   interval                = 1
-  timezone                = "America/Los_Angeles"       # Pacific Time (PST/PDT)
-  start_time              = timeadd(timestamp(), "24h") # Start from tomorrow
-  week_days               = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
+  timezone                = "America/Vancouver" # Pacific Time (PST/PDT)
+  # RFC3339 format - Azure uses the timezone setting above to interpret this time
+  start_time = "${formatdate("YYYY-MM-DD", timeadd(timestamp(), "24h"))}T08:00:00Z"
+  week_days  = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"]
 
   lifecycle {
     ignore_changes = [start_time] # Ignore changes after initial creation
