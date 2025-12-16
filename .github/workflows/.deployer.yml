@@ -53,6 +53,7 @@ jobs:
           CI: "true"
           ARM_USE_OIDC: "true"
           TF_VAR_app_name: "ai-hub-deploy-utils"
+          TF_VAR_app_env: "${{ inputs.environment_name }}"
           TF_VAR_location: "Canada Central"
           TF_VAR_resource_group_name: "ai-hub-deploy-utils-${{ inputs.environment_name }}"
           # Sensitive variables from secrets
