@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Hub Tracking - BC Government</title>
+    <style>
+        :root {
+            --bc-blue: #003366;
+            --bc-blue-light: #1a5a96;
+            --bc-gold: #fcba19;
+            --bc-gold-dark: #e5a800;
+            --text-primary: #1f2937;
+            --text-secondary: #4b5563;
+            --bg-light: #f8fafc;
+            --bg-card: #ffffff;
+            --border-color: #e2e8f0;
+            --code-bg: #1e293b;
+            --success: #10b981;
+            --warning: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: var(--text-primary);
+            line-height: 1.6;
+            background: var(--bg-light);
+        }
+
+        /* Header */
+        .header {
+            background: var(--bc-blue);
+            border-bottom: 4px solid var(--bc-gold);
+            padding: 0 24px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 70px;
+        }
+
+        .logo-area {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .logo-area img {
+            height: 45px;
+        }
+
+        .gold-bar {
+            width: 3px;
+            height: 36px;
+            background: var(--bc-gold);
+            border-radius: 2px;
+        }
+
+        .logo-text {
+            color: #ffffff;
+        }
+
+        .logo-text .gov-name {
+            font-size: 1.1em;
+            font-weight: 700;
+            display: block;
+        }
+
+        .logo-text .ministry {
+            font-size: 0.75em;
+            opacity: 0.85;
+        }
+
+        .header-nav {
+            display: flex;
+            gap: 24px;
+        }
+
+        .header-nav a {
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 0.9em;
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+
+        .header-nav a:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        /* Hero */
+        .hero {
+            background: linear-gradient(135deg, var(--bc-blue) 0%, var(--bc-blue-light) 100%);
+            color: #ffffff;
+            padding: 60px 24px;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 2.5em;
+            font-weight: 700;
+            margin-bottom: 16px;
+        }
+
+        .hero .tagline {
+            font-size: 1.2em;
+            opacity: 0.9;
+            margin-bottom: 24px;
+        }
+
+        .hero .badge {
+            display: inline-block;
+            background: var(--bc-gold);
+            color: var(--bc-blue);
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.9em;
+        }
+
+        /* Main Content */
+        .main-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 48px 24px;
+        }
+
+        /* Cards Grid */
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+            margin-bottom: 48px;
+        }
+
+        .card {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 28px;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 20px -4px rgba(0,0,0,0.1);
+        }
+
+        .card-icon {
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, var(--bc-blue) 0%, var(--bc-blue-light) 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5em;
+            margin-bottom: 16px;
+        }
+
+        .card h3 {
+            font-size: 1.25em;
+            color: var(--bc-blue);
+            margin-bottom: 12px;
+        }
+
+        .card p {
+            color: var(--text-secondary);
+            font-size: 0.95em;
+            margin-bottom: 16px;
+        }
+
+        .card-link {
+            color: var(--bc-blue-light);
+            text-decoration: none;
+            font-weight: 600;
+            font-size: 0.9em;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .card-link:hover {
+            text-decoration: underline;
+        }
+
+        /* Section */
+        .section {
+            margin-bottom: 48px;
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 2px solid var(--bc-gold);
+        }
+
+        .section-header h2 {
+            font-size: 1.75em;
+            color: var(--bc-blue);
+        }
+
+        /* Architecture Diagram */
+        .diagram-container {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 32px;
+            border: 1px solid var(--border-color);
+            margin-bottom: 32px;
+            overflow-x: auto;
+        }
+
+        .diagram-container h3 {
+            font-size: 1.25em;
+            color: var(--bc-blue);
+            margin-bottom: 24px;
+            text-align: center;
+        }
+
+        .architecture-flow {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 16px;
+            flex-wrap: wrap;
+            padding: 20px 0;
+        }
+
+        .arch-box {
+            background: var(--bg-light);
+            border: 2px solid var(--border-color);
+            border-radius: 12px;
+            padding: 20px 24px;
+            text-align: center;
+            min-width: 140px;
+        }
+
+        .arch-box.highlight {
+            border-color: var(--bc-gold);
+            background: linear-gradient(135deg, #fffbeb 0%, #ffffff 100%);
+        }
+
+        .arch-box.platform {
+            background: linear-gradient(135deg, var(--bc-blue) 0%, var(--bc-blue-light) 100%);
+            color: #ffffff;
+            border: none;
+            min-width: 300px;
+        }
+
+        .arch-box .icon {
+            font-size: 2em;
+            margin-bottom: 8px;
+        }
+
+        .arch-box .label {
+            font-weight: 600;
+            font-size: 0.95em;
+        }
+
+        .arch-box .sublabel {
+            font-size: 0.8em;
+            opacity: 0.7;
+            margin-top: 4px;
+        }
+
+        .arch-arrow {
+            color: var(--text-secondary);
+            font-size: 1.5em;
+        }
+
+        /* Code Block */
+        .code-block {
+            background: var(--code-bg);
+            border-radius: 12px;
+            padding: 24px;
+            margin: 20px 0;
+            overflow-x: auto;
+        }
+
+        .code-block pre {
+            margin: 0;
+            font-family: 'SF Mono', Monaco, 'Courier New', monospace;
+            font-size: 0.9em;
+            line-height: 1.7;
+            color: #e2e8f0;
+        }
+
+        .code-block .comment {
+            color: #64748b;
+        }
+
+        .code-block .string {
+            color: #a5d6ff;
+        }
+
+        .code-block .flag {
+            color: #7ee787;
+        }
+
+        .code-block .var {
+            color: #ffa657;
+        }
+
+        /* Table */
+        .table-container {
+            background: var(--bg-card);
+            border-radius: 12px;
+            overflow: hidden;
+            border: 1px solid var(--border-color);
+            margin: 20px 0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th, td {
+            padding: 14px 18px;
+            text-align: left;
+        }
+
+        th {
+            background: var(--bc-blue);
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 0.85em;
+            text-transform: uppercase;
+            letter-spacing: 0.03em;
+        }
+
+        td {
+            border-bottom: 1px solid var(--border-color);
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        tr:nth-child(even) td {
+            background: var(--bg-light);
+        }
+
+        /* Tags */
+        .tag {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-size: 0.8em;
+            font-weight: 600;
+        }
+
+        .tag-blue {
+            background: #dbeafe;
+            color: #1e40af;
+        }
+
+        .tag-green {
+            background: #dcfce7;
+            color: #166534;
+        }
+
+        .tag-yellow {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        /* SVG Container */
+        .svg-container {
+            background: var(--bg-card);
+            border-radius: 16px;
+            padding: 24px;
+            border: 1px solid var(--border-color);
+            margin: 24px 0;
+            text-align: center;
+        }
+
+        .svg-container img,
+        .svg-container object {
+            max-width: 100%;
+            height: auto;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--bc-blue);
+            color: #ffffff;
+            padding: 40px 24px;
+            margin-top: 60px;
+        }
+
+        .footer-content {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 24px;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 24px;
+        }
+
+        .footer-links a {
+            color: #ffffff;
+            text-decoration: none;
+            font-size: 0.9em;
+            opacity: 0.8;
+        }
+
+        .footer-links a:hover {
+            opacity: 1;
+            text-decoration: underline;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header-nav {
+                display: none;
+            }
+
+            .hero h1 {
+                font-size: 1.8em;
+            }
+
+            .architecture-flow {
+                flex-direction: column;
+            }
+
+            .arch-arrow {
+                transform: rotate(90deg);
+            }
+
+            .footer-content {
+                flex-direction: column;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Header -->
+<header class="header">
+    <div class="header-content">
+        <div class="logo-area">
+            <img src="assets/bc_citz_logo.jpg" alt="BC Government">
+            <div class="gold-bar"></div>
+            <div class="logo-text">
+                <span class="gov-name">British Columbia</span>
+                <span class="ministry">Citizens' Services</span>
+            </div>
+        </div>
+        <nav class="header-nav">
+            <a href="#overview">Overview</a>
+            <a href="#architecture">Architecture</a>
+            <a href="#scripts">Scripts</a>
+            <a href="#modules">Modules</a>
+            <a href="https://github.com/bcgov/ai-hub-tracking">GitHub</a>
+        </nav>
+    </div>
+</header>
+
+<!-- Hero -->
+<section class="hero">
+    <h1>AI Hub Tracking</h1>
+    <p class="tagline">Infrastructure as Code for Azure Landing Zone deployments</p>
+    <span class="badge">Azure + Terraform + GitHub Actions</span>
+</section>
+
+<!-- Main Content -->
+<main class="main-content">
+
+    <!-- Overview Section -->
+    <section id="overview" class="section">
+        <div class="section-header">
+            <h2>Overview</h2>
+        </div>
+
+        <div class="cards-grid">
+            <div class="card">
+                <div class="card-icon">&#128274;</div>
+                <h3>OIDC Authentication</h3>
+                <p>Secure, secretless authentication between GitHub Actions and Azure using OpenID Connect. No credentials to rotate.</p>
+                <a href="#oidc-setup" class="card-link">Learn more &rarr;</a>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#9881;</div>
+                <h3>Terraform Modules</h3>
+                <p>Reusable infrastructure modules for network, bastion, and jumpbox deployments in Azure Landing Zone.</p>
+                <a href="#modules" class="card-link">View modules &rarr;</a>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128640;</div>
+                <h3>Automated Deployments</h3>
+                <p>CI/CD pipelines with GitHub Actions for consistent, repeatable infrastructure deployments.</p>
+                <a href="#scripts" class="card-link">View scripts &rarr;</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section id="architecture" class="section">
+        <div class="section-header">
+            <h2>Architecture</h2>
+        </div>
+
+        <div class="diagram-container">
+            <h3>Deployment Flow</h3>
+            <div class="architecture-flow">
+                <div class="arch-box">
+                    <div class="icon">&#128187;</div>
+                    <div class="label">Developer</div>
+                    <div class="sublabel">git push</div>
+                </div>
+                <div class="arch-arrow">&rarr;</div>
+                <div class="arch-box highlight">
+                    <div class="icon">&#128025;</div>
+                    <div class="label">GitHub Actions</div>
+                    <div class="sublabel">OIDC Token</div>
+                </div>
+                <div class="arch-arrow">&rarr;</div>
+                <div class="arch-box highlight">
+                    <div class="icon">&#9729;</div>
+                    <div class="label">Azure Entra ID</div>
+                    <div class="sublabel">Validates &amp; Issues Token</div>
+                </div>
+                <div class="arch-arrow">&rarr;</div>
+                <div class="arch-box">
+                    <div class="icon">&#128230;</div>
+                    <div class="label">Terraform</div>
+                    <div class="sublabel">Deploy Resources</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="svg-container">
+            <h3 style="margin-bottom: 16px; color: var(--bc-blue);">Complete OIDC Authentication Flow</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">Click to view full diagram</p>
+            <a href="assets/azure-oidc-complete-guide.svg" target="_blank">
+                <img src="assets/azure-oidc-complete-guide.svg" alt="Azure OIDC Complete Guide" style="max-width: 100%; height: auto; border-radius: 12px;">
+            </a>
+        </div>
+    </section>
+
+    <!-- Scripts Section -->
+    <section id="scripts" class="section">
+        <div class="section-header">
+            <h2>Scripts</h2>
+        </div>
+
+        <!-- Initial Setup Script -->
+        <div id="oidc-setup" class="diagram-container">
+            <h3>initial-azure-setup.sh</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                One-time setup script to configure Azure OIDC authentication for GitHub Actions.
+                Creates managed identity, federated credentials, and optionally storage account for Terraform state.
+            </p>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Parameter</th>
+                            <th>Description</th>
+                            <th>Required</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>-g, --resource-group</code></td>
+                            <td>Azure resource group name (Landing Zone networking RG)</td>
+                            <td><span class="tag tag-green">Required</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>-n, --identity-name</code></td>
+                            <td>Name for the user-assigned managed identity</td>
+                            <td><span class="tag tag-green">Required</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>-r, --github-repo</code></td>
+                            <td>GitHub repository (format: owner/repo)</td>
+                            <td><span class="tag tag-green">Required</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>-e, --environment</code></td>
+                            <td>GitHub environment name (dev, test, prod)</td>
+                            <td><span class="tag tag-green">Required</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>-s, --subscription-id</code></td>
+                            <td>Azure subscription ID</td>
+                            <td><span class="tag tag-yellow">Optional</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>--create-storage</code></td>
+                            <td>Create Azure storage account for Terraform state</td>
+                            <td><span class="tag tag-yellow">Optional</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>--create-github-secrets</code></td>
+                            <td>Auto-create GitHub environment and secrets</td>
+                            <td><span class="tag tag-yellow">Optional</span></td>
+                        </tr>
+                        <tr>
+                            <td><code>--dry-run</code></td>
+                            <td>Preview changes without executing</td>
+                            <td><span class="tag tag-yellow">Optional</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h4 style="margin: 24px 0 12px; color: var(--bc-blue);">Example Usage</h4>
+            <div class="code-block">
+<pre><span class="comment"># Dev environment setup</span>
+./initial-setup/initial-azure-setup.sh \
+    <span class="flag">-g</span> <span class="string">"ABCD-dev-networking"</span> \
+    <span class="flag">-n</span> <span class="string">"myapp-dev-identity"</span> \
+    <span class="flag">-r</span> <span class="string">"bcgov/myapp"</span> \
+    <span class="flag">-e</span> <span class="string">"dev"</span> \
+    <span class="flag">-s</span> <span class="string">"12345678-aaaa-bbbb-cccc-111111111111"</span> \
+    <span class="flag">--create-storage</span> <span class="flag">--create-github-secrets</span>
+
+<span class="comment"># Production environment setup</span>
+./initial-setup/initial-azure-setup.sh \
+    <span class="flag">-g</span> <span class="string">"ABCD-prod-networking"</span> \
+    <span class="flag">-n</span> <span class="string">"myapp-prod-identity"</span> \
+    <span class="flag">-r</span> <span class="string">"bcgov/myapp"</span> \
+    <span class="flag">-e</span> <span class="string">"prod"</span> \
+    <span class="flag">-s</span> <span class="string">"87654321-xxxx-yyyy-zzzz-999999999999"</span> \
+    <span class="flag">--create-storage</span> <span class="flag">--create-github-secrets</span></pre>
+            </div>
+        </div>
+
+        <!-- Deploy Terraform Script -->
+        <div class="diagram-container">
+            <h3>deploy-terraform.sh</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                Reusable Terraform deployment wrapper for local development and CI/CD pipelines.
+                Handles authentication, backend configuration, and common Terraform operations.
+            </p>
+
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Command</th>
+                            <th>Description</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><code>init</code></td>
+                            <td>Initialize Terraform with Azure backend configuration</td>
+                        </tr>
+                        <tr>
+                            <td><code>plan</code></td>
+                            <td>Create execution plan showing proposed changes</td>
+                        </tr>
+                        <tr>
+                            <td><code>apply</code></td>
+                            <td>Apply infrastructure changes</td>
+                        </tr>
+                        <tr>
+                            <td><code>destroy</code></td>
+                            <td>Destroy all managed infrastructure</td>
+                        </tr>
+                        <tr>
+                            <td><code>validate</code></td>
+                            <td>Validate Terraform configuration syntax</td>
+                        </tr>
+                        <tr>
+                            <td><code>fmt</code></td>
+                            <td>Format Terraform files</td>
+                        </tr>
+                        <tr>
+                            <td><code>output</code></td>
+                            <td>Display Terraform outputs</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <h4 style="margin: 24px 0 12px; color: var(--bc-blue);">Example Usage</h4>
+            <div class="code-block">
+<pre><span class="comment"># Initialize and deploy</span>
+./deploy-terraform.sh init
+./deploy-terraform.sh plan
+./deploy-terraform.sh apply
+
+<span class="comment"># Target specific module</span>
+./deploy-terraform.sh apply <span class="flag">-target</span>=module.jumpbox
+
+<span class="comment"># CI mode (auto-approve)</span>
+<span class="var">CI</span>=true ./deploy-terraform.sh apply</pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- Modules Section -->
+    <section id="modules" class="section">
+        <div class="section-header">
+            <h2>Terraform Modules</h2>
+        </div>
+
+        <div class="cards-grid">
+            <div class="card">
+                <div class="card-icon">&#127760;</div>
+                <h3>Network Module</h3>
+                <p>Configures networking components including subnets for bastion and jumpbox within the Azure Landing Zone VNet.</p>
+                <div style="margin-top: 12px;">
+                    <span class="tag tag-blue">infra/modules/network</span>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128737;</div>
+                <h3>Bastion Module</h3>
+                <p>Deploys Azure Bastion for secure RDP/SSH access to VMs without exposing public IPs.</p>
+                <div style="margin-top: 12px;">
+                    <span class="tag tag-blue">infra/modules/bastion</span>
+                </div>
+            </div>
+            <div class="card">
+                <div class="card-icon">&#128421;</div>
+                <h3>Jumpbox Module</h3>
+                <p>Creates a jumpbox VM for secure access to private resources within the VNet.</p>
+                <div style="margin-top: 12px;">
+                    <span class="tag tag-blue">infra/modules/jumpbox</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="diagram-container">
+            <h3>Module Dependencies</h3>
+            <div class="architecture-flow">
+                <div class="arch-box platform">
+                    <div class="icon">&#9729;</div>
+                    <div class="label">Resource Group</div>
+                    <div class="sublabel">azurerm_resource_group.main</div>
+                </div>
+                <div class="arch-arrow">&rarr;</div>
+                <div class="arch-box highlight">
+                    <div class="icon">&#127760;</div>
+                    <div class="label">Network</div>
+                    <div class="sublabel">Subnets, NSGs</div>
+                </div>
+                <div class="arch-arrow">&rarr;</div>
+                <div class="arch-box">
+                    <div class="icon">&#128737;</div>
+                    <div class="label">Bastion</div>
+                    <div class="sublabel">Secure Access</div>
+                </div>
+            </div>
+            <div class="architecture-flow" style="margin-top: -10px;">
+                <div style="width: 300px;"></div>
+                <div class="arch-arrow" style="transform: rotate(90deg); margin: -10px 0;">&rarr;</div>
+            </div>
+            <div class="architecture-flow" style="margin-top: -10px;">
+                <div style="width: 300px;"></div>
+                <div class="arch-arrow">&rarr;</div>
+                <div class="arch-box">
+                    <div class="icon">&#128421;</div>
+                    <div class="label">Jumpbox</div>
+                    <div class="sublabel">VM Instance</div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Quick Start Section -->
+    <section class="section">
+        <div class="section-header">
+            <h2>Quick Start</h2>
+        </div>
+
+        <div class="diagram-container">
+            <h3>Getting Started in 3 Steps</h3>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 24px; margin-top: 24px;">
+                <div style="background: var(--bg-light); border-radius: 12px; padding: 24px; border-left: 4px solid var(--bc-gold);">
+                    <h4 style="color: var(--bc-blue); margin-bottom: 12px;">1. Prerequisites</h4>
+                    <ul style="color: var(--text-secondary); padding-left: 20px; font-size: 0.9em;">
+                        <li>Azure CLI installed & logged in</li>
+                        <li>Terraform installed</li>
+                        <li>GitHub CLI (optional)</li>
+                        <li>Owner of Azure security group</li>
+                    </ul>
+                </div>
+                <div style="background: var(--bg-light); border-radius: 12px; padding: 24px; border-left: 4px solid var(--bc-gold);">
+                    <h4 style="color: var(--bc-blue); margin-bottom: 12px;">2. Run Setup Script</h4>
+                    <div class="code-block" style="margin: 0;">
+<pre style="font-size: 0.8em;">./initial-setup/initial-azure-setup.sh \
+  -g "YOUR-RG" \
+  -n "YOUR-IDENTITY" \
+  -r "bcgov/YOUR-REPO" \
+  -e "dev" \
+  --create-storage</pre>
+                    </div>
+                </div>
+                <div style="background: var(--bg-light); border-radius: 12px; padding: 24px; border-left: 4px solid var(--bc-gold);">
+                    <h4 style="color: var(--bc-blue); margin-bottom: 12px;">3. Deploy Infrastructure</h4>
+                    <div class="code-block" style="margin: 0;">
+<pre style="font-size: 0.8em;">./deploy-terraform.sh init
+./deploy-terraform.sh plan
+./deploy-terraform.sh apply</pre>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+</main>
+
+<!-- Footer -->
+<footer class="footer">
+    <div class="footer-content">
+        <div>
+            <strong>AI Hub Tracking</strong>
+            <p style="opacity: 0.7; font-size: 0.9em; margin-top: 4px;">BC Government | Citizens' Services</p>
+        </div>
+        <div class="footer-links">
+            <a href="https://github.com/bcgov/ai-hub-tracking">GitHub Repository</a>
+            <a href="https://developer.gov.bc.ca/">BC Dev Hub</a>
+            <a href="https://www2.gov.bc.ca/gov/content/governments/services-for-government">Services for Government</a>
+        </div>
+    </div>
+</footer>
+
+</body>
+</html>
