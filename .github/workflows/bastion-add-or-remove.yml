@@ -1,0 +1,38 @@
+name: Deploy or Remove Bastion Host
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment_name:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - tools
+      module:
+        description: "Infrastructure module to manage, not required for full stack operations"
+        required: true
+        type: choice
+        options:
+          - bastion
+      command:
+        description: "Terraform command"
+        required: true
+        type: choice
+        options:
+          - apply
+          - destroy
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  terraform:
+    name: "${{ inputs.command }} module.${{ inputs.module }}"
+    uses: ./.github/workflows/.deployer.yml
+    with:
+      environment_name: ${{ inputs.environment_name }}
+      command: ${{ inputs.command }}
+      target_module: ${{ inputs.module }}
+    secrets: inherit

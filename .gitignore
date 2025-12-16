@@ -28,3 +28,17 @@ replay_pid*
 .env.local
 .env.*.local
 *.secret.*
+*.tfvars
+.terraform/
+.terraform.lock.hcl
+crash.log
+_bkp
+*._bkp
+*.pem
+**/*.pem
+*.key
+*.pfx
+*.cert
+*.ovpn
+*.sqlite
+*.db

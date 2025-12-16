@@ -1,0 +1,406 @@
+#!/bin/bash
+# =============================================================================
+# Terraform Deployment Script - Run it from local dev machine
+# =============================================================================
+# Reusable script for Terraform operations (init, plan, apply, destroy, etc.)
+#
+# Usage:
+#   ./deploy-terraform.sh <command> [options]
+#
+# Commands:
+#   init      - Initialize Terraform
+#   plan      - Create execution plan
+#   apply     - Apply changes (with auto-approve in CI mode)
+#   destroy   - Destroy infrastructure (with auto-approve in CI mode)
+#   validate  - Validate configuration
+#   fmt       - Format Terraform files
+#   output    - Show outputs
+#   refresh   - Refresh state
+#
+# Options:
+#   -target=<resource>  - Target specific resource
+#   -var-file=<file>    - Use specific var file
+#   --auto-approve      - Skip confirmation (default in CI mode)
+#
+# Environment Variables:
+#   CI=true                    - Enable CI mode (auto-approve, no interactive prompts)
+#   TF_VAR_subscription_id     - Azure Subscription ID
+#   TF_VAR_tenant_id           - Azure Tenant ID
+#   TF_VAR_client_id           - Azure Client ID (for OIDC)
+#   ARM_USE_OIDC=true          - Use OIDC authentication
+#
+# Examples:
+#   ./deploy-terraform.sh init
+#   ./deploy-terraform.sh plan
+#   ./deploy-terraform.sh apply
+#   ./deploy-terraform.sh apply -target=module.jumpbox
+#   export CI=true && ./deploy-terraform.sh apply
+#   ./deploy-terraform.sh destroy
+# =============================================================================
+
+set -euo pipefail
+
+# =============================================================================
+# Configuration
+# =============================================================================
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+INFRA_DIR="${SCRIPT_DIR}/infra"
+TFVARS_FILE="${INFRA_DIR}/terraform.tfvars"
+
+# Backend configuration (can be overridden by environment variables)
+BACKEND_RESOURCE_GROUP="${BACKEND_RESOURCE_GROUP:-da4cf6-tools-networking}"
+BACKEND_STORAGE_ACCOUNT="${BACKEND_STORAGE_ACCOUNT:-tftoolsaihubtracking}"
+BACKEND_CONTAINER_NAME="${BACKEND_CONTAINER_NAME:-tfstate}"
+BACKEND_STATE_KEY="${BACKEND_STATE_KEY:-ai-hub-deploy-utils/tools/terraform.tfstate}"
+
+# Colors for output
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# =============================================================================
+# Logging Functions
+# =============================================================================
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# =============================================================================
+# Helper Functions
+# =============================================================================
+usage() {
+    cat << EOF
+Usage: $0 <command> [options]
+
+Commands:
+    init        Initialize Terraform (download providers, configure backend)
+    plan        Create execution plan
+    apply       Apply changes
+    destroy     Destroy infrastructure
+    validate    Validate configuration
+    fmt         Format Terraform files
+    output      Show Terraform outputs
+    refresh     Refresh state
+    state       Run state commands (e.g., state list, state show)
+
+Options:
+    -target=<resource>    Target specific resource
+    -var-file=<file>      Use specific var file
+    --auto-approve        Skip confirmation prompts
+
+Environment:
+    CI=true               Enable CI mode (auto-approve, less verbose)
+    
+Examples:
+    $0 init
+    $0 plan
+    $0 apply
+    $0 apply -target=module.jumpbox
+    $0 destroy -target=module.bastion
+    CI=true $0 apply
+
+EOF
+    exit 1
+}
+
+check_prerequisites() {
+    log_info "Checking prerequisites..."
+    
+    # Check Terraform
+    if ! command -v terraform &> /dev/null; then
+        log_error "Terraform is not installed!"
+        log_error "Install from: https://developer.hashicorp.com/terraform/downloads"
+        exit 1
+    fi
+    
+    # Check Azure CLI
+    if ! command -v az &> /dev/null; then
+        log_error "Azure CLI is not installed!"
+        log_error "Install from: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
+        exit 1
+    fi
+    
+    # Check if logged in to Azure
+    if ! az account show &> /dev/null; then
+        log_warning "Not logged into Azure CLI"
+        if [[ "${CI:-false}" == "true" ]]; then
+            log_info "CI mode detected - assuming OIDC/service principal authentication"
+        else
+            log_info "Please login to Azure..."
+            az login
+        fi
+    fi
+    
+    log_success "Prerequisites check passed"
+}
+
+setup_azure_auth() {
+    log_info "Setting up Azure authentication..."
+    
+    # Get subscription from tfvars or environment
+    if [[ -n "${TF_VAR_subscription_id:-}" ]]; then
+        SUBSCRIPTION_ID="${TF_VAR_subscription_id}"
+    elif [[ -f "$TFVARS_FILE" ]]; then
+        SUBSCRIPTION_ID=$(grep -E "^subscription_id\s*=" "$TFVARS_FILE" | sed 's/.*=\s*"\(.*\)".*/\1/' | tr -d ' ')
+    fi
+    
+    if [[ -n "${SUBSCRIPTION_ID:-}" ]]; then
+        log_info "Setting Azure subscription: ${SUBSCRIPTION_ID}"
+        az account set --subscription "$SUBSCRIPTION_ID"
+    fi
+    
+    # Display current context
+    local current_sub=$(az account show --query "name" --output tsv 2>/dev/null || echo "Unknown")
+    local current_user=$(az account show --query "user.name" --output tsv 2>/dev/null || echo "Unknown")
+    log_info "Azure account: $current_user"
+    log_info "Subscription: $current_sub"
+    
+    # Set ARM environment variables for Terraform
+    export ARM_SUBSCRIPTION_ID="${SUBSCRIPTION_ID:-$(az account show --query id -o tsv)}"
+    export ARM_TENANT_ID="${TF_VAR_tenant_id:-$(az account show --query tenantId -o tsv)}"
+    
+    # Check for OIDC vs CLI auth
+    if [[ "${ARM_USE_OIDC:-false}" == "true" ]] || [[ "${TF_VAR_use_oidc:-false}" == "true" ]]; then
+        log_info "Using OIDC authentication"
+        export ARM_USE_OIDC=true
+        export ARM_CLIENT_ID="${TF_VAR_client_id:-$ARM_CLIENT_ID}"
+    else
+        log_info "Using Azure CLI authentication"
+        export ARM_USE_CLI=true
+    fi
+    
+    log_success "Azure authentication configured"
+}
+
+# =============================================================================
+# Terraform Commands
+# =============================================================================
+tf_init() {
+    log_info "Initializing Terraform..."
+    log_info "Backend: ${BACKEND_STORAGE_ACCOUNT}/${BACKEND_CONTAINER_NAME}/${BACKEND_STATE_KEY}"
+    cd "$INFRA_DIR"
+    
+    # Remove stale lock file to avoid dependency conflicts
+    if [[ -f ".terraform.lock.hcl" ]]; then
+        log_info "Removing stale lock file..."
+        rm -f ".terraform.lock.hcl"
+    fi
+    
+    terraform init -upgrade \
+        -backend-config="resource_group_name=${BACKEND_RESOURCE_GROUP}" \
+        -backend-config="storage_account_name=${BACKEND_STORAGE_ACCOUNT}" \
+        -backend-config="container_name=${BACKEND_CONTAINER_NAME}" \
+        -backend-config="key=${BACKEND_STATE_KEY}" \
+        -backend-config="use_oidc=${ARM_USE_OIDC:-false}" \
+        "$@"
+    
+    log_success "Terraform initialized"
+}
+
+# Check if Terraform is initialized, if not run init
+ensure_initialized() {
+    cd "$INFRA_DIR"
+    
+    # Check if .terraform directory exists and lock file is valid
+    if [[ ! -d ".terraform" ]] || [[ ! -f ".terraform.lock.hcl" ]]; then
+        log_warning "Terraform not initialized. Running init..."
+        tf_init
+        return
+    fi
+    
+    # Check if providers are properly installed by verifying lock file has content
+    if ! grep -q "provider" ".terraform.lock.hcl" 2>/dev/null; then
+        log_warning "Lock file incomplete. Re-initializing..."
+        tf_init
+    fi
+}
+
+tf_validate() {
+    log_info "Validating Terraform configuration..."
+    cd "$INFRA_DIR"
+    
+    terraform validate
+    
+    log_success "Configuration is valid"
+}
+
+tf_fmt() {
+    log_info "Formatting Terraform files..."
+    cd "$INFRA_DIR"
+    
+    terraform fmt -recursive
+    
+    log_success "Formatting complete"
+}
+
+tf_plan() {
+    log_info "Creating Terraform plan..."
+    ensure_initialized
+    cd "$INFRA_DIR"
+    
+    local plan_args=()
+    plan_args+=("-var-file=$TFVARS_FILE")
+    
+    # Add any additional arguments passed
+    plan_args+=("$@")
+    
+    terraform plan "${plan_args[@]}"
+    
+    log_success "Plan created"
+}
+
+tf_apply() {
+    log_info "Applying Terraform changes..."
+    ensure_initialized
+    cd "$INFRA_DIR"
+    
+    local apply_args=()
+    apply_args+=("-var-file=$TFVARS_FILE")
+    
+    # Auto-approve in CI mode
+    if [[ "${CI:-false}" == "true" ]]; then
+        apply_args+=("-auto-approve")
+    fi
+    
+    # Add any additional arguments passed
+    apply_args+=("$@")
+    
+    terraform apply "${apply_args[@]}"
+    
+    log_success "Apply complete"
+    
+    # Automatically show outputs after successful apply
+    log_info ""
+    log_info "=== Deployment Outputs ==="
+    tf_output
+}
+
+tf_destroy() {
+    log_info "Destroying Terraform resources..."
+    ensure_initialized
+    cd "$INFRA_DIR"
+    
+    local destroy_args=()
+    destroy_args+=("-var-file=$TFVARS_FILE")
+    
+    # Auto-approve in CI mode
+    if [[ "${CI:-false}" == "true" ]]; then
+        destroy_args+=("-auto-approve")
+    fi
+    
+    # Add any additional arguments passed
+    destroy_args+=("$@")
+    
+    if [[ "${CI:-false}" != "true" ]]; then
+        log_warning "This will DESTROY infrastructure!"
+        read -p "Are you sure? (yes/no): " confirm
+        if [[ "$confirm" != "yes" ]]; then
+            log_info "Destroy cancelled"
+            exit 0
+        fi
+    fi
+    
+    terraform destroy "${destroy_args[@]}"
+    
+    log_success "Destroy complete"
+}
+
+tf_output() {
+    log_info "Showing Terraform outputs..."
+    cd "$INFRA_DIR"
+    
+    terraform output "$@"
+}
+
+tf_refresh() {
+    log_info "Refreshing Terraform state..."
+    cd "$INFRA_DIR"
+    
+    terraform refresh -var-file="$TFVARS_FILE" "$@"
+    
+    log_success "State refreshed"
+}
+
+tf_state() {
+    cd "$INFRA_DIR"
+    terraform state "$@"
+}
+
+# =============================================================================
+# Main
+# =============================================================================
+main() {
+    if [[ $# -lt 1 ]]; then
+        usage
+    fi
+    
+    local command="$1"
+    shift
+    
+    # Show CI mode status
+    if [[ "${CI:-false}" == "true" ]]; then
+        log_info "Running in CI mode (auto-approve enabled)"
+    fi
+    
+    # Run prerequisites and auth setup for most commands
+    case "$command" in
+        fmt|validate)
+            # These don't need Azure auth
+            ;;
+        *)
+            check_prerequisites
+            setup_azure_auth
+            ;;
+    esac
+    
+    # Execute command
+    case "$command" in
+        init)
+            tf_init "$@"
+            ;;
+        plan)
+            tf_plan "$@"
+            ;;
+        apply)
+            tf_apply "$@"
+            ;;
+        destroy)
+            tf_destroy "$@"
+            ;;
+        validate)
+            tf_validate "$@"
+            ;;
+        fmt)
+            tf_fmt "$@"
+            ;;
+        output)
+            tf_output "$@"
+            ;;
+        refresh)
+            tf_refresh "$@"
+            ;;
+        state)
+            tf_state "$@"
+            ;;
+        *)
+            log_error "Unknown command: $command"
+            usage
+            ;;
+    esac
+}
+
+main "$@"

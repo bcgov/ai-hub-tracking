@@ -1,0 +1,70 @@
+name: .Terraform Deployer
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        description: "The name of the environment to deploy to"
+        required: true
+        default: "tools"
+        type: string
+      command:
+        description: "The Terraform command to run (init, plan, apply, destroy)"
+        required: true
+        default: "apply"
+        type: string
+      target_module:
+        required: false
+        type: string
+        description: "The module to target (e.g., jumpbox, bastion, network). Leave empty for all."
+
+env:
+  TF_VERSION: 1.12.2
+  TF_LOG: ERROR
+
+permissions:
+  id-token: write # Required for OIDC authentication
+  contents: read
+
+jobs:
+  terraform:
+    environment: ${{ inputs.environment_name }}
+    name: Terraform ${{ inputs.command }} ${{ inputs.target_module && format('({0})', inputs.target_module) || '' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure CLI Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Run Terraform
+        shell: bash
+        env:
+          CI: "true"
+          ARM_USE_OIDC: "true"
+          # TF_VAR_* are used by Terraform variables; script derives ARM_* from these
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
+          TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
+        run: |
+          chmod +x ./deploy-terraform.sh
+
+          # Build command with optional target
+          if [[ -n "${{ inputs.target_module }}" ]]; then
+            ./deploy-terraform.sh ${{ inputs.command }} -target=module.${{ inputs.target_module }}
+          else
+            ./deploy-terraform.sh ${{ inputs.command }}
+          fi
