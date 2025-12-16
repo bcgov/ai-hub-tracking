@@ -61,7 +61,7 @@ jobs:
           TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
         run: |
           chmod +x ./deploy-terraform.sh
-          
+
           # Build command with optional target
           if [[ -n "${{ inputs.target_module }}" ]]; then
             ./deploy-terraform.sh ${{ inputs.command }} -target=module.${{ inputs.target_module }}

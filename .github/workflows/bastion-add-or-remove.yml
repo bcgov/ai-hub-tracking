@@ -1,4 +1,4 @@
-name: Terraform Module Manager
+name: Deploy or Remove Bastion Host
 
 on:
   workflow_dispatch:
@@ -11,18 +11,15 @@ on:
           - tools
       module:
         description: "Infrastructure module to manage, not required for full stack operations"
-        required: false
+        required: true
         type: choice
         options:
           - bastion
-          - jumpbox
-          - network
       command:
         description: "Terraform command"
         required: true
         type: choice
         options:
-          - plan
           - apply
           - destroy
 

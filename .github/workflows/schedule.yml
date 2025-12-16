@@ -1,0 +1,76 @@
+name: Scheduled Bastion Cleanup
+
+on:
+  schedule:
+    # Run every day at 5 PM PST (1 AM UTC next day)
+    - cron: "0 1 * * *"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  check-and-destroy-bastion:
+    name: Destroy Bastion if Running
+    runs-on: ubuntu-24.04
+    environment: tools
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure CLI Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Check if Bastion Exists
+        id: check_bastion
+        shell: bash
+        run: |
+          BASTION_EXISTS=$(az bastion show \
+            --resource-group "ai-hub-deploy-utils-tools" \
+            --name "ai-hub-deploy-utils-bastion" \
+            --query "id" \
+            -o tsv 2>/dev/null || echo "")
+
+          if [[ -z "$BASTION_EXISTS" ]]; then
+            echo "bastion_running=false" >> $GITHUB_OUTPUT
+            echo "Bastion not found - skipping destruction"
+          else
+            echo "bastion_running=true" >> $GITHUB_OUTPUT
+            echo "Bastion found - will destroy"
+          fi
+
+      - name: Setup Terraform
+        if: steps.check_bastion.outputs.bastion_running == 'true'
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.12.2
+
+      - name: Destroy Bastion
+        if: steps.check_bastion.outputs.bastion_running == 'true'
+        shell: bash
+        env:
+          CI: "true"
+          ARM_USE_OIDC: "true"
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
+          TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
+        run: |
+          chmod +x ./deploy-terraform.sh
+          ./deploy-terraform.sh destroy -target=module.bastion
+
+      - name: Notification
+        if: always()
+        shell: bash
+        run: |
+          if [[ "${{ steps.check_bastion.outputs.bastion_running }}" == "true" ]]; then
+            echo "Bastion destroyed successfully"
+          else
+            echo "Bastion was not running - no action needed"
+          fi
