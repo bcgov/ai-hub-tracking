@@ -11,9 +11,11 @@ permissions:
 
 jobs:
   check-and-destroy-bastion:
-    name: Destroy Bastion if Running
-    runs-on: ubuntu-24.04
+    name: Check and Destroy Bastion if Running
     environment: tools
+    runs-on: ubuntu-24.04
+    outputs:
+      bastion_exists: ${{ steps.check_bastion.outputs.bastion_running }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -43,34 +45,28 @@ jobs:
             echo "Bastion found - will destroy"
           fi
 
-      - name: Setup Terraform
-        if: steps.check_bastion.outputs.bastion_running == 'true'
-        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
-        with:
-          terraform_version: 1.12.2
+  destroy-bastion:
+    name: Destroy Bastion Module
+    needs: check-and-destroy-bastion
+    if: needs.check-and-destroy-bastion.outputs.bastion_exists == 'true'
+    uses: ./.github/workflows/.deployer.yml
+    with:
+      environment_name: tools
+      command: destroy
+      target_module: bastion
+    secrets: inherit
 
-      - name: Destroy Bastion
-        if: steps.check_bastion.outputs.bastion_running == 'true'
-        shell: bash
-        env:
-          CI: "true"
-          ARM_USE_OIDC: "true"
-          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
-          TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
-          TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
-          TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
-        run: |
-          chmod +x ./deploy-terraform.sh
-          ./deploy-terraform.sh destroy -target=module.bastion
-
-      - name: Notification
-        if: always()
+  notification:
+    name: Cleanup Status
+    needs: [check-and-destroy-bastion, destroy-bastion]
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Report Status
         shell: bash
         run: |
-          if [[ "${{ steps.check_bastion.outputs.bastion_running }}" == "true" ]]; then
-            echo "Bastion destroyed successfully"
+          if [[ "${{ needs.check-and-destroy-bastion.outputs.bastion_exists }}" == "true" ]]; then
+            echo "Bastion destroyed successfully at $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
           else
             echo "Bastion was not running - no action needed"
           fi
