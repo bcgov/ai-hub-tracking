@@ -282,6 +282,11 @@ tf_apply() {
     terraform apply "${apply_args[@]}"
     
     log_success "Apply complete"
+    
+    # Automatically show outputs after successful apply
+    log_info ""
+    log_info "=== Deployment Outputs ==="
+    tf_output
 }
 
 tf_destroy() {

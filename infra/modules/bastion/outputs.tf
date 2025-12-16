@@ -2,18 +2,13 @@
 # Bastion Module Outputs
 # -----------------------------------------------------------------------------
 
-output "bastion_id" {
-  description = "ID of the Azure Bastion host"
+output "bastion_resource_id" {
+  description = "Resource ID of the Azure Bastion host"
   value       = azurerm_bastion_host.main.id
 }
 
-output "bastion_name" {
-  description = "Name of the Azure Bastion host"
-  value       = azurerm_bastion_host.main.name
-}
-
-output "bastion_dns_name" {
-  description = "DNS name of the Azure Bastion host"
+output "bastion_fqdn" {
+  description = "FQDN of the Bastion host"
   value       = azurerm_bastion_host.main.dns_name
 }
 
