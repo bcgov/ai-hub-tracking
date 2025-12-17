@@ -6,7 +6,9 @@
 <p>This page documents key architectural decisions for the AI Hub Tracking infrastructure. Each ADR explains the context, decision, and consequences to help future maintainers understand why things are built the way they are.</p>
 
 <div class="alert alert-warning">
-    <span class="alert-icon">🏛️</span>
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
+    </div>
     <div>
         <strong>BC Government Policy Context</strong><br>
         Most decisions documented here are <strong>driven by BC Government security policies</strong>, not optional architectural choices. Key policy constraints include:
@@ -25,7 +27,9 @@
 </div>
 
 <div class="alert alert-info">
-    <span class="alert-icon">📝</span>
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+    </div>
     <div>
         <strong>About ADRs</strong><br>
         Architecture Decision Records capture decisions along with their context and consequences. They help prevent re-litigating settled discussions and provide onboarding context for new team members.
@@ -71,6 +75,18 @@
         <td><span class="badge" style="background:#22c55e;color:white;">Choice</span></td>
         <td><span class="badge badge-gold">Accepted</span></td>
     </tr>
+    <tr>
+        <td><a href="#adr-006">ADR-006</a></td>
+        <td>Multi-Tenant Isolation Model</td>
+        <td><span class="badge badge-blue">Policy</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
+    </tr>
+    <tr>
+        <td><a href="#adr-007">ADR-007</a></td>
+        <td>Client Connectivity via App Gateway + APIM</td>
+        <td><span class="badge badge-blue">Policy</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
+    </tr>
 </table>
 
 <!-- ============================================================================
@@ -87,7 +103,9 @@
 </div>
 
 <div class="alert alert-success">
-    <span class="alert-icon">🎯</span>
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+    </div>
     <div>
         <strong>This is the foundational ADR.</strong> It explains why we need VNets, Bastion, Jumpbox, and self-hosted runners. All other ADRs build on these concepts.
     </div>
@@ -96,7 +114,9 @@
 <h3>Context</h3>
 
 <div class="alert alert-warning">
-    <span class="alert-icon">🏛️</span>
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
     <div>
         <strong>Policy Driver:</strong> BC Gov requires all Azure services to use private endpoints only. GitHub Actions runners on the public internet cannot reach private endpoints. This creates a fundamental problem: how do we run Terraform if GitHub can't talk to Azure resources?
     </div>
@@ -241,9 +261,16 @@
     <tr>
         <td>Private DNS Zones</td>
         <td>Name resolution for private endpoints</td>
-        <td><strong>Yes - centralized DNS</strong></td>
+        <td><strong>Managed by Platform Services</strong></td>
     </tr>
 </table>
+
+<div class="alert alert-info" style="margin-top: 1rem;">
+    <span class="alert-icon">&#128274;</span>
+    <div>
+        <strong>DNS & ExpressRoute Note:</strong> Private DNS zones are managed centrally by Platform Services, not by this Landing Zone. ExpressRoute connectivity exists for on-premises access, but AI Hub clients will connect through <strong>App Gateway + APIM</strong> endpoints rather than directly via ExpressRoute.
+    </div>
+</div>
 
 <h4>What Other Repos Need To Do</h4>
 <table>
@@ -567,6 +594,13 @@
     <li><strong>Latency</strong> - Browser-based adds some lag</li>
 </ul>
 
+<h3>References</h3>
+<ul>
+    <li><a href="https://learn.microsoft.com/en-us/azure/bastion/bastion-overview">Azure Bastion Documentation</a></li>
+    <li><a href="https://learn.microsoft.com/en-us/azure/bastion/bastion-connect-vm-ssh-linux">Connect to Linux VM via Bastion</a></li>
+    <li><a href="diagrams.html#network-environments">Network Environments Diagram</a></li>
+</ul>
+
 <!-- ============================================================================
      ADR-004: Private Endpoints
      ============================================================================ -->
@@ -608,7 +642,7 @@
     <h4 style="margin-top: 0;">What Policy Requires</h4>
     <ul style="margin-bottom: 0;">
         <li>Private Endpoints for all PaaS services</li>
-        <li>Private DNS zones for name resolution</li>
+        <li>Private DNS zones for name resolution <em>(managed by Platform Services)</em></li>
         <li>VNet integration for all access</li>
         <li>Network Security Groups controlling traffic</li>
         <li>"Deny public access" enabled on all services</li>
@@ -617,11 +651,18 @@
 
 <h3>Implementation</h3>
 
+<div class="alert alert-info" style="margin-bottom: 1rem;">
+    <span class="alert-icon">&#128274;</span>
+    <div>
+        <strong>DNS Management:</strong> All private DNS zones are managed centrally by Platform Services. The AI Hub team does not manage DNS - we only create private endpoints that link to the existing DNS zones.
+    </div>
+</div>
+
 <table>
     <tr>
         <th>Service</th>
         <th>Private Endpoint</th>
-        <th>DNS Zone</th>
+        <th>DNS Zone (Platform Services)</th>
     </tr>
     <tr>
         <td>Storage Account (Terraform State)</td>
@@ -640,6 +681,19 @@
     </tr>
 </table>
 
+<h3>Client Connectivity Model</h3>
+
+<div class="card" style="border-left-color: var(--bc-gold);">
+    <h4 style="margin-top: 0;">ExpressRoute + App Gateway + APIM</h4>
+    <p>BC Gov has ExpressRoute connectivity to Azure, but AI Hub clients will <strong>not</strong> access services directly via ExpressRoute. Instead:</p>
+    <ul>
+        <li><strong>App Gateway:</strong> Provides ingress, WAF protection, and SSL termination</li>
+        <li><strong>APIM:</strong> API management layer for authentication, rate limiting, and routing</li>
+        <li><strong>Private Endpoints:</strong> Backend services (AI models, storage) remain fully private</li>
+    </ul>
+    <p style="margin-bottom: 0;"><strong>Client flow:</strong> Client → App Gateway → APIM → Private Endpoint → Azure Service</p>
+</div>
+
 <h3>Consequences</h3>
 
 <h4>Challenges</h4>
@@ -652,7 +706,7 @@
 
 <h4>Workarounds</h4>
 <ul>
-    <li><strong>Terraform State:</strong> Use <code>use_azuread_auth = true</code> with storage firewall exceptions for GitHub Actions IPs (temporary during apply)</li>
+    <li><strong>Terraform State:</strong> Use self-hosted runners inside the VNet which can access the private storage endpoint directly. The <code>use_azuread_auth = true</code> setting enables Azure AD authentication for state access.</li>
     <li><strong>Development:</strong> Use Bastion + Jumpbox for all Azure resource access (see <a href="#adr-003">ADR-003</a>)</li>
     <li><strong>CI/CD:</strong> Use self-hosted runners in the VNet for full private access (see <a href="#adr-001">ADR-001</a>)</li>
 </ul>
@@ -672,7 +726,7 @@
 <div class="grid grid-4" style="margin-bottom: 1rem;">
     <div><strong>Status:</strong> Accepted</div>
     <div><strong>Date:</strong> 2025-12</div>
-    <div><strong>Deciders:</strong> Platform Team</div>
+    <div><strong>Driver:</strong> <span class="badge" style="background:#22c55e;color:white;">Choice</span></div>
     <div><strong>Category:</strong> Documentation</div>
 </div>
 
@@ -738,6 +792,338 @@
     <li>Created template page with all components for easy copy-paste</li>
     <li>AI assistants generate HTML as easily as Markdown</li>
     <li>Added custom SVG viewer for diagrams</li>
+</ul>
+
+<!-- ============================================================================
+     ADR-006: Multi-Tenant Isolation Model
+     ============================================================================ -->
+
+<h2 id="adr-006">ADR-006: Multi-Tenant Isolation Model</h2>
+
+<div class="grid grid-4" style="margin-bottom: 1rem;">
+    <div><strong>Status:</strong> Accepted</div>
+    <div><strong>Date:</strong> 2025-12</div>
+    <div><strong>Driver:</strong> <span class="badge badge-blue">Policy Required</span></div>
+    <div><strong>Category:</strong> Architecture</div>
+</div>
+
+<h3>Context</h3>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">🏛️</span>
+    <div>
+        <strong>Policy Driver:</strong> BC Gov requires strict data isolation between ministries. Each ministry's data must be logically separated, with access controls preventing cross-ministry data exposure. The AI Hub serves multiple ministries (Health, SDPR, Justice, etc.) from shared infrastructure.
+    </div>
+</div>
+
+<p>The AI Hub Landing Zone is designed to serve multiple BC Government ministries from a single shared infrastructure deployment. This creates a multi-tenancy challenge: how do we provide cost-efficient shared services while ensuring strict data isolation between ministries?</p>
+
+<h3>The Problem: Shared Infrastructure, Isolated Data</h3>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: #ef4444;">
+        <h4 style="margin-top: 0;">What We Cannot Do</h4>
+        <ul style="margin-bottom: 0;">
+            <li>Allow Ministry A to access Ministry B's documents</li>
+            <li>Share AI search indexes across ministries</li>
+            <li>Use single storage accounts for all ministry data</li>
+            <li>Allow cross-ministry API access without authorization</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: #22c55e;">
+        <h4 style="margin-top: 0;">What We Can Share</h4>
+        <ul style="margin-bottom: 0;">
+            <li>Network infrastructure (VNets, Bastion, NSGs)</li>
+            <li>Compute resources (AI Foundry, AKS clusters)</li>
+            <li>Ingress layer (App Gateway, APIM)</li>
+            <li>Monitoring and logging infrastructure</li>
+        </ul>
+    </div>
+</div>
+
+<h3>Decision</h3>
+
+<p><strong>We implement a four-layer isolation model:</strong></p>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: var(--bc-gold);">
+        <h4 style="margin-top: 0;">1. Storage Isolation</h4>
+        <p><strong>Separate storage accounts per ministry</strong></p>
+        <ul style="margin-bottom: 0;">
+            <li>Each ministry gets dedicated blob containers</li>
+            <li>Azure RBAC restricts access to ministry principals</li>
+            <li>Private endpoints per storage account</li>
+            <li>Encryption keys can be ministry-specific (CMK)</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: var(--bc-gold);">
+        <h4 style="margin-top: 0;">2. AI Search Index Isolation</h4>
+        <p><strong>Separate search indexes per ministry</strong></p>
+        <ul style="margin-bottom: 0;">
+            <li>Each ministry's documents indexed separately</li>
+            <li>RAG queries scoped to ministry index only</li>
+            <li>No cross-index queries permitted</li>
+            <li>Index-level access control via Azure RBAC</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: var(--bc-blue);">
+        <h4 style="margin-top: 0;">3. API Isolation (APIM)</h4>
+        <p><strong>APIM subscriptions per ministry</strong></p>
+        <ul style="margin-bottom: 0;">
+            <li>Unique subscription keys per ministry</li>
+            <li>Rate limiting scoped to subscription</li>
+            <li>API policies enforce ministry context</li>
+            <li>Audit logging includes ministry identifier</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: var(--bc-blue);">
+        <h4 style="margin-top: 0;">4. Network Isolation (NSGs)</h4>
+        <p><strong>Network policies enforce boundaries</strong></p>
+        <ul style="margin-bottom: 0;">
+            <li>NSG rules restrict subnet-to-subnet traffic</li>
+            <li>Private endpoints isolated by ministry where needed</li>
+            <li>No direct cross-ministry network paths</li>
+            <li>All traffic routed through controlled ingress</li>
+        </ul>
+    </div>
+</div>
+
+<h3>Implementation Architecture</h3>
+
+<div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
+<pre style="background: var(--bc-blue-dark); margin: 0;">
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      MULTI-TENANT ISOLATION MODEL                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   Ministry Health        Ministry SDPR         Ministry Justice             │
+│   ┌─────────────┐       ┌─────────────┐       ┌─────────────┐              │
+│   │ APIM Sub: H │       │ APIM Sub: S │       │ APIM Sub: J │              │
+│   └──────┬──────┘       └──────┬──────┘       └──────┬──────┘              │
+│          │                     │                     │                      │
+│          ▼                     ▼                     ▼                      │
+│   ┌─────────────────────────────────────────────────────────────┐          │
+│   │              Shared APIM (Policy Enforcement)                │          │
+│   │         (validates subscription → routes to ministry)        │          │
+│   └─────────────────────────────────────────────────────────────┘          │
+│          │                     │                     │                      │
+│          ▼                     ▼                     ▼                      │
+│   ┌─────────────┐       ┌─────────────┐       ┌─────────────┐              │
+│   │ Storage: H  │       │ Storage: S  │       │ Storage: J  │              │
+│   │ Index: H    │       │ Index: S    │       │ Index: J    │              │
+│   └─────────────┘       └─────────────┘       └─────────────┘              │
+│                                                                              │
+│   ════════════════════════════════════════════════════════════════          │
+│                    Shared Infrastructure Layer                               │
+│        (VNet, Bastion, AI Foundry Compute, Monitoring)                      │
+│   ════════════════════════════════════════════════════════════════          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<h3>Consequences</h3>
+
+<h4>Positive</h4>
+<ul>
+    <li><strong>Strong data isolation</strong> - Ministry data never co-mingled</li>
+    <li><strong>Cost efficiency</strong> - Shared compute and network infrastructure</li>
+    <li><strong>Audit compliance</strong> - Clear ministry attribution in all logs</li>
+    <li><strong>Scalable onboarding</strong> - New ministries get isolated resources automatically</li>
+    <li><strong>Flexible isolation levels</strong> - Can increase isolation (dedicated compute) if needed</li>
+</ul>
+
+<h4>Negative</h4>
+<ul>
+    <li><strong>Resource multiplication</strong> - Each ministry needs separate storage/indexes</li>
+    <li><strong>Complexity</strong> - More resources to manage and monitor</li>
+    <li><strong>Cost per ministry</strong> - Base cost increases with each ministry onboarded</li>
+</ul>
+
+<h3>References</h3>
+<ul>
+    <li><a href="diagrams.html#multi-tenant">Multi-Tenant Isolation Diagram</a></li>
+    <li><a href="https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/overview">Azure Multi-Tenant Architecture Guide</a></li>
+    <li><a href="diagrams.html#data-flow">AI Request Data Flow Diagram</a></li>
+</ul>
+
+<!-- ============================================================================
+     ADR-007: Client Connectivity Model
+     ============================================================================ -->
+
+<h2 id="adr-007">ADR-007: Client Connectivity via App Gateway + APIM</h2>
+
+<div class="grid grid-4" style="margin-bottom: 1rem;">
+    <div><strong>Status:</strong> Accepted</div>
+    <div><strong>Date:</strong> 2025-12</div>
+    <div><strong>Driver:</strong> <span class="badge badge-blue">Policy Required</span></div>
+    <div><strong>Category:</strong> Networking</div>
+</div>
+
+<h3>Context</h3>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">🏛️</span>
+    <div>
+        <strong>Policy Driver:</strong> BC Gov has ExpressRoute connectivity to Azure for private, high-bandwidth access. However, AI Hub clients should not access backend services directly. All client traffic must pass through security layers that provide WAF protection, authentication, rate limiting, and audit logging.
+    </div>
+</div>
+
+<p>BC Government has established ExpressRoute connectivity between on-premises networks and Azure. The question arose: should ministry applications connect directly to AI services via ExpressRoute, or through a managed ingress layer?</p>
+
+<h3>Options Considered</h3>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: #ef4444;">
+        <h4 style="margin-top: 0;">Option A: Direct ExpressRoute Access</h4>
+        <p>Clients connect directly to private endpoints via ExpressRoute.</p>
+        <ul>
+            <li>Lowest latency (no middlemen)</li>
+            <li>Simpler architecture</li>
+        </ul>
+        <p style="color:#ef4444;margin-bottom:0;"><strong>Rejected:</strong> No WAF, no rate limiting, no centralized auth, difficult to audit</p>
+    </div>
+    <div class="card" style="border-left-color: #22c55e;">
+        <h4 style="margin-top: 0;">Option B: App Gateway + APIM</h4>
+        <p>All traffic flows through App Gateway and APIM before reaching backends.</p>
+        <ul>
+            <li>WAF protection at ingress</li>
+            <li>Centralized authentication</li>
+            <li>Rate limiting and quotas</li>
+            <li>Complete audit trail</li>
+        </ul>
+        <p style="color:#22c55e;margin-bottom:0;"><strong>Selected:</strong> Provides security controls required by policy</p>
+    </div>
+</div>
+
+<h3>Decision</h3>
+
+<p><strong>All AI Hub client traffic must flow through App Gateway → APIM → Private Endpoints.</strong></p>
+
+<p>Even though ExpressRoute provides private connectivity, we require all client requests to pass through our security stack. This ensures consistent policy enforcement regardless of how clients connect to Azure.</p>
+
+<h3>Traffic Flow</h3>
+
+<div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
+<pre style="background: var(--bc-blue-dark); margin: 0;">
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        CLIENT CONNECTIVITY MODEL                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   On-Premises                    │         Azure Landing Zone               │
+│   (Ministry Apps)                │                                          │
+│                                  │                                          │
+│   ┌──────────────┐              │    ┌─────────────────────────────────┐   │
+│   │ Ministry App │              │    │         App Gateway              │   │
+│   │ (Health)     │──────────────────▶│  • SSL Termination              │   │
+│   └──────────────┘   Express    │    │  • WAF Protection               │   │
+│                      Route      │    │  • DDoS Mitigation              │   │
+│   ┌──────────────┐              │    └──────────────┬──────────────────┘   │
+│   │ Ministry App │              │                   │                       │
+│   │ (SDPR)       │──────────────────▶               ▼                       │
+│   └──────────────┘              │    ┌─────────────────────────────────┐   │
+│                                 │    │            APIM                  │   │
+│   ┌──────────────┐              │    │  • Authentication (API Keys)    │   │
+│   │ Ministry App │              │    │  • Rate Limiting                │   │
+│   │ (Justice)    │──────────────────▶│  • Request Validation           │   │
+│   └──────────────┘              │    │  • Ministry Routing             │   │
+│                                 │    │  • Audit Logging                │   │
+│                                 │    └──────────────┬──────────────────┘   │
+│                                 │                   │                       │
+│                                 │                   ▼                       │
+│                                 │    ┌─────────────────────────────────┐   │
+│                                 │    │      Private Endpoints          │   │
+│                                 │    │  • AI Foundry                   │   │
+│                                 │    │  • Azure OpenAI                 │   │
+│                                 │    │  • AI Search                    │   │
+│                                 │    │  • Storage (RAG docs)           │   │
+│                                 │    └─────────────────────────────────┘   │
+│                                 │                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<h3>Security Controls at Each Layer</h3>
+
+<table>
+    <tr>
+        <th>Layer</th>
+        <th>Security Control</th>
+        <th>Purpose</th>
+    </tr>
+    <tr>
+        <td><strong>App Gateway</strong></td>
+        <td>Web Application Firewall (WAF)</td>
+        <td>Block OWASP top 10, SQL injection, XSS</td>
+    </tr>
+    <tr>
+        <td><strong>App Gateway</strong></td>
+        <td>SSL/TLS Termination</td>
+        <td>Enforce HTTPS, manage certificates</td>
+    </tr>
+    <tr>
+        <td><strong>App Gateway</strong></td>
+        <td>DDoS Protection</td>
+        <td>Mitigate volumetric attacks</td>
+    </tr>
+    <tr>
+        <td><strong>APIM</strong></td>
+        <td>Subscription Keys</td>
+        <td>Identify and authenticate ministry</td>
+    </tr>
+    <tr>
+        <td><strong>APIM</strong></td>
+        <td>Rate Limiting</td>
+        <td>Prevent abuse, ensure fair usage</td>
+    </tr>
+    <tr>
+        <td><strong>APIM</strong></td>
+        <td>Request Validation</td>
+        <td>Validate payload structure</td>
+    </tr>
+    <tr>
+        <td><strong>APIM</strong></td>
+        <td>Audit Logging</td>
+        <td>Track all requests with ministry context</td>
+    </tr>
+    <tr>
+        <td><strong>Private Endpoints</strong></td>
+        <td>Network Isolation</td>
+        <td>Backend services unreachable from internet</td>
+    </tr>
+</table>
+
+<h3>Consequences</h3>
+
+<h4>Positive</h4>
+<ul>
+    <li><strong>Defense in depth</strong> - Multiple security layers before reaching backends</li>
+    <li><strong>Centralized policy</strong> - All clients subject to same rules</li>
+    <li><strong>Audit compliance</strong> - Every request logged with full context</li>
+    <li><strong>Flexibility</strong> - Can update policies without changing backends</li>
+    <li><strong>Cost attribution</strong> - Can track usage per ministry via APIM metrics</li>
+</ul>
+
+<h4>Negative</h4>
+<ul>
+    <li><strong>Added latency</strong> - Two extra hops (App Gateway + APIM)</li>
+    <li><strong>Cost</strong> - App Gateway and APIM have significant monthly costs</li>
+    <li><strong>Complexity</strong> - More components to configure and maintain</li>
+</ul>
+
+<h4>Mitigations</h4>
+<ul>
+    <li>Latency is typically &lt;10ms additional per hop</li>
+    <li>Costs are shared across all ministries (per <a href="#adr-006">ADR-006</a>)</li>
+    <li>Infrastructure-as-code manages complexity</li>
+</ul>
+
+<h3>References</h3>
+<ul>
+    <li><a href="diagrams.html#data-flow">AI Request Data Flow Diagram</a></li>
+    <li><a href="diagrams.html#full-stack">Full Stack Architecture Diagram</a></li>
+    <li><a href="https://learn.microsoft.com/en-us/azure/api-management/api-management-key-concepts">Azure API Management Overview</a></li>
+    <li><a href="https://learn.microsoft.com/en-us/azure/application-gateway/overview">Azure Application Gateway Overview</a></li>
 </ul>
 
 <h2>ADR Template</h2>

@@ -22,9 +22,11 @@
 
 <div class="alert alert-warning" style="margin-bottom: 2rem;">
     <div style="display: flex; gap: 1rem;">
-        <span style="font-size: 1.5rem;">🚧</span>
+        <div class="alert-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0Z"/></svg>
+        </div>
         <div>
-            <h3 style="margin-top: 0; color: var(--bc-gold);">Pilot Project Disclaimer</h3>
+            <h3 style="margin-top: 0; color: var(--bc-blue-dark);">Pilot Project Disclaimer</h3>
             <p><strong>This is an early-stage pilot.</strong> Many architectural patterns are still being validated with Platform Services.</p>
             <p style="margin-bottom: 0.5rem;">This project was born after several teams struggled to navigate Azure policies, compliance, and networking individually. We consolidated these hard-learned lessons into a shared landing zone to help other BC Gov teams avoid the same pitfalls.</p>
             <p><small><em>Based on <a href="https://github.com/Azure/AI-Landing-Zones">Azure AI Landing Zones</a> (upstream archival risk acknowledged).</em></small></p>
@@ -76,17 +78,23 @@
     <p>This landing zone is optimized for modern AI/ML workloads that require secure compute and private data access.</p>
     <div class="grid grid-3">
         <div style="text-align: center;">
-            <div style="font-size: 2rem;">🧠</div>
-            <strong>Azure AI & OpenAI</strong>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">Private connectivity to Azure OpenAI models and cognitive services like Document Intelligence (OCR).</p>
+            <div class="feature-icon blue" style="margin: 0 auto 1rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--bc-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
+            </div>
+            <strong>Azure AI Foundry</strong>
+            <p style="font-size: 0.9rem; color: var(--text-secondary);">Access many models (OpenAI, Meta, Mistral) and cognitive services through a unified, secure platform.</p>
         </div>
         <div style="text-align: center;">
-            <div style="font-size: 2rem;">🤖</div>
+            <div class="feature-icon gold" style="margin: 0 auto 1rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--bc-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><line x1="8" y1="16" x2="8" y2="16"/><line x1="16" y1="16" x2="16" y2="16"/></svg>
+            </div>
             <strong>Open Source Models</strong>
             <p style="font-size: 0.9rem; color: var(--text-secondary);">Host private weights (Llama 3, Mistral) on secure VMs using Ollama or vLLM.</p>
         </div>
         <div style="text-align: center;">
-            <div style="font-size: 2rem;">📊</div>
+            <div class="feature-icon purple" style="margin: 0 auto 1rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--bc-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10Z"/></svg>
+            </div>
             <strong>RAG & Data Apps</strong>
             <p style="font-size: 0.9rem; color: var(--text-secondary);">Vector databases and Streamlit/Gradio apps for rapid internal prototyping.</p>
         </div>
@@ -98,19 +106,19 @@
 <div class="grid grid-3">
     <a href="oidc-setup.html" class="card-link">
         <div class="card" style="border-left-color: #fcba19; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🔐 Set up Authentication</h4>
+            <h4 style="margin-top: 0; color: var(--bc-blue);">Set up Authentication</h4>
             <p style="font-size: 0.9rem; margin-bottom: 0;">Configure OIDC trust between GitHub and Azure.</p>
         </div>
     </a>
     <a href="terraform.html" class="card-link">
         <div class="card" style="border-left-color: #8b5cf6; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🏗️ Deploy Infrastructure</h4>
+            <h4 style="margin-top: 0; color: var(--bc-blue);">Deploy Infrastructure</h4>
             <p style="font-size: 0.9rem; margin-bottom: 0;">Deploy VNet, Bastion, and Jumpbox modules.</p>
         </div>
     </a>
     <a href="playbooks.html" class="card-link">
         <div class="card" style="border-left-color: #ef4444; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🚑 Fix a Problem</h4>
+            <h4 style="margin-top: 0; color: var(--bc-blue);">Fix a Problem</h4>
             <p style="font-size: 0.9rem; margin-bottom: 0;">Troubleshoot state locks, auth failures, or rollbacks.</p>
         </div>
     </a>
@@ -143,62 +151,64 @@
 
 <h2>Documentation Library</h2>
 
-<div class="grid grid-4">
+<div class="grid grid-3">
     <!-- Row 1 -->
     <a href="decisions.html" class="card-link">
         <div class="card" style="border-left-color: #ef4444;">
-            <h3 style="margin-top: 0;">🏛️ ADRs</h3>
+            <h3 style="margin-top: 0;">ADRs</h3>
             <p>Architecture decisions and why things are built this way.</p>
             <div class="card-arrow">Start Here →</div>
         </div>
     </a>
     <a href="faq.html" class="card-link">
         <div class="card" style="border-left-color: #f59e0b;">
-            <h3 style="margin-top: 0;">❓ FAQ</h3>
+            <h3 style="margin-top: 0;">FAQ</h3>
             <p>Common questions, pending decisions, and contact info.</p>
             <div class="card-arrow">View FAQ →</div>
         </div>
     </a>
     <a href="oidc-setup.html" class="card-link">
         <div class="card">
-            <h3 style="margin-top: 0;">🔐 OIDC Setup</h3>
+            <h3 style="margin-top: 0;">OIDC Setup</h3>
             <p>Complete guide to passwordless authentication setup.</p>
             <div class="card-arrow">View Guide →</div>
         </div>
     </a>
+
+    <!-- Row 2 -->
     <a href="terraform.html" class="card-link">
         <div class="card">
-            <h3 style="margin-top: 0;">🏗️ Modules</h3>
+            <h3 style="margin-top: 0;">Modules</h3>
             <p>Deep dive into Network, Bastion, and Jumpbox configs.</p>
             <div class="card-arrow">View Modules →</div>
         </div>
     </a>
-
-    <!-- Row 2 -->
     <a href="workflows.html" class="card-link">
         <div class="card">
-            <h3 style="margin-top: 0;">⚙️ Workflows</h3>
+            <h3 style="margin-top: 0;">Workflows</h3>
             <p>CI/CD pipeline automation details.</p>
             <div class="card-arrow">View Workflows →</div>
         </div>
     </a>
     <a href="diagrams.html" class="card-link">
         <div class="card">
-            <h3 style="margin-top: 0;">📊 Diagrams</h3>
+            <h3 style="margin-top: 0;">Diagrams</h3>
             <p>Interactive architecture and flow visualizations.</p>
             <div class="card-arrow">View Diagrams →</div>
         </div>
     </a>
+
+    <!-- Row 3 -->
     <a href="playbooks.html" class="card-link">
         <div class="card">
-            <h3 style="margin-top: 0;">📖 Playbooks</h3>
+            <h3 style="margin-top: 0;">Playbooks</h3>
             <p>Operational runbooks for Day 2 maintenance.</p>
             <div class="card-arrow">View Playbooks →</div>
         </div>
     </a>
     <a href="terraform-reference.html" class="card-link">
         <div class="card">
-            <h3 style="margin-top: 0;">📝 TF Reference</h3>
+            <h3 style="margin-top: 0;">TF Reference</h3>
             <p>Auto-generated variable and output docs.</p>
             <div class="card-arrow">View Reference →</div>
         </div>
@@ -243,7 +253,9 @@
 
 <div class="grid grid-3">
     <div class="card">
-        <div class="feature-icon green">🔒</div>
+        <div class="feature-icon green">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        </div>
         <h3 style="margin-top: 0;">Secure by Default</h3>
         <ul style="margin-bottom: 0;">
             <li>OIDC federated credentials</li>
@@ -253,7 +265,9 @@
         </ul>
     </div>
     <div class="card">
-        <div class="feature-icon blue">☁️</div>
+        <div class="feature-icon blue">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a3.5 3.5 0 0 0 0-7h-1.5a7 7 0 1 0-11.76 5.14"/></svg>
+        </div>
         <h3 style="margin-top: 0;">Azure Native</h3>
         <ul style="margin-bottom: 0;">
             <li>Managed identities</li>
@@ -263,7 +277,9 @@
         </ul>
     </div>
     <div class="card">
-        <div class="feature-icon purple">🔄</div>
+        <div class="feature-icon purple">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+        </div>
         <h3 style="margin-top: 0;">Automated</h3>
         <ul style="margin-bottom: 0;">
             <li>GitOps workflow</li>
