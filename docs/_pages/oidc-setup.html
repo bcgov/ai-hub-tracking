@@ -1,0 +1,218 @@
+<!-- TITLE: OIDC Setup Guide -->
+<!-- NAV: oidc -->
+
+<h1>OIDC Setup Guide</h1>
+
+<p>This guide explains how to configure OpenID Connect (OIDC) authentication between GitHub Actions and Azure, enabling passwordless deployments.</p>
+
+<div class="alert alert-success">
+    <strong>Why OIDC?</strong> No secrets to rotate, no credentials stored in GitHub, and automatic token expiration for enhanced security.
+</div>
+
+<h2>How It Works</h2>
+
+<div class="card">
+    <h3>Trust Chain</h3>
+    <ol>
+        <li><strong>GitHub signs tokens</strong> with its private key for each workflow run</li>
+        <li><strong>Azure validates</strong> the token signature using GitHub's public key</li>
+        <li><strong>Subject claim matching</strong> ensures only the specified repo/environment gets access</li>
+        <li><strong>Bearer token issued</strong> by Azure for actual resource access</li>
+    </ol>
+</div>
+
+<h2>Prerequisites</h2>
+
+<ul>
+    <li>Azure CLI installed and logged in (<code>az login</code>)</li>
+    <li>Terraform installed</li>
+    <li>GitHub CLI (optional, for auto-creating secrets)</li>
+    <li>Owner access to Azure security group</li>
+</ul>
+
+<h2>Setup Script: initial-azure-setup.sh</h2>
+
+<p>This script configures everything needed for OIDC authentication. Run it once per environment.</p>
+
+<h3>Usage</h3>
+
+<pre>./initial-setup/initial-azure-setup.sh \
+    -g "RESOURCE-GROUP-NAME" \
+    -n "identity-name" \
+    -r "owner/repo" \
+    -e "environment" \
+    -s "subscription-id" \
+    --create-storage \
+    --create-github-secrets</pre>
+
+<h3>Parameters</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>-g</code></td>
+            <td>Azure resource group name</td>
+            <td>Yes</td>
+        </tr>
+        <tr>
+            <td><code>-n</code></td>
+            <td>Managed identity name</td>
+            <td>Yes</td>
+        </tr>
+        <tr>
+            <td><code>-r</code></td>
+            <td>GitHub repository (owner/repo)</td>
+            <td>Yes</td>
+        </tr>
+        <tr>
+            <td><code>-e</code></td>
+            <td>Environment name (dev, test, prod)</td>
+            <td>Yes</td>
+        </tr>
+        <tr>
+            <td><code>-s</code></td>
+            <td>Azure subscription ID</td>
+            <td>No (uses current)</td>
+        </tr>
+        <tr>
+            <td><code>--create-storage</code></td>
+            <td>Create storage account for Terraform state</td>
+            <td>No</td>
+        </tr>
+        <tr>
+            <td><code>--create-github-secrets</code></td>
+            <td>Automatically create GitHub environment secrets</td>
+            <td>No</td>
+        </tr>
+    </tbody>
+</table>
+
+<h3>What Gets Created</h3>
+
+<div class="grid grid-3">
+    <div class="card">
+        <h3>Managed Identity</h3>
+        <p>Azure service account for your pipeline to authenticate as.</p>
+    </div>
+    <div class="card">
+        <h3>Federated Credential</h3>
+        <p>Trust link between your GitHub repo/environment and the Azure identity.</p>
+    </div>
+    <div class="card">
+        <h3>Storage Account</h3>
+        <p>For Terraform state files (with <code>--create-storage</code>).</p>
+    </div>
+</div>
+
+<h2>Environment Examples</h2>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: #22d3ee;">
+        <h3 style="color: #0891b2;">Dev Environment</h3>
+        <pre>./initial-azure-setup.sh \
+    -g "ABCD-dev-networking" \
+    -n "myapp-dev-identity" \
+    -r "bcgov/myapp" \
+    -e "dev" \
+    --create-storage \
+    --create-github-secrets</pre>
+        <p><strong>Creates:</strong></p>
+        <ul>
+            <li>Identity: <code>myapp-dev-identity</code></li>
+            <li>Storage: <code>tfdevmyapp</code></li>
+            <li>Subject: <code>repo:bcgov/myapp:environment:dev</code></li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: #f87171;">
+        <h3 style="color: #dc2626;">Prod Environment</h3>
+        <pre>./initial-azure-setup.sh \
+    -g "ABCD-prod-networking" \
+    -n "myapp-prod-identity" \
+    -r "bcgov/myapp" \
+    -e "prod" \
+    --create-storage \
+    --create-github-secrets</pre>
+        <p><strong>Creates:</strong></p>
+        <ul>
+            <li>Identity: <code>myapp-prod-identity</code></li>
+            <li>Storage: <code>tfprodmyapp</code></li>
+            <li>Subject: <code>repo:bcgov/myapp:environment:prod</code></li>
+        </ul>
+    </div>
+</div>
+
+<div class="alert alert-warning">
+    <strong>Important:</strong> Dev and Prod are completely isolated &mdash; different subscriptions, different identities, different permissions. A dev pipeline cannot access prod resources.
+</div>
+
+<h2>Token Lifecycle</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Token Type</th>
+            <th>TTL</th>
+            <th>Notes</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>GitHub OIDC Token</td>
+            <td>~5 minutes</td>
+            <td>Generated fresh each workflow run, only used to get Azure token</td>
+        </tr>
+        <tr>
+            <td>Azure Bearer Token</td>
+            <td>1 hour (3600s)</td>
+            <td>Auto-refreshed by azure/login action if job runs longer</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>Troubleshooting</h2>
+
+<div class="card card-gold">
+    <h3>Common Issues</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Error</th>
+                <th>Solution</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>AADSTS700024: Subject mismatch</code></td>
+                <td><code>environment:</code> in workflow must match <code>-e</code> flag used in setup</td>
+            </tr>
+            <tr>
+                <td>OIDC token not generated</td>
+                <td>Add <code>permissions: id-token: write</code> to workflow</td>
+            </tr>
+            <tr>
+                <td>403 Forbidden on terraform apply</td>
+                <td>Identity not in security group, or wrong subscription</td>
+            </tr>
+            <tr>
+                <td>State file access denied</td>
+                <td>Add <code>use_azuread_auth = true</code> in backend config</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<h2>Full Architecture Diagram</h2>
+
+<div class="img-container">
+    <a href="assets/azure-oidc-complete-guide.svg" target="_blank">
+        <img src="assets/azure-oidc-complete-guide.svg" alt="Azure OIDC Complete Guide">
+    </a>
+    <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">Click to view full size</p>
+</div>

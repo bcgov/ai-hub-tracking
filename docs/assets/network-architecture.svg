@@ -1,0 +1,168 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#001a33"/>
+      <stop offset="100%" style="stop-color:#003366"/>
+    </linearGradient>
+    <linearGradient id="vnetGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a5a96" stop-opacity="0.3"/>
+      <stop offset="100%" style="stop-color:#003366" stop-opacity="0.1"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.3"/>
+    </filter>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1400" height="900" fill="url(#bgGrad)"/>
+
+  <!-- Grid pattern -->
+  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1a4d80" stroke-width="0.5" opacity="0.3"/>
+  </pattern>
+  <rect width="1400" height="900" fill="url(#grid)"/>
+
+  <!-- Title -->
+  <text x="700" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="white">Network Architecture</text>
+  <text x="700" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#94a3b8">Azure Landing Zone - VNet Topology & Security</text>
+
+  <!-- Internet Cloud -->
+  <g filter="url(#shadow)">
+    <ellipse cx="200" cy="200" rx="120" ry="60" fill="#374151" stroke="#6b7280" stroke-width="2"/>
+    <text x="200" y="195" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white">Internet</text>
+    <text x="200" y="215" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#9ca3af">Public Access</text>
+  </g>
+
+  <!-- Azure Cloud boundary -->
+  <rect x="400" y="100" width="950" height="700" rx="20" fill="none" stroke="#0078d4" stroke-width="2" stroke-dasharray="10,5"/>
+  <text x="420" y="130" font-family="Arial, sans-serif" font-size="14" fill="#0078d4" font-weight="bold">Azure Subscription</text>
+
+  <!-- Resource Group -->
+  <rect x="430" y="150" width="890" height="620" rx="16" fill="rgba(0,120,212,0.1)" stroke="#0078d4" stroke-width="1"/>
+  <text x="450" y="175" font-family="Arial, sans-serif" font-size="13" fill="#60a5fa">Resource Group: ai-hub-tracking-rg</text>
+
+  <!-- VNet -->
+  <rect x="460" y="200" width="830" height="540" rx="12" fill="url(#vnetGrad)" stroke="#1a5a96" stroke-width="2"/>
+  <text x="480" y="225" font-family="Arial, sans-serif" font-size="14" fill="#93c5fd" font-weight="bold">VNet: ai-hub-vnet (10.0.0.0/16)</text>
+
+  <!-- Bastion Subnet -->
+  <g filter="url(#shadow)">
+    <rect x="490" y="260" width="250" height="200" rx="10" fill="#002244" stroke="#fcba19" stroke-width="2"/>
+    <text x="615" y="290" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#fcba19" font-weight="bold">AzureBastionSubnet</text>
+    <text x="615" y="310" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#94a3b8">10.0.1.0/26</text>
+
+    <!-- Bastion Host -->
+    <rect x="530" y="340" width="170" height="100" rx="8" fill="#1a5a96" stroke="#60a5fa" stroke-width="1"/>
+    <text x="615" y="380" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white" font-weight="bold">Azure Bastion</text>
+    <text x="615" y="400" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#bfdbfe">Standard SKU</text>
+    <text x="615" y="420" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#60a5fa">Secure RDP/SSH</text>
+  </g>
+
+  <!-- Jumpbox Subnet -->
+  <g filter="url(#shadow)">
+    <rect x="780" y="260" width="250" height="200" rx="10" fill="#002244" stroke="#22c55e" stroke-width="2"/>
+    <text x="905" y="290" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#22c55e" font-weight="bold">JumpboxSubnet</text>
+    <text x="905" y="310" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#94a3b8">10.0.2.0/24</text>
+
+    <!-- Jumpbox VM -->
+    <rect x="820" y="340" width="170" height="100" rx="8" fill="#166534" stroke="#4ade80" stroke-width="1"/>
+    <text x="905" y="380" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white" font-weight="bold">Jumpbox VM</text>
+    <text x="905" y="400" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#bbf7d0">Ubuntu 22.04</text>
+    <text x="905" y="420" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#4ade80">Standard_B2s</text>
+  </g>
+
+  <!-- Private Subnet -->
+  <g filter="url(#shadow)">
+    <rect x="1070" y="260" width="190" height="200" rx="10" fill="#002244" stroke="#8b5cf6" stroke-width="2"/>
+    <text x="1165" y="290" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#8b5cf6" font-weight="bold">PrivateSubnet</text>
+    <text x="1165" y="310" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#94a3b8">10.0.3.0/24</text>
+
+    <!-- Placeholder for future resources -->
+    <rect x="1090" y="340" width="150" height="100" rx="8" fill="#4c1d95" stroke="#a78bfa" stroke-width="1" stroke-dasharray="5,3"/>
+    <text x="1165" y="385" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#c4b5fd">Future</text>
+    <text x="1165" y="405" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#c4b5fd">Resources</text>
+  </g>
+
+  <!-- NSG Box -->
+  <g filter="url(#shadow)">
+    <rect x="490" y="500" width="380" height="210" rx="10" fill="#002244" stroke="#f97316" stroke-width="2"/>
+    <text x="680" y="530" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#f97316" font-weight="bold">Network Security Groups</text>
+
+    <!-- NSG Rules -->
+    <g font-family="Arial, sans-serif" font-size="11" fill="white">
+      <text x="510" y="560">✓ <tspan fill="#4ade80">Allow</tspan> Bastion → Jumpbox (SSH/RDP)</text>
+      <text x="510" y="585">✓ <tspan fill="#4ade80">Allow</tspan> Azure LoadBalancer Inbound</text>
+      <text x="510" y="610">✓ <tspan fill="#4ade80">Allow</tspan> GatewayManager Inbound</text>
+      <text x="510" y="635">✗ <tspan fill="#ef4444">Deny</tspan> All Internet → Jumpbox Direct</text>
+      <text x="510" y="660">✗ <tspan fill="#ef4444">Deny</tspan> All VNet → Internet (default)</text>
+      <text x="510" y="685">✓ <tspan fill="#4ade80">Allow</tspan> VNet Internal Traffic</text>
+    </g>
+  </g>
+
+  <!-- Storage Account -->
+  <g filter="url(#shadow)">
+    <rect x="920" y="520" width="200" height="120" rx="10" fill="#0369a1" stroke="#38bdf8" stroke-width="2"/>
+    <text x="1020" y="555" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white" font-weight="bold">Storage Account</text>
+    <text x="1020" y="575" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#bae6fd">Terraform State</text>
+    <text x="1020" y="600" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#7dd3fc">• Blob Storage</text>
+    <text x="1020" y="620" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#7dd3fc">• Azure AD Auth</text>
+  </g>
+
+  <!-- Connection lines -->
+  <!-- Internet to Bastion -->
+  <path d="M 320 200 L 530 390" stroke="#fcba19" stroke-width="2" fill="none" marker-end="url(#arrowYellow)"/>
+  <text x="380" y="280" font-family="Arial, sans-serif" font-size="10" fill="#fcba19" transform="rotate(30 380 280)">HTTPS (443)</text>
+
+  <!-- Bastion to Jumpbox -->
+  <path d="M 700 390 L 820 390" stroke="#4ade80" stroke-width="2" fill="none" marker-end="url(#arrowGreen)"/>
+  <text x="760" y="380" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#4ade80">SSH/RDP</text>
+
+  <!-- Jumpbox to Private -->
+  <path d="M 990 390 L 1090 390" stroke="#a78bfa" stroke-width="2" fill="none" stroke-dasharray="5,3" marker-end="url(#arrowPurple)"/>
+  <text x="1040" y="380" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#a78bfa">Internal</text>
+
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="arrowYellow" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#fcba19"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#4ade80"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#a78bfa"/>
+    </marker>
+  </defs>
+
+  <!-- Legend -->
+  <g transform="translate(1150, 520)">
+    <rect x="0" y="0" width="120" height="180" rx="8" fill="#002244" stroke="#64748b" stroke-width="1"/>
+    <text x="60" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white" font-weight="bold">Legend</text>
+
+    <rect x="15" y="45" width="16" height="16" rx="3" fill="#fcba19"/>
+    <text x="40" y="57" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">Bastion</text>
+
+    <rect x="15" y="70" width="16" height="16" rx="3" fill="#22c55e"/>
+    <text x="40" y="82" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">Jumpbox</text>
+
+    <rect x="15" y="95" width="16" height="16" rx="3" fill="#8b5cf6"/>
+    <text x="40" y="107" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">Private</text>
+
+    <rect x="15" y="120" width="16" height="16" rx="3" fill="#f97316"/>
+    <text x="40" y="132" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">NSG</text>
+
+    <rect x="15" y="145" width="16" height="16" rx="3" fill="#0ea5e9"/>
+    <text x="40" y="157" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">Storage</text>
+  </g>
+
+  <!-- Footer -->
+  <rect x="0" y="850" width="1400" height="50" fill="#fcba19"/>
+  <text x="700" y="880" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#003366">AI Hub Tracking - Network Architecture Diagram</text>
+</svg>

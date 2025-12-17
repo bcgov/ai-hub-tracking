@@ -1,0 +1,116 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 800">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#001a33"/>
+      <stop offset="100%" style="stop-color:#003366"/>
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#fcba19"/>
+      <stop offset="100%" style="stop-color:#f5a623"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="800" fill="url(#bgGrad)"/>
+
+  <!-- Grid pattern -->
+  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1a4d80" stroke-width="0.5" opacity="0.3"/>
+  </pattern>
+  <rect width="1200" height="800" fill="url(#grid)"/>
+
+  <!-- Title -->
+  <text x="600" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="white">Token Exchange Flow</text>
+  <text x="600" y="90" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#94a3b8">JWT Token Lifecycle: GitHub Actions → Azure AD</text>
+
+  <!-- Actors -->
+  <!-- GitHub Actions -->
+  <g filter="url(#shadow)">
+    <rect x="50" y="150" width="200" height="80" rx="12" fill="#24292e"/>
+    <text x="150" y="185" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="white" font-weight="bold">GitHub Actions</text>
+    <text x="150" y="210" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#8b949e">Workflow Runner</text>
+  </g>
+
+  <!-- GitHub OIDC Provider -->
+  <g filter="url(#shadow)">
+    <rect x="350" y="150" width="200" height="80" rx="12" fill="#1a5a96"/>
+    <text x="450" y="185" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="white" font-weight="bold">GitHub OIDC</text>
+    <text x="450" y="210" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#bfdbfe">Token Provider</text>
+  </g>
+
+  <!-- Azure AD -->
+  <g filter="url(#shadow)">
+    <rect x="650" y="150" width="200" height="80" rx="12" fill="#0078d4"/>
+    <text x="750" y="185" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="white" font-weight="bold">Azure AD</text>
+    <text x="750" y="210" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#bfdbfe">Identity Platform</text>
+  </g>
+
+  <!-- Azure Resources -->
+  <g filter="url(#shadow)">
+    <rect x="950" y="150" width="200" height="80" rx="12" fill="#22c55e"/>
+    <text x="1050" y="185" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="white" font-weight="bold">Azure Resources</text>
+    <text x="1050" y="210" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#bbf7d0">Storage, VMs, etc.</text>
+  </g>
+
+  <!-- Flow Arrows -->
+  <!-- Step 1 -->
+  <path d="M 250 190 L 340 190" stroke="url(#goldGrad)" stroke-width="3" fill="none" marker-end="url(#arrowGold)"/>
+  <circle cx="295" cy="190" r="16" fill="#fcba19"/>
+  <text x="295" y="195" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#003366">1</text>
+
+  <!-- Step 2 -->
+  <path d="M 450 230 L 450 280 L 150 280 L 150 240" stroke="url(#goldGrad)" stroke-width="3" fill="none" marker-end="url(#arrowGold)"/>
+  <circle cx="300" cy="280" r="16" fill="#fcba19"/>
+  <text x="300" y="285" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#003366">2</text>
+
+  <!-- Step 3 -->
+  <path d="M 150 330 L 150 380 L 750 380 L 750 240" stroke="url(#goldGrad)" stroke-width="3" fill="none" marker-end="url(#arrowGold)"/>
+  <circle cx="450" cy="380" r="16" fill="#fcba19"/>
+  <text x="450" y="385" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#003366">3</text>
+
+  <!-- Step 4 -->
+  <path d="M 750 440 L 750 480 L 150 480 L 150 430" stroke="url(#goldGrad)" stroke-width="3" fill="none" marker-end="url(#arrowGold)"/>
+  <circle cx="450" cy="480" r="16" fill="#fcba19"/>
+  <text x="450" y="485" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#003366">4</text>
+
+  <!-- Step 5 -->
+  <path d="M 150 530 L 150 580 L 1050 580 L 1050 240" stroke="url(#goldGrad)" stroke-width="3" fill="none" marker-end="url(#arrowGold)"/>
+  <circle cx="600" cy="580" r="16" fill="#fcba19"/>
+  <text x="600" y="585" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#003366">5</text>
+
+  <!-- Arrow marker -->
+  <defs>
+    <marker id="arrowGold" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto" markerUnits="strokeWidth">
+      <path d="M0,0 L0,6 L9,3 z" fill="#fcba19"/>
+    </marker>
+  </defs>
+
+  <!-- Step descriptions -->
+  <g font-family="Arial, sans-serif" font-size="13" fill="white">
+    <text x="60" y="660"><tspan font-weight="bold" fill="#fcba19">1.</tspan> Request OIDC token from GitHub</text>
+    <text x="60" y="685"><tspan font-weight="bold" fill="#fcba19">2.</tspan> GitHub returns signed JWT with claims</text>
+    <text x="60" y="710"><tspan font-weight="bold" fill="#fcba19">3.</tspan> Present JWT to Azure AD token endpoint</text>
+    <text x="450" y="660"><tspan font-weight="bold" fill="#fcba19">4.</tspan> Azure validates JWT against federated credential</text>
+    <text x="450" y="685"><tspan font-weight="bold" fill="#fcba19">5.</tspan> Access Azure resources with issued token</text>
+  </g>
+
+  <!-- JWT Token detail box -->
+  <g filter="url(#shadow)">
+    <rect x="850" y="400" width="300" height="200" rx="12" fill="#002244"/>
+    <text x="1000" y="430" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#fcba19">JWT Claims</text>
+    <text x="870" y="460" font-family="monospace" font-size="11" fill="#94a3b8">{</text>
+    <text x="890" y="480" font-family="monospace" font-size="11" fill="#8b949e">"iss": "https://token.actions..."</text>
+    <text x="890" y="500" font-family="monospace" font-size="11" fill="#8b949e">"sub": "repo:bcgov/ai-hub:env:dev"</text>
+    <text x="890" y="520" font-family="monospace" font-size="11" fill="#8b949e">"aud": "api://AzureADTokenExchange"</text>
+    <text x="890" y="540" font-family="monospace" font-size="11" fill="#8b949e">"ref": "refs/heads/main"</text>
+    <text x="890" y="560" font-family="monospace" font-size="11" fill="#8b949e">"exp": 1234567890</text>
+    <text x="870" y="580" font-family="monospace" font-size="11" fill="#94a3b8">}</text>
+  </g>
+
+  <!-- Footer -->
+  <rect x="0" y="750" width="1200" height="50" fill="#fcba19"/>
+  <text x="600" y="780" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#003366">AI Hub Tracking - Token Exchange Flow Diagram</text>
+</svg>

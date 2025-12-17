@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocumentationHub | AI Hub Tracking</title>
+    <title>OperationalPlaybooks | AI Hub Tracking</title>
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <style>
         :root {
@@ -643,287 +643,429 @@
     </header>
     <main>
 
-<div class="hero">
-    <span class="badge badge-gold">Open Source</span>
-    <h1>AI Hub Tracking</h1>
-    <p>Infrastructure as Code for Azure Landing Zone deployments with GitHub Actions OIDC authentication. Zero secrets to rotate.</p>
-    
-    <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center;">
-        <a href="#quick-start" style="text-decoration: none;">
-            <button style="background: var(--bc-gold); color: var(--bc-blue); border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 1rem;">
-                Get Started ↓
-            </button>
-        </a>
-        <a href="diagrams.html" style="text-decoration: none;">
-            <button style="background: rgba(255,255,255,0.2); color: white; border: 1px solid white; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 1rem;">
-                View Architecture
-            </button>
-        </a>
+<h1>Operational Playbooks</h1>
+
+<p>Step-by-step procedures for common operational scenarios, troubleshooting, and disaster recovery. These runbooks help operators respond quickly to issues.</p>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">⚠️</span>
+    <div>
+        <strong>Before You Begin</strong><br>
+        Ensure you have the required permissions and have read the relevant documentation. When in doubt, escalate to the platform team.
     </div>
 </div>
 
-<div class="alert alert-warning" style="margin-bottom: 2rem;">
-    <div style="display: flex; gap: 1rem;">
-        <span style="font-size: 1.5rem;">🚧</span>
-        <div>
-            <h3 style="margin-top: 0; color: var(--bc-gold);">Pilot Project Disclaimer</h3>
-            <p><strong>This is an early-stage pilot.</strong> Many architectural patterns are still being validated with Platform Services.</p>
-            <p style="margin-bottom: 0.5rem;">This project was born after several teams struggled to navigate Azure policies, compliance, and networking individually. We consolidated these hard-learned lessons into a shared landing zone to help other BC Gov teams avoid the same pitfalls.</p>
-            <p><small><em>Based on <a href="https://github.com/Azure/AI-Landing-Zones">Azure AI Landing Zones</a> (upstream archival risk acknowledged).</em></small></p>
-        </div>
-    </div>
-</div>
-
-<div class="grid grid-4" style="margin-bottom: 2rem;">
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid var(--bc-gold);">
-        <div class="stat-number">0</div>
-        <div class="stat-label">Secrets to Manage</div>
-    </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid var(--bc-blue);">
-        <div class="stat-number">3</div>
-        <div class="stat-label">Terraform Modules</div>
-    </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid #22c55e;">
-        <div class="stat-number">4</div>
-        <div class="stat-label">GitHub Workflows</div>
-    </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid #8b5cf6;">
-        <div class="stat-number">5+</div>
-        <div class="stat-label">Ops Playbooks</div>
-    </div>
-</div>
-
-<h2>Project Vision: A Shared AI Landing Zone</h2>
-
-<div class="grid grid-2">
-    <div class="card">
-        <h3>Why This Exists</h3>
-        <p>The B.C. Government is rapidly adopting AI technologies. However, setting up secure, compliant cloud infrastructure for AI workloads allows teams to get bogged down in networking, identity management, and security compliance.</p>
-        <p><strong>AI Hub Tracking</strong> serves as a reference implementation and reusable landing zone pattern. It solves the "blank slate" problem by providing a standardized, secure-by-default environment specifically designed for AI experimentation and production.</p>
-    </div>
-    <div class="card" style="border-left-color: var(--bc-gold);">
-        <h3>Problems We Solve</h3>
-        <ul style="margin-top: 0;">
-            <li><strong>Secret Fatigue:</strong> Eliminates the need to rotate client secrets by using OIDC.</li>
-            <li><strong>Network Complexity:</strong> Pre-wired VNet, Subnets, and NSGs so you don't have to be a network engineer.</li>
-            <li><strong>Security Compliance:</strong> Implements "Least Privilege" and private networking by default.</li>
-            <li><strong>Inconsistent Environments:</strong> Ensures Dev and Prod look identical, reducing deployment surprises.</li>
-        </ul>
-    </div>
-</div>
-
-<div class="card card-gold">
-    <h3 style="margin-top: 0;">What Can You Run Here?</h3>
-    <p>This landing zone is optimized for modern AI/ML workloads that require secure compute and private data access.</p>
-    <div class="grid grid-3">
-        <div style="text-align: center;">
-            <div style="font-size: 2rem;">🧠</div>
-            <strong>Azure AI & OpenAI</strong>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">Private connectivity to Azure OpenAI models and cognitive services like Document Intelligence (OCR).</p>
-        </div>
-        <div style="text-align: center;">
-            <div style="font-size: 2rem;">🤖</div>
-            <strong>Open Source Models</strong>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">Host private weights (Llama 3, Mistral) on secure VMs using Ollama or vLLM.</p>
-        </div>
-        <div style="text-align: center;">
-            <div style="font-size: 2rem;">📊</div>
-            <strong>RAG & Data Apps</strong>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">Vector databases and Streamlit/Gradio apps for rapid internal prototyping.</p>
-        </div>
-    </div>
-</div>
-
-<h2>I want to...</h2>
+<h2>Quick Reference</h2>
 
 <div class="grid grid-3">
-    <a href="oidc-setup.html" class="card-link">
-        <div class="card" style="border-left-color: #fcba19; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🔐 Set up Authentication</h4>
-            <p style="font-size: 0.9rem; margin-bottom: 0;">Configure OIDC trust between GitHub and Azure.</p>
-        </div>
-    </a>
-    <a href="terraform.html" class="card-link">
-        <div class="card" style="border-left-color: #8b5cf6; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🏗️ Deploy Infrastructure</h4>
-            <p style="font-size: 0.9rem; margin-bottom: 0;">Deploy VNet, Bastion, and Jumpbox modules.</p>
-        </div>
-    </a>
-    <a href="playbooks.html" class="card-link">
-        <div class="card" style="border-left-color: #ef4444; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🚑 Fix a Problem</h4>
-            <p style="font-size: 0.9rem; margin-bottom: 0;">Troubleshoot state locks, auth failures, or rollbacks.</p>
-        </div>
-    </a>
-</div>
-
-<h2>Network Allocation (License Plate: da4cf6)</h2>
-
-<div class="card" style="border-left-color: #22c55e; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
-    <p style="margin-top: 0;"><strong>Confirmed Dec 11, 2025</strong> - Platform Services Team</p>
-    <div class="grid grid-4" style="margin: 1rem 0;">
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">4x /24</div>
-            <div class="stat-label">Prod (= /22)</div>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">2x /24</div>
-            <div class="stat-label">Test (= /23)</div>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">1x /24</div>
-            <div class="stat-label">Dev</div>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">1x /24</div>
-            <div class="stat-label">Tools</div>
-        </div>
-    </div>
-    <p style="margin-bottom: 0; font-size: 0.9rem;">See <a href="faq.html">FAQ</a> for pending questions about Canada East non-routable ranges.</p>
-</div>
-
-<h2>Documentation Library</h2>
-
-<div class="grid grid-4">
-    <!-- Row 1 -->
-    <a href="decisions.html" class="card-link">
+    <a href="#state-lock" class="card-link">
         <div class="card" style="border-left-color: #ef4444;">
-            <h3 style="margin-top: 0;">🏛️ ADRs</h3>
-            <p>Architecture decisions and why things are built this way.</p>
-            <div class="card-arrow">Start Here →</div>
+            <div class="feature-icon" style="background: rgba(239, 68, 68, 0.1);">🔒</div>
+            <h3 style="margin-top: 0;">State Lock Stuck</h3>
+            <p>Terraform state is locked and won't release</p>
+            <div class="card-arrow">View Playbook →</div>
         </div>
     </a>
-    <a href="faq.html" class="card-link">
-        <div class="card" style="border-left-color: #f59e0b;">
-            <h3 style="margin-top: 0;">❓ FAQ</h3>
-            <p>Common questions, pending decisions, and contact info.</p>
-            <div class="card-arrow">View FAQ →</div>
+    <a href="#oidc-failure" class="card-link">
+        <div class="card" style="border-left-color: #f97316;">
+            <div class="feature-icon" style="background: rgba(249, 115, 22, 0.1);">🔐</div>
+            <h3 style="margin-top: 0;">OIDC Auth Failing</h3>
+            <p>Token exchange errors between GitHub and Azure</p>
+            <div class="card-arrow">View Playbook →</div>
         </div>
     </a>
-    <a href="oidc-setup.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">🔐 OIDC Setup</h3>
-            <p>Complete guide to passwordless authentication setup.</p>
-            <div class="card-arrow">View Guide →</div>
+    <a href="#rollback" class="card-link">
+        <div class="card" style="border-left-color: #8b5cf6;">
+            <div class="feature-icon purple">⏪</div>
+            <h3 style="margin-top: 0;">Rollback Deployment</h3>
+            <p>Revert to a previous known-good state</p>
+            <div class="card-arrow">View Playbook →</div>
         </div>
     </a>
-    <a href="terraform.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">🏗️ Modules</h3>
-            <p>Deep dive into Network, Bastion, and Jumpbox configs.</p>
-            <div class="card-arrow">View Modules →</div>
+    <a href="#credential-rotation" class="card-link">
+        <div class="card" style="border-left-color: #22c55e;">
+            <div class="feature-icon green">🔄</div>
+            <h3 style="margin-top: 0;">Rotate Credentials</h3>
+            <p>Update federated credentials if compromised</p>
+            <div class="card-arrow">View Playbook →</div>
         </div>
     </a>
-
-    <!-- Row 2 -->
-    <a href="workflows.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">⚙️ Workflows</h3>
-            <p>CI/CD pipeline automation details.</p>
-            <div class="card-arrow">View Workflows →</div>
+    <a href="#bastion-access" class="card-link">
+        <div class="card" style="border-left-color: #0ea5e9;">
+            <div class="feature-icon blue">🖥️</div>
+            <h3 style="margin-top: 0;">Bastion Access Issues</h3>
+            <p>Cannot connect to VMs via Bastion</p>
+            <div class="card-arrow">View Playbook →</div>
         </div>
     </a>
-    <a href="diagrams.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">📊 Diagrams</h3>
-            <p>Interactive architecture and flow visualizations.</p>
-            <div class="card-arrow">View Diagrams →</div>
-        </div>
-    </a>
-    <a href="playbooks.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">📖 Playbooks</h3>
-            <p>Operational runbooks for Day 2 maintenance.</p>
-            <div class="card-arrow">View Playbooks →</div>
-        </div>
-    </a>
-    <a href="terraform-reference.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">📝 TF Reference</h3>
-            <p>Auto-generated variable and output docs.</p>
-            <div class="card-arrow">View Reference →</div>
+    <a href="#pipeline-stuck" class="card-link">
+        <div class="card" style="border-left-color: #fcba19;">
+            <div class="feature-icon gold">⏸️</div>
+            <h3 style="margin-top: 0;">Pipeline Stuck</h3>
+            <p>GitHub Actions workflow hanging or failing</p>
+            <div class="card-arrow">View Playbook →</div>
         </div>
     </a>
 </div>
 
-<h2 id="quick-start">Quick Start</h2>
+<!-- ============================================================================
+     PLAYBOOK: STATE LOCK STUCK
+     ============================================================================ -->
 
-<div class="card card-gold">
-    <h3 style="margin-bottom: 1.5rem;">Get Started in 3 Steps</h3>
-    <div class="grid grid-3">
-        <div style="text-align: center;">
-            <div class="stat-number">1</div>
-            <p style="margin: 0.5rem 0;"><strong>Run Setup Script</strong></p>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">Configure OIDC trust between GitHub and Azure (once per environment)</p>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number">2</div>
-            <p style="margin: 0.5rem 0;"><strong>Add Workflow</strong></p>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">Copy the deploy.yml workflow and backend.tf to your repo</p>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number">3</div>
-            <p style="margin: 0.5rem 0;"><strong>Push & Deploy</strong></p>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">Push to main and watch Terraform deploy automatically</p>
-        </div>
-    </div>
+<h2 id="state-lock">Playbook: Terraform State Lock Stuck</h2>
+
+<div class="card" style="border-left-color: #ef4444;">
+    <h3 style="margin-top: 0;">Symptoms</h3>
+    <ul>
+        <li>Terraform commands fail with: <code>Error acquiring the state lock</code></li>
+        <li>Message includes: <code>Lock Info: ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code></li>
+        <li>Previous pipeline run may have crashed or been cancelled</li>
+    </ul>
 </div>
 
-<div class="card">
-    <h3>Step 1: Initial Setup</h3>
-    <p>Run this one-time command to create the Azure identity and trust relationship:</p>
-<pre>./initial-setup/initial-azure-setup.sh \
-    -g "YOUR-RESOURCE-GROUP" \
-    -n "your-app-identity" \
-    -r "bcgov/your-repo" \
-    -e "dev" \
-    --create-storage --create-github-secrets</pre>
-</div>
-
-<h2>Key Features</h2>
-
-<div class="grid grid-3">
-    <div class="card">
-        <div class="feature-icon green">🔒</div>
-        <h3 style="margin-top: 0;">Secure by Default</h3>
-        <ul style="margin-bottom: 0;">
-            <li>OIDC federated credentials</li>
-            <li>No stored secrets</li>
-            <li>Environment isolation</li>
-            <li>Least privilege access</li>
-        </ul>
-    </div>
-    <div class="card">
-        <div class="feature-icon blue">☁️</div>
-        <h3 style="margin-top: 0;">Azure Native</h3>
-        <ul style="margin-bottom: 0;">
-            <li>Managed identities</li>
-            <li>Azure Bastion access</li>
-            <li>Blob storage for state</li>
-            <li>NSG security rules</li>
-        </ul>
-    </div>
-    <div class="card">
-        <div class="feature-icon purple">🔄</div>
-        <h3 style="margin-top: 0;">Automated</h3>
-        <ul style="margin-bottom: 0;">
-            <li>GitOps workflow</li>
-            <li>Auto VM shutdown</li>
-            <li>Scheduled cleanup</li>
-            <li>On-demand resources</li>
-        </ul>
-    </div>
-</div>
-
-<h2>Contributing</h2>
-
-<p>This documentation is built automatically from the <code>docs/</code> folder. To add or update pages:</p>
+<h3>Diagnosis</h3>
 
 <ol>
-    <li>Edit files in <code>docs/_pages/</code></li>
-    <li>Run <code>./docs/build.sh</code> to test locally</li>
-    <li>Push to main - GitHub Actions deploys automatically</li>
+    <li><strong>Check if another operation is running</strong>
+        <p>Look at GitHub Actions for any in-progress Terraform jobs.</p>
+    </li>
+    <li><strong>Check the lock info</strong>
+        <pre>az storage blob show \
+    --account-name &lt;storage_account&gt; \
+    --container-name tfstate \
+    --name terraform.tfstate \
+    --query "properties.lease"</pre>
+    </li>
 </ol>
+
+<h3>Resolution</h3>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">⚠️</span>
+    <div>
+        <strong>Caution:</strong> Only force-unlock if you are CERTAIN no other operation is running. Breaking an active lock can corrupt state.
+    </div>
+</div>
+
+<h4>Option 1: Wait and Retry (Safest)</h4>
+<p>Locks typically auto-release after 15-60 minutes. Wait and retry.</p>
+
+<h4>Option 2: Break the Blob Lease</h4>
+<pre># List current leases
+az storage blob lease show \
+    --account-name &lt;storage_account&gt; \
+    --container-name tfstate \
+    --blob-name terraform.tfstate
+
+# Break the lease (requires Storage Blob Data Owner role)
+az storage blob lease break \
+    --account-name &lt;storage_account&gt; \
+    --container-name tfstate \
+    --blob-name terraform.tfstate</pre>
+
+<h4>Option 3: Force Unlock via Terraform</h4>
+<pre># Get the lock ID from the error message, then:
+terraform force-unlock &lt;LOCK_ID&gt;
+
+# Example:
+terraform force-unlock 12345678-1234-1234-1234-123456789012</pre>
+
+<h3>Prevention</h3>
+<ul>
+    <li>Never cancel Terraform runs mid-operation</li>
+    <li>Use workflow concurrency controls (already configured)</li>
+    <li>Ensure proper timeout settings on pipeline jobs</li>
+</ul>
+
+<!-- ============================================================================
+     PLAYBOOK: OIDC AUTHENTICATION FAILURE
+     ============================================================================ -->
+
+<h2 id="oidc-failure">Playbook: OIDC Authentication Failing</h2>
+
+<div class="card" style="border-left-color: #f97316;">
+    <h3 style="margin-top: 0;">Symptoms</h3>
+    <ul>
+        <li>GitHub Actions fails at <code>azure/login</code> step</li>
+        <li>Error: <code>AADSTS700024: Client assertion is not within its valid time range</code></li>
+        <li>Error: <code>AADSTS70021: No matching federated identity record found</code></li>
+        <li>Error: <code>AADSTS700016: Application with identifier 'xxx' was not found</code></li>
+    </ul>
+</div>
+
+<h3>Diagnosis by Error Code</h3>
+
+<table>
+    <tr>
+        <th>Error</th>
+        <th>Cause</th>
+        <th>Fix</th>
+    </tr>
+    <tr>
+        <td><code>AADSTS700024</code></td>
+        <td>Token timing issue (clock skew)</td>
+        <td>Retry the workflow - usually transient</td>
+    </tr>
+    <tr>
+        <td><code>AADSTS70021</code></td>
+        <td>Subject claim doesn't match federated credential</td>
+        <td>Check branch/environment matches credential config</td>
+    </tr>
+    <tr>
+        <td><code>AADSTS700016</code></td>
+        <td>Client ID doesn't exist or wrong tenant</td>
+        <td>Verify AZURE_CLIENT_ID secret is correct</td>
+    </tr>
+</table>
+
+<h3>Resolution Steps</h3>
+
+<h4>1. Verify GitHub Secrets</h4>
+<pre># These secrets must be set in GitHub repository settings:
+AZURE_CLIENT_ID      # Managed Identity Client ID
+AZURE_TENANT_ID      # Azure AD Tenant ID
+AZURE_SUBSCRIPTION_ID # Target Subscription ID</pre>
+
+<h4>2. Verify Federated Credential Configuration</h4>
+<pre># Check federated credentials on the managed identity
+az ad app federated-credential list \
+    --id &lt;APP_OBJECT_ID&gt; \
+    --query "[].{name:name, subject:subject, issuer:issuer}"</pre>
+
+<p>The <code>subject</code> must match exactly:</p>
+<ul>
+    <li>For environment: <code>repo:bcgov/ai-hub-tracking:environment:dev</code></li>
+    <li>For branch: <code>repo:bcgov/ai-hub-tracking:ref:refs/heads/main</code></li>
+</ul>
+
+<h4>3. Check Token Claims</h4>
+<p>Add this step to your workflow to debug the token:</p>
+<pre>- name: Debug OIDC Token
+  run: |
+    TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+      "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r '.value')
+    echo "Token claims:"
+    echo $TOKEN | cut -d. -f2 | base64 -d 2>/dev/null | jq .</pre>
+
+<h4>4. Recreate Federated Credential</h4>
+<pre># Delete and recreate if misconfigured
+az ad app federated-credential delete \
+    --id &lt;APP_OBJECT_ID&gt; \
+    --federated-credential-id &lt;CREDENTIAL_ID&gt;
+
+# Recreate with correct subject
+./initial-setup/initial-azure-setup.sh \
+    -g "your-rg" -n "your-identity" \
+    -r "bcgov/ai-hub-tracking" -e "dev"</pre>
+
+<!-- ============================================================================
+     PLAYBOOK: ROLLBACK DEPLOYMENT
+     ============================================================================ -->
+
+<h2 id="rollback">Playbook: Rollback Failed Deployment</h2>
+
+<div class="card" style="border-left-color: #8b5cf6;">
+    <h3 style="margin-top: 0;">When to Use</h3>
+    <ul>
+        <li>A deployment broke existing functionality</li>
+        <li>Resources are in an inconsistent state</li>
+        <li>Need to revert to a known-good configuration</li>
+    </ul>
+</div>
+
+<h3>Option 1: Git Revert (Recommended)</h3>
+
+<pre># Find the last good commit
+git log --oneline -10
+
+# Revert the problematic commit(s)
+git revert &lt;BAD_COMMIT_SHA&gt;
+
+# Push to trigger pipeline with reverted code
+git push origin main</pre>
+
+<h3>Option 2: Restore from State Backup</h3>
+
+<p>Azure Blob Storage keeps versions of the state file:</p>
+
+<pre># List state file versions
+az storage blob list \
+    --account-name &lt;storage_account&gt; \
+    --container-name tfstate \
+    --include v \
+    --query "[?name=='terraform.tfstate'].{version:versionId, modified:properties.lastModified}"
+
+# Download a previous version
+az storage blob download \
+    --account-name &lt;storage_account&gt; \
+    --container-name tfstate \
+    --name terraform.tfstate \
+    --version-id &lt;VERSION_ID&gt; \
+    --file terraform.tfstate.backup</pre>
+
+<h3>Option 3: Targeted Destroy and Recreate</h3>
+
+<pre># Destroy specific problematic resources
+terraform destroy -target=azurerm_virtual_machine.jumpbox
+
+# Reapply to recreate with correct config
+terraform apply</pre>
+
+<div class="alert alert-info">
+    <span class="alert-icon">💡</span>
+    <div>
+        <strong>Tip:</strong> Always run <code>terraform plan</code> before <code>apply</code> after a rollback to verify the expected changes.
+    </div>
+</div>
+
+<!-- ============================================================================
+     PLAYBOOK: CREDENTIAL ROTATION
+     ============================================================================ -->
+
+<h2 id="credential-rotation">Playbook: Rotate Federated Credentials</h2>
+
+<div class="card" style="border-left-color: #22c55e;">
+    <h3 style="margin-top: 0;">When to Use</h3>
+    <ul>
+        <li>Suspected credential compromise</li>
+        <li>Security audit requires rotation</li>
+        <li>Changing repository or organization</li>
+    </ul>
+</div>
+
+<div class="alert alert-success">
+    <span class="alert-icon">✅</span>
+    <div>
+        <strong>Good News:</strong> With OIDC, there are no long-lived secrets to rotate! The "credential" is the trust relationship, not a secret key.
+    </div>
+</div>
+
+<h3>To Update the Trust Relationship</h3>
+
+<h4>1. Delete Existing Federated Credential</h4>
+<pre>az ad app federated-credential list --id &lt;APP_OBJECT_ID&gt;
+az ad app federated-credential delete \
+    --id &lt;APP_OBJECT_ID&gt; \
+    --federated-credential-id &lt;CREDENTIAL_ID&gt;</pre>
+
+<h4>2. Create New Federated Credential</h4>
+<pre>./initial-setup/initial-azure-setup.sh \
+    -g "your-rg" \
+    -n "your-identity" \
+    -r "bcgov/new-repo-name" \
+    -e "dev"</pre>
+
+<h4>3. Update GitHub Secrets (if Client ID changed)</h4>
+<ol>
+    <li>Go to Repository Settings → Secrets and variables → Actions</li>
+    <li>Update <code>AZURE_CLIENT_ID</code> with new Managed Identity Client ID</li>
+</ol>
+
+<h4>4. Verify New Configuration</h4>
+<pre># Trigger a test workflow run
+gh workflow run deploy.yml</pre>
+
+<!-- ============================================================================
+     PLAYBOOK: BASTION ACCESS ISSUES
+     ============================================================================ -->
+
+<h2 id="bastion-access">Playbook: Bastion Access Issues</h2>
+
+<div class="card" style="border-left-color: #0ea5e9;">
+    <h3 style="margin-top: 0;">Symptoms</h3>
+    <ul>
+        <li>Cannot connect to VM via Azure Portal Bastion</li>
+        <li>Connection times out</li>
+        <li>"Bastion host not found" error</li>
+    </ul>
+</div>
+
+<h3>Diagnosis</h3>
+
+<h4>1. Check if Bastion is Deployed</h4>
+<pre>az network bastion list \
+    --resource-group &lt;RG_NAME&gt; \
+    --query "[].{name:name, state:provisioningState}"</pre>
+
+<p>If empty, Bastion may be disabled (cost-saving). Deploy it:</p>
+<pre># Via GitHub Actions
+gh workflow run bastion-add-or-remove.yml -f action=add
+
+# Or via manual trigger in GitHub UI</pre>
+
+<h4>2. Check NSG Rules</h4>
+<pre># Bastion subnet requires specific NSG rules
+az network nsg rule list \
+    --resource-group &lt;RG_NAME&gt; \
+    --nsg-name &lt;BASTION_NSG&gt; \
+    --query "[].{name:name, access:access, direction:direction, port:destinationPortRange}"</pre>
+
+<p>Required inbound rules:</p>
+<ul>
+    <li>HTTPS (443) from Internet</li>
+    <li>Gateway Manager from GatewayManager service tag</li>
+    <li>Azure Load Balancer from AzureLoadBalancer service tag</li>
+</ul>
+
+<h4>3. Check VM Status</h4>
+<pre>az vm get-instance-view \
+    --resource-group &lt;RG_NAME&gt; \
+    --name &lt;VM_NAME&gt; \
+    --query "instanceView.statuses[1].displayStatus"</pre>
+
+<p>VM must be in "VM running" state.</p>
+
+<!-- ============================================================================
+     PLAYBOOK: PIPELINE STUCK
+     ============================================================================ -->
+
+<h2 id="pipeline-stuck">Playbook: GitHub Actions Pipeline Stuck</h2>
+
+<div class="card" style="border-left-color: #fcba19;">
+    <h3 style="margin-top: 0;">Symptoms</h3>
+    <ul>
+        <li>Pipeline shows "In progress" for extended time</li>
+        <li>Terraform plan/apply seems to hang</li>
+        <li>No new log output appearing</li>
+    </ul>
+</div>
+
+<h3>Resolution</h3>
+
+<h4>1. Check for Pending Approvals</h4>
+<p>Production environments require approval. Check the workflow run for pending reviews.</p>
+
+<h4>2. Cancel and Retry</h4>
+<pre># Cancel via CLI
+gh run cancel &lt;RUN_ID&gt;
+
+# Retry
+gh workflow run &lt;WORKFLOW_NAME&gt;</pre>
+
+<h4>3. Check for State Lock</h4>
+<p>If Terraform is waiting on state lock, see <a href="#state-lock">State Lock Playbook</a>.</p>
+
+<h4>4. Check Runner Health</h4>
+<pre># View recent workflow runs
+gh run list --limit 10
+
+# Check specific run logs
+gh run view &lt;RUN_ID&gt; --log</pre>
+
+<h4>5. GitHub Status</h4>
+<p>Check <a href="https://www.githubstatus.com/" target="_blank">GitHub Status Page</a> for platform issues.</p>
+
+<h2>Emergency Contacts</h2>
+
+<div class="card" style="background: var(--bc-blue); color: white; border-left-color: var(--bc-gold);">
+    <h3 style="color: var(--bc-gold); margin-top: 0;">Escalation Path</h3>
+    <ol style="margin-bottom: 0;">
+        <li><strong>First Response:</strong> Platform Team Slack channel</li>
+        <li><strong>Azure Issues:</strong> Azure Support (if support plan active)</li>
+        <li><strong>GitHub Issues:</strong> GitHub Support</li>
+        <li><strong>Security Incidents:</strong> Security Team immediately</li>
+    </ol>
+</div>
     </main>
     <footer class="site-footer">
         <div class="footer-content">

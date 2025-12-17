@@ -1,0 +1,373 @@
+<!-- TITLE: FAQ -->
+<!-- NAV: faq -->
+
+<h1>Frequently Asked Questions</h1>
+
+<p>Common questions about the AI Services Hub Landing Zone, network architecture, and onboarding process.</p>
+
+<div class="alert alert-info">
+    <span class="alert-icon">📋</span>
+    <div>
+        <strong>Questions pending answers are marked with</strong> <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    </div>
+</div>
+
+<h2>Network & Subscription Setup</h2>
+
+<div class="card">
+    <h3 style="margin-top:0;">What network sizes were allocated for the AI Hub?</h3>
+    <span class="badge badge-gold">Answered</span>
+    <table style="margin-top: 1rem;">
+        <tr>
+            <th>Environment</th>
+            <th>VNet Size</th>
+            <th>Usable IPs</th>
+        </tr>
+        <tr>
+            <td><strong>da4cf6-prod</strong></td>
+            <td>4x /24 (= /22)</td>
+            <td>~1,020</td>
+        </tr>
+        <tr>
+            <td><strong>da4cf6-test</strong></td>
+            <td>2x /24 (= /23)</td>
+            <td>~508</td>
+        </tr>
+        <tr>
+            <td><strong>da4cf6-dev</strong></td>
+            <td>1x /24</td>
+            <td>~251</td>
+        </tr>
+        <tr>
+            <td><strong>da4cf6-tools</strong></td>
+            <td>1x /24</td>
+            <td>~251</td>
+        </tr>
+    </table>
+    <p style="margin-top: 1rem; color: var(--text-secondary);"><em>Confirmed by Platform Services Team on Dec 11, 2025</em></p>
+</div>
+
+<div class="card">
+    <h3 style="margin-top:0;">Why does the AI Hub need larger VNets than standard /24?</h3>
+    <span class="badge badge-gold">Answered</span>
+    <p>The AI Hub will run multiple Azure services that each require significant IP allocation:</p>
+    <table style="margin-top: 1rem;">
+        <tr>
+            <th>Service</th>
+            <th>Min Size</th>
+            <th>Recommended</th>
+        </tr>
+        <tr>
+            <td>API Management (APIM)</td>
+            <td>/26</td>
+            <td>/24</td>
+        </tr>
+        <tr>
+            <td>App Gateway</td>
+            <td>/26</td>
+            <td>/24</td>
+        </tr>
+        <tr>
+            <td>AI Foundry</td>
+            <td>/25</td>
+            <td>/24</td>
+        </tr>
+        <tr>
+            <td>PrivateLink Subnet</td>
+            <td>/27</td>
+            <td>/27</td>
+        </tr>
+        <tr>
+            <td>AKS</td>
+            <td>Variable</td>
+            <td>Variable</td>
+        </tr>
+    </table>
+    <p style="margin-top: 1rem;"><strong>Total:</strong> This exceeds the standard /24 (256 IPs), requiring at least a /22 for production.</p>
+</div>
+
+<div class="card">
+    <h3 style="margin-top:0;">What is the non-routable IP range for Canada East?</h3>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>Non-prod resources in Canada East will use a portion of the non-routable IP range (10.10.x.x). PrivateLink will be used to access these resources over the routable network.</p>
+    <div class="alert alert-warning" style="margin-top: 1rem;">
+        <span class="alert-icon">❓</span>
+        <div>
+            <strong>Open Questions:</strong>
+            <ul style="margin-bottom: 0;">
+                <li>What specific 10.10.x.x range will be assigned?</li>
+                <li>How will PrivateLink routing be configured?</li>
+                <li>What's the process to request additional IP blocks if needed?</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<h2>Onboarding & Access</h2>
+
+<div class="card">
+    <h3 style="margin-top:0;">How do other teams onboard to the AI Hub?</h3>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>The onboarding process for other BC Gov teams to use the AI Hub is being developed.</p>
+    <div class="alert alert-warning" style="margin-top: 1rem;">
+        <span class="alert-icon">❓</span>
+        <div>
+            <strong>Open Questions:</strong>
+            <ul style="margin-bottom: 0;">
+                <li>What's the intake process for new teams?</li>
+                <li>What prerequisites must teams meet?</li>
+                <li>How are resources allocated per team?</li>
+                <li>What's the cost model (chargeback)?</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3 style="margin-top:0;">What's the 3-6-9 month roadmap?</h3>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>A planning/whiteboarding session was proposed with the following agenda:</p>
+    <ul>
+        <li>Roles Overview</li>
+        <li>Technical capabilities - first 3 months to showcase value</li>
+        <li>Services onboarding enablers</li>
+        <li>3-6-9 months baseline roadmap/milestones</li>
+        <li>WBS tracker (Azure DevOps/GitHub)</li>
+        <li>Regular cadences</li>
+    </ul>
+    <div class="alert alert-warning" style="margin-top: 1rem;">
+        <span class="alert-icon">❓</span>
+        <div>
+            <strong>Status:</strong> Planning session with Microsoft to be scheduled. Date TBD.
+        </div>
+    </div>
+</div>
+
+<h2>Technical Architecture</h2>
+
+<div class="card">
+    <h3 style="margin-top:0;">Why can't GitHub Actions run Terraform directly?</h3>
+    <span class="badge badge-gold">Answered</span>
+    <p>See <a href="decisions.html#adr-001">ADR-001: Shared Landing Zone</a> for the full explanation.</p>
+    <p><strong>Short answer:</strong> BC Gov policy requires all Azure services to use private endpoints. GitHub-hosted runners are on the public internet and cannot reach private endpoints. Self-hosted runners inside the VNet are required.</p>
+</div>
+
+<div class="card">
+    <h3 style="margin-top:0;">What Azure services will the AI Hub provide?</h3>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>The AI Hub is intended to provide shared AI services for BC Gov teams. Services under consideration:</p>
+    <ul>
+        <li>Azure AI Foundry</li>
+        <li>API Management (APIM) for model access</li>
+        <li>Azure Kubernetes Service (AKS)</li>
+        <li>App Gateway for ingress</li>
+    </ul>
+    <div class="alert alert-warning" style="margin-top: 1rem;">
+        <span class="alert-icon">❓</span>
+        <div>
+            <strong>Open Questions:</strong>
+            <ul style="margin-bottom: 0;">
+                <li>Which AI models will be available?</li>
+                <li>What's the governance model for model usage?</li>
+                <li>How will prompt logging/auditing work?</li>
+                <li>What data residency requirements apply?</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3 style="margin-top:0;">How does VNet peering work between environments?</h3>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>Non-prod environments (dev, test, tools) will use VNet peering.</p>
+    <div class="alert alert-warning" style="margin-top: 1rem;">
+        <span class="alert-icon">❓</span>
+        <div>
+            <strong>Open Questions:</strong>
+            <ul style="margin-bottom: 0;">
+                <li>Will dev/test/tools be peered together or separate?</li>
+                <li>What's the traffic flow between environments?</li>
+                <li>Are there NSG rules restricting cross-environment access?</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<h2>Questions for Microsoft</h2>
+
+<div class="alert alert-info">
+    <span class="alert-icon">🤝</span>
+    <div>
+        <strong>Post kick-off questions for Microsoft regarding Azure AI Application Zone</strong> (Dec 2025)
+    </div>
+</div>
+
+<h3>Repository & Deployment Strategy</h3>
+
+<div class="card">
+    <h4 style="margin-top:0;">1. Should we use a forked repo or overlay repo approach?</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>The upstream <a href="https://github.com/Azure/AI-Landing-Zones">Azure AI Landing Zones</a> repo may become archived. What's the recommended approach for maintaining our customizations?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">2. What's the long-term support outlook for AI Landing Zones?</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>Given the archival risk, what's Microsoft's commitment to maintaining the upstream reference architecture?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">3. Fork sync strategy</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>If we fork, how should we handle syncing upstream changes while preserving BC Gov customizations?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">4. Policy overlay management</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>How do we layer BC Gov-specific Azure policies on top of the base landing zone without conflicts?</p>
+</div>
+
+<h3>Access & Security</h3>
+
+<div class="card">
+    <h4 style="margin-top:0;">5. User access model for AI Foundry</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>How will end users (data scientists, developers) access AI Foundry? What's the authentication/authorization model?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">6. RBAC model</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>What RBAC roles are needed for different user personas (platform admins, team leads, developers, data scientists)?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">7. Governance automation</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>How can we automate governance policies (data classification, model approval, prompt logging)?</p>
+</div>
+
+<h3>Infrastructure & Cost</h3>
+
+<div class="card">
+    <h4 style="margin-top:0;">8. Cost-effective IaC deployment without Bastion+VM</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>Running Bastion ($140/month) + Jumpbox just for Terraform deployments is expensive. Are there cheaper alternatives that still meet private endpoint requirements?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">9. GitHub self-hosted runners vs Azure DevOps</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>What's the recommended CI/CD approach for private endpoint deployments? Self-hosted GitHub runners in VNet vs Azure DevOps agents?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">10. Shared vs dedicated resources per team</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>Which resources should be shared across teams (APIM, AI models) vs dedicated per team (compute, storage)?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">11. Cost allocation and chargeback</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>How do we track and allocate costs to individual teams/projects using shared AI services?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">12. Telemetry and tagging strategy</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>What tagging conventions and telemetry should be implemented for cost tracking and observability?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">13. Noisy neighbor mitigation</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>How do we prevent one team's workload from impacting others in a shared environment (rate limiting, quotas)?</p>
+</div>
+
+<h3>Onboarding & Operations</h3>
+
+<div class="card">
+    <h4 style="margin-top:0;">14. Project namespace concept</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>How should we isolate team workloads? Resource groups per team? Subscriptions? Kubernetes namespaces?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">15. Non-Foundry services governance</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>How do we govern teams that want to deploy their own AI services (Ollama, vLLM) outside of AI Foundry?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">16. Onboarding journey</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>What's the end-to-end flow for a new team to request access, get approved, and start using AI services?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">17. Runbooks and playbooks</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>What operational runbooks are needed for Day 2 operations (incident response, scaling, maintenance)?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">18. SDPR OCR scope</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>What's the scope of SDPR's OCR (Document Intelligence) requirements and how does it fit into the shared platform?</p>
+</div>
+
+<h2>Pending Decisions</h2>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">📝</span>
+    <div>
+        <strong>Items requiring team discussion or decisions:</strong>
+    </div>
+</div>
+
+<table>
+    <tr>
+        <th>#</th>
+        <th>Question</th>
+        <th>Owner</th>
+        <th>Status</th>
+    </tr>
+    <tr>
+        <td>1</td>
+        <td>Canada East non-routable IP range assignment</td>
+        <td>Platform Team</td>
+        <td><span class="badge" style="background:#f59e0b;color:white;">Waiting</span></td>
+    </tr>
+    <tr>
+        <td>2</td>
+        <td>Team onboarding process documentation</td>
+        <td>Product Management</td>
+        <td><span class="badge" style="background:#f59e0b;color:white;">In Progress</span></td>
+    </tr>
+    <tr>
+        <td>3</td>
+        <td>3-6-9 month roadmap</td>
+        <td>Microsoft</td>
+        <td><span class="badge" style="background:#f59e0b;color:white;">In Progress</span></td>
+    </tr>
+    <tr>
+        <td>4</td>
+        <td>Cost model / chargeback for AI services</td>
+        <td>Executive Sponsor</td>
+        <td><span class="badge" style="background:#ef4444;color:white;">Not Started</span></td>
+    </tr>
+    <tr>
+        <td>5</td>
+        <td>Self-hosted runner setup in VNet</td>
+        <td>Platform Team</td>
+        <td><span class="badge" style="background:#ef4444;color:white;">Not Started</span></td>
+    </tr>
+    <tr>
+        <td>6</td>
+        <td>AI model governance policy</td>
+        <td>TBD</td>
+        <td><span class="badge" style="background:#ef4444;color:white;">Not Started</span></td>
+    </tr>
+</table>

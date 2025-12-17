@@ -5,8 +5,9 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
+      - 'infra/**'  # Rebuild docs when Terraform changes
       - '.github/workflows/pages.yml'
-  workflow_dispatch: # Allow manual trigger
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -18,14 +19,46 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  build:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Generate Terraform documentation using terraform-docs
+      # This replaces the custom bash regex parser with the industry-standard tool
+      # terraform-docs natively parses HCL and handles all edge cases
+      - name: Generate Terraform Docs
+        uses: terraform-docs/gh-actions@v1.3.0
+        with:
+          working-dir: infra
+          output-file: terraform-docs.md
+          output-method: inject
+          git-push: false
+          config-file: .terraform-docs.yml
+        continue-on-error: true  # Don't fail if terraform-docs config is missing
+
+      # Alternative: Generate HTML directly for each module
+      - name: Generate Module Documentation
+        run: |
+          # Install terraform-docs if not using the action above
+          # curl -sSLo ./terraform-docs.tar.gz https://terraform-docs.io/dl/v0.18.0/terraform-docs-v0.18.0-linux-amd64.tar.gz
+          # tar -xzf terraform-docs.tar.gz
+          # chmod +x terraform-docs
+
+          # For now, use the existing bash script as fallback
+          # This will be replaced when terraform-docs is configured
+          cd docs
+          if [ -f "generate-tf-docs.sh" ]; then
+            chmod +x generate-tf-docs.sh
+            ./generate-tf-docs.sh || echo "TF docs generation skipped"
+          fi
+
+      - name: Build documentation
+        run: |
+          cd docs
+          chmod +x build.sh
+          ./build.sh
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
@@ -35,6 +68,13 @@ jobs:
         with:
           path: docs
 
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4

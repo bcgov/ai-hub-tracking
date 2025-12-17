@@ -1,0 +1,1542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ArchitectureDiagrams | AI Hub Tracking</title>
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <style>
+        :root {
+            --bc-blue: #003366;
+            --bc-gold: #fcba19;
+            --bc-blue-dark: #002244;
+            --bc-blue-light: #1a5a96;
+            --text-primary: #313132;
+            --text-secondary: #606060;
+            --bg-light: #f2f2f2;
+            --white: #ffffff;
+            --gradient-hero: linear-gradient(135deg, #003366 0%, #1a5a96 50%, #003366 100%);
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.08);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.12);
+            --shadow-lg: 0 8px 24px rgba(0,0,0,0.16);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'BC Sans', 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background: var(--bg-light);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .bc-header {
+            background: var(--gradient-hero);
+            border-bottom: 4px solid var(--bc-gold);
+            padding: 0.5rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: var(--shadow-md);
+        }
+
+        .bc-header-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            text-decoration: none;
+        }
+
+        .bc-header-logo {
+            height: 36px;
+            width: auto;
+            border-radius: 4px;
+        }
+
+        .bc-header-title {
+            color: var(--white);
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .bc-header-subtitle {
+            color: var(--bc-gold);
+            font-size: 0.875rem;
+        }
+
+        /* Navigation with Dropdowns */
+        .bc-nav {
+            display: flex;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .bc-nav > a,
+        .nav-dropdown > .nav-trigger {
+            color: var(--white);
+            text-decoration: none;
+            padding: 0.6rem 1rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            border: none;
+            background: transparent;
+            font-family: inherit;
+        }
+
+        .bc-nav > a:hover,
+        .nav-dropdown:hover > .nav-trigger {
+            background: rgba(255,255,255,0.15);
+        }
+
+        .bc-nav > a.active {
+            background: var(--bc-gold);
+            color: var(--bc-blue);
+            font-weight: 600;
+        }
+
+        /* Dropdown */
+        .nav-dropdown {
+            position: relative;
+        }
+
+        .nav-trigger::after {
+            content: '';
+            border: solid currentColor;
+            border-width: 0 2px 2px 0;
+            display: inline-block;
+            padding: 3px;
+            transform: rotate(45deg);
+            margin-top: -3px;
+            transition: transform 0.2s;
+        }
+
+        .nav-dropdown:hover .nav-trigger::after {
+            transform: rotate(-135deg);
+            margin-top: 3px;
+        }
+
+        .nav-dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: var(--white);
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            min-width: 220px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: var(--transition);
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .nav-dropdown:hover .nav-dropdown-menu {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .nav-dropdown-menu a {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: var(--transition);
+            border-left: 3px solid transparent;
+        }
+
+        .nav-dropdown-menu a:hover {
+            background: var(--bg-light);
+            border-left-color: var(--bc-gold);
+            color: var(--bc-blue);
+        }
+
+        .nav-dropdown-menu a small {
+            display: block;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            margin-top: 0.2rem;
+        }
+
+        /* Main Content */
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            flex: 1;
+            width: 100%;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: var(--gradient-hero);
+            color: var(--white);
+            padding: 3rem 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .hero h1 {
+            color: var(--white);
+            border: none;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Typography */
+        h1 {
+            color: var(--bc-blue);
+            font-size: 2.25rem;
+            margin-bottom: 1rem;
+            border-bottom: 3px solid var(--bc-gold);
+            padding-bottom: 0.5rem;
+        }
+
+        h2 {
+            color: var(--bc-blue);
+            font-size: 1.5rem;
+            margin: 2rem 0 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        h2::before {
+            content: '';
+            width: 4px;
+            height: 1.5rem;
+            background: var(--bc-gold);
+            border-radius: 2px;
+        }
+
+        h3 {
+            color: var(--bc-blue-light);
+            font-size: 1.25rem;
+            margin: 1.5rem 0 0.75rem;
+        }
+
+        p {
+            margin-bottom: 1rem;
+        }
+
+        /* Cards - Enhanced */
+        .card {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+            border-left: 4px solid var(--bc-blue);
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .card-gold {
+            border-left-color: var(--bc-gold);
+        }
+
+        .card h3 {
+            margin-top: 0;
+        }
+
+        /* Clickable Cards */
+        a.card-link {
+            display: block;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        a.card-link .card {
+            cursor: pointer;
+        }
+
+        a.card-link .card:hover {
+            border-left-width: 6px;
+        }
+
+        .card-arrow {
+            color: var(--bc-blue-light);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            transition: var(--transition);
+        }
+
+        a.card-link:hover .card-arrow {
+            gap: 0.75rem;
+            color: var(--bc-blue);
+        }
+
+        /* Feature Cards */
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-icon.gold { background: rgba(252, 186, 25, 0.15); }
+        .feature-icon.blue { background: rgba(0, 51, 102, 0.1); }
+        .feature-icon.green { background: rgba(34, 197, 94, 0.1); }
+        .feature-icon.purple { background: rgba(139, 92, 246, 0.1); }
+
+        /* Stats */
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--bc-gold);
+            line-height: 1;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Code blocks */
+        pre {
+            background: var(--bc-blue-dark);
+            color: #e2e8f0;
+            padding: 1.25rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 0.875rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        code {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            background: #e2e8f0;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            background: var(--white);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+
+        th {
+            background: var(--bc-blue);
+            color: var(--white);
+            padding: 0.875rem 1rem;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 0.875rem 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Lists */
+        ul, ol {
+            margin: 1rem 0;
+            padding-left: 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        /* Links */
+        a {
+            color: var(--bc-blue-light);
+            transition: var(--transition);
+        }
+
+        a:hover {
+            color: var(--bc-blue);
+        }
+
+        /* Grid */
+        .grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+
+        .grid-4 {
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+
+        /* Alerts */
+        .alert {
+            padding: 1rem 1.25rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .alert-icon {
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .alert-info {
+            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+            border-left: 4px solid #0ea5e9;
+        }
+
+        .alert-warning {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-left: 4px solid var(--bc-gold);
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            border-left: 4px solid #22c55e;
+        }
+
+        /* Image containers */
+        .img-container {
+            margin: 1.5rem 0;
+            text-align: center;
+        }
+
+        .img-container img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-gold {
+            background: var(--bc-gold);
+            color: var(--bc-blue);
+        }
+
+        .badge-blue {
+            background: var(--bc-blue);
+            color: var(--white);
+        }
+
+        /* Footer */
+        .site-footer {
+            background: var(--bc-blue);
+            color: var(--white);
+            padding: 3rem 2rem;
+            margin-top: auto;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+        }
+
+        .footer-brand h4,
+        .footer-links h4 {
+            color: var(--bc-gold);
+            margin-bottom: 0.75rem;
+            font-size: 1rem;
+        }
+
+        .footer-brand p {
+            color: #94a3b8;
+            font-size: 0.875rem;
+            margin: 0;
+        }
+
+        .footer-links ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .footer-links li {
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-links a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: var(--transition);
+        }
+
+        .footer-links a:hover {
+            color: var(--bc-gold);
+        }
+
+        .footer-copyright {
+            text-align: right;
+        }
+
+        .footer-copyright p {
+            color: #64748b;
+            font-size: 0.75rem;
+            margin: 0;
+        }
+
+        .footer-meta {
+            margin-top: 0.5rem !important;
+            opacity: 0.7;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .bc-header {
+                flex-direction: column;
+                text-align: center;
+                padding: 1rem;
+            }
+
+            .bc-nav {
+                justify-content: center;
+            }
+
+            .nav-dropdown-menu {
+                position: fixed;
+                left: 1rem;
+                right: 1rem;
+                width: auto;
+            }
+
+            main {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 1.75rem;
+            }
+
+            .hero {
+                padding: 2rem 1rem;
+            }
+
+            .hero h1 {
+                font-size: 1.75rem;
+            }
+
+            .footer-content {
+                text-align: center;
+            }
+
+            .footer-copyright {
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="bc-header">
+        <a href="index.html" class="bc-header-brand">
+            <img src="assets/bc_citz_logo.jpg" alt="BC Government" class="bc-header-logo">
+            <div>
+                <div class="bc-header-title">AI Hub Tracking</div>
+                <div class="bc-header-subtitle">Azure Landing Zone Infrastructure</div>
+            </div>
+        </a>
+        <nav class="bc-nav">
+            <a href="index.html" class="">Home</a>
+            <div class="nav-dropdown">
+                <span class="nav-trigger">Guides</span>
+                <div class="nav-dropdown-menu">
+                    <a href="oidc-setup.html">
+                        OIDC Setup
+                        <small>GitHub to Azure authentication</small>
+                    </a>
+                    <a href="terraform.html">
+                        Terraform Modules
+                        <small>Network, Bastion, Jumpbox</small>
+                    </a>
+                    <a href="workflows.html">
+                        GitHub Workflows
+                        <small>CI/CD automation</small>
+                    </a>
+                    <a href="terraform-reference.html">
+                        TF Reference
+                        <small>Auto-generated from code</small>
+                    </a>
+                </div>
+            </div>
+            <a href="diagrams.html" class="">Diagrams</a>
+            <a href="playbooks.html" class="">Playbooks</a>
+            <a href="decisions.html" class="">ADRs</a>
+            <a href="faq.html" class="">FAQ</a>
+        </nav>
+    </header>
+    <main>
+
+<style>
+/* SVG Viewer Styles */
+.diagram-viewer {
+    background: var(--white);
+    border-radius: 12px;
+    box-shadow: var(--shadow-lg);
+    overflow: hidden;
+    margin-bottom: 2rem;
+}
+
+.diagram-toolbar {
+    background: var(--bc-blue);
+    padding: 0.75rem 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.diagram-title {
+    color: var(--white);
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.diagram-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.diagram-btn {
+    background: rgba(255,255,255,0.1);
+    border: 1px solid rgba(255,255,255,0.2);
+    color: var(--white);
+    padding: 0.4rem 0.75rem;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.85rem;
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+}
+
+.diagram-btn:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+.diagram-btn.active {
+    background: var(--bc-gold);
+    color: var(--bc-blue);
+    border-color: var(--bc-gold);
+}
+
+.zoom-display {
+    color: var(--bc-gold);
+    font-size: 0.85rem;
+    min-width: 50px;
+    text-align: center;
+}
+
+.diagram-container {
+    position: relative;
+    overflow: auto;
+    background: linear-gradient(45deg, #f0f0f0 25%, transparent 25%),
+                linear-gradient(-45deg, #f0f0f0 25%, transparent 25%),
+                linear-gradient(45deg, transparent 75%, #f0f0f0 75%),
+                linear-gradient(-45deg, transparent 75%, #f0f0f0 75%);
+    background-size: 20px 20px;
+    background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    background-color: #fafafa;
+    min-height: 500px;
+    max-height: 80vh;
+}
+
+.diagram-svg-wrapper {
+    transform-origin: top left;
+    transition: transform 0.3s ease;
+    display: inline-block;
+    min-width: 100%;
+}
+
+.diagram-svg-wrapper svg,
+.diagram-svg-wrapper img {
+    display: block;
+    max-width: none;
+}
+
+/* Fullscreen mode */
+.diagram-viewer.fullscreen {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 9999;
+    border-radius: 0;
+    margin: 0;
+}
+
+.diagram-viewer.fullscreen .diagram-container {
+    max-height: calc(100vh - 50px);
+    height: calc(100vh - 50px);
+}
+
+/* Diagram Gallery */
+.diagram-gallery {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.diagram-card {
+    background: var(--white);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+    cursor: pointer;
+    transition: var(--transition);
+    border: 2px solid transparent;
+}
+
+.diagram-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-4px);
+}
+
+.diagram-card.active {
+    border-color: var(--bc-gold);
+    box-shadow: 0 0 0 3px rgba(252, 186, 25, 0.3);
+}
+
+.diagram-card-preview {
+    height: 160px;
+    overflow: hidden;
+    background: var(--bg-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+}
+
+.diagram-card-preview img,
+.diagram-card-preview svg {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.diagram-card-info {
+    padding: 1rem;
+    border-top: 3px solid var(--bc-gold);
+}
+
+.diagram-card-info h4 {
+    margin: 0 0 0.5rem 0;
+    color: var(--bc-blue);
+    font-size: 1rem;
+}
+
+.diagram-card-info p {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+/* Interactive SVG Elements */
+.diagram-svg-wrapper [data-tooltip] {
+    cursor: pointer;
+}
+
+.diagram-svg-wrapper [data-tooltip]:hover {
+    filter: brightness(1.1);
+}
+
+/* Legend */
+.diagram-legend {
+    background: var(--white);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    justify-content: center;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.legend-color {
+    width: 16px;
+    height: 16px;
+    border-radius: 4px;
+}
+
+/* Hotspots overlay */
+.diagram-hotspots {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.hotspot {
+    position: absolute;
+    pointer-events: auto;
+    cursor: pointer;
+    background: rgba(252, 186, 25, 0.3);
+    border: 2px solid var(--bc-gold);
+    border-radius: 8px;
+    opacity: 0;
+    transition: opacity 0.3s;
+}
+
+.diagram-container:hover .hotspot {
+    opacity: 1;
+}
+
+.hotspot:hover {
+    background: rgba(252, 186, 25, 0.5);
+}
+
+.hotspot-tooltip {
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    background: var(--bc-blue);
+    color: var(--white);
+    padding: 0.5rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    white-space: nowrap;
+    opacity: 0;
+    visibility: hidden;
+    transition: var(--transition);
+    margin-bottom: 0.5rem;
+}
+
+.hotspot:hover .hotspot-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Keyboard hints */
+.keyboard-hints {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    margin-top: 0.5rem;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.kbd {
+    background: var(--bg-light);
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-family: monospace;
+    border: 1px solid #ddd;
+}
+</style>
+
+<h1>Architecture Diagrams</h1>
+
+<p>Interactive diagrams showing the OIDC authentication flow, infrastructure architecture, and deployment processes. Click any diagram to view it in the interactive viewer with zoom and pan controls.</p>
+
+<h2>Select a Diagram</h2>
+
+<div class="diagram-gallery" id="diagramGallery">
+    <div class="diagram-card active" onclick="loadDiagram('oidc-complete', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/azure-oidc-complete-guide.svg" alt="OIDC Complete Guide Preview">
+        </div>
+        <div class="diagram-card-info">
+            <h4>OIDC Complete Guide</h4>
+            <p>Full authentication flow, token lifecycle, and architecture overview</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('token-flow', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/token-flow.svg" alt="Token Flow Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>Token Exchange Flow</h4>
+            <p>Detailed JWT token exchange between GitHub and Azure</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('network-arch', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/network-architecture.svg" alt="Network Architecture Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>Network Architecture</h4>
+            <p>VNet topology, subnets, NSGs, and Bastion connectivity</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('deployment-pipeline', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/deployment-pipeline.svg" alt="Deployment Pipeline Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>Deployment Pipeline</h4>
+            <p>GitHub Actions workflow stages and Terraform execution</p>
+        </div>
+    </div>
+</div>
+
+<h2>Interactive Viewer</h2>
+
+<div class="diagram-viewer" id="diagramViewer">
+    <div class="diagram-toolbar">
+        <span class="diagram-title" id="currentDiagramTitle">OIDC Complete Guide</span>
+        <div class="diagram-controls">
+            <button class="diagram-btn" onclick="zoomOut()" title="Zoom Out (-)">
+                <span>−</span> Zoom Out
+            </button>
+            <span class="zoom-display" id="zoomLevel">100%</span>
+            <button class="diagram-btn" onclick="zoomIn()" title="Zoom In (+)">
+                <span>+</span> Zoom In
+            </button>
+            <button class="diagram-btn" onclick="resetZoom()" title="Reset (0)">Reset</button>
+            <button class="diagram-btn" onclick="fitToWidth()" title="Fit Width (W)">Fit Width</button>
+            <button class="diagram-btn" onclick="toggleFullscreen()" id="fullscreenBtn" title="Fullscreen (F)">
+                ⛶ Fullscreen
+            </button>
+            <a class="diagram-btn" id="downloadBtn" href="assets/azure-oidc-complete-guide.svg" download title="Download SVG">
+                ↓ Download
+            </a>
+        </div>
+    </div>
+    <div class="diagram-container" id="diagramContainer">
+        <div class="diagram-svg-wrapper" id="svgWrapper">
+            <img src="assets/azure-oidc-complete-guide.svg" alt="OIDC Complete Guide" id="currentDiagram">
+        </div>
+    </div>
+</div>
+
+<div class="keyboard-hints">
+    <span><span class="kbd">+</span> / <span class="kbd">-</span> Zoom</span>
+    <span><span class="kbd">0</span> Reset</span>
+    <span><span class="kbd">W</span> Fit Width</span>
+    <span><span class="kbd">F</span> Fullscreen</span>
+    <span><span class="kbd">Esc</span> Exit Fullscreen</span>
+</div>
+
+<div class="diagram-legend">
+    <div class="legend-item">
+        <div class="legend-color" style="background: #003366;"></div>
+        <span>BC Blue - Primary elements</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-color" style="background: #fcba19;"></div>
+        <span>BC Gold - Highlights & actions</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-color" style="background: #22c55e;"></div>
+        <span>Green - Success states</span>
+    </div>
+    <div class="legend-item">
+        <div class="legend-color" style="background: #0078d4;"></div>
+        <span>Azure Blue - Azure services</span>
+    </div>
+</div>
+
+<h2>Diagram Descriptions</h2>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: #fcba19;">
+        <h3 style="margin-top: 0;">OIDC Complete Guide</h3>
+        <p>The comprehensive diagram showing:</p>
+        <ul style="margin-bottom: 0;">
+            <li><strong>Section 1:</strong> One-time setup process and prerequisites</li>
+            <li><strong>Section 2:</strong> Token lifecycle and 5-step exchange flow</li>
+            <li><strong>Section 3:</strong> Terraform backend and workflow configuration</li>
+            <li><strong>Section 4:</strong> Complete architecture with all components</li>
+            <li><strong>Section 5:</strong> Quick reference checklist and troubleshooting</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: #8b5cf6;">
+        <h3 style="margin-top: 0;">Token Exchange Flow</h3>
+        <p>Detailed sequence diagram showing:</p>
+        <ul style="margin-bottom: 0;">
+            <li>GitHub Actions requesting OIDC token</li>
+            <li>JWT claims and audience configuration</li>
+            <li>Azure AD token validation</li>
+            <li>Federated credential matching</li>
+            <li>Access token issuance and scope</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: #22c55e;">
+        <h3 style="margin-top: 0;">Network Architecture</h3>
+        <p>Infrastructure topology showing:</p>
+        <ul style="margin-bottom: 0;">
+            <li>Virtual Network and address spaces</li>
+            <li>Subnet segmentation strategy</li>
+            <li>NSG rules and traffic flow</li>
+            <li>Bastion and Jumpbox connectivity</li>
+            <li>Private endpoint configurations</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: #0078d4;">
+        <h3 style="margin-top: 0;">Deployment Pipeline</h3>
+        <p>CI/CD workflow visualization:</p>
+        <ul style="margin-bottom: 0;">
+            <li>Trigger conditions and branch rules</li>
+            <li>Environment selection and approvals</li>
+            <li>Terraform plan/apply stages</li>
+            <li>State locking and backend access</li>
+            <li>Notification and rollback flows</li>
+        </ul>
+    </div>
+</div>
+
+<h2>Using SVG Diagrams</h2>
+
+<div class="alert alert-info">
+    <span class="alert-icon">💡</span>
+    <div>
+        <strong>Why SVG?</strong><br>
+        SVG diagrams are vector-based, meaning they scale infinitely without losing quality. You can zoom in to see fine details, search text within the diagram, and even modify colors or extract sections for presentations.
+    </div>
+</div>
+
+<div class="card card-gold">
+    <h3 style="margin-top: 0;">Tips for Working with SVG Diagrams</h3>
+    <div class="grid grid-2" style="margin-top: 1rem;">
+        <div>
+            <h4 style="color: var(--bc-blue); margin: 0 0 0.5rem 0;">In Browser</h4>
+            <ul style="margin: 0;">
+                <li>Use Ctrl+F to search for text</li>
+                <li>Right-click → "Open image in new tab" for native zoom</li>
+                <li>Browser zoom (Ctrl +/-) works on SVG</li>
+            </ul>
+        </div>
+        <div>
+            <h4 style="color: var(--bc-blue); margin: 0 0 0.5rem 0;">Downloaded</h4>
+            <ul style="margin: 0;">
+                <li>Open in VS Code for editing</li>
+                <li>Use Inkscape for advanced modifications</li>
+                <li>Import into Figma/Sketch for presentations</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+/**
+ * ============================================================================
+ * SVG Diagram Viewer - Pure ES6 JavaScript (No Dependencies)
+ * ============================================================================
+ *
+ * This viewer provides interactive zoom, pan, and fullscreen for SVG diagrams.
+ * It uses only vanilla JavaScript and CSS transforms - no libraries needed.
+ *
+ * How it works:
+ * 1. Diagrams are stored in an object with IDs, titles, and file paths
+ * 2. CSS transform: scale() handles zooming (GPU-accelerated)
+ * 3. Overflow: auto on the container provides panning via scrollbars
+ * 4. CSS position: fixed handles fullscreen mode
+ *
+ * Browser Support: All modern browsers (Chrome, Firefox, Safari, Edge)
+ * ============================================================================
+ */
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CONFIGURATION: Diagram Registry
+// ─────────────────────────────────────────────────────────────────────────────
+// Each diagram has a unique ID, display title, and path to the SVG file.
+// To add a new diagram: add an entry here and a card in the HTML gallery.
+
+const diagrams = {
+    'oidc-complete': {
+        title: 'OIDC Complete Guide',
+        src: 'assets/azure-oidc-complete-guide.svg'
+    },
+    'token-flow': {
+        title: 'Token Exchange Flow',
+        src: 'assets/token-flow.svg'
+    },
+    'network-arch': {
+        title: 'Network Architecture',
+        src: 'assets/network-architecture.svg'
+    },
+    'deployment-pipeline': {
+        title: 'Deployment Pipeline',
+        src: 'assets/deployment-pipeline.svg'
+    }
+};
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATE: Zoom Level Management
+// ─────────────────────────────────────────────────────────────────────────────
+// Using 'let' because this value changes. Constants define boundaries.
+
+let currentZoom = 100;      // Current zoom level as percentage (100 = actual size)
+const minZoom = 25;         // Minimum zoom: 25% (zoomed out)
+const maxZoom = 400;        // Maximum zoom: 400% (zoomed in)
+const zoomStep = 25;        // How much to zoom per click/keypress
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNCTION: loadDiagram(id, element)
+// ─────────────────────────────────────────────────────────────────────────────
+// Loads a diagram into the viewer when user clicks a gallery card.
+//
+// Parameters:
+//   id      - String key matching a diagram in the 'diagrams' object
+//   element - The DOM element (card) that was clicked
+//
+// What it does:
+//   1. Looks up diagram data by ID
+//   2. Updates gallery cards to show which is selected
+//   3. Updates the viewer with the new diagram
+//   4. Resets zoom to 100%
+//   5. Scrolls the viewer into view
+
+function loadDiagram(id, element) {
+    // Look up the diagram configuration
+    const diagram = diagrams[id];
+
+    // Guard clause: exit if diagram ID doesn't exist
+    if (!diagram) return;
+
+    // Update gallery cards: remove 'active' class from all cards
+    // querySelectorAll returns a NodeList, forEach iterates over it
+    document.querySelectorAll('.diagram-card').forEach(card => card.classList.remove('active'));
+
+    // Add 'active' class to the clicked card (if element provided)
+    if (element) element.classList.add('active');
+
+    // Update the viewer elements with new diagram data
+    // getElementById is the fastest way to find a single element by ID
+    document.getElementById('currentDiagramTitle').textContent = diagram.title;
+    document.getElementById('currentDiagram').src = diagram.src;
+    document.getElementById('currentDiagram').alt = diagram.title;
+    document.getElementById('downloadBtn').href = diagram.src;
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // DEEP LINKING: Update URL hash so users can share links to specific diagrams
+    // Example: diagrams.html#network-arch links directly to the network diagram
+    // ─────────────────────────────────────────────────────────────────────────
+    // history.pushState allows updating URL without page reload
+    // We use replaceState to avoid cluttering browser history with each click
+    if (history.replaceState) {
+        history.replaceState(null, null, '#' + id);
+    } else {
+        // Fallback for older browsers
+        window.location.hash = id;
+    }
+
+    // Reset zoom to 100% for the new diagram
+    resetZoom();
+
+    // Smooth scroll the viewer into view
+    // 'behavior: smooth' animates the scroll instead of jumping
+    // 'block: start' aligns the top of the viewer with the top of the viewport
+    document.getElementById('diagramViewer').scrollIntoView({
+        behavior: 'smooth',
+        block: 'start'
+    });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNCTION: updateZoom()
+// ─────────────────────────────────────────────────────────────────────────────
+// Applies the current zoom level to the SVG wrapper element.
+//
+// How CSS transform: scale() works:
+//   - scale(1) = 100% = actual size
+//   - scale(2) = 200% = twice as large
+//   - scale(0.5) = 50% = half size
+//
+// We divide by 100 to convert our percentage to the decimal scale() expects.
+// The transform is GPU-accelerated, making it smooth even for large SVGs.
+
+function updateZoom() {
+    const wrapper = document.getElementById('svgWrapper');
+
+    // Apply CSS transform with template literal for string interpolation
+    // Example: currentZoom=150 becomes "scale(1.5)"
+    wrapper.style.transform = `scale(${currentZoom / 100})`;
+
+    // Update the zoom percentage display in the toolbar
+    document.getElementById('zoomLevel').textContent = currentZoom + '%';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNCTION: zoomIn()
+// ─────────────────────────────────────────────────────────────────────────────
+// Increases zoom level by zoomStep (25%).
+// Uses Math.min to ensure we never exceed maxZoom.
+
+function zoomIn() {
+    // Only zoom if we haven't hit the maximum
+    if (currentZoom < maxZoom) {
+        // Add zoomStep, but cap at maxZoom
+        // Math.min(a, b) returns the smaller value
+        currentZoom = Math.min(currentZoom + zoomStep, maxZoom);
+        updateZoom();
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNCTION: zoomOut()
+// ─────────────────────────────────────────────────────────────────────────────
+// Decreases zoom level by zoomStep (25%).
+// Uses Math.max to ensure we never go below minZoom.
+
+function zoomOut() {
+    // Only zoom if we haven't hit the minimum
+    if (currentZoom > minZoom) {
+        // Subtract zoomStep, but floor at minZoom
+        // Math.max(a, b) returns the larger value
+        currentZoom = Math.max(currentZoom - zoomStep, minZoom);
+        updateZoom();
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNCTION: resetZoom()
+// ─────────────────────────────────────────────────────────────────────────────
+// Resets zoom to 100% (actual size) and scrolls to top-left corner.
+
+function resetZoom() {
+    currentZoom = 100;
+    updateZoom();
+
+    // Reset scroll position to top-left
+    // scrollTo(x, y) sets the scroll position in pixels
+    document.getElementById('diagramContainer').scrollTo(0, 0);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNCTION: fitToWidth()
+// ─────────────────────────────────────────────────────────────────────────────
+// Calculates and applies the zoom level that makes the diagram fit the
+// container width exactly.
+//
+// Math:
+//   zoom = (containerWidth / imageWidth) * 100
+//   Example: 800px container / 1600px image = 0.5 * 100 = 50%
+
+function fitToWidth() {
+    const container = document.getElementById('diagramContainer');
+    const img = document.getElementById('currentDiagram');
+
+    // clientWidth = visible width of element (excludes scrollbar)
+    // Subtract 40 for padding (20px on each side)
+    const containerWidth = container.clientWidth - 40;
+
+    // naturalWidth = actual image width in pixels
+    // Fallback to 1600 if image hasn't loaded yet
+    const imgWidth = img.naturalWidth || 1600;
+
+    // Calculate zoom percentage
+    // Math.round removes decimal places for cleaner display
+    currentZoom = Math.round((containerWidth / imgWidth) * 100);
+
+    // Clamp to min/max bounds
+    // This nested Math.max/min ensures: minZoom <= currentZoom <= maxZoom
+    currentZoom = Math.max(minZoom, Math.min(maxZoom, currentZoom));
+
+    updateZoom();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FUNCTION: toggleFullscreen()
+// ─────────────────────────────────────────────────────────────────────────────
+// Toggles between normal and fullscreen mode.
+//
+// Implementation: We use CSS classes rather than the Fullscreen API because:
+//   1. Works consistently across all browsers
+//   2. No permissions prompts required
+//   3. Simpler to implement and style
+//
+// The CSS for .fullscreen uses position: fixed to cover the viewport.
+
+function toggleFullscreen() {
+    const viewer = document.getElementById('diagramViewer');
+    const btn = document.getElementById('fullscreenBtn');
+
+    // classList.contains() returns true/false if class is present
+    if (viewer.classList.contains('fullscreen')) {
+        // Exit fullscreen mode
+        viewer.classList.remove('fullscreen');
+        btn.innerHTML = '⛶ Fullscreen';
+
+        // Re-enable page scrolling
+        // Setting overflow to empty string removes inline style,
+        // falling back to stylesheet default
+        document.body.style.overflow = '';
+    } else {
+        // Enter fullscreen mode
+        viewer.classList.add('fullscreen');
+        btn.innerHTML = '✕ Exit';
+
+        // Disable page scrolling while in fullscreen
+        // 'hidden' prevents scrollbars and scroll behavior
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EVENT LISTENER: Keyboard Shortcuts
+// ─────────────────────────────────────────────────────────────────────────────
+// Adds keyboard controls for power users.
+//
+// addEventListener('keydown', callback) fires when any key is pressed.
+// The event object (e) contains information about which key was pressed.
+
+document.addEventListener('keydown', function(e) {
+    // Don't trigger shortcuts if user is typing in a form field
+    // e.target is the element that received the event
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    // e.key contains the key value as a string
+    switch(e.key) {
+        case '+':
+        case '=':  // '=' is the key for '+' without holding Shift
+            e.preventDefault();  // Stop browser's default zoom behavior
+            zoomIn();
+            break;
+
+        case '-':
+            e.preventDefault();
+            zoomOut();
+            break;
+
+        case '0':
+            e.preventDefault();
+            resetZoom();
+            break;
+
+        case 'w':
+        case 'W':
+            e.preventDefault();
+            fitToWidth();
+            break;
+
+        case 'f':
+        case 'F':
+            e.preventDefault();
+            toggleFullscreen();
+            break;
+
+        case 'Escape':
+            // Only exit fullscreen if currently in fullscreen
+            const viewer = document.getElementById('diagramViewer');
+            if (viewer.classList.contains('fullscreen')) {
+                toggleFullscreen();
+            }
+            break;
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EVENT LISTENER: Mouse Wheel Zoom
+// ─────────────────────────────────────────────────────────────────────────────
+// Enables Ctrl+Scroll to zoom (like Google Maps).
+//
+// The 'wheel' event fires when the mouse wheel is scrolled.
+// e.deltaY indicates scroll direction:
+//   - Negative = scrolling up (zoom in)
+//   - Positive = scrolling down (zoom out)
+
+document.getElementById('diagramContainer').addEventListener('wheel', function(e) {
+    // Only zoom if Ctrl key is held down
+    // This prevents interfering with normal page scrolling
+    if (e.ctrlKey) {
+        // Prevent the browser's default zoom behavior
+        e.preventDefault();
+
+        // Check scroll direction and zoom accordingly
+        if (e.deltaY < 0) {
+            zoomIn();   // Scroll up = zoom in
+        } else {
+            zoomOut();  // Scroll down = zoom out
+        }
+    }
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EVENT LISTENER: DOMContentLoaded
+// ─────────────────────────────────────────────────────────────────────────────
+// Runs initialization code when the DOM is fully loaded.
+// This ensures all HTML elements exist before we try to use them.
+
+document.addEventListener('DOMContentLoaded', function() {
+    // ─────────────────────────────────────────────────────────────────────────
+    // DEEP LINKING: Check URL hash on page load
+    // If user visits diagrams.html#network-arch, load that diagram directly
+    // ─────────────────────────────────────────────────────────────────────────
+    if (window.location.hash) {
+        // Remove the '#' prefix to get the diagram ID
+        const id = window.location.hash.substring(1);
+
+        // Check if this ID exists in our diagrams object
+        if (diagrams[id]) {
+            // Find the corresponding gallery card using attribute selector
+            // This finds the card whose onclick contains the diagram ID
+            const card = document.querySelector(`.diagram-card[onclick*="'${id}'"]`);
+            loadDiagram(id, card);
+            return; // Exit early, don't load default
+        }
+    }
+
+    // No hash or invalid hash - load the first diagram by default
+    // querySelector returns the first matching element
+    loadDiagram('oidc-complete', document.querySelector('.diagram-card'));
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// EVENT LISTENER: hashchange
+// ─────────────────────────────────────────────────────────────────────────────
+// Handles browser back/forward navigation between diagrams
+// When user clicks back button, this loads the previous diagram
+
+window.addEventListener('hashchange', function() {
+    if (window.location.hash) {
+        const id = window.location.hash.substring(1);
+        if (diagrams[id]) {
+            const card = document.querySelector(`.diagram-card[onclick*="'${id}'"]`);
+            // Don't scroll on back/forward navigation
+            document.querySelectorAll('.diagram-card').forEach(c => c.classList.remove('active'));
+            if (card) card.classList.add('active');
+            document.getElementById('currentDiagramTitle').textContent = diagrams[id].title;
+            document.getElementById('currentDiagram').src = diagrams[id].src;
+            document.getElementById('downloadBtn').href = diagrams[id].src;
+            resetZoom();
+        }
+    }
+});
+
+/**
+ * ============================================================================
+ * CSS Explained (key styles from the <style> block above)
+ * ============================================================================
+ *
+ * .diagram-svg-wrapper {
+ *     transform-origin: top left;  // Scale from top-left corner
+ *     transition: transform 0.3s;  // Smooth animation when zooming
+ * }
+ *
+ * .diagram-container {
+ *     overflow: auto;              // Enables scrollbars for panning
+ *     max-height: 80vh;            // Limits height to 80% of viewport
+ * }
+ *
+ * .diagram-viewer.fullscreen {
+ *     position: fixed;             // Removes from document flow
+ *     top: 0; left: 0;             // Positions at top-left of viewport
+ *     right: 0; bottom: 0;         // Stretches to fill viewport
+ *     z-index: 9999;               // Ensures it's above other content
+ * }
+ *
+ * ============================================================================
+ */
+</script>
+    </main>
+    <footer class="site-footer">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <h4>AI Hub Tracking</h4>
+                <p>Infrastructure as Code for Azure Landing Zone deployments</p>
+            </div>
+            <div class="footer-links">
+                <h4>Resources</h4>
+                <ul>
+                    <li><a href="https://github.com/bcgov/ai-hub-tracking">GitHub Repository</a></li>
+                    <li><a href="assets/azure-oidc-complete-guide.svg" target="_blank">Architecture Diagram</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>BC Government</h4>
+                <ul>
+                    <li><a href="https://www2.gov.bc.ca">gov.bc.ca</a></li>
+                    <li><a href="https://digital.gov.bc.ca">Digital Office</a></li>
+                </ul>
+            </div>
+            <div class="footer-copyright">
+                <p>&copy; 2025 Province of British Columbia</p>
+                <p class="footer-meta">Built with zero dependencies</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>

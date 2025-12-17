@@ -1,0 +1,426 @@
+<!-- TITLE: Operational Playbooks -->
+<!-- NAV: playbooks -->
+
+<h1>Operational Playbooks</h1>
+
+<p>Step-by-step procedures for common operational scenarios, troubleshooting, and disaster recovery. These runbooks help operators respond quickly to issues.</p>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">⚠️</span>
+    <div>
+        <strong>Before You Begin</strong><br>
+        Ensure you have the required permissions and have read the relevant documentation. When in doubt, escalate to the platform team.
+    </div>
+</div>
+
+<h2>Quick Reference</h2>
+
+<div class="grid grid-3">
+    <a href="#state-lock" class="card-link">
+        <div class="card" style="border-left-color: #ef4444;">
+            <div class="feature-icon" style="background: rgba(239, 68, 68, 0.1);">🔒</div>
+            <h3 style="margin-top: 0;">State Lock Stuck</h3>
+            <p>Terraform state is locked and won't release</p>
+            <div class="card-arrow">View Playbook →</div>
+        </div>
+    </a>
+    <a href="#oidc-failure" class="card-link">
+        <div class="card" style="border-left-color: #f97316;">
+            <div class="feature-icon" style="background: rgba(249, 115, 22, 0.1);">🔐</div>
+            <h3 style="margin-top: 0;">OIDC Auth Failing</h3>
+            <p>Token exchange errors between GitHub and Azure</p>
+            <div class="card-arrow">View Playbook →</div>
+        </div>
+    </a>
+    <a href="#rollback" class="card-link">
+        <div class="card" style="border-left-color: #8b5cf6;">
+            <div class="feature-icon purple">⏪</div>
+            <h3 style="margin-top: 0;">Rollback Deployment</h3>
+            <p>Revert to a previous known-good state</p>
+            <div class="card-arrow">View Playbook →</div>
+        </div>
+    </a>
+    <a href="#credential-rotation" class="card-link">
+        <div class="card" style="border-left-color: #22c55e;">
+            <div class="feature-icon green">🔄</div>
+            <h3 style="margin-top: 0;">Rotate Credentials</h3>
+            <p>Update federated credentials if compromised</p>
+            <div class="card-arrow">View Playbook →</div>
+        </div>
+    </a>
+    <a href="#bastion-access" class="card-link">
+        <div class="card" style="border-left-color: #0ea5e9;">
+            <div class="feature-icon blue">🖥️</div>
+            <h3 style="margin-top: 0;">Bastion Access Issues</h3>
+            <p>Cannot connect to VMs via Bastion</p>
+            <div class="card-arrow">View Playbook →</div>
+        </div>
+    </a>
+    <a href="#pipeline-stuck" class="card-link">
+        <div class="card" style="border-left-color: #fcba19;">
+            <div class="feature-icon gold">⏸️</div>
+            <h3 style="margin-top: 0;">Pipeline Stuck</h3>
+            <p>GitHub Actions workflow hanging or failing</p>
+            <div class="card-arrow">View Playbook →</div>
+        </div>
+    </a>
+</div>
+
+<!-- ============================================================================
+     PLAYBOOK: STATE LOCK STUCK
+     ============================================================================ -->
+
+<h2 id="state-lock">Playbook: Terraform State Lock Stuck</h2>
+
+<div class="card" style="border-left-color: #ef4444;">
+    <h3 style="margin-top: 0;">Symptoms</h3>
+    <ul>
+        <li>Terraform commands fail with: <code>Error acquiring the state lock</code></li>
+        <li>Message includes: <code>Lock Info: ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code></li>
+        <li>Previous pipeline run may have crashed or been cancelled</li>
+    </ul>
+</div>
+
+<h3>Diagnosis</h3>
+
+<ol>
+    <li><strong>Check if another operation is running</strong>
+        <p>Look at GitHub Actions for any in-progress Terraform jobs.</p>
+    </li>
+    <li><strong>Check the lock info</strong>
+        <pre>az storage blob show \
+    --account-name &lt;storage_account&gt; \
+    --container-name tfstate \
+    --name terraform.tfstate \
+    --query "properties.lease"</pre>
+    </li>
+</ol>
+
+<h3>Resolution</h3>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">⚠️</span>
+    <div>
+        <strong>Caution:</strong> Only force-unlock if you are CERTAIN no other operation is running. Breaking an active lock can corrupt state.
+    </div>
+</div>
+
+<h4>Option 1: Wait and Retry (Safest)</h4>
+<p>Locks typically auto-release after 15-60 minutes. Wait and retry.</p>
+
+<h4>Option 2: Break the Blob Lease</h4>
+<pre># List current leases
+az storage blob lease show \
+    --account-name &lt;storage_account&gt; \
+    --container-name tfstate \
+    --blob-name terraform.tfstate
+
+# Break the lease (requires Storage Blob Data Owner role)
+az storage blob lease break \
+    --account-name &lt;storage_account&gt; \
+    --container-name tfstate \
+    --blob-name terraform.tfstate</pre>
+
+<h4>Option 3: Force Unlock via Terraform</h4>
+<pre># Get the lock ID from the error message, then:
+terraform force-unlock &lt;LOCK_ID&gt;
+
+# Example:
+terraform force-unlock 12345678-1234-1234-1234-123456789012</pre>
+
+<h3>Prevention</h3>
+<ul>
+    <li>Never cancel Terraform runs mid-operation</li>
+    <li>Use workflow concurrency controls (already configured)</li>
+    <li>Ensure proper timeout settings on pipeline jobs</li>
+</ul>
+
+<!-- ============================================================================
+     PLAYBOOK: OIDC AUTHENTICATION FAILURE
+     ============================================================================ -->
+
+<h2 id="oidc-failure">Playbook: OIDC Authentication Failing</h2>
+
+<div class="card" style="border-left-color: #f97316;">
+    <h3 style="margin-top: 0;">Symptoms</h3>
+    <ul>
+        <li>GitHub Actions fails at <code>azure/login</code> step</li>
+        <li>Error: <code>AADSTS700024: Client assertion is not within its valid time range</code></li>
+        <li>Error: <code>AADSTS70021: No matching federated identity record found</code></li>
+        <li>Error: <code>AADSTS700016: Application with identifier 'xxx' was not found</code></li>
+    </ul>
+</div>
+
+<h3>Diagnosis by Error Code</h3>
+
+<table>
+    <tr>
+        <th>Error</th>
+        <th>Cause</th>
+        <th>Fix</th>
+    </tr>
+    <tr>
+        <td><code>AADSTS700024</code></td>
+        <td>Token timing issue (clock skew)</td>
+        <td>Retry the workflow - usually transient</td>
+    </tr>
+    <tr>
+        <td><code>AADSTS70021</code></td>
+        <td>Subject claim doesn't match federated credential</td>
+        <td>Check branch/environment matches credential config</td>
+    </tr>
+    <tr>
+        <td><code>AADSTS700016</code></td>
+        <td>Client ID doesn't exist or wrong tenant</td>
+        <td>Verify AZURE_CLIENT_ID secret is correct</td>
+    </tr>
+</table>
+
+<h3>Resolution Steps</h3>
+
+<h4>1. Verify GitHub Secrets</h4>
+<pre># These secrets must be set in GitHub repository settings:
+AZURE_CLIENT_ID      # Managed Identity Client ID
+AZURE_TENANT_ID      # Azure AD Tenant ID
+AZURE_SUBSCRIPTION_ID # Target Subscription ID</pre>
+
+<h4>2. Verify Federated Credential Configuration</h4>
+<pre># Check federated credentials on the managed identity
+az ad app federated-credential list \
+    --id &lt;APP_OBJECT_ID&gt; \
+    --query "[].{name:name, subject:subject, issuer:issuer}"</pre>
+
+<p>The <code>subject</code> must match exactly:</p>
+<ul>
+    <li>For environment: <code>repo:bcgov/ai-hub-tracking:environment:dev</code></li>
+    <li>For branch: <code>repo:bcgov/ai-hub-tracking:ref:refs/heads/main</code></li>
+</ul>
+
+<h4>3. Check Token Claims</h4>
+<p>Add this step to your workflow to debug the token:</p>
+<pre>- name: Debug OIDC Token
+  run: |
+    TOKEN=$(curl -s -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
+      "$ACTIONS_ID_TOKEN_REQUEST_URL&audience=api://AzureADTokenExchange" | jq -r '.value')
+    echo "Token claims:"
+    echo $TOKEN | cut -d. -f2 | base64 -d 2>/dev/null | jq .</pre>
+
+<h4>4. Recreate Federated Credential</h4>
+<pre># Delete and recreate if misconfigured
+az ad app federated-credential delete \
+    --id &lt;APP_OBJECT_ID&gt; \
+    --federated-credential-id &lt;CREDENTIAL_ID&gt;
+
+# Recreate with correct subject
+./initial-setup/initial-azure-setup.sh \
+    -g "your-rg" -n "your-identity" \
+    -r "bcgov/ai-hub-tracking" -e "dev"</pre>
+
+<!-- ============================================================================
+     PLAYBOOK: ROLLBACK DEPLOYMENT
+     ============================================================================ -->
+
+<h2 id="rollback">Playbook: Rollback Failed Deployment</h2>
+
+<div class="card" style="border-left-color: #8b5cf6;">
+    <h3 style="margin-top: 0;">When to Use</h3>
+    <ul>
+        <li>A deployment broke existing functionality</li>
+        <li>Resources are in an inconsistent state</li>
+        <li>Need to revert to a known-good configuration</li>
+    </ul>
+</div>
+
+<h3>Option 1: Git Revert (Recommended)</h3>
+
+<pre># Find the last good commit
+git log --oneline -10
+
+# Revert the problematic commit(s)
+git revert &lt;BAD_COMMIT_SHA&gt;
+
+# Push to trigger pipeline with reverted code
+git push origin main</pre>
+
+<h3>Option 2: Restore from State Backup</h3>
+
+<p>Azure Blob Storage keeps versions of the state file:</p>
+
+<pre># List state file versions
+az storage blob list \
+    --account-name &lt;storage_account&gt; \
+    --container-name tfstate \
+    --include v \
+    --query "[?name=='terraform.tfstate'].{version:versionId, modified:properties.lastModified}"
+
+# Download a previous version
+az storage blob download \
+    --account-name &lt;storage_account&gt; \
+    --container-name tfstate \
+    --name terraform.tfstate \
+    --version-id &lt;VERSION_ID&gt; \
+    --file terraform.tfstate.backup</pre>
+
+<h3>Option 3: Targeted Destroy and Recreate</h3>
+
+<pre># Destroy specific problematic resources
+terraform destroy -target=azurerm_virtual_machine.jumpbox
+
+# Reapply to recreate with correct config
+terraform apply</pre>
+
+<div class="alert alert-info">
+    <span class="alert-icon">💡</span>
+    <div>
+        <strong>Tip:</strong> Always run <code>terraform plan</code> before <code>apply</code> after a rollback to verify the expected changes.
+    </div>
+</div>
+
+<!-- ============================================================================
+     PLAYBOOK: CREDENTIAL ROTATION
+     ============================================================================ -->
+
+<h2 id="credential-rotation">Playbook: Rotate Federated Credentials</h2>
+
+<div class="card" style="border-left-color: #22c55e;">
+    <h3 style="margin-top: 0;">When to Use</h3>
+    <ul>
+        <li>Suspected credential compromise</li>
+        <li>Security audit requires rotation</li>
+        <li>Changing repository or organization</li>
+    </ul>
+</div>
+
+<div class="alert alert-success">
+    <span class="alert-icon">✅</span>
+    <div>
+        <strong>Good News:</strong> With OIDC, there are no long-lived secrets to rotate! The "credential" is the trust relationship, not a secret key.
+    </div>
+</div>
+
+<h3>To Update the Trust Relationship</h3>
+
+<h4>1. Delete Existing Federated Credential</h4>
+<pre>az ad app federated-credential list --id &lt;APP_OBJECT_ID&gt;
+az ad app federated-credential delete \
+    --id &lt;APP_OBJECT_ID&gt; \
+    --federated-credential-id &lt;CREDENTIAL_ID&gt;</pre>
+
+<h4>2. Create New Federated Credential</h4>
+<pre>./initial-setup/initial-azure-setup.sh \
+    -g "your-rg" \
+    -n "your-identity" \
+    -r "bcgov/new-repo-name" \
+    -e "dev"</pre>
+
+<h4>3. Update GitHub Secrets (if Client ID changed)</h4>
+<ol>
+    <li>Go to Repository Settings → Secrets and variables → Actions</li>
+    <li>Update <code>AZURE_CLIENT_ID</code> with new Managed Identity Client ID</li>
+</ol>
+
+<h4>4. Verify New Configuration</h4>
+<pre># Trigger a test workflow run
+gh workflow run deploy.yml</pre>
+
+<!-- ============================================================================
+     PLAYBOOK: BASTION ACCESS ISSUES
+     ============================================================================ -->
+
+<h2 id="bastion-access">Playbook: Bastion Access Issues</h2>
+
+<div class="card" style="border-left-color: #0ea5e9;">
+    <h3 style="margin-top: 0;">Symptoms</h3>
+    <ul>
+        <li>Cannot connect to VM via Azure Portal Bastion</li>
+        <li>Connection times out</li>
+        <li>"Bastion host not found" error</li>
+    </ul>
+</div>
+
+<h3>Diagnosis</h3>
+
+<h4>1. Check if Bastion is Deployed</h4>
+<pre>az network bastion list \
+    --resource-group &lt;RG_NAME&gt; \
+    --query "[].{name:name, state:provisioningState}"</pre>
+
+<p>If empty, Bastion may be disabled (cost-saving). Deploy it:</p>
+<pre># Via GitHub Actions
+gh workflow run bastion-add-or-remove.yml -f action=add
+
+# Or via manual trigger in GitHub UI</pre>
+
+<h4>2. Check NSG Rules</h4>
+<pre># Bastion subnet requires specific NSG rules
+az network nsg rule list \
+    --resource-group &lt;RG_NAME&gt; \
+    --nsg-name &lt;BASTION_NSG&gt; \
+    --query "[].{name:name, access:access, direction:direction, port:destinationPortRange}"</pre>
+
+<p>Required inbound rules:</p>
+<ul>
+    <li>HTTPS (443) from Internet</li>
+    <li>Gateway Manager from GatewayManager service tag</li>
+    <li>Azure Load Balancer from AzureLoadBalancer service tag</li>
+</ul>
+
+<h4>3. Check VM Status</h4>
+<pre>az vm get-instance-view \
+    --resource-group &lt;RG_NAME&gt; \
+    --name &lt;VM_NAME&gt; \
+    --query "instanceView.statuses[1].displayStatus"</pre>
+
+<p>VM must be in "VM running" state.</p>
+
+<!-- ============================================================================
+     PLAYBOOK: PIPELINE STUCK
+     ============================================================================ -->
+
+<h2 id="pipeline-stuck">Playbook: GitHub Actions Pipeline Stuck</h2>
+
+<div class="card" style="border-left-color: #fcba19;">
+    <h3 style="margin-top: 0;">Symptoms</h3>
+    <ul>
+        <li>Pipeline shows "In progress" for extended time</li>
+        <li>Terraform plan/apply seems to hang</li>
+        <li>No new log output appearing</li>
+    </ul>
+</div>
+
+<h3>Resolution</h3>
+
+<h4>1. Check for Pending Approvals</h4>
+<p>Production environments require approval. Check the workflow run for pending reviews.</p>
+
+<h4>2. Cancel and Retry</h4>
+<pre># Cancel via CLI
+gh run cancel &lt;RUN_ID&gt;
+
+# Retry
+gh workflow run &lt;WORKFLOW_NAME&gt;</pre>
+
+<h4>3. Check for State Lock</h4>
+<p>If Terraform is waiting on state lock, see <a href="#state-lock">State Lock Playbook</a>.</p>
+
+<h4>4. Check Runner Health</h4>
+<pre># View recent workflow runs
+gh run list --limit 10
+
+# Check specific run logs
+gh run view &lt;RUN_ID&gt; --log</pre>
+
+<h4>5. GitHub Status</h4>
+<p>Check <a href="https://www.githubstatus.com/" target="_blank">GitHub Status Page</a> for platform issues.</p>
+
+<h2>Emergency Contacts</h2>
+
+<div class="card" style="background: var(--bc-blue); color: white; border-left-color: var(--bc-gold);">
+    <h3 style="color: var(--bc-gold); margin-top: 0;">Escalation Path</h3>
+    <ol style="margin-bottom: 0;">
+        <li><strong>First Response:</strong> Platform Team Slack channel</li>
+        <li><strong>Azure Issues:</strong> Azure Support (if support plan active)</li>
+        <li><strong>GitHub Issues:</strong> GitHub Support</li>
+        <li><strong>Security Incidents:</strong> Security Team immediately</li>
+    </ol>
+</div>

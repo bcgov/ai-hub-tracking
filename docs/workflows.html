@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocumentationHub | AI Hub Tracking</title>
+    <title>GitHubWorkflows | AI Hub Tracking</title>
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <style>
         :root {
@@ -643,287 +643,277 @@
     </header>
     <main>
 
-<div class="hero">
-    <span class="badge badge-gold">Open Source</span>
-    <h1>AI Hub Tracking</h1>
-    <p>Infrastructure as Code for Azure Landing Zone deployments with GitHub Actions OIDC authentication. Zero secrets to rotate.</p>
-    
-    <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center;">
-        <a href="#quick-start" style="text-decoration: none;">
-            <button style="background: var(--bc-gold); color: var(--bc-blue); border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 1rem;">
-                Get Started ↓
-            </button>
-        </a>
-        <a href="diagrams.html" style="text-decoration: none;">
-            <button style="background: rgba(255,255,255,0.2); color: white; border: 1px solid white; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 1rem;">
-                View Architecture
-            </button>
-        </a>
-    </div>
+<h1>GitHub Actions Workflows</h1>
+
+<p>This project uses GitHub Actions for automated infrastructure deployments with OIDC authentication to Azure.</p>
+
+<h2>Workflow Overview</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Workflow</th>
+            <th>Trigger</th>
+            <th>Purpose</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>.deployer.yml</strong></td>
+            <td>Called by other workflows</td>
+            <td>Reusable Terraform deployment workflow</td>
+        </tr>
+        <tr>
+            <td><strong>bastion-add-or-remove.yml</strong></td>
+            <td>Manual (workflow_dispatch)</td>
+            <td>Deploy or destroy Bastion on demand</td>
+        </tr>
+        <tr>
+            <td><strong>schedule.yml</strong></td>
+            <td>Cron (daily at 5 PM PST)</td>
+            <td>Auto-destroy Bastion for cost savings</td>
+        </tr>
+        <tr>
+            <td><strong>pages.yml</strong></td>
+            <td>Push to main (docs/**)</td>
+            <td>Deploy this documentation site</td>
+        </tr>
+    </tbody>
+</table>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>.deployer.yml (Reusable Workflow)</h2>
+
+<p>The core Terraform deployment workflow, called by other workflows using <code>workflow_call</code>.</p>
+
+<div class="card">
+    <h3>Inputs</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Input</th>
+                <th>Type</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>environment_name</code></td>
+                <td>string</td>
+                <td>Target environment (tools, dev, prod)</td>
+            </tr>
+            <tr>
+                <td><code>command</code></td>
+                <td>string</td>
+                <td>Terraform command (init, plan, apply, destroy)</td>
+            </tr>
+            <tr>
+                <td><code>target_module</code></td>
+                <td>string</td>
+                <td>Optional module to target (jumpbox, bastion, network)</td>
+            </tr>
+        </tbody>
+    </table>
 </div>
 
-<div class="alert alert-warning" style="margin-bottom: 2rem;">
-    <div style="display: flex; gap: 1rem;">
-        <span style="font-size: 1.5rem;">🚧</span>
-        <div>
-            <h3 style="margin-top: 0; color: var(--bc-gold);">Pilot Project Disclaimer</h3>
-            <p><strong>This is an early-stage pilot.</strong> Many architectural patterns are still being validated with Platform Services.</p>
-            <p style="margin-bottom: 0.5rem;">This project was born after several teams struggled to navigate Azure policies, compliance, and networking individually. We consolidated these hard-learned lessons into a shared landing zone to help other BC Gov teams avoid the same pitfalls.</p>
-            <p><small><em>Based on <a href="https://github.com/Azure/AI-Landing-Zones">Azure AI Landing Zones</a> (upstream archival risk acknowledged).</em></small></p>
-        </div>
-    </div>
+<div class="card card-gold">
+    <h3>Key Features</h3>
+    <ul>
+        <li><strong>OIDC Authentication</strong>: Uses <code>azure/login@v2</code> with federated credentials</li>
+        <li><strong>Environment Isolation</strong>: Each environment has separate secrets and identity</li>
+        <li><strong>Module Targeting</strong>: Deploy specific modules with <code>-target=module.name</code></li>
+        <li><strong>ARM_USE_OIDC</strong>: Enabled for Terraform Azure provider</li>
+    </ul>
 </div>
 
-<div class="grid grid-4" style="margin-bottom: 2rem;">
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid var(--bc-gold);">
-        <div class="stat-number">0</div>
-        <div class="stat-label">Secrets to Manage</div>
-    </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid var(--bc-blue);">
-        <div class="stat-number">3</div>
-        <div class="stat-label">Terraform Modules</div>
-    </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid #22c55e;">
-        <div class="stat-number">4</div>
-        <div class="stat-label">GitHub Workflows</div>
-    </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid #8b5cf6;">
-        <div class="stat-number">5+</div>
-        <div class="stat-label">Ops Playbooks</div>
-    </div>
+<h3>Required Permissions</h3>
+
+<pre>permissions:
+  id-token: write   # Required for OIDC token generation
+  contents: read    # Required for repository checkout</pre>
+
+<div class="alert alert-warning">
+    <strong>Important:</strong> Without <code>id-token: write</code> permission, the workflow cannot generate the OIDC token needed for Azure authentication.
 </div>
 
-<h2>Project Vision: A Shared AI Landing Zone</h2>
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>bastion-add-or-remove.yml</h2>
+
+<p>Manual workflow for deploying or destroying Azure Bastion on demand.</p>
 
 <div class="grid grid-2">
     <div class="card">
-        <h3>Why This Exists</h3>
-        <p>The B.C. Government is rapidly adopting AI technologies. However, setting up secure, compliant cloud infrastructure for AI workloads allows teams to get bogged down in networking, identity management, and security compliance.</p>
-        <p><strong>AI Hub Tracking</strong> serves as a reference implementation and reusable landing zone pattern. It solves the "blank slate" problem by providing a standardized, secure-by-default environment specifically designed for AI experimentation and production.</p>
-    </div>
-    <div class="card" style="border-left-color: var(--bc-gold);">
-        <h3>Problems We Solve</h3>
-        <ul style="margin-top: 0;">
-            <li><strong>Secret Fatigue:</strong> Eliminates the need to rotate client secrets by using OIDC.</li>
-            <li><strong>Network Complexity:</strong> Pre-wired VNet, Subnets, and NSGs so you don't have to be a network engineer.</li>
-            <li><strong>Security Compliance:</strong> Implements "Least Privilege" and private networking by default.</li>
-            <li><strong>Inconsistent Environments:</strong> Ensures Dev and Prod look identical, reducing deployment surprises.</li>
+        <h3>When to Use</h3>
+        <ul>
+            <li><strong>Deploy Bastion</strong>: When you need SSH/RDP access to VMs</li>
+            <li><strong>Destroy Bastion</strong>: When done working, to save costs</li>
         </ul>
     </div>
+    <div class="card">
+        <h3>How to Run</h3>
+        <ol>
+            <li>Go to Actions tab in GitHub</li>
+            <li>Select "Deploy or Remove Bastion Host"</li>
+            <li>Click "Run workflow"</li>
+            <li>Choose environment and command</li>
+        </ol>
+    </div>
+</div>
+
+<h3>Workflow Inputs</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th>Input</th>
+            <th>Options</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>environment_name</code></td>
+            <td>tools</td>
+            <td>Target environment</td>
+        </tr>
+        <tr>
+            <td><code>module</code></td>
+            <td>bastion</td>
+            <td>Module to manage</td>
+        </tr>
+        <tr>
+            <td><code>command</code></td>
+            <td>apply, destroy</td>
+            <td>Terraform command to execute</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="alert alert-info">
+    <strong>Cost Optimization:</strong> Azure Bastion has hourly charges (~$0.19/hour for Basic SKU). Deploy only when needed and destroy when done.
+</div>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>schedule.yml (Scheduled Cleanup)</h2>
+
+<p>Automatically destroys Bastion every day at 5 PM PST to prevent unnecessary charges.</p>
+
+<div class="card">
+    <h3>Schedule</h3>
+    <pre># Runs daily at 5 PM PST (1 AM UTC next day)
+on:
+  schedule:
+    - cron: "0 1 * * *"</pre>
 </div>
 
 <div class="card card-gold">
-    <h3 style="margin-top: 0;">What Can You Run Here?</h3>
-    <p>This landing zone is optimized for modern AI/ML workloads that require secure compute and private data access.</p>
-    <div class="grid grid-3">
-        <div style="text-align: center;">
-            <div style="font-size: 2rem;">🧠</div>
-            <strong>Azure AI & OpenAI</strong>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">Private connectivity to Azure OpenAI models and cognitive services like Document Intelligence (OCR).</p>
-        </div>
-        <div style="text-align: center;">
-            <div style="font-size: 2rem;">🤖</div>
-            <strong>Open Source Models</strong>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">Host private weights (Llama 3, Mistral) on secure VMs using Ollama or vLLM.</p>
-        </div>
-        <div style="text-align: center;">
-            <div style="font-size: 2rem;">📊</div>
-            <strong>RAG & Data Apps</strong>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">Vector databases and Streamlit/Gradio apps for rapid internal prototyping.</p>
-        </div>
-    </div>
+    <h3>Workflow Logic</h3>
+    <ol>
+        <li><strong>Check if Bastion exists</strong>: Uses Azure CLI to query the Bastion resource</li>
+        <li><strong>Conditional destroy</strong>: Only runs Terraform destroy if Bastion is found</li>
+        <li><strong>Status notification</strong>: Reports whether Bastion was destroyed or already removed</li>
+    </ol>
 </div>
 
-<h2>I want to...</h2>
+<h3>Jobs Flow</h3>
 
-<div class="grid grid-3">
-    <a href="oidc-setup.html" class="card-link">
-        <div class="card" style="border-left-color: #fcba19; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🔐 Set up Authentication</h4>
-            <p style="font-size: 0.9rem; margin-bottom: 0;">Configure OIDC trust between GitHub and Azure.</p>
-        </div>
-    </a>
-    <a href="terraform.html" class="card-link">
-        <div class="card" style="border-left-color: #8b5cf6; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🏗️ Deploy Infrastructure</h4>
-            <p style="font-size: 0.9rem; margin-bottom: 0;">Deploy VNet, Bastion, and Jumpbox modules.</p>
-        </div>
-    </a>
-    <a href="playbooks.html" class="card-link">
-        <div class="card" style="border-left-color: #ef4444; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🚑 Fix a Problem</h4>
-            <p style="font-size: 0.9rem; margin-bottom: 0;">Troubleshoot state locks, auth failures, or rollbacks.</p>
-        </div>
-    </a>
-</div>
+<pre>check-and-destroy-bastion
+         │
+         ├── bastion_exists=true ──► destroy-bastion ──► notification
+         │
+         └── bastion_exists=false ──────────────────────► notification</pre>
 
-<h2>Network Allocation (License Plate: da4cf6)</h2>
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<div class="card" style="border-left-color: #22c55e; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
-    <p style="margin-top: 0;"><strong>Confirmed Dec 11, 2025</strong> - Platform Services Team</p>
-    <div class="grid grid-4" style="margin: 1rem 0;">
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">4x /24</div>
-            <div class="stat-label">Prod (= /22)</div>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">2x /24</div>
-            <div class="stat-label">Test (= /23)</div>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">1x /24</div>
-            <div class="stat-label">Dev</div>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">1x /24</div>
-            <div class="stat-label">Tools</div>
-        </div>
-    </div>
-    <p style="margin-bottom: 0; font-size: 0.9rem;">See <a href="faq.html">FAQ</a> for pending questions about Canada East non-routable ranges.</p>
-</div>
+<h2>pages.yml (Documentation)</h2>
 
-<h2>Documentation Library</h2>
+<p>Deploys this documentation site to GitHub Pages when changes are pushed to the <code>docs/</code> folder.</p>
 
-<div class="grid grid-4">
-    <!-- Row 1 -->
-    <a href="decisions.html" class="card-link">
-        <div class="card" style="border-left-color: #ef4444;">
-            <h3 style="margin-top: 0;">🏛️ ADRs</h3>
-            <p>Architecture decisions and why things are built this way.</p>
-            <div class="card-arrow">Start Here →</div>
-        </div>
-    </a>
-    <a href="faq.html" class="card-link">
-        <div class="card" style="border-left-color: #f59e0b;">
-            <h3 style="margin-top: 0;">❓ FAQ</h3>
-            <p>Common questions, pending decisions, and contact info.</p>
-            <div class="card-arrow">View FAQ →</div>
-        </div>
-    </a>
-    <a href="oidc-setup.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">🔐 OIDC Setup</h3>
-            <p>Complete guide to passwordless authentication setup.</p>
-            <div class="card-arrow">View Guide →</div>
-        </div>
-    </a>
-    <a href="terraform.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">🏗️ Modules</h3>
-            <p>Deep dive into Network, Bastion, and Jumpbox configs.</p>
-            <div class="card-arrow">View Modules →</div>
-        </div>
-    </a>
-
-    <!-- Row 2 -->
-    <a href="workflows.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">⚙️ Workflows</h3>
-            <p>CI/CD pipeline automation details.</p>
-            <div class="card-arrow">View Workflows →</div>
-        </div>
-    </a>
-    <a href="diagrams.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">📊 Diagrams</h3>
-            <p>Interactive architecture and flow visualizations.</p>
-            <div class="card-arrow">View Diagrams →</div>
-        </div>
-    </a>
-    <a href="playbooks.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">📖 Playbooks</h3>
-            <p>Operational runbooks for Day 2 maintenance.</p>
-            <div class="card-arrow">View Playbooks →</div>
-        </div>
-    </a>
-    <a href="terraform-reference.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">📝 TF Reference</h3>
-            <p>Auto-generated variable and output docs.</p>
-            <div class="card-arrow">View Reference →</div>
-        </div>
-    </a>
-</div>
-
-<h2 id="quick-start">Quick Start</h2>
-
-<div class="card card-gold">
-    <h3 style="margin-bottom: 1.5rem;">Get Started in 3 Steps</h3>
-    <div class="grid grid-3">
-        <div style="text-align: center;">
-            <div class="stat-number">1</div>
-            <p style="margin: 0.5rem 0;"><strong>Run Setup Script</strong></p>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">Configure OIDC trust between GitHub and Azure (once per environment)</p>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number">2</div>
-            <p style="margin: 0.5rem 0;"><strong>Add Workflow</strong></p>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">Copy the deploy.yml workflow and backend.tf to your repo</p>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number">3</div>
-            <p style="margin: 0.5rem 0;"><strong>Push & Deploy</strong></p>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">Push to main and watch Terraform deploy automatically</p>
-        </div>
-    </div>
+<div class="card">
+    <h3>Triggers</h3>
+    <ul>
+        <li><strong>Push to main</strong>: When files in <code>docs/**</code> are changed</li>
+        <li><strong>Manual</strong>: Can be triggered manually via <code>workflow_dispatch</code></li>
+    </ul>
 </div>
 
 <div class="card">
-    <h3>Step 1: Initial Setup</h3>
-    <p>Run this one-time command to create the Azure identity and trust relationship:</p>
-<pre>./initial-setup/initial-azure-setup.sh \
-    -g "YOUR-RESOURCE-GROUP" \
-    -n "your-app-identity" \
-    -r "bcgov/your-repo" \
-    -e "dev" \
-    --create-storage --create-github-secrets</pre>
+    <h3>Deployment Steps</h3>
+    <ol>
+        <li>Checkout repository</li>
+        <li>Run <code>docs/build.sh</code> to generate HTML from templates</li>
+        <li>Configure GitHub Pages</li>
+        <li>Upload <code>docs/</code> folder as artifact</li>
+        <li>Deploy to GitHub Pages</li>
+    </ol>
 </div>
 
-<h2>Key Features</h2>
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<div class="grid grid-3">
-    <div class="card">
-        <div class="feature-icon green">🔒</div>
-        <h3 style="margin-top: 0;">Secure by Default</h3>
-        <ul style="margin-bottom: 0;">
-            <li>OIDC federated credentials</li>
-            <li>No stored secrets</li>
-            <li>Environment isolation</li>
-            <li>Least privilege access</li>
-        </ul>
-    </div>
-    <div class="card">
-        <div class="feature-icon blue">☁️</div>
-        <h3 style="margin-top: 0;">Azure Native</h3>
-        <ul style="margin-bottom: 0;">
-            <li>Managed identities</li>
-            <li>Azure Bastion access</li>
-            <li>Blob storage for state</li>
-            <li>NSG security rules</li>
-        </ul>
-    </div>
-    <div class="card">
-        <div class="feature-icon purple">🔄</div>
-        <h3 style="margin-top: 0;">Automated</h3>
-        <ul style="margin-bottom: 0;">
-            <li>GitOps workflow</li>
-            <li>Auto VM shutdown</li>
-            <li>Scheduled cleanup</li>
-            <li>On-demand resources</li>
-        </ul>
-    </div>
+<h2>Environment Secrets</h2>
+
+<p>Each GitHub environment requires these secrets (created by <code>initial-azure-setup.sh</code>):</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Secret</th>
+            <th>Description</th>
+            <th>Source</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>AZURE_CLIENT_ID</code></td>
+            <td>Managed Identity client ID</td>
+            <td>Created by setup script</td>
+        </tr>
+        <tr>
+            <td><code>AZURE_TENANT_ID</code></td>
+            <td>Azure AD tenant ID</td>
+            <td>Your Azure subscription</td>
+        </tr>
+        <tr>
+            <td><code>AZURE_SUBSCRIPTION_ID</code></td>
+            <td>Target subscription ID</td>
+            <td>Your Azure subscription</td>
+        </tr>
+        <tr>
+            <td><code>VNET_RESOURCE_GROUP_NAME</code></td>
+            <td>Resource group containing VNet</td>
+            <td>Your infrastructure</td>
+        </tr>
+        <tr>
+            <td><code>VNET_NAME</code></td>
+            <td>Existing VNet name</td>
+            <td>Your infrastructure</td>
+        </tr>
+        <tr>
+            <td><code>VNET_ADDRESS_SPACE</code></td>
+            <td>VNet CIDR block</td>
+            <td>Your infrastructure</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>Running Workflows Locally</h2>
+
+<p>For local development and testing, use the <code>deploy-terraform.sh</code> script:</p>
+
+<pre># Ensure you're logged in
+az login
+
+# Run Terraform commands locally
+./deploy-terraform.sh init
+./deploy-terraform.sh plan
+./deploy-terraform.sh apply</pre>
+
+<div class="alert alert-info">
+    <strong>Note:</strong> Local runs use your Azure CLI credentials instead of OIDC. Make sure you have the required permissions.
 </div>
-
-<h2>Contributing</h2>
-
-<p>This documentation is built automatically from the <code>docs/</code> folder. To add or update pages:</p>
-
-<ol>
-    <li>Edit files in <code>docs/_pages/</code></li>
-    <li>Run <code>./docs/build.sh</code> to test locally</li>
-    <li>Push to main - GitHub Actions deploys automatically</li>
-</ol>
     </main>
     <footer class="site-footer">
         <div class="footer-content">

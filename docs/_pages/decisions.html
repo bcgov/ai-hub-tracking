@@ -1,0 +1,773 @@
+<!-- TITLE: Architecture Decisions -->
+<!-- NAV: decisions -->
+
+<h1>Architecture Decision Records</h1>
+
+<p>This page documents key architectural decisions for the AI Hub Tracking infrastructure. Each ADR explains the context, decision, and consequences to help future maintainers understand why things are built the way they are.</p>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">🏛️</span>
+    <div>
+        <strong>BC Government Policy Context</strong><br>
+        Most decisions documented here are <strong>driven by BC Government security policies</strong>, not optional architectural choices. Key policy constraints include:
+        <ul style="margin: 0.5rem 0 0 0;">
+            <li><strong>No public endpoints</strong> - All Azure services must use private endpoints only</li>
+            <li><strong>Private networking required</strong> - Resources must be isolated within VNets</li>
+            <li><strong>No long-lived secrets</strong> - Credential rotation policies favor OIDC/managed identities</li>
+            <li><strong>Bastion-only access</strong> - Direct SSH/RDP from internet is prohibited</li>
+        </ul>
+    </div>
+</div>
+
+<div class="card" style="border-left-color: #003366; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);">
+    <h3 style="margin-top: 0; color: var(--bc-blue);">Start Here: ADR-001</h3>
+    <p style="margin-bottom: 0;"><strong>ADR-001 (Shared Landing Zone)</strong> is the foundation that explains <em>why</em> all the other infrastructure exists. Read it first to understand the architecture.</p>
+</div>
+
+<div class="alert alert-info">
+    <span class="alert-icon">📝</span>
+    <div>
+        <strong>About ADRs</strong><br>
+        Architecture Decision Records capture decisions along with their context and consequences. They help prevent re-litigating settled discussions and provide onboarding context for new team members.
+    </div>
+</div>
+
+<h2>Decision Index</h2>
+
+<table>
+    <tr>
+        <th>ID</th>
+        <th>Title</th>
+        <th>Driver</th>
+        <th>Status</th>
+    </tr>
+    <tr>
+        <td><a href="#adr-001">ADR-001</a></td>
+        <td>Shared Landing Zone with Bastion/Jumpbox</td>
+        <td><span class="badge badge-blue">Policy</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
+    </tr>
+    <tr>
+        <td><a href="#adr-002">ADR-002</a></td>
+        <td>Use OIDC instead of Service Principal Secrets</td>
+        <td><span class="badge badge-blue">Policy</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
+    </tr>
+    <tr>
+        <td><a href="#adr-003">ADR-003</a></td>
+        <td>Use Azure Bastion for VM Access</td>
+        <td><span class="badge badge-blue">Policy</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
+    </tr>
+    <tr>
+        <td><a href="#adr-004">ADR-004</a></td>
+        <td>Private Endpoints for All Azure Services</td>
+        <td><span class="badge badge-blue">Policy</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
+    </tr>
+    <tr>
+        <td><a href="#adr-005">ADR-005</a></td>
+        <td>Zero-Dependency Documentation System</td>
+        <td><span class="badge" style="background:#22c55e;color:white;">Choice</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
+    </tr>
+</table>
+
+<!-- ============================================================================
+     ADR-001: Shared Landing Zone Architecture (THE FOUNDATION)
+     ============================================================================ -->
+
+<h2 id="adr-001">ADR-001: Shared Landing Zone with Bastion/Jumpbox</h2>
+
+<div class="grid grid-4" style="margin-bottom: 1rem;">
+    <div><strong>Status:</strong> Accepted</div>
+    <div><strong>Date:</strong> 2025-01</div>
+    <div><strong>Driver:</strong> <span class="badge badge-blue">Policy Required</span></div>
+    <div><strong>Category:</strong> Architecture</div>
+</div>
+
+<div class="alert alert-success">
+    <span class="alert-icon">🎯</span>
+    <div>
+        <strong>This is the foundational ADR.</strong> It explains why we need VNets, Bastion, Jumpbox, and self-hosted runners. All other ADRs build on these concepts.
+    </div>
+</div>
+
+<h3>Context</h3>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">🏛️</span>
+    <div>
+        <strong>Policy Driver:</strong> BC Gov requires all Azure services to use private endpoints only. GitHub Actions runners on the public internet cannot reach private endpoints. This creates a fundamental problem: how do we run Terraform if GitHub can't talk to Azure resources?
+    </div>
+</div>
+
+<h3>The Problem: Why Can't GitHub Just Run Terraform Directly?</h3>
+
+<div class="card" style="border-left-color: #ef4444;">
+    <h4 style="margin-top: 0;">The Network Barrier</h4>
+    <p>When you run <code>terraform apply</code> from GitHub Actions, here's what happens:</p>
+    <ol>
+        <li>GitHub spins up a runner (a VM on Microsoft's public cloud)</li>
+        <li>Terraform tries to connect to Azure Storage (for state file)</li>
+        <li><strong style="color:#ef4444;">BLOCKED</strong> - Storage has no public endpoint</li>
+        <li>Terraform tries to connect to Key Vault, databases, etc.</li>
+        <li><strong style="color:#ef4444;">BLOCKED</strong> - All services are private-only</li>
+    </ol>
+    <p style="margin-bottom:0;"><strong>Result:</strong> Terraform cannot run from the public internet because it can't reach any Azure resources.</p>
+</div>
+
+<h3>The Solution: Landing Zone Architecture</h3>
+
+<p>We need infrastructure <strong>inside the private network</strong> that can:</p>
+<ul>
+    <li>Receive commands from GitHub (via OIDC tokens)</li>
+    <li>Run Terraform against private endpoints</li>
+    <li>Allow humans to access resources for debugging</li>
+</ul>
+
+<div class="grid grid-3">
+    <div class="card" style="border-left-color: var(--bc-gold);">
+        <h4 style="margin-top: 0;">VNet (Virtual Network)</h4>
+        <p><strong>What:</strong> Private network in Azure</p>
+        <p><strong>Why:</strong> All resources live here, isolated from public internet</p>
+        <p style="margin-bottom:0;"><strong>Analogy:</strong> The building's internal network</p>
+    </div>
+    <div class="card" style="border-left-color: var(--bc-gold);">
+        <h4 style="margin-top: 0;">Jumpbox VM</h4>
+        <p><strong>What:</strong> Linux VM inside the VNet</p>
+        <p><strong>Why:</strong> Runs Terraform, can reach all private endpoints</p>
+        <p style="margin-bottom:0;"><strong>Analogy:</strong> A workstation inside the secure office</p>
+    </div>
+    <div class="card" style="border-left-color: var(--bc-gold);">
+        <h4 style="margin-top: 0;">Azure Bastion</h4>
+        <p><strong>What:</strong> Managed gateway service</p>
+        <p><strong>Why:</strong> Secure way to access Jumpbox (no public SSH)</p>
+        <p style="margin-bottom:0;"><strong>Analogy:</strong> The secure lobby with ID verification</p>
+    </div>
+</div>
+
+<h3>How Terraform Actually Runs</h3>
+
+<div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
+<pre style="background: var(--bc-blue-dark); margin: 0;">
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         DEPLOYMENT FLOW                                  │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│   GitHub Actions          │ Azure Landing Zone (Private Network)        │
+│   (Public Internet)       │                                              │
+│                           │                                              │
+│   ┌──────────────┐        │    ┌──────────────┐    ┌─────────────────┐  │
+│   │ Workflow     │        │    │ Self-Hosted  │    │ Private         │  │
+│   │ Triggers     │───OIDC────▶│ Runner       │───▶│ Endpoints       │  │
+│   │              │  Token  │    │ (in VNet)    │    │ (Storage, KV)   │  │
+│   └──────────────┘        │    └──────────────┘    └─────────────────┘  │
+│                           │           │                                  │
+│                           │           ▼                                  │
+│                           │    ┌──────────────┐                         │
+│                           │    │ terraform    │                         │
+│                           │    │ plan/apply   │                         │
+│                           │    └──────────────┘                         │
+│                           │                                              │
+└─────────────────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<p><strong>Two deployment options:</strong></p>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: #22c55e;">
+        <h4 style="margin-top: 0;">Option A: Self-Hosted Runners</h4>
+        <p>GitHub Actions runners deployed inside the VNet. Workflows run directly on these VMs.</p>
+        <ul>
+            <li>Runner registers with GitHub</li>
+            <li>Workflow triggers, runner picks it up</li>
+            <li>Terraform runs inside VNet</li>
+            <li>Full access to private endpoints</li>
+        </ul>
+        <p style="margin-bottom:0;color:#22c55e;"><strong>Recommended for CI/CD</strong></p>
+    </div>
+    <div class="card" style="border-left-color: #0ea5e9;">
+        <h4 style="margin-top: 0;">Option B: Jumpbox + Bastion</h4>
+        <p>Manual access via Bastion for debugging, testing, and emergency fixes.</p>
+        <ul>
+            <li>Human connects via Azure Portal</li>
+            <li>Bastion brokers SSH connection</li>
+            <li>Land on Jumpbox inside VNet</li>
+            <li>Run commands, debug issues</li>
+        </ul>
+        <p style="margin-bottom:0;color:#0ea5e9;"><strong>Required for human access</strong></p>
+    </div>
+</div>
+
+<h3>What About Other Repositories?</h3>
+
+<div class="alert alert-success">
+    <span class="alert-icon">✅</span>
+    <div>
+        <strong>Good News: Other repos do NOT need their own Bastion/Jumpbox/VNet!</strong><br>
+        This is <strong>shared infrastructure</strong> - the Landing Zone is set up once and used by all projects.
+    </div>
+</div>
+
+<h4>What This Repo Provides (Set Up Once)</h4>
+<table>
+    <tr>
+        <th>Component</th>
+        <th>Purpose</th>
+        <th>Shared?</th>
+    </tr>
+    <tr>
+        <td>VNet + Subnets</td>
+        <td>Private network for all resources</td>
+        <td><strong>Yes - all projects use this</strong></td>
+    </tr>
+    <tr>
+        <td>Azure Bastion</td>
+        <td>Secure access gateway</td>
+        <td><strong>Yes - one Bastion for all</strong></td>
+    </tr>
+    <tr>
+        <td>Jumpbox VM</td>
+        <td>Admin access point</td>
+        <td><strong>Yes - shared by admins</strong></td>
+    </tr>
+    <tr>
+        <td>Self-Hosted Runners</td>
+        <td>CI/CD execution inside VNet</td>
+        <td><strong>Yes - shared runner pool</strong></td>
+    </tr>
+    <tr>
+        <td>Private DNS Zones</td>
+        <td>Name resolution for private endpoints</td>
+        <td><strong>Yes - centralized DNS</strong></td>
+    </tr>
+</table>
+
+<h4>What Other Repos Need To Do</h4>
+<table>
+    <tr>
+        <th>Task</th>
+        <th>Why</th>
+        <th>Effort</th>
+    </tr>
+    <tr>
+        <td>Configure OIDC federation</td>
+        <td>Allow their repo to authenticate to Azure</td>
+        <td>~30 min setup</td>
+    </tr>
+    <tr>
+        <td>Use shared runner labels</td>
+        <td>Target self-hosted runners in VNet</td>
+        <td>1 line in workflow</td>
+    </tr>
+    <tr>
+        <td>Deploy into existing VNet</td>
+        <td>Resources join the private network</td>
+        <td>Reference VNet in Terraform</td>
+    </tr>
+</table>
+
+<div class="card" style="border-left-color: #22c55e; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
+    <h4 style="margin-top: 0; color: #166534;">Example: New Project Onboarding</h4>
+    <p>A new AI project wants to deploy a model endpoint. Here's what they do:</p>
+    <ol>
+        <li><strong>OIDC Setup:</strong> Platform team adds federated credential for <code>repo:bcgov/new-project:*</code></li>
+        <li><strong>Workflow:</strong> Use <code>runs-on: [self-hosted, azure-vnet]</code> instead of <code>runs-on: ubuntu-latest</code></li>
+        <li><strong>Terraform:</strong> Reference existing VNet: <code>data "azurerm_virtual_network" "hub" { ... }</code></li>
+        <li><strong>Deploy:</strong> Resources automatically use private endpoints in the shared network</li>
+    </ol>
+    <p style="margin-bottom:0;"><strong>Total setup time: ~1 hour</strong> (vs. days to build their own Landing Zone)</p>
+</div>
+
+<h3>Why Not Just Open Public Endpoints Temporarily?</h3>
+
+<div class="card" style="border-left-color: #ef4444;">
+    <p><strong>Policy prohibits this.</strong> Even temporary public access:</p>
+    <ul>
+        <li>Creates audit findings</li>
+        <li>Requires security exemption paperwork</li>
+        <li>Introduces attack window</li>
+        <li>Must be reverted manually (often forgotten)</li>
+    </ul>
+    <p style="margin-bottom:0;">The Landing Zone approach is <strong>always private</strong> - no exemptions needed.</p>
+</div>
+
+<h3>Consequences</h3>
+
+<h4>Positive</h4>
+<ul>
+    <li><strong>Fully policy compliant</strong> - No public endpoints ever</li>
+    <li><strong>Shared infrastructure</strong> - One-time setup, many projects benefit</li>
+    <li><strong>Consistent security</strong> - All projects inherit the same secure baseline</li>
+    <li><strong>Cost efficient</strong> - Single Bastion (~$140/mo) serves all projects</li>
+</ul>
+
+<h4>Negative</h4>
+<ul>
+    <li><strong>Initial complexity</strong> - Landing Zone must be built first</li>
+    <li><strong>Runner maintenance</strong> - Self-hosted runners need updates</li>
+    <li><strong>VNet planning</strong> - Must allocate IP ranges carefully</li>
+</ul>
+
+<h3>References</h3>
+<ul>
+    <li><a href="https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/">Azure Landing Zone Concepts</a></li>
+    <li><a href="https://docs.github.com/en/actions/hosting-your-own-runners">GitHub Self-Hosted Runners</a></li>
+    <li><a href="diagrams.html#network-arch">Network Architecture Diagram</a></li>
+</ul>
+
+<!-- ============================================================================
+     ADR-002: OIDC vs Service Principal
+     ============================================================================ -->
+
+<h2 id="adr-002">ADR-002: Use OIDC instead of Service Principal Secrets</h2>
+
+<div class="grid grid-4" style="margin-bottom: 1rem;">
+    <div><strong>Status:</strong> Accepted</div>
+    <div><strong>Date:</strong> 2025-01</div>
+    <div><strong>Driver:</strong> <span class="badge badge-blue">Policy Required</span></div>
+    <div><strong>Category:</strong> Security</div>
+</div>
+
+<h3>Context</h3>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">🏛️</span>
+    <div>
+        <strong>Policy Driver:</strong> BC Gov security policy requires minimizing long-lived credentials and implementing credential rotation. The platform team provides rotating keys, but OIDC eliminates the need for a cron job to fetch and update credentials.
+    </div>
+</div>
+
+<p>GitHub Actions workflows need to authenticate with Azure to deploy infrastructure via Terraform. We evaluated three options for credential management:</p>
+
+<div class="grid grid-3">
+    <div class="card" style="border-left-color: #ef4444;">
+        <h4 style="margin-top: 0;">Option A: Static Secrets</h4>
+        <ul>
+            <li>Create Azure AD App Registration</li>
+            <li>Generate Client Secret</li>
+            <li>Store in GitHub Secrets</li>
+            <li>Rotate manually every 1-2 years</li>
+        </ul>
+        <p style="margin-bottom:0;color:#ef4444;"><strong>Not policy compliant</strong> - Long-lived credentials prohibited</p>
+    </div>
+    <div class="card" style="border-left-color: #f59e0b;">
+        <h4 style="margin-top: 0;">Option B: Platform Rotating Keys</h4>
+        <ul>
+            <li>Platform team rotates keys every 2 days</li>
+            <li>Keys expire after 4 days</li>
+            <li>Requires cron job to fetch/update</li>
+            <li>Must sync to GitHub Secrets</li>
+        </ul>
+        <p style="margin-bottom:0;color:#f59e0b;"><strong>Policy compliant</strong> - But adds operational overhead</p>
+    </div>
+    <div class="card" style="border-left-color: #22c55e;">
+        <h4 style="margin-top: 0;">Option C: OIDC Federation</h4>
+        <ul>
+            <li>Create Managed Identity</li>
+            <li>Configure GitHub OIDC trust</li>
+            <li>Token fetched in pipeline</li>
+            <li>No cron job needed</li>
+        </ul>
+        <p style="margin-bottom:0;color:#22c55e;"><strong>Policy compliant</strong> - Zero operational overhead</p>
+    </div>
+</div>
+
+<h3>Decision</h3>
+
+<p><strong>We chose Option C: OIDC Federated Credentials.</strong></p>
+
+<p>While the platform team's rotating key solution (Option B) is policy compliant, it requires maintaining a cron job to continuously fetch and update credentials. OIDC eliminates this operational burden - the bearer token is obtained directly within the GitHub Actions workflow at runtime, with no external synchronization required.</p>
+
+<h3>Rationale</h3>
+
+<table>
+    <tr>
+        <th>Criteria</th>
+        <th>Static Secrets</th>
+        <th>Platform Rotating</th>
+        <th>OIDC</th>
+    </tr>
+    <tr>
+        <td>Policy Compliant</td>
+        <td style="color:#ef4444;">No</td>
+        <td>Yes</td>
+        <td><strong>Yes</strong></td>
+    </tr>
+    <tr>
+        <td>Secret Management</td>
+        <td>Manual rotation</td>
+        <td>Cron job required</td>
+        <td><strong>No secrets needed</strong></td>
+    </tr>
+    <tr>
+        <td>Security Risk</td>
+        <td>Long-lived credential leak</td>
+        <td>4-day window if compromised</td>
+        <td><strong>~10 min window</strong></td>
+    </tr>
+    <tr>
+        <td>Operational Overhead</td>
+        <td>Annual rotation</td>
+        <td>Cron job maintenance</td>
+        <td><strong>Set and forget</strong></td>
+    </tr>
+    <tr>
+        <td>Token Lifetime</td>
+        <td>1-2 years</td>
+        <td>4 days max</td>
+        <td><strong>~10 minutes</strong></td>
+    </tr>
+    <tr>
+        <td>Failure Mode</td>
+        <td>Expired secret breaks deploy</td>
+        <td>Cron failure breaks deploy</td>
+        <td><strong>Self-contained in pipeline</strong></td>
+    </tr>
+    <tr>
+        <td>Scope Control</td>
+        <td>Per application</td>
+        <td>Per application</td>
+        <td><strong>Per repo/branch/env</strong></td>
+    </tr>
+</table>
+
+<h3>Consequences</h3>
+
+<h4>Positive</h4>
+<ul>
+    <li><strong>Zero secrets to rotate</strong> - Eliminates credential management overhead</li>
+    <li><strong>Reduced blast radius</strong> - Tokens valid for minutes, not years</li>
+    <li><strong>Fine-grained access</strong> - Can restrict to specific branches/environments</li>
+    <li><strong>Better audit trail</strong> - Every token exchange is logged with JWT claims</li>
+    <li><strong>No secret sprawl</strong> - Secrets don't end up in logs, config files, or developer machines</li>
+</ul>
+
+<h4>Negative</h4>
+<ul>
+    <li><strong>More complex initial setup</strong> - Federated credential configuration is more involved</li>
+    <li><strong>Newer technology</strong> - Less documentation and community examples available</li>
+    <li><strong>GitHub dependency</strong> - Tightly coupled to GitHub's OIDC provider</li>
+</ul>
+
+<h4>Neutral</h4>
+<ul>
+    <li>Requires understanding of JWT claims and subject matching</li>
+    <li>Debugging auth failures requires knowledge of OIDC flow</li>
+</ul>
+
+<h3>References</h3>
+<ul>
+    <li><a href="https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect">GitHub OIDC Documentation</a></li>
+    <li><a href="https://learn.microsoft.com/en-us/azure/active-directory/workload-identities/workload-identity-federation">Azure Workload Identity Federation</a></li>
+    <li><a href="diagrams.html#token-flow">Token Exchange Flow Diagram</a></li>
+</ul>
+
+<!-- ============================================================================
+     ADR-003: Azure Bastion vs VPN
+     ============================================================================ -->
+
+<h2 id="adr-003">ADR-003: Use Azure Bastion for VM Access</h2>
+
+<div class="grid grid-4" style="margin-bottom: 1rem;">
+    <div><strong>Status:</strong> Accepted</div>
+    <div><strong>Date:</strong> 2025-01</div>
+    <div><strong>Driver:</strong> <span class="badge badge-blue">Policy Required</span></div>
+    <div><strong>Category:</strong> Networking</div>
+</div>
+
+<h3>Context</h3>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">🏛️</span>
+    <div>
+        <strong>Policy Driver:</strong> BC Gov policy prohibits public IP addresses on virtual machines. VMs must only be accessible through private networks. Azure Bastion provides compliant access without exposing VMs to the internet.
+    </div>
+</div>
+
+<p>Operators need secure access to jumpbox VMs for debugging and administration. The VMs cannot have public IPs per policy. We evaluated:</p>
+
+<div class="grid grid-3">
+    <div class="card">
+        <h4 style="margin-top: 0;">Option A: VPN Gateway</h4>
+        <p>Point-to-site VPN for developer access</p>
+    </div>
+    <div class="card">
+        <h4 style="margin-top: 0;">Option B: Public IP + NSG</h4>
+        <p>Expose SSH/RDP with IP allowlisting</p>
+    </div>
+    <div class="card" style="border-left-color: #22c55e;">
+        <h4 style="margin-top: 0;">Option C: Azure Bastion</h4>
+        <p>Browser-based RDP/SSH via Azure Portal</p>
+    </div>
+</div>
+
+<h3>Decision</h3>
+
+<p><strong>We chose Option C: Azure Bastion.</strong></p>
+
+<h3>Rationale</h3>
+
+<table>
+    <tr>
+        <th>Criteria</th>
+        <th>VPN Gateway</th>
+        <th>Public IP</th>
+        <th>Bastion</th>
+    </tr>
+    <tr>
+        <td>Setup Complexity</td>
+        <td>High (certs, clients)</td>
+        <td>Low</td>
+        <td><strong>Medium</strong></td>
+    </tr>
+    <tr>
+        <td>Client Requirements</td>
+        <td>VPN client software</td>
+        <td>SSH/RDP client</td>
+        <td><strong>Browser only</strong></td>
+    </tr>
+    <tr>
+        <td>Attack Surface</td>
+        <td>VPN endpoint</td>
+        <td>High (exposed ports)</td>
+        <td><strong>Minimal</strong></td>
+    </tr>
+    <tr>
+        <td>Cost</td>
+        <td>~$140/month</td>
+        <td>~$5/month</td>
+        <td><strong>~$140/month (when on)</strong></td>
+    </tr>
+    <tr>
+        <td>On-demand</td>
+        <td>No (always on)</td>
+        <td>Yes</td>
+        <td><strong>Yes (can destroy)</strong></td>
+    </tr>
+</table>
+
+<h3>Consequences</h3>
+
+<h4>Positive</h4>
+<ul>
+    <li><strong>No public IPs on VMs</strong> - VMs only have private IPs</li>
+    <li><strong>No client software</strong> - Works from any browser</li>
+    <li><strong>Azure AD integration</strong> - Uses existing identity</li>
+    <li><strong>Session recording</strong> - Can enable for audit</li>
+    <li><strong>Cost control</strong> - Can deploy/destroy on demand via workflow</li>
+</ul>
+
+<h4>Negative</h4>
+<ul>
+    <li><strong>Azure Portal dependency</strong> - Must use Azure UI or CLI</li>
+    <li><strong>File transfer limitations</strong> - No native SCP/SFTP</li>
+    <li><strong>Latency</strong> - Browser-based adds some lag</li>
+</ul>
+
+<!-- ============================================================================
+     ADR-004: Private Endpoints
+     ============================================================================ -->
+
+<h2 id="adr-004">ADR-004: Private Endpoints for All Azure Services</h2>
+
+<div class="grid grid-4" style="margin-bottom: 1rem;">
+    <div><strong>Status:</strong> Accepted</div>
+    <div><strong>Date:</strong> 2025-01</div>
+    <div><strong>Driver:</strong> <span class="badge badge-blue">Policy Required</span></div>
+    <div><strong>Category:</strong> Networking</div>
+</div>
+
+<h3>Context</h3>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">🏛️</span>
+    <div>
+        <strong>Policy Driver:</strong> BC Gov security policy mandates that all Azure PaaS services must be accessed via Private Endpoints only. Public endpoints must be disabled. This ensures all traffic stays within the Azure backbone and private networks.
+    </div>
+</div>
+
+<p>Azure PaaS services (Storage Accounts, Key Vaults, Databases, etc.) by default have public endpoints accessible from the internet. BC Gov policy requires these to be locked down.</p>
+
+<h3>Policy Requirements</h3>
+
+<div class="card" style="border-left-color: #ef4444;">
+    <h4 style="margin-top: 0;">What Policy Prohibits</h4>
+    <ul style="margin-bottom: 0;">
+        <li>Public endpoints on any Azure service</li>
+        <li>Storage accounts accessible from internet</li>
+        <li>Key Vaults with public network access</li>
+        <li>Databases with public connectivity</li>
+        <li>Any service reachable without VNet integration</li>
+    </ul>
+</div>
+
+<div class="card" style="border-left-color: #22c55e;">
+    <h4 style="margin-top: 0;">What Policy Requires</h4>
+    <ul style="margin-bottom: 0;">
+        <li>Private Endpoints for all PaaS services</li>
+        <li>Private DNS zones for name resolution</li>
+        <li>VNet integration for all access</li>
+        <li>Network Security Groups controlling traffic</li>
+        <li>"Deny public access" enabled on all services</li>
+    </ul>
+</div>
+
+<h3>Implementation</h3>
+
+<table>
+    <tr>
+        <th>Service</th>
+        <th>Private Endpoint</th>
+        <th>DNS Zone</th>
+    </tr>
+    <tr>
+        <td>Storage Account (Terraform State)</td>
+        <td><code>privateEndpoint-blob</code></td>
+        <td><code>privatelink.blob.core.windows.net</code></td>
+    </tr>
+    <tr>
+        <td>Key Vault (if used)</td>
+        <td><code>privateEndpoint-vault</code></td>
+        <td><code>privatelink.vaultcore.azure.net</code></td>
+    </tr>
+    <tr>
+        <td>Container Registry (if used)</td>
+        <td><code>privateEndpoint-acr</code></td>
+        <td><code>privatelink.azurecr.io</code></td>
+    </tr>
+</table>
+
+<h3>Consequences</h3>
+
+<h4>Challenges</h4>
+<ul>
+    <li><strong>GitHub Actions cannot reach private endpoints directly</strong> - Requires self-hosted runners inside the VNet (see <a href="#adr-001">ADR-001</a>)</li>
+    <li><strong>Local development complexity</strong> - Developers cannot access resources without VPN/Bastion</li>
+    <li><strong>DNS resolution</strong> - Must configure private DNS zones correctly</li>
+    <li><strong>Debugging difficulty</strong> - Cannot easily test from outside the network</li>
+</ul>
+
+<h4>Workarounds</h4>
+<ul>
+    <li><strong>Terraform State:</strong> Use <code>use_azuread_auth = true</code> with storage firewall exceptions for GitHub Actions IPs (temporary during apply)</li>
+    <li><strong>Development:</strong> Use Bastion + Jumpbox for all Azure resource access (see <a href="#adr-003">ADR-003</a>)</li>
+    <li><strong>CI/CD:</strong> Use self-hosted runners in the VNet for full private access (see <a href="#adr-001">ADR-001</a>)</li>
+</ul>
+
+<h3>References</h3>
+<ul>
+    <li><a href="https://learn.microsoft.com/en-us/azure/private-link/private-endpoint-overview">Azure Private Endpoint Documentation</a></li>
+    <li><a href="diagrams.html#network-arch">Network Architecture Diagram</a></li>
+</ul>
+
+<!-- ============================================================================
+     ADR-005: Zero-Dependency Docs
+     ============================================================================ -->
+
+<h2 id="adr-005">ADR-005: Zero-Dependency Documentation System</h2>
+
+<div class="grid grid-4" style="margin-bottom: 1rem;">
+    <div><strong>Status:</strong> Accepted</div>
+    <div><strong>Date:</strong> 2025-12</div>
+    <div><strong>Deciders:</strong> Platform Team</div>
+    <div><strong>Category:</strong> Documentation</div>
+</div>
+
+<h3>Context</h3>
+
+<p>We needed a documentation site for the project. Options considered:</p>
+
+<div class="grid grid-2">
+    <div class="card">
+        <h4 style="margin-top: 0;">Static Site Generators</h4>
+        <ul>
+            <li>Jekyll (Ruby)</li>
+            <li>Hugo (Go)</li>
+            <li>Docusaurus (Node.js)</li>
+            <li>MkDocs (Python)</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: #22c55e;">
+        <h4 style="margin-top: 0;">Custom Bash Build</h4>
+        <ul>
+            <li>Header/footer partials</li>
+            <li>Variable substitution</li>
+            <li>~60 lines of shell script</li>
+            <li>Zero external dependencies</li>
+        </ul>
+    </div>
+</div>
+
+<h3>Decision</h3>
+
+<p><strong>We built a custom Bash-based static site generator.</strong></p>
+
+<h3>Rationale</h3>
+
+<ul>
+    <li><strong>Portability:</strong> Runs anywhere with Bash (Linux, Mac, WSL, CI)</li>
+    <li><strong>No dependency management:</strong> No npm, gem, pip, go install required</li>
+    <li><strong>Simplicity:</strong> Anyone can understand the 60-line build script</li>
+    <li><strong>Speed:</strong> Builds in milliseconds</li>
+    <li><strong>GitHub Pages native:</strong> No special plugins or build configurations</li>
+    <li><strong>AI-friendly:</strong> HTML generation is trivial for AI assistants</li>
+</ul>
+
+<h3>Consequences</h3>
+
+<h4>Positive</h4>
+<ul>
+    <li>Zero build dependencies to maintain or update</li>
+    <li>Works in any environment without setup</li>
+    <li>Easy to understand and modify</li>
+    <li>No security vulnerabilities from npm packages</li>
+</ul>
+
+<h4>Negative</h4>
+<ul>
+    <li>No built-in Markdown support (write HTML directly)</li>
+    <li>No automatic table of contents generation</li>
+    <li>No built-in search (added custom client-side solution)</li>
+</ul>
+
+<h4>Mitigations</h4>
+<ul>
+    <li>Created template page with all components for easy copy-paste</li>
+    <li>AI assistants generate HTML as easily as Markdown</li>
+    <li>Added custom SVG viewer for diagrams</li>
+</ul>
+
+<h2>ADR Template</h2>
+
+<p>Use this template when adding new ADRs:</p>
+
+<div class="card" style="background: var(--bg-light);">
+<pre style="background: transparent; box-shadow: none; margin: 0;">## ADR-XXX: [Title]
+
+**Status:** [Proposed | Accepted | Deprecated | Superseded]
+**Date:** YYYY-MM
+**Deciders:** [Team/People]
+**Category:** [Security | Networking | Infrastructure | Documentation | etc.]
+
+### Context
+[What is the issue? What forces are at play?]
+
+### Decision
+[What is the decision? Be specific.]
+
+### Rationale
+[Why this decision over alternatives?]
+
+### Consequences
+#### Positive
+- [Good outcomes]
+
+#### Negative
+- [Tradeoffs accepted]
+
+### References
+- [Links to relevant docs, diagrams, discussions]</pre>
+</div>

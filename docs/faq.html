@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocumentationHub | AI Hub Tracking</title>
+    <title>FAQ | AI Hub Tracking</title>
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <style>
         :root {
@@ -643,287 +643,376 @@
     </header>
     <main>
 
-<div class="hero">
-    <span class="badge badge-gold">Open Source</span>
-    <h1>AI Hub Tracking</h1>
-    <p>Infrastructure as Code for Azure Landing Zone deployments with GitHub Actions OIDC authentication. Zero secrets to rotate.</p>
-    
-    <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center;">
-        <a href="#quick-start" style="text-decoration: none;">
-            <button style="background: var(--bc-gold); color: var(--bc-blue); border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 1rem;">
-                Get Started ↓
-            </button>
-        </a>
-        <a href="diagrams.html" style="text-decoration: none;">
-            <button style="background: rgba(255,255,255,0.2); color: white; border: 1px solid white; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 1rem;">
-                View Architecture
-            </button>
-        </a>
+<h1>Frequently Asked Questions</h1>
+
+<p>Common questions about the AI Services Hub Landing Zone, network architecture, and onboarding process.</p>
+
+<div class="alert alert-info">
+    <span class="alert-icon">📋</span>
+    <div>
+        <strong>Questions pending answers are marked with</strong> <span class="badge" style="background:#ef4444;color:white;">Pending</span>
     </div>
 </div>
 
-<div class="alert alert-warning" style="margin-bottom: 2rem;">
-    <div style="display: flex; gap: 1rem;">
-        <span style="font-size: 1.5rem;">🚧</span>
+<h2>Network & Subscription Setup</h2>
+
+<div class="card">
+    <h3 style="margin-top:0;">What network sizes were allocated for the AI Hub?</h3>
+    <span class="badge badge-gold">Answered</span>
+    <table style="margin-top: 1rem;">
+        <tr>
+            <th>Environment</th>
+            <th>VNet Size</th>
+            <th>Usable IPs</th>
+        </tr>
+        <tr>
+            <td><strong>da4cf6-prod</strong></td>
+            <td>4x /24 (= /22)</td>
+            <td>~1,020</td>
+        </tr>
+        <tr>
+            <td><strong>da4cf6-test</strong></td>
+            <td>2x /24 (= /23)</td>
+            <td>~508</td>
+        </tr>
+        <tr>
+            <td><strong>da4cf6-dev</strong></td>
+            <td>1x /24</td>
+            <td>~251</td>
+        </tr>
+        <tr>
+            <td><strong>da4cf6-tools</strong></td>
+            <td>1x /24</td>
+            <td>~251</td>
+        </tr>
+    </table>
+    <p style="margin-top: 1rem; color: var(--text-secondary);"><em>Confirmed by Platform Services Team on Dec 11, 2025</em></p>
+</div>
+
+<div class="card">
+    <h3 style="margin-top:0;">Why does the AI Hub need larger VNets than standard /24?</h3>
+    <span class="badge badge-gold">Answered</span>
+    <p>The AI Hub will run multiple Azure services that each require significant IP allocation:</p>
+    <table style="margin-top: 1rem;">
+        <tr>
+            <th>Service</th>
+            <th>Min Size</th>
+            <th>Recommended</th>
+        </tr>
+        <tr>
+            <td>API Management (APIM)</td>
+            <td>/26</td>
+            <td>/24</td>
+        </tr>
+        <tr>
+            <td>App Gateway</td>
+            <td>/26</td>
+            <td>/24</td>
+        </tr>
+        <tr>
+            <td>AI Foundry</td>
+            <td>/25</td>
+            <td>/24</td>
+        </tr>
+        <tr>
+            <td>PrivateLink Subnet</td>
+            <td>/27</td>
+            <td>/27</td>
+        </tr>
+        <tr>
+            <td>AKS</td>
+            <td>Variable</td>
+            <td>Variable</td>
+        </tr>
+    </table>
+    <p style="margin-top: 1rem;"><strong>Total:</strong> This exceeds the standard /24 (256 IPs), requiring at least a /22 for production.</p>
+</div>
+
+<div class="card">
+    <h3 style="margin-top:0;">What is the non-routable IP range for Canada East?</h3>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>Non-prod resources in Canada East will use a portion of the non-routable IP range (10.10.x.x). PrivateLink will be used to access these resources over the routable network.</p>
+    <div class="alert alert-warning" style="margin-top: 1rem;">
+        <span class="alert-icon">❓</span>
         <div>
-            <h3 style="margin-top: 0; color: var(--bc-gold);">Pilot Project Disclaimer</h3>
-            <p><strong>This is an early-stage pilot.</strong> Many architectural patterns are still being validated with Platform Services.</p>
-            <p style="margin-bottom: 0.5rem;">This project was born after several teams struggled to navigate Azure policies, compliance, and networking individually. We consolidated these hard-learned lessons into a shared landing zone to help other BC Gov teams avoid the same pitfalls.</p>
-            <p><small><em>Based on <a href="https://github.com/Azure/AI-Landing-Zones">Azure AI Landing Zones</a> (upstream archival risk acknowledged).</em></small></p>
+            <strong>Open Questions:</strong>
+            <ul style="margin-bottom: 0;">
+                <li>What specific 10.10.x.x range will be assigned?</li>
+                <li>How will PrivateLink routing be configured?</li>
+                <li>What's the process to request additional IP blocks if needed?</li>
+            </ul>
         </div>
     </div>
 </div>
 
-<div class="grid grid-4" style="margin-bottom: 2rem;">
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid var(--bc-gold);">
-        <div class="stat-number">0</div>
-        <div class="stat-label">Secrets to Manage</div>
-    </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid var(--bc-blue);">
-        <div class="stat-number">3</div>
-        <div class="stat-label">Terraform Modules</div>
-    </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid #22c55e;">
-        <div class="stat-number">4</div>
-        <div class="stat-label">GitHub Workflows</div>
-    </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid #8b5cf6;">
-        <div class="stat-number">5+</div>
-        <div class="stat-label">Ops Playbooks</div>
-    </div>
-</div>
+<h2>Onboarding & Access</h2>
 
-<h2>Project Vision: A Shared AI Landing Zone</h2>
-
-<div class="grid grid-2">
-    <div class="card">
-        <h3>Why This Exists</h3>
-        <p>The B.C. Government is rapidly adopting AI technologies. However, setting up secure, compliant cloud infrastructure for AI workloads allows teams to get bogged down in networking, identity management, and security compliance.</p>
-        <p><strong>AI Hub Tracking</strong> serves as a reference implementation and reusable landing zone pattern. It solves the "blank slate" problem by providing a standardized, secure-by-default environment specifically designed for AI experimentation and production.</p>
-    </div>
-    <div class="card" style="border-left-color: var(--bc-gold);">
-        <h3>Problems We Solve</h3>
-        <ul style="margin-top: 0;">
-            <li><strong>Secret Fatigue:</strong> Eliminates the need to rotate client secrets by using OIDC.</li>
-            <li><strong>Network Complexity:</strong> Pre-wired VNet, Subnets, and NSGs so you don't have to be a network engineer.</li>
-            <li><strong>Security Compliance:</strong> Implements "Least Privilege" and private networking by default.</li>
-            <li><strong>Inconsistent Environments:</strong> Ensures Dev and Prod look identical, reducing deployment surprises.</li>
-        </ul>
-    </div>
-</div>
-
-<div class="card card-gold">
-    <h3 style="margin-top: 0;">What Can You Run Here?</h3>
-    <p>This landing zone is optimized for modern AI/ML workloads that require secure compute and private data access.</p>
-    <div class="grid grid-3">
-        <div style="text-align: center;">
-            <div style="font-size: 2rem;">🧠</div>
-            <strong>Azure AI & OpenAI</strong>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">Private connectivity to Azure OpenAI models and cognitive services like Document Intelligence (OCR).</p>
-        </div>
-        <div style="text-align: center;">
-            <div style="font-size: 2rem;">🤖</div>
-            <strong>Open Source Models</strong>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">Host private weights (Llama 3, Mistral) on secure VMs using Ollama or vLLM.</p>
-        </div>
-        <div style="text-align: center;">
-            <div style="font-size: 2rem;">📊</div>
-            <strong>RAG & Data Apps</strong>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">Vector databases and Streamlit/Gradio apps for rapid internal prototyping.</p>
-        </div>
-    </div>
-</div>
-
-<h2>I want to...</h2>
-
-<div class="grid grid-3">
-    <a href="oidc-setup.html" class="card-link">
-        <div class="card" style="border-left-color: #fcba19; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🔐 Set up Authentication</h4>
-            <p style="font-size: 0.9rem; margin-bottom: 0;">Configure OIDC trust between GitHub and Azure.</p>
-        </div>
-    </a>
-    <a href="terraform.html" class="card-link">
-        <div class="card" style="border-left-color: #8b5cf6; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🏗️ Deploy Infrastructure</h4>
-            <p style="font-size: 0.9rem; margin-bottom: 0;">Deploy VNet, Bastion, and Jumpbox modules.</p>
-        </div>
-    </a>
-    <a href="playbooks.html" class="card-link">
-        <div class="card" style="border-left-color: #ef4444; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🚑 Fix a Problem</h4>
-            <p style="font-size: 0.9rem; margin-bottom: 0;">Troubleshoot state locks, auth failures, or rollbacks.</p>
-        </div>
-    </a>
-</div>
-
-<h2>Network Allocation (License Plate: da4cf6)</h2>
-
-<div class="card" style="border-left-color: #22c55e; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
-    <p style="margin-top: 0;"><strong>Confirmed Dec 11, 2025</strong> - Platform Services Team</p>
-    <div class="grid grid-4" style="margin: 1rem 0;">
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">4x /24</div>
-            <div class="stat-label">Prod (= /22)</div>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">2x /24</div>
-            <div class="stat-label">Test (= /23)</div>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">1x /24</div>
-            <div class="stat-label">Dev</div>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">1x /24</div>
-            <div class="stat-label">Tools</div>
-        </div>
-    </div>
-    <p style="margin-bottom: 0; font-size: 0.9rem;">See <a href="faq.html">FAQ</a> for pending questions about Canada East non-routable ranges.</p>
-</div>
-
-<h2>Documentation Library</h2>
-
-<div class="grid grid-4">
-    <!-- Row 1 -->
-    <a href="decisions.html" class="card-link">
-        <div class="card" style="border-left-color: #ef4444;">
-            <h3 style="margin-top: 0;">🏛️ ADRs</h3>
-            <p>Architecture decisions and why things are built this way.</p>
-            <div class="card-arrow">Start Here →</div>
-        </div>
-    </a>
-    <a href="faq.html" class="card-link">
-        <div class="card" style="border-left-color: #f59e0b;">
-            <h3 style="margin-top: 0;">❓ FAQ</h3>
-            <p>Common questions, pending decisions, and contact info.</p>
-            <div class="card-arrow">View FAQ →</div>
-        </div>
-    </a>
-    <a href="oidc-setup.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">🔐 OIDC Setup</h3>
-            <p>Complete guide to passwordless authentication setup.</p>
-            <div class="card-arrow">View Guide →</div>
-        </div>
-    </a>
-    <a href="terraform.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">🏗️ Modules</h3>
-            <p>Deep dive into Network, Bastion, and Jumpbox configs.</p>
-            <div class="card-arrow">View Modules →</div>
-        </div>
-    </a>
-
-    <!-- Row 2 -->
-    <a href="workflows.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">⚙️ Workflows</h3>
-            <p>CI/CD pipeline automation details.</p>
-            <div class="card-arrow">View Workflows →</div>
-        </div>
-    </a>
-    <a href="diagrams.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">📊 Diagrams</h3>
-            <p>Interactive architecture and flow visualizations.</p>
-            <div class="card-arrow">View Diagrams →</div>
-        </div>
-    </a>
-    <a href="playbooks.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">📖 Playbooks</h3>
-            <p>Operational runbooks for Day 2 maintenance.</p>
-            <div class="card-arrow">View Playbooks →</div>
-        </div>
-    </a>
-    <a href="terraform-reference.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">📝 TF Reference</h3>
-            <p>Auto-generated variable and output docs.</p>
-            <div class="card-arrow">View Reference →</div>
-        </div>
-    </a>
-</div>
-
-<h2 id="quick-start">Quick Start</h2>
-
-<div class="card card-gold">
-    <h3 style="margin-bottom: 1.5rem;">Get Started in 3 Steps</h3>
-    <div class="grid grid-3">
-        <div style="text-align: center;">
-            <div class="stat-number">1</div>
-            <p style="margin: 0.5rem 0;"><strong>Run Setup Script</strong></p>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">Configure OIDC trust between GitHub and Azure (once per environment)</p>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number">2</div>
-            <p style="margin: 0.5rem 0;"><strong>Add Workflow</strong></p>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">Copy the deploy.yml workflow and backend.tf to your repo</p>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number">3</div>
-            <p style="margin: 0.5rem 0;"><strong>Push & Deploy</strong></p>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">Push to main and watch Terraform deploy automatically</p>
+<div class="card">
+    <h3 style="margin-top:0;">How do other teams onboard to the AI Hub?</h3>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>The onboarding process for other BC Gov teams to use the AI Hub is being developed.</p>
+    <div class="alert alert-warning" style="margin-top: 1rem;">
+        <span class="alert-icon">❓</span>
+        <div>
+            <strong>Open Questions:</strong>
+            <ul style="margin-bottom: 0;">
+                <li>What's the intake process for new teams?</li>
+                <li>What prerequisites must teams meet?</li>
+                <li>How are resources allocated per team?</li>
+                <li>What's the cost model (chargeback)?</li>
+            </ul>
         </div>
     </div>
 </div>
 
 <div class="card">
-    <h3>Step 1: Initial Setup</h3>
-    <p>Run this one-time command to create the Azure identity and trust relationship:</p>
-<pre>./initial-setup/initial-azure-setup.sh \
-    -g "YOUR-RESOURCE-GROUP" \
-    -n "your-app-identity" \
-    -r "bcgov/your-repo" \
-    -e "dev" \
-    --create-storage --create-github-secrets</pre>
-</div>
-
-<h2>Key Features</h2>
-
-<div class="grid grid-3">
-    <div class="card">
-        <div class="feature-icon green">🔒</div>
-        <h3 style="margin-top: 0;">Secure by Default</h3>
-        <ul style="margin-bottom: 0;">
-            <li>OIDC federated credentials</li>
-            <li>No stored secrets</li>
-            <li>Environment isolation</li>
-            <li>Least privilege access</li>
-        </ul>
-    </div>
-    <div class="card">
-        <div class="feature-icon blue">☁️</div>
-        <h3 style="margin-top: 0;">Azure Native</h3>
-        <ul style="margin-bottom: 0;">
-            <li>Managed identities</li>
-            <li>Azure Bastion access</li>
-            <li>Blob storage for state</li>
-            <li>NSG security rules</li>
-        </ul>
-    </div>
-    <div class="card">
-        <div class="feature-icon purple">🔄</div>
-        <h3 style="margin-top: 0;">Automated</h3>
-        <ul style="margin-bottom: 0;">
-            <li>GitOps workflow</li>
-            <li>Auto VM shutdown</li>
-            <li>Scheduled cleanup</li>
-            <li>On-demand resources</li>
-        </ul>
+    <h3 style="margin-top:0;">What's the 3-6-9 month roadmap?</h3>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>A planning/whiteboarding session was proposed with the following agenda:</p>
+    <ul>
+        <li>Roles Overview</li>
+        <li>Technical capabilities - first 3 months to showcase value</li>
+        <li>Services onboarding enablers</li>
+        <li>3-6-9 months baseline roadmap/milestones</li>
+        <li>WBS tracker (Azure DevOps/GitHub)</li>
+        <li>Regular cadences</li>
+    </ul>
+    <div class="alert alert-warning" style="margin-top: 1rem;">
+        <span class="alert-icon">❓</span>
+        <div>
+            <strong>Status:</strong> Planning session with Microsoft to be scheduled. Date TBD.
+        </div>
     </div>
 </div>
 
-<h2>Contributing</h2>
+<h2>Technical Architecture</h2>
 
-<p>This documentation is built automatically from the <code>docs/</code> folder. To add or update pages:</p>
+<div class="card">
+    <h3 style="margin-top:0;">Why can't GitHub Actions run Terraform directly?</h3>
+    <span class="badge badge-gold">Answered</span>
+    <p>See <a href="decisions.html#adr-001">ADR-001: Shared Landing Zone</a> for the full explanation.</p>
+    <p><strong>Short answer:</strong> BC Gov policy requires all Azure services to use private endpoints. GitHub-hosted runners are on the public internet and cannot reach private endpoints. Self-hosted runners inside the VNet are required.</p>
+</div>
 
-<ol>
-    <li>Edit files in <code>docs/_pages/</code></li>
-    <li>Run <code>./docs/build.sh</code> to test locally</li>
-    <li>Push to main - GitHub Actions deploys automatically</li>
-</ol>
+<div class="card">
+    <h3 style="margin-top:0;">What Azure services will the AI Hub provide?</h3>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>The AI Hub is intended to provide shared AI services for BC Gov teams. Services under consideration:</p>
+    <ul>
+        <li>Azure AI Foundry</li>
+        <li>API Management (APIM) for model access</li>
+        <li>Azure Kubernetes Service (AKS)</li>
+        <li>App Gateway for ingress</li>
+    </ul>
+    <div class="alert alert-warning" style="margin-top: 1rem;">
+        <span class="alert-icon">❓</span>
+        <div>
+            <strong>Open Questions:</strong>
+            <ul style="margin-bottom: 0;">
+                <li>Which AI models will be available?</li>
+                <li>What's the governance model for model usage?</li>
+                <li>How will prompt logging/auditing work?</li>
+                <li>What data residency requirements apply?</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3 style="margin-top:0;">How does VNet peering work between environments?</h3>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>Non-prod environments (dev, test, tools) will use VNet peering.</p>
+    <div class="alert alert-warning" style="margin-top: 1rem;">
+        <span class="alert-icon">❓</span>
+        <div>
+            <strong>Open Questions:</strong>
+            <ul style="margin-bottom: 0;">
+                <li>Will dev/test/tools be peered together or separate?</li>
+                <li>What's the traffic flow between environments?</li>
+                <li>Are there NSG rules restricting cross-environment access?</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<h2>Questions for Microsoft</h2>
+
+<div class="alert alert-info">
+    <span class="alert-icon">🤝</span>
+    <div>
+        <strong>Post kick-off questions for Microsoft regarding Azure AI Application Zone</strong> (Dec 2025)
+    </div>
+</div>
+
+<h3>Repository & Deployment Strategy</h3>
+
+<div class="card">
+    <h4 style="margin-top:0;">1. Should we use a forked repo or overlay repo approach?</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>The upstream <a href="https://github.com/Azure/AI-Landing-Zones">Azure AI Landing Zones</a> repo may become archived. What's the recommended approach for maintaining our customizations?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">2. What's the long-term support outlook for AI Landing Zones?</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>Given the archival risk, what's Microsoft's commitment to maintaining the upstream reference architecture?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">3. Fork sync strategy</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>If we fork, how should we handle syncing upstream changes while preserving BC Gov customizations?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">4. Policy overlay management</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>How do we layer BC Gov-specific Azure policies on top of the base landing zone without conflicts?</p>
+</div>
+
+<h3>Access & Security</h3>
+
+<div class="card">
+    <h4 style="margin-top:0;">5. User access model for AI Foundry</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>How will end users (data scientists, developers) access AI Foundry? What's the authentication/authorization model?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">6. RBAC model</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>What RBAC roles are needed for different user personas (platform admins, team leads, developers, data scientists)?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">7. Governance automation</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>How can we automate governance policies (data classification, model approval, prompt logging)?</p>
+</div>
+
+<h3>Infrastructure & Cost</h3>
+
+<div class="card">
+    <h4 style="margin-top:0;">8. Cost-effective IaC deployment without Bastion+VM</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>Running Bastion ($140/month) + Jumpbox just for Terraform deployments is expensive. Are there cheaper alternatives that still meet private endpoint requirements?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">9. GitHub self-hosted runners vs Azure DevOps</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>What's the recommended CI/CD approach for private endpoint deployments? Self-hosted GitHub runners in VNet vs Azure DevOps agents?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">10. Shared vs dedicated resources per team</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>Which resources should be shared across teams (APIM, AI models) vs dedicated per team (compute, storage)?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">11. Cost allocation and chargeback</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>How do we track and allocate costs to individual teams/projects using shared AI services?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">12. Telemetry and tagging strategy</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>What tagging conventions and telemetry should be implemented for cost tracking and observability?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">13. Noisy neighbor mitigation</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>How do we prevent one team's workload from impacting others in a shared environment (rate limiting, quotas)?</p>
+</div>
+
+<h3>Onboarding & Operations</h3>
+
+<div class="card">
+    <h4 style="margin-top:0;">14. Project namespace concept</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>How should we isolate team workloads? Resource groups per team? Subscriptions? Kubernetes namespaces?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">15. Non-Foundry services governance</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>How do we govern teams that want to deploy their own AI services (Ollama, vLLM) outside of AI Foundry?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">16. Onboarding journey</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>What's the end-to-end flow for a new team to request access, get approved, and start using AI services?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">17. Runbooks and playbooks</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>What operational runbooks are needed for Day 2 operations (incident response, scaling, maintenance)?</p>
+</div>
+
+<div class="card">
+    <h4 style="margin-top:0;">18. SDPR OCR scope</h4>
+    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <p>What's the scope of SDPR's OCR (Document Intelligence) requirements and how does it fit into the shared platform?</p>
+</div>
+
+<h2>Pending Decisions</h2>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">📝</span>
+    <div>
+        <strong>Items requiring team discussion or decisions:</strong>
+    </div>
+</div>
+
+<table>
+    <tr>
+        <th>#</th>
+        <th>Question</th>
+        <th>Owner</th>
+        <th>Status</th>
+    </tr>
+    <tr>
+        <td>1</td>
+        <td>Canada East non-routable IP range assignment</td>
+        <td>Platform Team</td>
+        <td><span class="badge" style="background:#f59e0b;color:white;">Waiting</span></td>
+    </tr>
+    <tr>
+        <td>2</td>
+        <td>Team onboarding process documentation</td>
+        <td>Product Management</td>
+        <td><span class="badge" style="background:#f59e0b;color:white;">In Progress</span></td>
+    </tr>
+    <tr>
+        <td>3</td>
+        <td>3-6-9 month roadmap</td>
+        <td>Microsoft</td>
+        <td><span class="badge" style="background:#f59e0b;color:white;">In Progress</span></td>
+    </tr>
+    <tr>
+        <td>4</td>
+        <td>Cost model / chargeback for AI services</td>
+        <td>Executive Sponsor</td>
+        <td><span class="badge" style="background:#ef4444;color:white;">Not Started</span></td>
+    </tr>
+    <tr>
+        <td>5</td>
+        <td>Self-hosted runner setup in VNet</td>
+        <td>Platform Team</td>
+        <td><span class="badge" style="background:#ef4444;color:white;">Not Started</span></td>
+    </tr>
+    <tr>
+        <td>6</td>
+        <td>AI model governance policy</td>
+        <td>TBD</td>
+        <td><span class="badge" style="background:#ef4444;color:white;">Not Started</span></td>
+    </tr>
+</table>
     </main>
     <footer class="site-footer">
         <div class="footer-content">

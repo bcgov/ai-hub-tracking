@@ -1,0 +1,274 @@
+<!-- TITLE: GitHub Workflows -->
+<!-- NAV: workflows -->
+
+<h1>GitHub Actions Workflows</h1>
+
+<p>This project uses GitHub Actions for automated infrastructure deployments with OIDC authentication to Azure.</p>
+
+<h2>Workflow Overview</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Workflow</th>
+            <th>Trigger</th>
+            <th>Purpose</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>.deployer.yml</strong></td>
+            <td>Called by other workflows</td>
+            <td>Reusable Terraform deployment workflow</td>
+        </tr>
+        <tr>
+            <td><strong>bastion-add-or-remove.yml</strong></td>
+            <td>Manual (workflow_dispatch)</td>
+            <td>Deploy or destroy Bastion on demand</td>
+        </tr>
+        <tr>
+            <td><strong>schedule.yml</strong></td>
+            <td>Cron (daily at 5 PM PST)</td>
+            <td>Auto-destroy Bastion for cost savings</td>
+        </tr>
+        <tr>
+            <td><strong>pages.yml</strong></td>
+            <td>Push to main (docs/**)</td>
+            <td>Deploy this documentation site</td>
+        </tr>
+    </tbody>
+</table>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>.deployer.yml (Reusable Workflow)</h2>
+
+<p>The core Terraform deployment workflow, called by other workflows using <code>workflow_call</code>.</p>
+
+<div class="card">
+    <h3>Inputs</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Input</th>
+                <th>Type</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>environment_name</code></td>
+                <td>string</td>
+                <td>Target environment (tools, dev, prod)</td>
+            </tr>
+            <tr>
+                <td><code>command</code></td>
+                <td>string</td>
+                <td>Terraform command (init, plan, apply, destroy)</td>
+            </tr>
+            <tr>
+                <td><code>target_module</code></td>
+                <td>string</td>
+                <td>Optional module to target (jumpbox, bastion, network)</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card card-gold">
+    <h3>Key Features</h3>
+    <ul>
+        <li><strong>OIDC Authentication</strong>: Uses <code>azure/login@v2</code> with federated credentials</li>
+        <li><strong>Environment Isolation</strong>: Each environment has separate secrets and identity</li>
+        <li><strong>Module Targeting</strong>: Deploy specific modules with <code>-target=module.name</code></li>
+        <li><strong>ARM_USE_OIDC</strong>: Enabled for Terraform Azure provider</li>
+    </ul>
+</div>
+
+<h3>Required Permissions</h3>
+
+<pre>permissions:
+  id-token: write   # Required for OIDC token generation
+  contents: read    # Required for repository checkout</pre>
+
+<div class="alert alert-warning">
+    <strong>Important:</strong> Without <code>id-token: write</code> permission, the workflow cannot generate the OIDC token needed for Azure authentication.
+</div>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>bastion-add-or-remove.yml</h2>
+
+<p>Manual workflow for deploying or destroying Azure Bastion on demand.</p>
+
+<div class="grid grid-2">
+    <div class="card">
+        <h3>When to Use</h3>
+        <ul>
+            <li><strong>Deploy Bastion</strong>: When you need SSH/RDP access to VMs</li>
+            <li><strong>Destroy Bastion</strong>: When done working, to save costs</li>
+        </ul>
+    </div>
+    <div class="card">
+        <h3>How to Run</h3>
+        <ol>
+            <li>Go to Actions tab in GitHub</li>
+            <li>Select "Deploy or Remove Bastion Host"</li>
+            <li>Click "Run workflow"</li>
+            <li>Choose environment and command</li>
+        </ol>
+    </div>
+</div>
+
+<h3>Workflow Inputs</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th>Input</th>
+            <th>Options</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>environment_name</code></td>
+            <td>tools</td>
+            <td>Target environment</td>
+        </tr>
+        <tr>
+            <td><code>module</code></td>
+            <td>bastion</td>
+            <td>Module to manage</td>
+        </tr>
+        <tr>
+            <td><code>command</code></td>
+            <td>apply, destroy</td>
+            <td>Terraform command to execute</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="alert alert-info">
+    <strong>Cost Optimization:</strong> Azure Bastion has hourly charges (~$0.19/hour for Basic SKU). Deploy only when needed and destroy when done.
+</div>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>schedule.yml (Scheduled Cleanup)</h2>
+
+<p>Automatically destroys Bastion every day at 5 PM PST to prevent unnecessary charges.</p>
+
+<div class="card">
+    <h3>Schedule</h3>
+    <pre># Runs daily at 5 PM PST (1 AM UTC next day)
+on:
+  schedule:
+    - cron: "0 1 * * *"</pre>
+</div>
+
+<div class="card card-gold">
+    <h3>Workflow Logic</h3>
+    <ol>
+        <li><strong>Check if Bastion exists</strong>: Uses Azure CLI to query the Bastion resource</li>
+        <li><strong>Conditional destroy</strong>: Only runs Terraform destroy if Bastion is found</li>
+        <li><strong>Status notification</strong>: Reports whether Bastion was destroyed or already removed</li>
+    </ol>
+</div>
+
+<h3>Jobs Flow</h3>
+
+<pre>check-and-destroy-bastion
+         │
+         ├── bastion_exists=true ──► destroy-bastion ──► notification
+         │
+         └── bastion_exists=false ──────────────────────► notification</pre>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>pages.yml (Documentation)</h2>
+
+<p>Deploys this documentation site to GitHub Pages when changes are pushed to the <code>docs/</code> folder.</p>
+
+<div class="card">
+    <h3>Triggers</h3>
+    <ul>
+        <li><strong>Push to main</strong>: When files in <code>docs/**</code> are changed</li>
+        <li><strong>Manual</strong>: Can be triggered manually via <code>workflow_dispatch</code></li>
+    </ul>
+</div>
+
+<div class="card">
+    <h3>Deployment Steps</h3>
+    <ol>
+        <li>Checkout repository</li>
+        <li>Run <code>docs/build.sh</code> to generate HTML from templates</li>
+        <li>Configure GitHub Pages</li>
+        <li>Upload <code>docs/</code> folder as artifact</li>
+        <li>Deploy to GitHub Pages</li>
+    </ol>
+</div>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>Environment Secrets</h2>
+
+<p>Each GitHub environment requires these secrets (created by <code>initial-azure-setup.sh</code>):</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Secret</th>
+            <th>Description</th>
+            <th>Source</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>AZURE_CLIENT_ID</code></td>
+            <td>Managed Identity client ID</td>
+            <td>Created by setup script</td>
+        </tr>
+        <tr>
+            <td><code>AZURE_TENANT_ID</code></td>
+            <td>Azure AD tenant ID</td>
+            <td>Your Azure subscription</td>
+        </tr>
+        <tr>
+            <td><code>AZURE_SUBSCRIPTION_ID</code></td>
+            <td>Target subscription ID</td>
+            <td>Your Azure subscription</td>
+        </tr>
+        <tr>
+            <td><code>VNET_RESOURCE_GROUP_NAME</code></td>
+            <td>Resource group containing VNet</td>
+            <td>Your infrastructure</td>
+        </tr>
+        <tr>
+            <td><code>VNET_NAME</code></td>
+            <td>Existing VNet name</td>
+            <td>Your infrastructure</td>
+        </tr>
+        <tr>
+            <td><code>VNET_ADDRESS_SPACE</code></td>
+            <td>VNet CIDR block</td>
+            <td>Your infrastructure</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>Running Workflows Locally</h2>
+
+<p>For local development and testing, use the <code>deploy-terraform.sh</code> script:</p>
+
+<pre># Ensure you're logged in
+az login
+
+# Run Terraform commands locally
+./deploy-terraform.sh init
+./deploy-terraform.sh plan
+./deploy-terraform.sh apply</pre>
+
+<div class="alert alert-info">
+    <strong>Note:</strong> Local runs use your Azure CLI credentials instead of OIDC. Make sure you have the required permissions.
+</div>

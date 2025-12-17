@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocumentationHub | AI Hub Tracking</title>
+    <title>TerraformReference | AI Hub Tracking</title>
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <style>
         :root {
@@ -643,287 +643,544 @@
     </header>
     <main>
 
-<div class="hero">
-    <span class="badge badge-gold">Open Source</span>
-    <h1>AI Hub Tracking</h1>
-    <p>Infrastructure as Code for Azure Landing Zone deployments with GitHub Actions OIDC authentication. Zero secrets to rotate.</p>
-    
-    <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center;">
-        <a href="#quick-start" style="text-decoration: none;">
-            <button style="background: var(--bc-gold); color: var(--bc-blue); border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 1rem;">
-                Get Started ↓
-            </button>
-        </a>
-        <a href="diagrams.html" style="text-decoration: none;">
-            <button style="background: rgba(255,255,255,0.2); color: white; border: 1px solid white; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 1rem;">
-                View Architecture
-            </button>
-        </a>
+<h1>Terraform Reference</h1>
+
+<div class="alert alert-info">
+    <span class="alert-icon">🤖</span>
+    <div>
+        <strong>Auto-Generated Documentation</strong><br>
+        This page is automatically generated from Terraform source files. Run <code>./docs/generate-tf-docs.sh</code> to update.
     </div>
 </div>
 
-<div class="alert alert-warning" style="margin-bottom: 2rem;">
-    <div style="display: flex; gap: 1rem;">
-        <span style="font-size: 1.5rem;">🚧</span>
-        <div>
-            <h3 style="margin-top: 0; color: var(--bc-gold);">Pilot Project Disclaimer</h3>
-            <p><strong>This is an early-stage pilot.</strong> Many architectural patterns are still being validated with Platform Services.</p>
-            <p style="margin-bottom: 0.5rem;">This project was born after several teams struggled to navigate Azure policies, compliance, and networking individually. We consolidated these hard-learned lessons into a shared landing zone to help other BC Gov teams avoid the same pitfalls.</p>
-            <p><small><em>Based on <a href="https://github.com/Azure/AI-Landing-Zones">Azure AI Landing Zones</a> (upstream archival risk acknowledged).</em></small></p>
-        </div>
-    </div>
-</div>
+<p>Complete reference documentation for all Terraform modules, variables, and outputs extracted directly from the source code.</p>
 
-<div class="grid grid-4" style="margin-bottom: 2rem;">
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid var(--bc-gold);">
-        <div class="stat-number">0</div>
-        <div class="stat-label">Secrets to Manage</div>
-    </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid var(--bc-blue);">
-        <div class="stat-number">3</div>
-        <div class="stat-label">Terraform Modules</div>
-    </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid #22c55e;">
-        <div class="stat-number">4</div>
-        <div class="stat-label">GitHub Workflows</div>
-    </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid #8b5cf6;">
-        <div class="stat-number">5+</div>
-        <div class="stat-label">Ops Playbooks</div>
-    </div>
-</div>
-
-<h2>Project Vision: A Shared AI Landing Zone</h2>
-
-<div class="grid grid-2">
-    <div class="card">
-        <h3>Why This Exists</h3>
-        <p>The B.C. Government is rapidly adopting AI technologies. However, setting up secure, compliant cloud infrastructure for AI workloads allows teams to get bogged down in networking, identity management, and security compliance.</p>
-        <p><strong>AI Hub Tracking</strong> serves as a reference implementation and reusable landing zone pattern. It solves the "blank slate" problem by providing a standardized, secure-by-default environment specifically designed for AI experimentation and production.</p>
-    </div>
-    <div class="card" style="border-left-color: var(--bc-gold);">
-        <h3>Problems We Solve</h3>
-        <ul style="margin-top: 0;">
-            <li><strong>Secret Fatigue:</strong> Eliminates the need to rotate client secrets by using OIDC.</li>
-            <li><strong>Network Complexity:</strong> Pre-wired VNet, Subnets, and NSGs so you don't have to be a network engineer.</li>
-            <li><strong>Security Compliance:</strong> Implements "Least Privilege" and private networking by default.</li>
-            <li><strong>Inconsistent Environments:</strong> Ensures Dev and Prod look identical, reducing deployment surprises.</li>
-        </ul>
-    </div>
-</div>
-
-<div class="card card-gold">
-    <h3 style="margin-top: 0;">What Can You Run Here?</h3>
-    <p>This landing zone is optimized for modern AI/ML workloads that require secure compute and private data access.</p>
-    <div class="grid grid-3">
-        <div style="text-align: center;">
-            <div style="font-size: 2rem;">🧠</div>
-            <strong>Azure AI & OpenAI</strong>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">Private connectivity to Azure OpenAI models and cognitive services like Document Intelligence (OCR).</p>
-        </div>
-        <div style="text-align: center;">
-            <div style="font-size: 2rem;">🤖</div>
-            <strong>Open Source Models</strong>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">Host private weights (Llama 3, Mistral) on secure VMs using Ollama or vLLM.</p>
-        </div>
-        <div style="text-align: center;">
-            <div style="font-size: 2rem;">📊</div>
-            <strong>RAG & Data Apps</strong>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">Vector databases and Streamlit/Gradio apps for rapid internal prototyping.</p>
-        </div>
-    </div>
-</div>
-
-<h2>I want to...</h2>
-
-<div class="grid grid-3">
-    <a href="oidc-setup.html" class="card-link">
-        <div class="card" style="border-left-color: #fcba19; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🔐 Set up Authentication</h4>
-            <p style="font-size: 0.9rem; margin-bottom: 0;">Configure OIDC trust between GitHub and Azure.</p>
-        </div>
-    </a>
-    <a href="terraform.html" class="card-link">
-        <div class="card" style="border-left-color: #8b5cf6; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🏗️ Deploy Infrastructure</h4>
-            <p style="font-size: 0.9rem; margin-bottom: 0;">Deploy VNet, Bastion, and Jumpbox modules.</p>
-        </div>
-    </a>
-    <a href="playbooks.html" class="card-link">
-        <div class="card" style="border-left-color: #ef4444; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🚑 Fix a Problem</h4>
-            <p style="font-size: 0.9rem; margin-bottom: 0;">Troubleshoot state locks, auth failures, or rollbacks.</p>
-        </div>
-    </a>
-</div>
-
-<h2>Network Allocation (License Plate: da4cf6)</h2>
-
-<div class="card" style="border-left-color: #22c55e; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
-    <p style="margin-top: 0;"><strong>Confirmed Dec 11, 2025</strong> - Platform Services Team</p>
-    <div class="grid grid-4" style="margin: 1rem 0;">
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">4x /24</div>
-            <div class="stat-label">Prod (= /22)</div>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">2x /24</div>
-            <div class="stat-label">Test (= /23)</div>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">1x /24</div>
-            <div class="stat-label">Dev</div>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">1x /24</div>
-            <div class="stat-label">Tools</div>
-        </div>
-    </div>
-    <p style="margin-bottom: 0; font-size: 0.9rem;">See <a href="faq.html">FAQ</a> for pending questions about Canada East non-routable ranges.</p>
-</div>
-
-<h2>Documentation Library</h2>
-
-<div class="grid grid-4">
-    <!-- Row 1 -->
-    <a href="decisions.html" class="card-link">
-        <div class="card" style="border-left-color: #ef4444;">
-            <h3 style="margin-top: 0;">🏛️ ADRs</h3>
-            <p>Architecture decisions and why things are built this way.</p>
-            <div class="card-arrow">Start Here →</div>
-        </div>
-    </a>
-    <a href="faq.html" class="card-link">
-        <div class="card" style="border-left-color: #f59e0b;">
-            <h3 style="margin-top: 0;">❓ FAQ</h3>
-            <p>Common questions, pending decisions, and contact info.</p>
-            <div class="card-arrow">View FAQ →</div>
-        </div>
-    </a>
-    <a href="oidc-setup.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">🔐 OIDC Setup</h3>
-            <p>Complete guide to passwordless authentication setup.</p>
-            <div class="card-arrow">View Guide →</div>
-        </div>
-    </a>
-    <a href="terraform.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">🏗️ Modules</h3>
-            <p>Deep dive into Network, Bastion, and Jumpbox configs.</p>
-            <div class="card-arrow">View Modules →</div>
-        </div>
-    </a>
-
-    <!-- Row 2 -->
-    <a href="workflows.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">⚙️ Workflows</h3>
-            <p>CI/CD pipeline automation details.</p>
-            <div class="card-arrow">View Workflows →</div>
-        </div>
-    </a>
-    <a href="diagrams.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">📊 Diagrams</h3>
-            <p>Interactive architecture and flow visualizations.</p>
-            <div class="card-arrow">View Diagrams →</div>
-        </div>
-    </a>
-    <a href="playbooks.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">📖 Playbooks</h3>
-            <p>Operational runbooks for Day 2 maintenance.</p>
-            <div class="card-arrow">View Playbooks →</div>
-        </div>
-    </a>
-    <a href="terraform-reference.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">📝 TF Reference</h3>
-            <p>Auto-generated variable and output docs.</p>
-            <div class="card-arrow">View Reference →</div>
-        </div>
-    </a>
-</div>
-
-<h2 id="quick-start">Quick Start</h2>
-
-<div class="card card-gold">
-    <h3 style="margin-bottom: 1.5rem;">Get Started in 3 Steps</h3>
-    <div class="grid grid-3">
-        <div style="text-align: center;">
-            <div class="stat-number">1</div>
-            <p style="margin: 0.5rem 0;"><strong>Run Setup Script</strong></p>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">Configure OIDC trust between GitHub and Azure (once per environment)</p>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number">2</div>
-            <p style="margin: 0.5rem 0;"><strong>Add Workflow</strong></p>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">Copy the deploy.yml workflow and backend.tf to your repo</p>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number">3</div>
-            <p style="margin: 0.5rem 0;"><strong>Push & Deploy</strong></p>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">Push to main and watch Terraform deploy automatically</p>
-        </div>
-    </div>
-</div>
-
+<h2>Root Module</h2>
 <div class="card">
-    <h3>Step 1: Initial Setup</h3>
-    <p>Run this one-time command to create the Azure identity and trust relationship:</p>
-<pre>./initial-setup/initial-azure-setup.sh \
-    -g "YOUR-RESOURCE-GROUP" \
-    -n "your-app-identity" \
-    -r "bcgov/your-repo" \
-    -e "dev" \
-    --create-storage --create-github-secrets</pre>
+<p>-------------</p>
+<p><strong>Location:</strong> <code>infra/</code></p>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>app_env</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Application environment (dev, test, prod)</td>
+</tr>
+<tr>
+<td><code>app_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the application</td>
+</tr>
+<tr>
+<td><code>common_tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>required</code></td>
+<td>Common tags to apply to all resources</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>Canada</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the resource group</td>
+</tr>
+<tr>
+<td><code>subscription_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure subscription ID</td>
+</tr>
+<tr>
+<td><code>tenant_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure tenant ID</td>
+</tr>
+<tr>
+<td><code>use_oidc</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Use OIDC for authentication</td>
+</tr>
+<tr>
+<td><code>vnet_address_space</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Address space for the virtual network, it is created by platform team</td>
+</tr>
+<tr>
+<td><code>vnet_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the existing virtual network</td>
+</tr>
+<tr>
+<td><code>vnet_resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Resource group name where the virtual network exists</td>
+</tr>
+<tr>
+<td><code>client_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure client ID for the service principal</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>jumpbox_vm_id</code></td>
+<td>ID of the jumpbox virtual machine</td>
+</tr>
+<tr>
+<td><code>jumpbox_vm_name</code></td>
+<td>Name of the jumpbox virtual machine</td>
+</tr>
+<tr>
+<td><code>jumpbox_admin_username</code></td>
+<td>Admin username for SSH access to jumpbox</td>
+</tr>
+<tr>
+<td><code>jumpbox_auto_shutdown_time</code></td>
+<td>Auto-shutdown time (PST)</td>
+</tr>
+<tr>
+<td><code>jumpbox_auto_start_schedule</code></td>
+<td>Auto-start schedule (PST)</td>
+</tr>
+<tr>
+<td><code>bastion_resource_id</code></td>
+<td>Resource ID of Azure Bastion</td>
+</tr>
+<tr>
+<td><code>bastion_fqdn</code></td>
+<td>FQDN of the Bastion service</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_resource_group (main)</code></li>
+</ul>
+</div>
+<h2 id="bastion">Module: bastion</h2>
+<div class="card" style="border-left-color: #8b5cf6;">
+<p>-----------------------------------------------------------------------------</p>
+<p><strong>Location:</strong> <code>infra/modules/bastion/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Module Files</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>providers.tf</code></li>
+<li><code>variables.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>app_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the application, used for resource naming</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the resource group</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>bastion_subnet_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Subnet ID for Azure Bastion (must be named AzureBastionSubnet)</td>
+</tr>
+<tr>
+<td><code>common_tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>required</code></td>
+<td>Common tags to apply to all resources</td>
+</tr>
+<tr>
+<td><code>bastion_sku</code></td>
+<td><code>string</code></td>
+<td><code>Basic</code></td>
+<td>SKU for Azure Bastion (Basic or Standard)</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>bastion_resource_id</code></td>
+<td>Resource ID of the Azure Bastion host</td>
+</tr>
+<tr>
+<td><code>bastion_fqdn</code></td>
+<td>FQDN of the Bastion host</td>
+</tr>
+<tr>
+<td><code>public_ip_address</code></td>
+<td>Public IP address of the Bastion host</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_public_ip (bastion)</code></li>
+<li><code>azurerm_bastion_host (main)</code></li>
+</ul>
+</div>
+<h2 id="jumpbox">Module: jumpbox</h2>
+<div class="card" style="border-left-color: #8b5cf6;">
+<p>-----------------------------------------------------------------------------</p>
+<p><strong>Location:</strong> <code>infra/modules/jumpbox/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Module Files</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>providers.tf</code></li>
+<li><code>variables.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>app_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the application, used for resource naming</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the resource group</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>subnet_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Subnet ID for the jumpbox VM</td>
+</tr>
+<tr>
+<td><code>common_tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>required</code></td>
+<td>Common tags to apply to all resources</td>
+</tr>
+<tr>
+<td><code>vm_size</code></td>
+<td><code>string</code></td>
+<td><code>Standard_B2als_v2</code></td>
+<td>Size of the virtual machine (B2als_v2: 2 vCPU, 4 GB RAM - cost-effective for jumpbox)</td>
+</tr>
+<tr>
+<td><code>os_disk_type</code></td>
+<td><code>string</code></td>
+<td><code>Standard_LRS</code></td>
+<td>Storage account type for the OS disk</td>
+</tr>
+<tr>
+<td><code>os_disk_size_gb</code></td>
+<td><code>number</code></td>
+<td><code>64</code></td>
+<td>Size of the OS disk in GB</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>vm_id</code></td>
+<td>ID of the jumpbox virtual machine</td>
+</tr>
+<tr>
+<td><code>vm_name</code></td>
+<td>Name of the jumpbox virtual machine</td>
+</tr>
+<tr>
+<td><code>private_ip_address</code></td>
+<td>Private IP address of the jumpbox VM</td>
+</tr>
+<tr>
+<td><code>admin_username</code></td>
+<td>Admin username for SSH access</td>
+</tr>
+<tr>
+<td><code>principal_id</code></td>
+<td>Principal ID of the VM's managed identity</td>
+</tr>
+<tr>
+<td><code>ssh_public_key_id</code></td>
+<td>Resource ID of the SSH public key in Azure</td>
+</tr>
+<tr>
+<td><code>ssh_private_key_path</code></td>
+<td>Local path to the SSH private key file</td>
+</tr>
+<tr>
+<td><code>automation_account_id</code></td>
+<td>ID of the Azure Automation Account for VM scheduling</td>
+</tr>
+<tr>
+<td><code>auto_shutdown_time</code></td>
+<td>Auto-shutdown time (PST)</td>
+</tr>
+<tr>
+<td><code>auto_start_schedule</code></td>
+<td>Auto-start schedule</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azapi_resource_action (ssh_public_key_gen)</code></li>
+<li><code>azapi_resource (ssh_public_key)</code></li>
+<li><code>random_string (admin_username)</code></li>
+<li><code>azurerm_network_interface (jumpbox)</code></li>
+<li><code>azurerm_linux_virtual_machine (jumpbox)</code></li>
+<li><code>local_sensitive_file (ssh_private_key)</code></li>
+<li><code>azurerm_dev_test_global_vm_shutdown_schedule (jumpbox)</code></li>
+<li><code>azurerm_automation_account (jumpbox)</code></li>
+<li><code>azurerm_automation_runbook (start_vm)</code></li>
+<li><code>azurerm_automation_schedule (weekday_start)</code></li>
+<li><code>azurerm_automation_job_schedule (start_vm)</code></li>
+<li><code>azurerm_role_assignment (automation_vm_contributor)</code></li>
+</ul>
+</div>
+<h2 id="network">Module: network</h2>
+<div class="card" style="border-left-color: #8b5cf6;">
+<p><strong>Location:</strong> <code>infra/modules/network/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Module Files</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>locals.tf</code></li>
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>providers.tf</code></li>
+<li><code>variables.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>apps_service_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>app-service-subnet</code></td>
+<td>Name of the subnet for App Services</td>
+</tr>
+<tr>
+<td><code>common_tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>required</code></td>
+<td>Common tags to apply to all resources</td>
+</tr>
+<tr>
+<td><code>container_instance_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>container-instance-subnet</code></td>
+<td>Name of the subnet for container instances</td>
+</tr>
+<tr>
+<td><code>container_apps_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>container-apps-subnet</code></td>
+<td>Name of the subnet for Container Apps</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>Canada</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>privateendpoints-subnet</code></td>
+<td>Name of the subnet for private endpoints</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the resource group</td>
+</tr>
+<tr>
+<td><code>vnet_address_space</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Address space for the virtual network, it is created by platform team</td>
+</tr>
+<tr>
+<td><code>vnet_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the existing virtual network</td>
+</tr>
+<tr>
+<td><code>vnet_resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Resource group name where the virtual network exists</td>
+</tr>
+<tr>
+<td><code>web_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>web-subnet</code></td>
+<td>Name of the web subnet for APIM deployment</td>
+</tr>
+<tr>
+<td><code>apim_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>apim-subnet</code></td>
+<td>Name of the subnet for API Management</td>
+</tr>
+<tr>
+<td><code>jumpbox_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>jumpbox-subnet</code></td>
+<td>Name of the subnet for Jumpbox VM</td>
+</tr>
+<tr>
+<td><code>bastion_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>AzureBastionSubnet</code></td>
+<td>Name of the subnet for Azure Bastion (must be AzureBastionSubnet)</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>container_instance_subnet_id</code></td>
+<td>The subnet ID for the container instance.</td>
+</tr>
+<tr>
+<td><code>app_service_subnet_id</code></td>
+<td>The subnet ID for the App Service.</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_id</code></td>
+<td>The subnet ID for private endpoints.</td>
+</tr>
+<tr>
+<td><code>container_apps_subnet_id</code></td>
+<td>The subnet ID for Container Apps Environment.</td>
+</tr>
+<tr>
+<td><code>apim_subnet_id</code></td>
+<td>The subnet ID for API Management.</td>
+</tr>
+<tr>
+<td><code>jumpbox_subnet_id</code></td>
+<td>The subnet ID for the Jumpbox VM.</td>
+</tr>
+<tr>
+<td><code>bastion_subnet_id</code></td>
+<td>The subnet ID for Azure Bastion.</td>
+</tr>
+<tr>
+<td><code>dns_servers</code></td>
+<td>The DNS servers for the virtual network.</td>
+</tr>
+<tr>
+<td><code>vnet_id</code></td>
+<td>ID of the virtual network</td>
+</tr>
+<tr>
+<td><code>vnet_name</code></td>
+<td>Name of the virtual network</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_network_security_group (privateendpoints)</code></li>
+<li><code>azurerm_network_security_group (app_service)</code></li>
+<li><code>azurerm_network_security_group (container_instance)</code></li>
+<li><code>azurerm_network_security_group (container_apps)</code></li>
+<li><code>azurerm_network_security_group (apim)</code></li>
+<li><code>azapi_resource (privateendpoints_subnet)</code></li>
+<li><code>azapi_resource (app_service_subnet)</code></li>
+<li><code>azapi_resource (container_instance_subnet)</code></li>
+<li><code>azapi_resource (container_apps_subnet)</code></li>
+<li><code>azapi_resource (apim_subnet)</code></li>
+<li><code>azurerm_network_security_group (jumpbox)</code></li>
+<li><code>azapi_resource (jumpbox_subnet)</code></li>
+<li><code>azurerm_network_security_group (bastion)</code></li>
+<li><code>azapi_resource (bastion_subnet)</code></li>
+</ul>
 </div>
 
-<h2>Key Features</h2>
+<h2>Usage Examples</h2>
 
-<div class="grid grid-3">
-    <div class="card">
-        <div class="feature-icon green">🔒</div>
-        <h3 style="margin-top: 0;">Secure by Default</h3>
-        <ul style="margin-bottom: 0;">
-            <li>OIDC federated credentials</li>
-            <li>No stored secrets</li>
-            <li>Environment isolation</li>
-            <li>Least privilege access</li>
-        </ul>
-    </div>
-    <div class="card">
-        <div class="feature-icon blue">☁️</div>
-        <h3 style="margin-top: 0;">Azure Native</h3>
-        <ul style="margin-bottom: 0;">
-            <li>Managed identities</li>
-            <li>Azure Bastion access</li>
-            <li>Blob storage for state</li>
-            <li>NSG security rules</li>
-        </ul>
-    </div>
-    <div class="card">
-        <div class="feature-icon purple">🔄</div>
-        <h3 style="margin-top: 0;">Automated</h3>
-        <ul style="margin-bottom: 0;">
-            <li>GitOps workflow</li>
-            <li>Auto VM shutdown</li>
-            <li>Scheduled cleanup</li>
-            <li>On-demand resources</li>
-        </ul>
-    </div>
+<div class="card card-gold">
+    <h3 style="margin-top: 0;">Calling a Module</h3>
+    <pre>module "network" {
+  source = "./modules/network"
+
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  environment         = var.environment
+  vnet_address_space  = ["10.0.0.0/16"]
+}</pre>
 </div>
 
-<h2>Contributing</h2>
+<h2>Adding New Modules</h2>
 
-<p>This documentation is built automatically from the <code>docs/</code> folder. To add or update pages:</p>
+<p>When creating new Terraform modules, follow these conventions to ensure automatic documentation:</p>
 
 <ol>
-    <li>Edit files in <code>docs/_pages/</code></li>
-    <li>Run <code>./docs/build.sh</code> to test locally</li>
-    <li>Push to main - GitHub Actions deploys automatically</li>
+    <li>Add a description comment at the top of <code>main.tf</code>:
+        <pre># Description: This module creates Azure storage accounts with encryption</pre>
+    </li>
+    <li>Always include <code>description</code> for variables:
+        <pre>variable "storage_name" {
+  type        = string
+  description = "Name of the storage account (must be globally unique)"
+}</pre>
+    </li>
+    <li>Always include <code>description</code> for outputs:
+        <pre>output "storage_id" {
+  value       = azurerm_storage_account.main.id
+  description = "The resource ID of the storage account"
+}</pre>
+    </li>
+    <li>Run the documentation generator:
+        <pre>./docs/generate-tf-docs.sh</pre>
+    </li>
 </ol>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">💡</span>
+    <div>
+        <strong>Tip:</strong> The documentation generator runs automatically during the docs build process. Simply add your module and push to main.
+    </div>
+</div>
     </main>
     <footer class="site-footer">
         <div class="footer-content">

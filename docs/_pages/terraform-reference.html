@@ -1,0 +1,541 @@
+<!-- TITLE: Terraform Reference -->
+<!-- NAV: terraform -->
+
+<h1>Terraform Reference</h1>
+
+<div class="alert alert-info">
+    <span class="alert-icon">🤖</span>
+    <div>
+        <strong>Auto-Generated Documentation</strong><br>
+        This page is automatically generated from Terraform source files. Run <code>./docs/generate-tf-docs.sh</code> to update.
+    </div>
+</div>
+
+<p>Complete reference documentation for all Terraform modules, variables, and outputs extracted directly from the source code.</p>
+
+<h2>Root Module</h2>
+<div class="card">
+<p>-------------</p>
+<p><strong>Location:</strong> <code>infra/</code></p>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>app_env</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Application environment (dev, test, prod)</td>
+</tr>
+<tr>
+<td><code>app_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the application</td>
+</tr>
+<tr>
+<td><code>common_tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>required</code></td>
+<td>Common tags to apply to all resources</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>Canada</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the resource group</td>
+</tr>
+<tr>
+<td><code>subscription_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure subscription ID</td>
+</tr>
+<tr>
+<td><code>tenant_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure tenant ID</td>
+</tr>
+<tr>
+<td><code>use_oidc</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Use OIDC for authentication</td>
+</tr>
+<tr>
+<td><code>vnet_address_space</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Address space for the virtual network, it is created by platform team</td>
+</tr>
+<tr>
+<td><code>vnet_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the existing virtual network</td>
+</tr>
+<tr>
+<td><code>vnet_resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Resource group name where the virtual network exists</td>
+</tr>
+<tr>
+<td><code>client_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure client ID for the service principal</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>jumpbox_vm_id</code></td>
+<td>ID of the jumpbox virtual machine</td>
+</tr>
+<tr>
+<td><code>jumpbox_vm_name</code></td>
+<td>Name of the jumpbox virtual machine</td>
+</tr>
+<tr>
+<td><code>jumpbox_admin_username</code></td>
+<td>Admin username for SSH access to jumpbox</td>
+</tr>
+<tr>
+<td><code>jumpbox_auto_shutdown_time</code></td>
+<td>Auto-shutdown time (PST)</td>
+</tr>
+<tr>
+<td><code>jumpbox_auto_start_schedule</code></td>
+<td>Auto-start schedule (PST)</td>
+</tr>
+<tr>
+<td><code>bastion_resource_id</code></td>
+<td>Resource ID of Azure Bastion</td>
+</tr>
+<tr>
+<td><code>bastion_fqdn</code></td>
+<td>FQDN of the Bastion service</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_resource_group (main)</code></li>
+</ul>
+</div>
+<h2 id="bastion">Module: bastion</h2>
+<div class="card" style="border-left-color: #8b5cf6;">
+<p>-----------------------------------------------------------------------------</p>
+<p><strong>Location:</strong> <code>infra/modules/bastion/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Module Files</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>providers.tf</code></li>
+<li><code>variables.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>app_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the application, used for resource naming</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the resource group</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>bastion_subnet_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Subnet ID for Azure Bastion (must be named AzureBastionSubnet)</td>
+</tr>
+<tr>
+<td><code>common_tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>required</code></td>
+<td>Common tags to apply to all resources</td>
+</tr>
+<tr>
+<td><code>bastion_sku</code></td>
+<td><code>string</code></td>
+<td><code>Basic</code></td>
+<td>SKU for Azure Bastion (Basic or Standard)</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>bastion_resource_id</code></td>
+<td>Resource ID of the Azure Bastion host</td>
+</tr>
+<tr>
+<td><code>bastion_fqdn</code></td>
+<td>FQDN of the Bastion host</td>
+</tr>
+<tr>
+<td><code>public_ip_address</code></td>
+<td>Public IP address of the Bastion host</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_public_ip (bastion)</code></li>
+<li><code>azurerm_bastion_host (main)</code></li>
+</ul>
+</div>
+<h2 id="jumpbox">Module: jumpbox</h2>
+<div class="card" style="border-left-color: #8b5cf6;">
+<p>-----------------------------------------------------------------------------</p>
+<p><strong>Location:</strong> <code>infra/modules/jumpbox/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Module Files</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>providers.tf</code></li>
+<li><code>variables.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>app_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the application, used for resource naming</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the resource group</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>subnet_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Subnet ID for the jumpbox VM</td>
+</tr>
+<tr>
+<td><code>common_tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>required</code></td>
+<td>Common tags to apply to all resources</td>
+</tr>
+<tr>
+<td><code>vm_size</code></td>
+<td><code>string</code></td>
+<td><code>Standard_B2als_v2</code></td>
+<td>Size of the virtual machine (B2als_v2: 2 vCPU, 4 GB RAM - cost-effective for jumpbox)</td>
+</tr>
+<tr>
+<td><code>os_disk_type</code></td>
+<td><code>string</code></td>
+<td><code>Standard_LRS</code></td>
+<td>Storage account type for the OS disk</td>
+</tr>
+<tr>
+<td><code>os_disk_size_gb</code></td>
+<td><code>number</code></td>
+<td><code>64</code></td>
+<td>Size of the OS disk in GB</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>vm_id</code></td>
+<td>ID of the jumpbox virtual machine</td>
+</tr>
+<tr>
+<td><code>vm_name</code></td>
+<td>Name of the jumpbox virtual machine</td>
+</tr>
+<tr>
+<td><code>private_ip_address</code></td>
+<td>Private IP address of the jumpbox VM</td>
+</tr>
+<tr>
+<td><code>admin_username</code></td>
+<td>Admin username for SSH access</td>
+</tr>
+<tr>
+<td><code>principal_id</code></td>
+<td>Principal ID of the VM's managed identity</td>
+</tr>
+<tr>
+<td><code>ssh_public_key_id</code></td>
+<td>Resource ID of the SSH public key in Azure</td>
+</tr>
+<tr>
+<td><code>ssh_private_key_path</code></td>
+<td>Local path to the SSH private key file</td>
+</tr>
+<tr>
+<td><code>automation_account_id</code></td>
+<td>ID of the Azure Automation Account for VM scheduling</td>
+</tr>
+<tr>
+<td><code>auto_shutdown_time</code></td>
+<td>Auto-shutdown time (PST)</td>
+</tr>
+<tr>
+<td><code>auto_start_schedule</code></td>
+<td>Auto-start schedule</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azapi_resource_action (ssh_public_key_gen)</code></li>
+<li><code>azapi_resource (ssh_public_key)</code></li>
+<li><code>random_string (admin_username)</code></li>
+<li><code>azurerm_network_interface (jumpbox)</code></li>
+<li><code>azurerm_linux_virtual_machine (jumpbox)</code></li>
+<li><code>local_sensitive_file (ssh_private_key)</code></li>
+<li><code>azurerm_dev_test_global_vm_shutdown_schedule (jumpbox)</code></li>
+<li><code>azurerm_automation_account (jumpbox)</code></li>
+<li><code>azurerm_automation_runbook (start_vm)</code></li>
+<li><code>azurerm_automation_schedule (weekday_start)</code></li>
+<li><code>azurerm_automation_job_schedule (start_vm)</code></li>
+<li><code>azurerm_role_assignment (automation_vm_contributor)</code></li>
+</ul>
+</div>
+<h2 id="network">Module: network</h2>
+<div class="card" style="border-left-color: #8b5cf6;">
+<p><strong>Location:</strong> <code>infra/modules/network/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Module Files</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>locals.tf</code></li>
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>providers.tf</code></li>
+<li><code>variables.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>apps_service_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>app-service-subnet</code></td>
+<td>Name of the subnet for App Services</td>
+</tr>
+<tr>
+<td><code>common_tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>required</code></td>
+<td>Common tags to apply to all resources</td>
+</tr>
+<tr>
+<td><code>container_instance_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>container-instance-subnet</code></td>
+<td>Name of the subnet for container instances</td>
+</tr>
+<tr>
+<td><code>container_apps_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>container-apps-subnet</code></td>
+<td>Name of the subnet for Container Apps</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>Canada</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>privateendpoints-subnet</code></td>
+<td>Name of the subnet for private endpoints</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the resource group</td>
+</tr>
+<tr>
+<td><code>vnet_address_space</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Address space for the virtual network, it is created by platform team</td>
+</tr>
+<tr>
+<td><code>vnet_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the existing virtual network</td>
+</tr>
+<tr>
+<td><code>vnet_resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Resource group name where the virtual network exists</td>
+</tr>
+<tr>
+<td><code>web_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>web-subnet</code></td>
+<td>Name of the web subnet for APIM deployment</td>
+</tr>
+<tr>
+<td><code>apim_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>apim-subnet</code></td>
+<td>Name of the subnet for API Management</td>
+</tr>
+<tr>
+<td><code>jumpbox_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>jumpbox-subnet</code></td>
+<td>Name of the subnet for Jumpbox VM</td>
+</tr>
+<tr>
+<td><code>bastion_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>AzureBastionSubnet</code></td>
+<td>Name of the subnet for Azure Bastion (must be AzureBastionSubnet)</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>container_instance_subnet_id</code></td>
+<td>The subnet ID for the container instance.</td>
+</tr>
+<tr>
+<td><code>app_service_subnet_id</code></td>
+<td>The subnet ID for the App Service.</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_id</code></td>
+<td>The subnet ID for private endpoints.</td>
+</tr>
+<tr>
+<td><code>container_apps_subnet_id</code></td>
+<td>The subnet ID for Container Apps Environment.</td>
+</tr>
+<tr>
+<td><code>apim_subnet_id</code></td>
+<td>The subnet ID for API Management.</td>
+</tr>
+<tr>
+<td><code>jumpbox_subnet_id</code></td>
+<td>The subnet ID for the Jumpbox VM.</td>
+</tr>
+<tr>
+<td><code>bastion_subnet_id</code></td>
+<td>The subnet ID for Azure Bastion.</td>
+</tr>
+<tr>
+<td><code>dns_servers</code></td>
+<td>The DNS servers for the virtual network.</td>
+</tr>
+<tr>
+<td><code>vnet_id</code></td>
+<td>ID of the virtual network</td>
+</tr>
+<tr>
+<td><code>vnet_name</code></td>
+<td>Name of the virtual network</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_network_security_group (privateendpoints)</code></li>
+<li><code>azurerm_network_security_group (app_service)</code></li>
+<li><code>azurerm_network_security_group (container_instance)</code></li>
+<li><code>azurerm_network_security_group (container_apps)</code></li>
+<li><code>azurerm_network_security_group (apim)</code></li>
+<li><code>azapi_resource (privateendpoints_subnet)</code></li>
+<li><code>azapi_resource (app_service_subnet)</code></li>
+<li><code>azapi_resource (container_instance_subnet)</code></li>
+<li><code>azapi_resource (container_apps_subnet)</code></li>
+<li><code>azapi_resource (apim_subnet)</code></li>
+<li><code>azurerm_network_security_group (jumpbox)</code></li>
+<li><code>azapi_resource (jumpbox_subnet)</code></li>
+<li><code>azurerm_network_security_group (bastion)</code></li>
+<li><code>azapi_resource (bastion_subnet)</code></li>
+</ul>
+</div>
+
+<h2>Usage Examples</h2>
+
+<div class="card card-gold">
+    <h3 style="margin-top: 0;">Calling a Module</h3>
+    <pre>module "network" {
+  source = "./modules/network"
+
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  environment         = var.environment
+  vnet_address_space  = ["10.0.0.0/16"]
+}</pre>
+</div>
+
+<h2>Adding New Modules</h2>
+
+<p>When creating new Terraform modules, follow these conventions to ensure automatic documentation:</p>
+
+<ol>
+    <li>Add a description comment at the top of <code>main.tf</code>:
+        <pre># Description: This module creates Azure storage accounts with encryption</pre>
+    </li>
+    <li>Always include <code>description</code> for variables:
+        <pre>variable "storage_name" {
+  type        = string
+  description = "Name of the storage account (must be globally unique)"
+}</pre>
+    </li>
+    <li>Always include <code>description</code> for outputs:
+        <pre>output "storage_id" {
+  value       = azurerm_storage_account.main.id
+  description = "The resource ID of the storage account"
+}</pre>
+    </li>
+    <li>Run the documentation generator:
+        <pre>./docs/generate-tf-docs.sh</pre>
+    </li>
+</ol>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">💡</span>
+    <div>
+        <strong>Tip:</strong> The documentation generator runs automatically during the docs build process. Simply add your module and push to main.
+    </div>
+</div>

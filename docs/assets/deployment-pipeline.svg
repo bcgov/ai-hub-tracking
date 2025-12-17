@@ -1,0 +1,197 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 800">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#001a33"/>
+      <stop offset="100%" style="stop-color:#003366"/>
+    </linearGradient>
+    <linearGradient id="stageGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1a5a96"/>
+      <stop offset="100%" style="stop-color:#0d4f8b"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.3"/>
+    </filter>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="4" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1400" height="800" fill="url(#bgGrad)"/>
+
+  <!-- Grid pattern -->
+  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1a4d80" stroke-width="0.5" opacity="0.3"/>
+  </pattern>
+  <rect width="1400" height="800" fill="url(#grid)"/>
+
+  <!-- Title -->
+  <text x="700" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="white">Deployment Pipeline</text>
+  <text x="700" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#94a3b8">GitHub Actions CI/CD with Terraform & OIDC</text>
+
+  <!-- Pipeline stages background -->
+  <rect x="50" y="120" width="1300" height="140" rx="12" fill="#002244" stroke="#1a5a96" stroke-width="1"/>
+  <text x="700" y="150" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#60a5fa" font-weight="bold">Pipeline Stages</text>
+
+  <!-- Stage 1: Trigger -->
+  <g filter="url(#shadow)">
+    <rect x="80" y="170" width="150" height="70" rx="8" fill="#374151" stroke="#9ca3af" stroke-width="2"/>
+    <text x="155" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white" font-weight="bold">Trigger</text>
+    <text x="155" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#9ca3af">push / PR / manual</text>
+  </g>
+
+  <!-- Stage 2: Checkout -->
+  <g filter="url(#shadow)">
+    <rect x="260" y="170" width="150" height="70" rx="8" fill="#24292e" stroke="#6b7280" stroke-width="2"/>
+    <text x="335" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white" font-weight="bold">Checkout</text>
+    <text x="335" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#8b949e">actions/checkout@v4</text>
+  </g>
+
+  <!-- Stage 3: OIDC Auth -->
+  <g filter="url(#shadow)">
+    <rect x="440" y="170" width="150" height="70" rx="8" fill="#fcba19" stroke="#f5a623" stroke-width="2"/>
+    <text x="515" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#003366" font-weight="bold">OIDC Login</text>
+    <text x="515" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#1a4d80">azure/login@v2</text>
+  </g>
+
+  <!-- Stage 4: Terraform Init -->
+  <g filter="url(#shadow)">
+    <rect x="620" y="170" width="150" height="70" rx="8" fill="#5c4ee5" stroke="#7c3aed" stroke-width="2"/>
+    <text x="695" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white" font-weight="bold">TF Init</text>
+    <text x="695" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#c4b5fd">Backend Setup</text>
+  </g>
+
+  <!-- Stage 5: Terraform Plan -->
+  <g filter="url(#shadow)">
+    <rect x="800" y="170" width="150" height="70" rx="8" fill="#0ea5e9" stroke="#38bdf8" stroke-width="2"/>
+    <text x="875" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white" font-weight="bold">TF Plan</text>
+    <text x="875" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#bae6fd">Review Changes</text>
+  </g>
+
+  <!-- Stage 6: Terraform Apply -->
+  <g filter="url(#shadow)">
+    <rect x="980" y="170" width="150" height="70" rx="8" fill="#22c55e" stroke="#4ade80" stroke-width="2"/>
+    <text x="1055" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white" font-weight="bold">TF Apply</text>
+    <text x="1055" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#bbf7d0">Deploy Resources</text>
+  </g>
+
+  <!-- Stage 7: Verify -->
+  <g filter="url(#shadow)">
+    <rect x="1160" y="170" width="150" height="70" rx="8" fill="#14532d" stroke="#22c55e" stroke-width="2"/>
+    <text x="1235" y="200" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#4ade80" font-weight="bold">Complete</text>
+    <text x="1235" y="220" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#86efac">✓ Success</text>
+  </g>
+
+  <!-- Arrows between stages -->
+  <defs>
+    <marker id="arrowWhite" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+  <path d="M 230 205 L 255 205" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowWhite)"/>
+  <path d="M 410 205 L 435 205" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowWhite)"/>
+  <path d="M 590 205 L 615 205" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowWhite)"/>
+  <path d="M 770 205 L 795 205" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowWhite)"/>
+  <path d="M 950 205 L 975 205" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowWhite)"/>
+  <path d="M 1130 205 L 1155 205" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowWhite)"/>
+
+  <!-- Workflow YAML Section -->
+  <g filter="url(#shadow)">
+    <rect x="50" y="300" width="450" height="350" rx="12" fill="#002244" stroke="#1a5a96" stroke-width="2"/>
+    <rect x="50" y="300" width="450" height="35" rx="12" fill="#1a5a96"/>
+    <text x="275" y="323" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="white" font-weight="bold">.deployer.yml - Reusable Workflow</text>
+
+    <g font-family="monospace" font-size="10" fill="#e2e8f0">
+      <text x="70" y="360" fill="#f97316">name:</text><text x="110" y="360"> Deploy Infrastructure</text>
+      <text x="70" y="380" fill="#f97316">on:</text>
+      <text x="90" y="400" fill="#22c55e">workflow_call:</text>
+      <text x="110" y="420">inputs:</text>
+      <text x="130" y="440" fill="#60a5fa">environment:</text>
+      <text x="150" y="460" fill="#94a3b8">type: string</text>
+      <text x="70" y="490" fill="#f97316">permissions:</text>
+      <text x="90" y="510" fill="#22c55e">id-token:</text><text x="160" y="510"> write</text>
+      <text x="90" y="530" fill="#22c55e">contents:</text><text x="160" y="530"> read</text>
+      <text x="70" y="560" fill="#f97316">jobs:</text>
+      <text x="90" y="580" fill="#fcba19">deploy:</text>
+      <text x="110" y="600">runs-on: ubuntu-latest</text>
+      <text x="110" y="620">environment: ${{ inputs.environment }}</text>
+    </g>
+  </g>
+
+  <!-- Environment Cards -->
+  <g filter="url(#shadow)">
+    <rect x="530" y="300" width="250" height="160" rx="12" fill="#002244" stroke="#fcba19" stroke-width="2"/>
+    <text x="655" y="330" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#fcba19" font-weight="bold">Development Environment</text>
+    <text x="550" y="360" font-family="Arial, sans-serif" font-size="11" fill="#94a3b8">Branch: <tspan fill="white">main, feature/*</tspan></text>
+    <text x="550" y="385" font-family="Arial, sans-serif" font-size="11" fill="#94a3b8">Auto Deploy: <tspan fill="#4ade80">Yes</tspan></text>
+    <text x="550" y="410" font-family="Arial, sans-serif" font-size="11" fill="#94a3b8">Approval: <tspan fill="#f97316">No</tspan></text>
+    <text x="550" y="435" font-family="Arial, sans-serif" font-size="11" fill="#94a3b8">OIDC Subject: <tspan fill="#60a5fa">repo:*:environment:dev</tspan></text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="530" y="490" width="250" height="160" rx="12" fill="#002244" stroke="#22c55e" stroke-width="2"/>
+    <text x="655" y="520" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#22c55e" font-weight="bold">Production Environment</text>
+    <text x="550" y="550" font-family="Arial, sans-serif" font-size="11" fill="#94a3b8">Branch: <tspan fill="white">main only</tspan></text>
+    <text x="550" y="575" font-family="Arial, sans-serif" font-size="11" fill="#94a3b8">Auto Deploy: <tspan fill="#f97316">No</tspan></text>
+    <text x="550" y="600" font-family="Arial, sans-serif" font-size="11" fill="#94a3b8">Approval: <tspan fill="#4ade80">Required</tspan></text>
+    <text x="550" y="625" font-family="Arial, sans-serif" font-size="11" fill="#94a3b8">OIDC Subject: <tspan fill="#60a5fa">repo:*:environment:prod</tspan></text>
+  </g>
+
+  <!-- Terraform State Flow -->
+  <g filter="url(#shadow)">
+    <rect x="810" y="300" width="280" height="350" rx="12" fill="#002244" stroke="#0ea5e9" stroke-width="2"/>
+    <rect x="810" y="300" width="280" height="35" rx="12" fill="#0369a1"/>
+    <text x="950" y="323" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="white" font-weight="bold">State Management</text>
+
+    <!-- State file icon -->
+    <rect x="880" y="360" width="140" height="80" rx="8" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1"/>
+    <text x="950" y="395" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white" font-weight="bold">terraform.tfstate</text>
+    <text x="950" y="415" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#7dd3fc">Azure Blob Storage</text>
+
+    <!-- State locking -->
+    <rect x="880" y="460" width="140" height="60" rx="8" fill="#166534" stroke="#4ade80" stroke-width="1"/>
+    <text x="950" y="490" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white" font-weight="bold">State Locking</text>
+    <text x="950" y="508" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#bbf7d0">Blob Lease</text>
+
+    <!-- Features list -->
+    <g font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">
+      <text x="830" y="555">✓ <tspan fill="#4ade80">Encrypted at rest</tspan></text>
+      <text x="830" y="575">✓ <tspan fill="#4ade80">Azure AD authentication</tspan></text>
+      <text x="830" y="595">✓ <tspan fill="#4ade80">Versioning enabled</tspan></text>
+      <text x="830" y="615">✓ <tspan fill="#4ade80">Soft delete protection</tspan></text>
+    </g>
+  </g>
+
+  <!-- Secrets box -->
+  <g filter="url(#shadow)">
+    <rect x="1120" y="300" width="230" height="180" rx="12" fill="#002244" stroke="#ef4444" stroke-width="2"/>
+    <text x="1235" y="330" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#ef4444" font-weight="bold">Required Secrets</text>
+    <g font-family="monospace" font-size="10">
+      <text x="1140" y="360" fill="#fca5a5">AZURE_CLIENT_ID</text>
+      <text x="1140" y="385" fill="#fca5a5">AZURE_TENANT_ID</text>
+      <text x="1140" y="410" fill="#fca5a5">AZURE_SUBSCRIPTION_ID</text>
+    </g>
+    <text x="1235" y="450" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">No client secrets needed!</text>
+    <text x="1235" y="470" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#4ade80">OIDC handles auth</text>
+  </g>
+
+  <!-- Notifications -->
+  <g filter="url(#shadow)">
+    <rect x="1120" y="510" width="230" height="140" rx="12" fill="#002244" stroke="#a78bfa" stroke-width="2"/>
+    <text x="1235" y="540" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#a78bfa" font-weight="bold">Workflow Features</text>
+    <g font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">
+      <text x="1140" y="570">• Plan output in PR comments</text>
+      <text x="1140" y="590">• Environment protection rules</text>
+      <text x="1140" y="610">• Concurrency controls</text>
+      <text x="1140" y="630">• Manual approval gates</text>
+    </g>
+  </g>
+
+  <!-- Footer -->
+  <rect x="0" y="750" width="1400" height="50" fill="#fcba19"/>
+  <text x="700" y="780" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#003366">AI Hub Tracking - Deployment Pipeline Diagram</text>
+</svg>

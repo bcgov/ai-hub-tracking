@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocumentationHub | AI Hub Tracking</title>
+    <title>OIDCSetupGuide | AI Hub Tracking</title>
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <style>
         :root {
@@ -643,287 +643,221 @@
     </header>
     <main>
 
-<div class="hero">
-    <span class="badge badge-gold">Open Source</span>
-    <h1>AI Hub Tracking</h1>
-    <p>Infrastructure as Code for Azure Landing Zone deployments with GitHub Actions OIDC authentication. Zero secrets to rotate.</p>
-    
-    <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center;">
-        <a href="#quick-start" style="text-decoration: none;">
-            <button style="background: var(--bc-gold); color: var(--bc-blue); border: none; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 1rem;">
-                Get Started ↓
-            </button>
-        </a>
-        <a href="diagrams.html" style="text-decoration: none;">
-            <button style="background: rgba(255,255,255,0.2); color: white; border: 1px solid white; padding: 0.75rem 1.5rem; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 1rem;">
-                View Architecture
-            </button>
-        </a>
-    </div>
+<h1>OIDC Setup Guide</h1>
+
+<p>This guide explains how to configure OpenID Connect (OIDC) authentication between GitHub Actions and Azure, enabling passwordless deployments.</p>
+
+<div class="alert alert-success">
+    <strong>Why OIDC?</strong> No secrets to rotate, no credentials stored in GitHub, and automatic token expiration for enhanced security.
 </div>
 
-<div class="alert alert-warning" style="margin-bottom: 2rem;">
-    <div style="display: flex; gap: 1rem;">
-        <span style="font-size: 1.5rem;">🚧</span>
-        <div>
-            <h3 style="margin-top: 0; color: var(--bc-gold);">Pilot Project Disclaimer</h3>
-            <p><strong>This is an early-stage pilot.</strong> Many architectural patterns are still being validated with Platform Services.</p>
-            <p style="margin-bottom: 0.5rem;">This project was born after several teams struggled to navigate Azure policies, compliance, and networking individually. We consolidated these hard-learned lessons into a shared landing zone to help other BC Gov teams avoid the same pitfalls.</p>
-            <p><small><em>Based on <a href="https://github.com/Azure/AI-Landing-Zones">Azure AI Landing Zones</a> (upstream archival risk acknowledged).</em></small></p>
-        </div>
-    </div>
-</div>
-
-<div class="grid grid-4" style="margin-bottom: 2rem;">
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid var(--bc-gold);">
-        <div class="stat-number">0</div>
-        <div class="stat-label">Secrets to Manage</div>
-    </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid var(--bc-blue);">
-        <div class="stat-number">3</div>
-        <div class="stat-label">Terraform Modules</div>
-    </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid #22c55e;">
-        <div class="stat-number">4</div>
-        <div class="stat-label">GitHub Workflows</div>
-    </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid #8b5cf6;">
-        <div class="stat-number">5+</div>
-        <div class="stat-label">Ops Playbooks</div>
-    </div>
-</div>
-
-<h2>Project Vision: A Shared AI Landing Zone</h2>
-
-<div class="grid grid-2">
-    <div class="card">
-        <h3>Why This Exists</h3>
-        <p>The B.C. Government is rapidly adopting AI technologies. However, setting up secure, compliant cloud infrastructure for AI workloads allows teams to get bogged down in networking, identity management, and security compliance.</p>
-        <p><strong>AI Hub Tracking</strong> serves as a reference implementation and reusable landing zone pattern. It solves the "blank slate" problem by providing a standardized, secure-by-default environment specifically designed for AI experimentation and production.</p>
-    </div>
-    <div class="card" style="border-left-color: var(--bc-gold);">
-        <h3>Problems We Solve</h3>
-        <ul style="margin-top: 0;">
-            <li><strong>Secret Fatigue:</strong> Eliminates the need to rotate client secrets by using OIDC.</li>
-            <li><strong>Network Complexity:</strong> Pre-wired VNet, Subnets, and NSGs so you don't have to be a network engineer.</li>
-            <li><strong>Security Compliance:</strong> Implements "Least Privilege" and private networking by default.</li>
-            <li><strong>Inconsistent Environments:</strong> Ensures Dev and Prod look identical, reducing deployment surprises.</li>
-        </ul>
-    </div>
-</div>
-
-<div class="card card-gold">
-    <h3 style="margin-top: 0;">What Can You Run Here?</h3>
-    <p>This landing zone is optimized for modern AI/ML workloads that require secure compute and private data access.</p>
-    <div class="grid grid-3">
-        <div style="text-align: center;">
-            <div style="font-size: 2rem;">🧠</div>
-            <strong>Azure AI & OpenAI</strong>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">Private connectivity to Azure OpenAI models and cognitive services like Document Intelligence (OCR).</p>
-        </div>
-        <div style="text-align: center;">
-            <div style="font-size: 2rem;">🤖</div>
-            <strong>Open Source Models</strong>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">Host private weights (Llama 3, Mistral) on secure VMs using Ollama or vLLM.</p>
-        </div>
-        <div style="text-align: center;">
-            <div style="font-size: 2rem;">📊</div>
-            <strong>RAG & Data Apps</strong>
-            <p style="font-size: 0.9rem; color: var(--text-secondary);">Vector databases and Streamlit/Gradio apps for rapid internal prototyping.</p>
-        </div>
-    </div>
-</div>
-
-<h2>I want to...</h2>
-
-<div class="grid grid-3">
-    <a href="oidc-setup.html" class="card-link">
-        <div class="card" style="border-left-color: #fcba19; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🔐 Set up Authentication</h4>
-            <p style="font-size: 0.9rem; margin-bottom: 0;">Configure OIDC trust between GitHub and Azure.</p>
-        </div>
-    </a>
-    <a href="terraform.html" class="card-link">
-        <div class="card" style="border-left-color: #8b5cf6; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🏗️ Deploy Infrastructure</h4>
-            <p style="font-size: 0.9rem; margin-bottom: 0;">Deploy VNet, Bastion, and Jumpbox modules.</p>
-        </div>
-    </a>
-    <a href="playbooks.html" class="card-link">
-        <div class="card" style="border-left-color: #ef4444; height: 100%;">
-            <h4 style="margin-top: 0; color: var(--bc-blue);">🚑 Fix a Problem</h4>
-            <p style="font-size: 0.9rem; margin-bottom: 0;">Troubleshoot state locks, auth failures, or rollbacks.</p>
-        </div>
-    </a>
-</div>
-
-<h2>Network Allocation (License Plate: da4cf6)</h2>
-
-<div class="card" style="border-left-color: #22c55e; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
-    <p style="margin-top: 0;"><strong>Confirmed Dec 11, 2025</strong> - Platform Services Team</p>
-    <div class="grid grid-4" style="margin: 1rem 0;">
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">4x /24</div>
-            <div class="stat-label">Prod (= /22)</div>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">2x /24</div>
-            <div class="stat-label">Test (= /23)</div>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">1x /24</div>
-            <div class="stat-label">Dev</div>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number" style="font-size: 1.5rem;">1x /24</div>
-            <div class="stat-label">Tools</div>
-        </div>
-    </div>
-    <p style="margin-bottom: 0; font-size: 0.9rem;">See <a href="faq.html">FAQ</a> for pending questions about Canada East non-routable ranges.</p>
-</div>
-
-<h2>Documentation Library</h2>
-
-<div class="grid grid-4">
-    <!-- Row 1 -->
-    <a href="decisions.html" class="card-link">
-        <div class="card" style="border-left-color: #ef4444;">
-            <h3 style="margin-top: 0;">🏛️ ADRs</h3>
-            <p>Architecture decisions and why things are built this way.</p>
-            <div class="card-arrow">Start Here →</div>
-        </div>
-    </a>
-    <a href="faq.html" class="card-link">
-        <div class="card" style="border-left-color: #f59e0b;">
-            <h3 style="margin-top: 0;">❓ FAQ</h3>
-            <p>Common questions, pending decisions, and contact info.</p>
-            <div class="card-arrow">View FAQ →</div>
-        </div>
-    </a>
-    <a href="oidc-setup.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">🔐 OIDC Setup</h3>
-            <p>Complete guide to passwordless authentication setup.</p>
-            <div class="card-arrow">View Guide →</div>
-        </div>
-    </a>
-    <a href="terraform.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">🏗️ Modules</h3>
-            <p>Deep dive into Network, Bastion, and Jumpbox configs.</p>
-            <div class="card-arrow">View Modules →</div>
-        </div>
-    </a>
-
-    <!-- Row 2 -->
-    <a href="workflows.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">⚙️ Workflows</h3>
-            <p>CI/CD pipeline automation details.</p>
-            <div class="card-arrow">View Workflows →</div>
-        </div>
-    </a>
-    <a href="diagrams.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">📊 Diagrams</h3>
-            <p>Interactive architecture and flow visualizations.</p>
-            <div class="card-arrow">View Diagrams →</div>
-        </div>
-    </a>
-    <a href="playbooks.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">📖 Playbooks</h3>
-            <p>Operational runbooks for Day 2 maintenance.</p>
-            <div class="card-arrow">View Playbooks →</div>
-        </div>
-    </a>
-    <a href="terraform-reference.html" class="card-link">
-        <div class="card">
-            <h3 style="margin-top: 0;">📝 TF Reference</h3>
-            <p>Auto-generated variable and output docs.</p>
-            <div class="card-arrow">View Reference →</div>
-        </div>
-    </a>
-</div>
-
-<h2 id="quick-start">Quick Start</h2>
-
-<div class="card card-gold">
-    <h3 style="margin-bottom: 1.5rem;">Get Started in 3 Steps</h3>
-    <div class="grid grid-3">
-        <div style="text-align: center;">
-            <div class="stat-number">1</div>
-            <p style="margin: 0.5rem 0;"><strong>Run Setup Script</strong></p>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">Configure OIDC trust between GitHub and Azure (once per environment)</p>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number">2</div>
-            <p style="margin: 0.5rem 0;"><strong>Add Workflow</strong></p>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">Copy the deploy.yml workflow and backend.tf to your repo</p>
-        </div>
-        <div style="text-align: center;">
-            <div class="stat-number">3</div>
-            <p style="margin: 0.5rem 0;"><strong>Push & Deploy</strong></p>
-            <p style="font-size: 0.9rem; color: var(--text-secondary); margin: 0;">Push to main and watch Terraform deploy automatically</p>
-        </div>
-    </div>
-</div>
+<h2>How It Works</h2>
 
 <div class="card">
-    <h3>Step 1: Initial Setup</h3>
-    <p>Run this one-time command to create the Azure identity and trust relationship:</p>
-<pre>./initial-setup/initial-azure-setup.sh \
-    -g "YOUR-RESOURCE-GROUP" \
-    -n "your-app-identity" \
-    -r "bcgov/your-repo" \
-    -e "dev" \
-    --create-storage --create-github-secrets</pre>
+    <h3>Trust Chain</h3>
+    <ol>
+        <li><strong>GitHub signs tokens</strong> with its private key for each workflow run</li>
+        <li><strong>Azure validates</strong> the token signature using GitHub's public key</li>
+        <li><strong>Subject claim matching</strong> ensures only the specified repo/environment gets access</li>
+        <li><strong>Bearer token issued</strong> by Azure for actual resource access</li>
+    </ol>
 </div>
 
-<h2>Key Features</h2>
+<h2>Prerequisites</h2>
+
+<ul>
+    <li>Azure CLI installed and logged in (<code>az login</code>)</li>
+    <li>Terraform installed</li>
+    <li>GitHub CLI (optional, for auto-creating secrets)</li>
+    <li>Owner access to Azure security group</li>
+</ul>
+
+<h2>Setup Script: initial-azure-setup.sh</h2>
+
+<p>This script configures everything needed for OIDC authentication. Run it once per environment.</p>
+
+<h3>Usage</h3>
+
+<pre>./initial-setup/initial-azure-setup.sh \
+    -g "RESOURCE-GROUP-NAME" \
+    -n "identity-name" \
+    -r "owner/repo" \
+    -e "environment" \
+    -s "subscription-id" \
+    --create-storage \
+    --create-github-secrets</pre>
+
+<h3>Parameters</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th>Parameter</th>
+            <th>Description</th>
+            <th>Required</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>-g</code></td>
+            <td>Azure resource group name</td>
+            <td>Yes</td>
+        </tr>
+        <tr>
+            <td><code>-n</code></td>
+            <td>Managed identity name</td>
+            <td>Yes</td>
+        </tr>
+        <tr>
+            <td><code>-r</code></td>
+            <td>GitHub repository (owner/repo)</td>
+            <td>Yes</td>
+        </tr>
+        <tr>
+            <td><code>-e</code></td>
+            <td>Environment name (dev, test, prod)</td>
+            <td>Yes</td>
+        </tr>
+        <tr>
+            <td><code>-s</code></td>
+            <td>Azure subscription ID</td>
+            <td>No (uses current)</td>
+        </tr>
+        <tr>
+            <td><code>--create-storage</code></td>
+            <td>Create storage account for Terraform state</td>
+            <td>No</td>
+        </tr>
+        <tr>
+            <td><code>--create-github-secrets</code></td>
+            <td>Automatically create GitHub environment secrets</td>
+            <td>No</td>
+        </tr>
+    </tbody>
+</table>
+
+<h3>What Gets Created</h3>
 
 <div class="grid grid-3">
     <div class="card">
-        <div class="feature-icon green">🔒</div>
-        <h3 style="margin-top: 0;">Secure by Default</h3>
-        <ul style="margin-bottom: 0;">
-            <li>OIDC federated credentials</li>
-            <li>No stored secrets</li>
-            <li>Environment isolation</li>
-            <li>Least privilege access</li>
-        </ul>
+        <h3>Managed Identity</h3>
+        <p>Azure service account for your pipeline to authenticate as.</p>
     </div>
     <div class="card">
-        <div class="feature-icon blue">☁️</div>
-        <h3 style="margin-top: 0;">Azure Native</h3>
-        <ul style="margin-bottom: 0;">
-            <li>Managed identities</li>
-            <li>Azure Bastion access</li>
-            <li>Blob storage for state</li>
-            <li>NSG security rules</li>
-        </ul>
+        <h3>Federated Credential</h3>
+        <p>Trust link between your GitHub repo/environment and the Azure identity.</p>
     </div>
     <div class="card">
-        <div class="feature-icon purple">🔄</div>
-        <h3 style="margin-top: 0;">Automated</h3>
-        <ul style="margin-bottom: 0;">
-            <li>GitOps workflow</li>
-            <li>Auto VM shutdown</li>
-            <li>Scheduled cleanup</li>
-            <li>On-demand resources</li>
+        <h3>Storage Account</h3>
+        <p>For Terraform state files (with <code>--create-storage</code>).</p>
+    </div>
+</div>
+
+<h2>Environment Examples</h2>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: #22d3ee;">
+        <h3 style="color: #0891b2;">Dev Environment</h3>
+        <pre>./initial-azure-setup.sh \
+    -g "ABCD-dev-networking" \
+    -n "myapp-dev-identity" \
+    -r "bcgov/myapp" \
+    -e "dev" \
+    --create-storage \
+    --create-github-secrets</pre>
+        <p><strong>Creates:</strong></p>
+        <ul>
+            <li>Identity: <code>myapp-dev-identity</code></li>
+            <li>Storage: <code>tfdevmyapp</code></li>
+            <li>Subject: <code>repo:bcgov/myapp:environment:dev</code></li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: #f87171;">
+        <h3 style="color: #dc2626;">Prod Environment</h3>
+        <pre>./initial-azure-setup.sh \
+    -g "ABCD-prod-networking" \
+    -n "myapp-prod-identity" \
+    -r "bcgov/myapp" \
+    -e "prod" \
+    --create-storage \
+    --create-github-secrets</pre>
+        <p><strong>Creates:</strong></p>
+        <ul>
+            <li>Identity: <code>myapp-prod-identity</code></li>
+            <li>Storage: <code>tfprodmyapp</code></li>
+            <li>Subject: <code>repo:bcgov/myapp:environment:prod</code></li>
         </ul>
     </div>
 </div>
 
-<h2>Contributing</h2>
+<div class="alert alert-warning">
+    <strong>Important:</strong> Dev and Prod are completely isolated &mdash; different subscriptions, different identities, different permissions. A dev pipeline cannot access prod resources.
+</div>
 
-<p>This documentation is built automatically from the <code>docs/</code> folder. To add or update pages:</p>
+<h2>Token Lifecycle</h2>
 
-<ol>
-    <li>Edit files in <code>docs/_pages/</code></li>
-    <li>Run <code>./docs/build.sh</code> to test locally</li>
-    <li>Push to main - GitHub Actions deploys automatically</li>
-</ol>
+<table>
+    <thead>
+        <tr>
+            <th>Token Type</th>
+            <th>TTL</th>
+            <th>Notes</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>GitHub OIDC Token</td>
+            <td>~5 minutes</td>
+            <td>Generated fresh each workflow run, only used to get Azure token</td>
+        </tr>
+        <tr>
+            <td>Azure Bearer Token</td>
+            <td>1 hour (3600s)</td>
+            <td>Auto-refreshed by azure/login action if job runs longer</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>Troubleshooting</h2>
+
+<div class="card card-gold">
+    <h3>Common Issues</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Error</th>
+                <th>Solution</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>AADSTS700024: Subject mismatch</code></td>
+                <td><code>environment:</code> in workflow must match <code>-e</code> flag used in setup</td>
+            </tr>
+            <tr>
+                <td>OIDC token not generated</td>
+                <td>Add <code>permissions: id-token: write</code> to workflow</td>
+            </tr>
+            <tr>
+                <td>403 Forbidden on terraform apply</td>
+                <td>Identity not in security group, or wrong subscription</td>
+            </tr>
+            <tr>
+                <td>State file access denied</td>
+                <td>Add <code>use_azuread_auth = true</code> in backend config</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<h2>Full Architecture Diagram</h2>
+
+<div class="img-container">
+    <a href="assets/azure-oidc-complete-guide.svg" target="_blank">
+        <img src="assets/azure-oidc-complete-guide.svg" alt="Azure OIDC Complete Guide">
+    </a>
+    <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">Click to view full size</p>
+</div>
     </main>
     <footer class="site-footer">
         <div class="footer-content">
