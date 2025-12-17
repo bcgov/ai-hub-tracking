@@ -4,7 +4,7 @@ on:
   schedule:
     # Run every day at 5 PM PST (1 AM UTC next day)
     - cron: "0 1 * * *"
-
+  workflow_dispatch:
 permissions:
   id-token: write
   contents: read
@@ -31,7 +31,7 @@ jobs:
         id: check_bastion
         shell: bash
         run: |
-          BASTION_EXISTS=$(az bastion show \
+          BASTION_EXISTS=$(az network bastion show \
             --resource-group "ai-hub-deploy-utils-tools" \
             --name "ai-hub-deploy-utils-bastion" \
             --query "id" \
