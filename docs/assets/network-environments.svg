@@ -1,0 +1,289 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1200">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#001a33"/>
+      <stop offset="100%" style="stop-color:#003366"/>
+    </linearGradient>
+    <linearGradient id="prodGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#166534" stop-opacity="0.3"/>
+      <stop offset="100%" style="stop-color:#166534" stop-opacity="0.1"/>
+    </linearGradient>
+    <linearGradient id="testGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#0369a1" stop-opacity="0.3"/>
+      <stop offset="100%" style="stop-color:#0369a1" stop-opacity="0.1"/>
+    </linearGradient>
+    <linearGradient id="devGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#9333ea" stop-opacity="0.3"/>
+      <stop offset="100%" style="stop-color:#9333ea" stop-opacity="0.1"/>
+    </linearGradient>
+    <linearGradient id="toolsGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ca8a04" stop-opacity="0.3"/>
+      <stop offset="100%" style="stop-color:#ca8a04" stop-opacity="0.1"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-opacity="0.3"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1600" height="1200" fill="url(#bgGrad)"/>
+
+  <!-- Grid pattern -->
+  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1a4d80" stroke-width="0.5" opacity="0.3"/>
+  </pattern>
+  <rect width="1600" height="1200" fill="url(#grid)"/>
+
+  <!-- Title -->
+  <text x="800" y="45" text-anchor="middle" font-family="Arial, sans-serif" font-size="32" font-weight="bold" fill="white">AI Hub Landing Zone - Network Environments</text>
+  <text x="800" y="75" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#94a3b8">License Plate: da4cf6 | All environments with subnet allocations</text>
+
+  <!-- Left Column: Canada Central (Prod) -->
+  <g>
+    <!-- Canada Central Label -->
+    <rect x="30" y="100" width="750" height="40" rx="6" fill="#003366" stroke="#fcba19" stroke-width="2"/>
+    <text x="405" y="127" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#fcba19">Canada Central (Production)</text>
+
+    <!-- PROD Environment -->
+    <rect x="40" y="160" width="730" height="480" rx="12" fill="url(#prodGrad)" stroke="#22c55e" stroke-width="2"/>
+    <text x="60" y="190" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#22c55e">da4cf6-prod</text>
+    <text x="60" y="210" font-family="Arial, sans-serif" font-size="12" fill="#86efac">VNet: 4x /24 (= /22) | ~1,020 usable IPs</text>
+
+    <!-- PROD Subnets -->
+    <!-- App Gateway Subnet -->
+    <rect x="60" y="230" width="160" height="90" rx="6" fill="#002244" stroke="#f97316" stroke-width="1.5" filter="url(#shadow)"/>
+    <text x="140" y="255" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#f97316">AppGatewaySubnet</text>
+    <text x="140" y="273" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">/24 (251 IPs)</text>
+    <text x="140" y="290" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#fed7aa">WAF + Ingress</text>
+    <text x="140" y="305" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#fed7aa">SSL Termination</text>
+
+    <!-- APIM Subnet -->
+    <rect x="235" y="230" width="160" height="90" rx="6" fill="#002244" stroke="#0ea5e9" stroke-width="1.5" filter="url(#shadow)"/>
+    <text x="315" y="255" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#0ea5e9">APIMSubnet</text>
+    <text x="315" y="273" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">/24 (251 IPs)</text>
+    <text x="315" y="290" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#bae6fd">API Management</text>
+    <text x="315" y="305" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#bae6fd">Rate Limiting</text>
+
+    <!-- AI Foundry Subnet -->
+    <rect x="410" y="230" width="160" height="90" rx="6" fill="#002244" stroke="#a855f7" stroke-width="1.5" filter="url(#shadow)"/>
+    <text x="490" y="255" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#a855f7">AIFoundrySubnet</text>
+    <text x="490" y="273" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">/24 (251 IPs)</text>
+    <text x="490" y="290" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#e9d5ff">Azure AI Studio</text>
+    <text x="490" y="305" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#e9d5ff">Model Endpoints</text>
+
+    <!-- PrivateLink Subnet -->
+    <rect x="585" y="230" width="170" height="90" rx="6" fill="#002244" stroke="#ec4899" stroke-width="1.5" filter="url(#shadow)"/>
+    <text x="670" y="255" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#ec4899">PrivateLinkSubnet</text>
+    <text x="670" y="273" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">/27 (27 IPs)</text>
+    <text x="670" y="290" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#fbcfe8">Private Endpoints</text>
+    <text x="670" y="305" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#fbcfe8">Storage, KeyVault</text>
+
+    <!-- AKS Subnet -->
+    <rect x="60" y="335" width="335" height="90" rx="6" fill="#002244" stroke="#14b8a6" stroke-width="1.5" filter="url(#shadow)"/>
+    <text x="227" y="360" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#14b8a6">AKSSubnet</text>
+    <text x="227" y="378" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">/23 or Variable (pods need IPs)</text>
+    <text x="227" y="395" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#5eead4">Kubernetes Service | Self-hosted Runners | Ollama/vLLM</text>
+    <text x="227" y="410" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#5eead4">Container Apps | Batch Processing</text>
+
+    <!-- Bastion Subnet -->
+    <rect x="410" y="335" width="160" height="90" rx="6" fill="#002244" stroke="#fcba19" stroke-width="1.5" filter="url(#shadow)"/>
+    <text x="490" y="360" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#fcba19">BastionSubnet</text>
+    <text x="490" y="378" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">/26 (59 IPs)</text>
+    <text x="490" y="395" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#fef08a">Azure Bastion</text>
+    <text x="490" y="410" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#fef08a">Secure Admin Access</text>
+
+    <!-- Jumpbox Subnet -->
+    <rect x="585" y="335" width="170" height="90" rx="6" fill="#002244" stroke="#84cc16" stroke-width="1.5" filter="url(#shadow)"/>
+    <text x="670" y="360" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#84cc16">JumpboxSubnet</text>
+    <text x="670" y="378" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">/28 (11 IPs)</text>
+    <text x="670" y="395" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#d9f99d">Admin VMs</text>
+    <text x="670" y="410" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#d9f99d">Terraform Runners</text>
+
+    <!-- NSG Rules Box -->
+    <rect x="60" y="440" width="695" height="180" rx="8" fill="#001122" stroke="#f97316" stroke-width="1"/>
+    <text x="80" y="465" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#f97316">NSG Rules (Production)</text>
+    <g font-family="Arial, sans-serif" font-size="10" fill="white">
+      <text x="80" y="490"><tspan fill="#4ade80">ALLOW</tspan> Internet → AppGateway:443 (HTTPS only)</text>
+      <text x="80" y="508"><tspan fill="#4ade80">ALLOW</tspan> AppGateway → APIM:443</text>
+      <text x="80" y="526"><tspan fill="#4ade80">ALLOW</tspan> APIM → AIFoundry:443</text>
+      <text x="80" y="544"><tspan fill="#4ade80">ALLOW</tspan> APIM → AKS:443</text>
+      <text x="80" y="562"><tspan fill="#4ade80">ALLOW</tspan> AKS → PrivateLink (all ports)</text>
+      <text x="80" y="580"><tspan fill="#4ade80">ALLOW</tspan> Bastion → Jumpbox:22,3389</text>
+      <text x="400" y="490"><tspan fill="#ef4444">DENY</tspan> Internet → Any (except AppGateway)</text>
+      <text x="400" y="508"><tspan fill="#ef4444">DENY</tspan> All → Public Endpoints</text>
+      <text x="400" y="526"><tspan fill="#ef4444">DENY</tspan> Cross-environment traffic</text>
+      <text x="400" y="544"><tspan fill="#fbbf24">LOG</tspan> All denied traffic to Log Analytics</text>
+      <text x="400" y="562"><tspan fill="#fbbf24">LOG</tspan> APIM requests for audit</text>
+    </g>
+  </g>
+
+  <!-- Right Column: Canada East (Non-Prod) -->
+  <g>
+    <!-- Canada East Label -->
+    <rect x="820" y="100" width="750" height="40" rx="6" fill="#003366" stroke="#0ea5e9" stroke-width="2"/>
+    <text x="1195" y="127" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#0ea5e9">Canada East (Non-Production)</text>
+    <text x="1380" y="127" font-family="Arial, sans-serif" font-size="11" fill="#94a3b8">10.10.x.x (non-routable)</text>
+
+    <!-- TEST Environment -->
+    <rect x="830" y="160" width="355" height="240" rx="10" fill="url(#testGrad)" stroke="#0ea5e9" stroke-width="2"/>
+    <text x="850" y="185" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#0ea5e9">da4cf6-test</text>
+    <text x="850" y="203" font-family="Arial, sans-serif" font-size="11" fill="#7dd3fc">VNet: 2x /24 (= /23) | ~508 IPs</text>
+
+    <!-- TEST Subnets (simplified) -->
+    <rect x="845" y="220" width="100" height="55" rx="4" fill="#002244" stroke="#38bdf8" stroke-width="1"/>
+    <text x="895" y="242" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#38bdf8">APIM</text>
+    <text x="895" y="255" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8">/26</text>
+
+    <rect x="955" y="220" width="100" height="55" rx="4" fill="#002244" stroke="#38bdf8" stroke-width="1"/>
+    <text x="1005" y="242" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#38bdf8">AI Foundry</text>
+    <text x="1005" y="255" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8">/25</text>
+
+    <rect x="1065" y="220" width="100" height="55" rx="4" fill="#002244" stroke="#38bdf8" stroke-width="1"/>
+    <text x="1115" y="242" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#38bdf8">AKS</text>
+    <text x="1115" y="255" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8">/24</text>
+
+    <rect x="845" y="285" width="100" height="55" rx="4" fill="#002244" stroke="#38bdf8" stroke-width="1"/>
+    <text x="895" y="307" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#38bdf8">PrivateLink</text>
+    <text x="895" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8">/27</text>
+
+    <rect x="955" y="285" width="100" height="55" rx="4" fill="#002244" stroke="#38bdf8" stroke-width="1"/>
+    <text x="1005" y="307" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#38bdf8">Bastion</text>
+    <text x="1005" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8">/26</text>
+
+    <text x="850" y="375" font-family="Arial, sans-serif" font-size="10" fill="#7dd3fc">Integration testing | UAT | Performance tests</text>
+
+    <!-- DEV Environment -->
+    <rect x="1205" y="160" width="355" height="240" rx="10" fill="url(#devGrad)" stroke="#a855f7" stroke-width="2"/>
+    <text x="1225" y="185" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#a855f7">da4cf6-dev</text>
+    <text x="1225" y="203" font-family="Arial, sans-serif" font-size="11" fill="#d8b4fe">VNet: 1x /24 | ~251 IPs</text>
+
+    <!-- DEV Subnets (simplified) -->
+    <rect x="1220" y="220" width="100" height="55" rx="4" fill="#002244" stroke="#c084fc" stroke-width="1"/>
+    <text x="1270" y="242" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#c084fc">AI Foundry</text>
+    <text x="1270" y="255" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8">/25</text>
+
+    <rect x="1330" y="220" width="100" height="55" rx="4" fill="#002244" stroke="#c084fc" stroke-width="1"/>
+    <text x="1380" y="242" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#c084fc">AKS/Compute</text>
+    <text x="1380" y="255" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8">/26</text>
+
+    <rect x="1440" y="220" width="100" height="55" rx="4" fill="#002244" stroke="#c084fc" stroke-width="1"/>
+    <text x="1490" y="242" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="#c084fc">PrivateLink</text>
+    <text x="1490" y="255" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8">/27</text>
+
+    <text x="1225" y="375" font-family="Arial, sans-serif" font-size="10" fill="#d8b4fe">Developer sandbox | Rapid prototyping</text>
+
+    <!-- TOOLS Environment -->
+    <rect x="830" y="420" width="730" height="200" rx="10" fill="url(#toolsGrad)" stroke="#fcba19" stroke-width="2"/>
+    <text x="850" y="445" font-family="Arial, sans-serif" font-size="13" font-weight="bold" fill="#fcba19">da4cf6-tools</text>
+    <text x="850" y="463" font-family="Arial, sans-serif" font-size="11" fill="#fef08a">VNet: 1x /24 | ~251 IPs</text>
+
+    <!-- TOOLS Subnets -->
+    <rect x="845" y="480" width="140" height="60" rx="4" fill="#002244" stroke="#facc15" stroke-width="1"/>
+    <text x="915" y="505" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#facc15">CI/CD Runners</text>
+    <text x="915" y="522" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">GitHub Actions</text>
+
+    <rect x="1000" y="480" width="140" height="60" rx="4" fill="#002244" stroke="#facc15" stroke-width="1"/>
+    <text x="1070" y="505" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#facc15">Container Registry</text>
+    <text x="1070" y="522" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">ACR</text>
+
+    <rect x="1155" y="480" width="140" height="60" rx="4" fill="#002244" stroke="#facc15" stroke-width="1"/>
+    <text x="1225" y="505" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#facc15">Key Vault</text>
+    <text x="1225" y="522" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">Secrets Mgmt</text>
+
+    <rect x="1310" y="480" width="140" height="60" rx="4" fill="#002244" stroke="#facc15" stroke-width="1"/>
+    <text x="1380" y="505" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#facc15">Monitoring</text>
+    <text x="1380" y="522" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">Log Analytics</text>
+
+    <rect x="1465" y="480" width="80" height="60" rx="4" fill="#002244" stroke="#facc15" stroke-width="1"/>
+    <text x="1505" y="505" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#facc15">Bastion</text>
+    <text x="1505" y="522" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">/26</text>
+
+    <text x="850" y="570" font-family="Arial, sans-serif" font-size="10" fill="#fef08a">Shared services | DevOps tooling | Cross-environment access</text>
+    <text x="850" y="590" font-family="Arial, sans-serif" font-size="9" fill="#a3a3a3">Can peer to all non-prod environments for CI/CD</text>
+  </g>
+
+  <!-- Client Connectivity Section -->
+  <rect x="40" y="660" width="1520" height="220" rx="12" fill="#001122" stroke="#64748b" stroke-width="1"/>
+  <text x="60" y="690" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="white">Client Connectivity Model</text>
+
+  <!-- ExpressRoute (On-Premises) -->
+  <rect x="60" y="710" width="200" height="80" rx="8" fill="#374151" stroke="#6b7280" stroke-width="2"/>
+  <text x="160" y="740" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">On-Premises</text>
+  <text x="160" y="758" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#9ca3af">BC Gov Network</text>
+  <text x="160" y="775" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#6b7280">(via ExpressRoute)</text>
+
+  <!-- Arrow to App Gateway -->
+  <path d="M 260 750 L 340 750" stroke="#fcba19" stroke-width="2" fill="none" marker-end="url(#arrowGold)"/>
+  <text x="300" y="742" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#fcba19">HTTPS</text>
+
+  <!-- App Gateway -->
+  <rect x="350" y="710" width="160" height="80" rx="8" fill="#002244" stroke="#f97316" stroke-width="2" filter="url(#shadow)"/>
+  <text x="430" y="740" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#f97316">App Gateway</text>
+  <text x="430" y="758" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#fed7aa">WAF v2</text>
+  <text x="430" y="775" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">SSL, WAF, Routing</text>
+
+  <!-- Arrow to APIM -->
+  <path d="M 510 750 L 590 750" stroke="#0ea5e9" stroke-width="2" fill="none" marker-end="url(#arrowBlue)"/>
+
+  <!-- APIM -->
+  <rect x="600" y="710" width="160" height="80" rx="8" fill="#002244" stroke="#0ea5e9" stroke-width="2" filter="url(#shadow)"/>
+  <text x="680" y="740" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#0ea5e9">APIM</text>
+  <text x="680" y="758" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#bae6fd">API Management</text>
+  <text x="680" y="775" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">Auth, Rate Limit</text>
+
+  <!-- Arrow to AI Services -->
+  <path d="M 760 750 L 840 750" stroke="#a855f7" stroke-width="2" fill="none" marker-end="url(#arrowPurple)"/>
+
+  <!-- AI Services -->
+  <rect x="850" y="710" width="200" height="80" rx="8" fill="#002244" stroke="#a855f7" stroke-width="2" filter="url(#shadow)"/>
+  <text x="950" y="740" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#a855f7">AI Services</text>
+  <text x="950" y="758" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#e9d5ff">Private Endpoints</text>
+  <text x="950" y="775" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">OpenAI, Foundry, OCR</text>
+
+  <!-- DNS Note -->
+  <rect x="1100" y="710" width="220" height="80" rx="8" fill="#1e293b" stroke="#64748b" stroke-width="1"/>
+  <text x="1210" y="735" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="#94a3b8">Private DNS</text>
+  <text x="1210" y="755" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#64748b">Managed by</text>
+  <text x="1210" y="773" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#64748b">Platform Services</text>
+
+  <!-- Important Notes -->
+  <g font-family="Arial, sans-serif" font-size="10">
+    <text x="60" y="815" fill="#fbbf24">Important:</text>
+    <text x="130" y="815" fill="#94a3b8">Clients connect via App Gateway + APIM, NOT directly via ExpressRoute to backend services</text>
+    <text x="60" y="835" fill="#94a3b8">All AI model endpoints are private. DNS resolution handled by Platform Services centrally.</text>
+    <text x="60" y="855" fill="#94a3b8">Cross-environment traffic (dev→prod) is DENIED. Tools env can peer to non-prod for CI/CD.</text>
+  </g>
+
+  <!-- Arrow markers -->
+  <defs>
+    <marker id="arrowGold" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#fcba19"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#0ea5e9"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L9,3 z" fill="#a855f7"/>
+    </marker>
+  </defs>
+
+  <!-- Legend -->
+  <rect x="1340" y="710" width="210" height="150" rx="8" fill="#002244" stroke="#64748b" stroke-width="1"/>
+  <text x="1445" y="735" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="white">Legend</text>
+
+  <rect x="1355" y="750" width="14" height="14" rx="2" fill="#22c55e"/>
+  <text x="1380" y="762" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">Production (Canada Central)</text>
+
+  <rect x="1355" y="775" width="14" height="14" rx="2" fill="#0ea5e9"/>
+  <text x="1380" y="787" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">Test</text>
+
+  <rect x="1355" y="800" width="14" height="14" rx="2" fill="#a855f7"/>
+  <text x="1380" y="812" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">Dev</text>
+
+  <rect x="1355" y="825" width="14" height="14" rx="2" fill="#fcba19"/>
+  <text x="1380" y="837" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">Tools</text>
+
+  <!-- Footer -->
+  <rect x="0" y="1150" width="1600" height="50" fill="#fcba19"/>
+  <text x="800" y="1180" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#003366">AI Hub Landing Zone - Network Environments | Updated: {{CURRENT_DATE}}</text>
+</svg>

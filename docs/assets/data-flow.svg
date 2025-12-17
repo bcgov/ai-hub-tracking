@@ -1,0 +1,243 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 700">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="100%" style="stop-color:#1e293b"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-opacity="0.3"/>
+    </filter>
+    <marker id="arrowGold" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,2 L0,10 L10,6 z" fill="#fcba19"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,2 L0,10 L10,6 z" fill="#0ea5e9"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,2 L0,10 L10,6 z" fill="#22c55e"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M0,2 L0,10 L10,6 z" fill="#a855f7"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1400" height="700" fill="url(#bgGrad)"/>
+  <pattern id="grid" width="25" height="25" patternUnits="userSpaceOnUse">
+    <path d="M 25 0 L 0 0 0 25" fill="none" stroke="#334155" stroke-width="0.5" opacity="0.2"/>
+  </pattern>
+  <rect width="1400" height="700" fill="url(#grid)"/>
+
+  <!-- Title -->
+  <text x="700" y="35" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="white">AI Request Data Flow</text>
+  <text x="700" y="58" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#94a3b8">From BC Gov User to AI Response - Complete Request Path</text>
+
+  <!-- Step Labels -->
+  <g font-family="Arial, sans-serif" font-size="11" fill="#fcba19" font-weight="bold">
+    <text x="120" y="100">1. User Request</text>
+    <text x="295" y="100">2. ExpressRoute</text>
+    <text x="470" y="100">3. App Gateway</text>
+    <text x="645" y="100">4. APIM</text>
+    <text x="820" y="100">5. AI Service</text>
+    <text x="1020" y="100">6. Data Access</text>
+    <text x="1220" y="100">7. Response</text>
+  </g>
+
+  <!-- Main Flow - Row 1 -->
+  <!-- User/Client -->
+  <g filter="url(#shadow)" transform="translate(50, 120)">
+    <rect x="0" y="0" width="140" height="100" rx="10" fill="#374151" stroke="#6b7280" stroke-width="2"/>
+    <circle cx="70" cy="35" r="20" fill="#4b5563"/>
+    <circle cx="70" cy="28" r="8" fill="#9ca3af"/>
+    <path d="M50,50 Q70,70 90,50" fill="none" stroke="#9ca3af" stroke-width="2"/>
+    <text x="70" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">BC Gov User</text>
+    <text x="70" y="95" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">On-Premises</text>
+  </g>
+
+  <!-- Arrow 1->2 -->
+  <path d="M 195 170 L 235 170" stroke="#fcba19" stroke-width="3" marker-end="url(#arrowGold)"/>
+  <text x="215" y="160" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#fef08a">HTTPS</text>
+
+  <!-- ExpressRoute -->
+  <g filter="url(#shadow)" transform="translate(250, 120)">
+    <rect x="0" y="0" width="140" height="100" rx="10" fill="#1e3a5f" stroke="#0078d4" stroke-width="2"/>
+    <text x="70" y="35" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">ExpressRoute</text>
+    <text x="70" y="55" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#93c5fd">Private Connection</text>
+    <text x="70" y="70" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#93c5fd">to Azure</text>
+    <rect x="25" y="80" width="90" height="12" rx="3" fill="#0078d4"/>
+    <text x="70" y="90" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="white">Platform Services</text>
+  </g>
+
+  <!-- Arrow 2->3 -->
+  <path d="M 395 170 L 435 170" stroke="#fcba19" stroke-width="3" marker-end="url(#arrowGold)"/>
+
+  <!-- App Gateway -->
+  <g filter="url(#shadow)" transform="translate(450, 120)">
+    <rect x="0" y="0" width="140" height="100" rx="10" fill="#7c2d12" stroke="#f97316" stroke-width="2"/>
+    <text x="70" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">App Gateway</text>
+    <text x="70" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#fed7aa">WAF Protection</text>
+    <text x="70" y="65" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#fed7aa">SSL Termination</text>
+    <text x="70" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#fed7aa">Load Balancing</text>
+    <text x="70" y="95" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#fbbf24">Validates Request</text>
+  </g>
+
+  <!-- Arrow 3->4 -->
+  <path d="M 595 170 L 635 170" stroke="#0ea5e9" stroke-width="3" marker-end="url(#arrowBlue)"/>
+
+  <!-- APIM -->
+  <g filter="url(#shadow)" transform="translate(650, 120)">
+    <rect x="0" y="0" width="140" height="100" rx="10" fill="#0c4a6e" stroke="#0ea5e9" stroke-width="2"/>
+    <text x="70" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">APIM</text>
+    <text x="70" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#bae6fd">Authentication</text>
+    <text x="70" y="65" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#bae6fd">Rate Limiting</text>
+    <text x="70" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#bae6fd">Request Logging</text>
+    <text x="70" y="95" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#38bdf8">Routes to Backend</text>
+  </g>
+
+  <!-- Arrow 4->5 -->
+  <path d="M 795 170 L 835 170" stroke="#a855f7" stroke-width="3" marker-end="url(#arrowPurple)"/>
+
+  <!-- AI Service -->
+  <g filter="url(#shadow)" transform="translate(850, 120)">
+    <rect x="0" y="0" width="140" height="100" rx="10" fill="#581c87" stroke="#a855f7" stroke-width="2"/>
+    <text x="70" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">AI Foundry</text>
+    <text x="70" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#e9d5ff">Semantic Kernel</text>
+    <text x="70" y="65" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#e9d5ff">Process Prompt</text>
+    <text x="70" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#e9d5ff">Call OpenAI</text>
+    <text x="70" y="95" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#c084fc">Orchestrates</text>
+  </g>
+
+  <!-- Arrow 5->6 -->
+  <path d="M 995 170 L 1050 170" stroke="#22c55e" stroke-width="3" marker-end="url(#arrowGreen)"/>
+
+  <!-- Data Access -->
+  <g filter="url(#shadow)" transform="translate(1065, 120)">
+    <rect x="0" y="0" width="140" height="100" rx="10" fill="#166534" stroke="#22c55e" stroke-width="2"/>
+    <text x="70" y="30" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Data Layer</text>
+    <text x="70" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#bbf7d0">AI Search (RAG)</text>
+    <text x="70" y="65" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#bbf7d0">Blob Storage</text>
+    <text x="70" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#bbf7d0">Cosmos DB</text>
+    <text x="70" y="95" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#4ade80">Private Endpoints</text>
+  </g>
+
+  <!-- Arrow 6->7 -->
+  <path d="M 1210 170 L 1250 170" stroke="#22c55e" stroke-width="3" marker-end="url(#arrowGreen)"/>
+
+  <!-- Response -->
+  <g filter="url(#shadow)" transform="translate(1265, 120)">
+    <rect x="0" y="0" width="100" height="100" rx="10" fill="#064e3b" stroke="#10b981" stroke-width="2"/>
+    <text x="50" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" fill="#34d399">&#10003;</text>
+    <text x="50" y="65" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Response</text>
+    <text x="50" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#6ee7b7">AI Generated</text>
+    <text x="50" y="92" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#6ee7b7">Answer</text>
+  </g>
+
+  <!-- Return path -->
+  <path d="M 1265 240 L 190 240 L 190 225" stroke="#6b7280" stroke-width="2" stroke-dasharray="8,4" marker-end="url(#arrowGold)"/>
+  <text x="700" y="260" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#9ca3af">Response returns through same secure path</text>
+
+  <!-- Detail Section -->
+  <rect x="50" y="290" width="1300" height="320" rx="10" fill="#1f2937" stroke="#475569" stroke-width="1"/>
+  <text x="70" y="320" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">Request Processing Details</text>
+
+  <!-- RAG Flow Detail -->
+  <g transform="translate(70, 340)">
+    <rect x="0" y="0" width="600" height="250" rx="8" fill="#1a2744" stroke="#a855f7" stroke-width="1"/>
+    <text x="300" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#a855f7">RAG (Retrieval-Augmented Generation) Flow</text>
+
+    <!-- User Question -->
+    <rect x="20" y="45" width="180" height="40" rx="5" fill="#374151" stroke="#6b7280"/>
+    <text x="110" y="70" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="white">"What is BC health policy?"</text>
+
+    <path d="M 205 65 L 235 65" stroke="#fcba19" stroke-width="2" marker-end="url(#arrowGold)"/>
+
+    <!-- Semantic Kernel -->
+    <rect x="240" y="45" width="140" height="40" rx="5" fill="#581c87" stroke="#a855f7"/>
+    <text x="310" y="62" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white">Semantic Kernel</text>
+    <text x="310" y="76" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#e9d5ff">Parse + Embed Query</text>
+
+    <path d="M 310 90 L 310 115" stroke="#0ea5e9" stroke-width="2" marker-end="url(#arrowBlue)"/>
+
+    <!-- AI Search -->
+    <rect x="240" y="120" width="140" height="50" rx="5" fill="#0c4a6e" stroke="#0ea5e9"/>
+    <text x="310" y="140" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white">AI Search</text>
+    <text x="310" y="155" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bae6fd">Vector + Keyword Search</text>
+
+    <path d="M 385 145 L 420 145" stroke="#22c55e" stroke-width="2" marker-end="url(#arrowGreen)"/>
+
+    <!-- Retrieved Docs -->
+    <rect x="425" y="120" width="150" height="50" rx="5" fill="#166534" stroke="#22c55e"/>
+    <text x="500" y="138" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white">Retrieved Context</text>
+    <text x="500" y="152" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bbf7d0">Top 5 relevant docs</text>
+    <text x="500" y="164" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bbf7d0">from knowledge base</text>
+
+    <path d="M 500 175 L 500 195 L 310 195 L 310 210" stroke="#a855f7" stroke-width="2" marker-end="url(#arrowPurple)"/>
+
+    <!-- OpenAI -->
+    <rect x="240" y="215" width="140" height="55" rx="5" fill="#4c1d95" stroke="#c084fc"/>
+    <text x="310" y="235" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white">Azure OpenAI</text>
+    <text x="310" y="250" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#e9d5ff">GPT-4 + Context</text>
+    <text x="310" y="263" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#fbbf24">Canada Region</text>
+
+    <path d="M 235 242 L 170 242" stroke="#22c55e" stroke-width="2" marker-end="url(#arrowGreen)"/>
+
+    <!-- Final Response -->
+    <rect x="20" y="215" width="140" height="55" rx="5" fill="#064e3b" stroke="#10b981"/>
+    <text x="90" y="235" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" font-weight="bold" fill="white">AI Response</text>
+    <text x="90" y="252" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#6ee7b7">Grounded answer with</text>
+    <text x="90" y="264" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#6ee7b7">citations to sources</text>
+  </g>
+
+  <!-- Security Checkpoints -->
+  <g transform="translate(700, 340)">
+    <rect x="0" y="0" width="630" height="250" rx="8" fill="#1a2744" stroke="#ef4444" stroke-width="1"/>
+    <text x="315" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#ef4444">Security Checkpoints Along the Path</text>
+
+    <g transform="translate(20, 45)">
+      <rect x="0" y="0" width="190" height="90" rx="5" fill="#292524" stroke="#78716c"/>
+      <text x="95" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#f97316">App Gateway</text>
+      <text x="95" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; WAF rules check</text>
+      <text x="95" y="52" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; DDoS protection</text>
+      <text x="95" y="66" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; SSL/TLS validation</text>
+      <text x="95" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; Request filtering</text>
+    </g>
+
+    <g transform="translate(220, 45)">
+      <rect x="0" y="0" width="190" height="90" rx="5" fill="#292524" stroke="#78716c"/>
+      <text x="95" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#0ea5e9">APIM</text>
+      <text x="95" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; API key / OAuth</text>
+      <text x="95" y="52" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; Rate limit check</text>
+      <text x="95" y="66" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; Subscription validation</text>
+      <text x="95" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; Request/response logging</text>
+    </g>
+
+    <g transform="translate(420, 45)">
+      <rect x="0" y="0" width="190" height="90" rx="5" fill="#292524" stroke="#78716c"/>
+      <text x="95" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#a855f7">AI Service</text>
+      <text x="95" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; Content Safety filter</text>
+      <text x="95" y="52" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; Prompt shields</text>
+      <text x="95" y="66" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; PII detection</text>
+      <text x="95" y="80" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; Audit logging</text>
+    </g>
+
+    <g transform="translate(20, 150)">
+      <rect x="0" y="0" width="290" height="80" rx="5" fill="#292524" stroke="#22c55e"/>
+      <text x="145" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#22c55e">Data Access Controls</text>
+      <text x="145" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; Private endpoints only (no public access)</text>
+      <text x="145" y="54" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; Managed identity authentication</text>
+      <text x="145" y="68" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; Encryption at rest (CMK)</text>
+    </g>
+
+    <g transform="translate(320, 150)">
+      <rect x="0" y="0" width="290" height="80" rx="5" fill="#292524" stroke="#fcba19"/>
+      <text x="145" y="20" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="#fcba19">Tenant Isolation</text>
+      <text x="145" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; Ministry validated from APIM subscription</text>
+      <text x="145" y="54" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; Only ministry's data accessible in queries</text>
+      <text x="145" y="68" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#a8a29e">&#10003; Cost tagged for chargeback</text>
+    </g>
+  </g>
+
+  <!-- Footer -->
+  <rect x="0" y="650" width="1400" height="50" fill="#fcba19"/>
+  <text x="700" y="680" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#003366">BC Gov AI Landing Zone - Request Data Flow | Secure Path from User to AI Response</text>
+</svg>
