@@ -65,3 +65,9 @@ variable "self_hosted_runner_vm_enabled" {
   type        = bool
   default     = false
 }
+
+variable "self_hosted_runner_vm_ubuntu_image_version" {
+  description = "Ubuntu 24.04 image version for the ephemeral runner VM. Use a specific version for reproducibility (default: latest)."
+  type        = string
+  default     = "latest"
+}

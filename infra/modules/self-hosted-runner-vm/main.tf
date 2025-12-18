@@ -79,7 +79,7 @@ resource "azurerm_linux_virtual_machine" "runner" {
     publisher = "Canonical"
     offer     = "ubuntu-24_04-lts"
     sku       = "server"
-    version   = "latest"
+    version   = var.ubuntu_image_version
   }
 
   boot_diagnostics {

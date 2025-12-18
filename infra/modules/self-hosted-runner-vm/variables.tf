@@ -42,6 +42,13 @@ variable "vm_size" {
   nullable    = false
 }
 
+variable "ubuntu_image_version" {
+  description = "Ubuntu 24.04 image version. Use a specific version for reproducibility (default: latest)."
+  type        = string
+  default     = "latest"
+  nullable    = false
+}
+
 variable "os_disk_type" {
   description = "Storage account type for OS disk"
   type        = string

@@ -53,3 +53,13 @@ output "self_hosted_runner_vm_id" {
   value       = module.self_hosted_runner_vm.vm_id
 }
 
+output "self_hosted_runner_vm_resource_group_name" {
+  description = "Resource group name of the ephemeral self-hosted runner VM"
+  value       = module.self_hosted_runner_vm.resource_group_name
+}
+
+output "self_hosted_runner_vm_private_ip" {
+  description = "Private IP of the ephemeral self-hosted runner VM"
+  value       = module.self_hosted_runner_vm.private_ip
+}
+

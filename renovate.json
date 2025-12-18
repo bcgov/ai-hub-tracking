@@ -1,7 +1,7 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "extends": ["config:base"],
-  "enabledManagers": ["terraform", "regex"],
+  "extends": ["config:recommended"],
+  "enabledManagers": ["terraform", "regex", "github-actions"],
   "regexManagers": [
     {
       "fileMatch": ["^infra/modules/self-hosted-runner-vm/variables\\.tf$"],

@@ -13,7 +13,7 @@ RUNNER_VERSION="${github_actions_runner_version}"
 
 cd /opt/actions-runner
 
-if [[ ! -f .runner ]]; then
+if [[ ! -f ./config.sh ]]; then
   echo "Downloading GitHub Actions runner v$RUNNER_VERSION..."
   curl -fsSL -o actions-runner.tgz "https://github.com/actions/runner/releases/download/v$RUNNER_VERSION/actions-runner-linux-x64-$RUNNER_VERSION.tar.gz"
   tar -xzf actions-runner.tgz
@@ -22,11 +22,6 @@ fi
 
 chown -R runner:runner /opt/actions-runner
 
-# Remove any previous config if present
-if [[ -f .runner ]]; then
-  sudo -u runner ./config.sh remove --unattended --token "$REG_TOKEN" || true
-fi
-
 echo "Configuring ephemeral runner..."
 sudo -u runner ./config.sh \
   --unattended \
@@ -34,6 +29,7 @@ sudo -u runner ./config.sh \
   --token "$REG_TOKEN" \
   --name "$(hostname)" \
   --labels "$LABELS" \
+  --replace \
   --ephemeral \
   --work "_work"
 

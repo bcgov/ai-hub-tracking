@@ -1,241 +1,217 @@
 name: Ephemeral Self-Hosted Runner (VM)
 
 on:
-    pull_request:
-        branches:
-            - main
-    workflow_dispatch:
-        inputs:
-            environment_name:
-                description: "Target environment"
-                required: true
-                type: choice
-                default: tools
-                options:
-                    - tools
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment_name:
+        description: "Target environment"
+        required: true
+        type: choice
+        default: tools
+        options:
+          - tools
 
 permissions:
-    id-token: write
-    contents: read
-    actions: write
+  id-token: write
+  contents: read
+  actions: write
 
 concurrency:
-    group: ephemeral-runner-${{ github.ref }}
-    cancel-in-progress: false
+  group: ephemeral-runner-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
-    TF_VERSION: 1.12.2
-    TF_LOG: ERROR
+  TF_VERSION: 1.12.2
+  TF_LOG: ERROR
+  TF_VAR_app_name: "ai-hub-deploy-utils"
+  TF_VAR_app_env: "${{ inputs.environment_name }}"
+  TF_VAR_location: "Canada Central"
+  TF_VAR_resource_group_name: "ai-hub-deploy-utils-${{ inputs.environment_name }}"
+  TF_VAR_common_tags: >-
+    {"environment":"${{ inputs.environment_name }}","app_env":"${{ inputs.environment_name }}","repo_name":"${{ github.event.repository.name }}"}
+  TF_VAR_self_hosted_runner_vm_enabled: "true"
 
 jobs:
-    provision-runner:
-        name: Provision + Register Runner VM
-        if: github.ref == 'refs/heads/main'
-        runs-on: ubuntu-24.04
-        environment: ${{ inputs.environment_name }}
-        outputs:
-            runner_label: ${{ steps.label.outputs.label }}
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  provision-runner:
+    name: Provision + Register Runner VM
+    ## if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.environment_name }}
+    env:
+      CI: "true"
+      ARM_USE_OIDC: "true"
+      TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+      TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+      TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+      TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
+      TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
+    outputs:
+      runner_label: ${{ steps.label.outputs.label }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Azure CLI Login (OIDC)
-              uses: azure/login@v2
-              with:
-                  client-id: ${{ secrets.AZURE_CLIENT_ID }}
-                  tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-                  subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Azure CLI Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-            - name: Setup Terraform
-              uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
-              with:
-                  terraform_version: ${{ env.TF_VERSION }}
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
 
-            - name: Create runner VM (Terraform)
-              shell: bash
-              env:
-                  CI: "true"
-                  ARM_USE_OIDC: "true"
-                  TF_VAR_app_name: "ai-hub-deploy-utils"
-                  TF_VAR_app_env: "${{ inputs.environment_name }}"
-                  TF_VAR_location: "Canada Central"
-                  TF_VAR_resource_group_name: "ai-hub-deploy-utils-${{ inputs.environment_name }}"
-                  TF_VAR_common_tags: >-
-                      {"environment":"${{ inputs.environment_name }}","app_env":"${{ inputs.environment_name }}","repo_name":"${{ github.event.repository.name }}"}
-                  TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-                  TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-                  TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
-                  TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
-                  TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
-                  TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
-                  TF_VAR_self_hosted_runner_vm_enabled: "true"
-              run: |
-                  chmod +x ./deploy-terraform.sh
-                  ./deploy-terraform.sh apply -target=module.self_hosted_runner_vm
+      - name: Create runner VM (Terraform)
+        shell: bash
+        run: |
+          chmod +x ./deploy-terraform.sh
+          ./deploy-terraform.sh apply -target=module.self_hosted_runner_vm
 
-            - name: Compute runner label
-              id: label
-              shell: bash
-              run: |
-                  LABEL="ephemeral-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-                  echo "label=$LABEL" >> "$GITHUB_OUTPUT"
+      - name: Compute runner label
+        id: label
+        shell: bash
+        run: |
+          LABEL="ephemeral-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          echo "label=$LABEL" >> "$GITHUB_OUTPUT"
 
-            - name: Register runner on VM
-              shell: bash
-              env:
-                  GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-                  RUNNER_LABEL: ${{ steps.label.outputs.label }}
-              run: |
-                  set -euo pipefail
+      - name: Register runner on VM
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUNNER_LABEL: ${{ steps.label.outputs.label }}
+        run: |
+          set -euo pipefail
 
-                  # NOTE: This uses Azure *management-plane* "Run Command" (via the VM agent), not SSH.
-                  # It works even if the VM has no inbound network access, as long as the workflow identity
-                  # has RBAC to invoke run-command on the VM (e.g. permission like
-                  # `Microsoft.Compute/virtualMachines/runCommand/action` on the VM/RG).
+          # NOTE: This uses Azure *management-plane* "Run Command" (via the VM agent), not SSH.
+          # It works even if the VM has no inbound network access, as long as the workflow identity
+          # has RBAC to invoke run-command on the VM (e.g. permission like
+          # `Microsoft.Compute/virtualMachines/runCommand/action` on the VM/RG).
 
-                  # Read Terraform outputs
-                  VM_NAME=$(terraform -chdir=infra output -raw self_hosted_runner_vm_name)
-                  RG_NAME=$(terraform -chdir=infra output -raw self_hosted_runner_vm_resource_group_name)
+          # Read Terraform outputs
+          VM_NAME=$(terraform -chdir=infra output -raw self_hosted_runner_vm_name)
+          RG_NAME=$(terraform -chdir=infra output -raw self_hosted_runner_vm_resource_group_name)
 
-                  echo "VM_NAME=$VM_NAME" >> "$GITHUB_ENV"
-                  echo "RG_NAME=$RG_NAME" >> "$GITHUB_ENV"
+          echo "VM_NAME=$VM_NAME" >> "$GITHUB_ENV"
+          echo "RG_NAME=$RG_NAME" >> "$GITHUB_ENV"
 
-                  # Mint short-lived runner registration token (minutes)
-                  echo "::add-mask::$GH_TOKEN"
-                  REG_TOKEN=$(curl -fsSL -X POST \
-                    -H "Accept: application/vnd.github+json" \
-                    -H "Authorization: Bearer $GH_TOKEN" \
-                    -H "X-GitHub-Api-Version: 2022-11-28" \
-                    "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runners/registration-token" \
-                    | jq -r .token)
+          # Mint short-lived runner registration token (minutes)
+          echo "::add-mask::$GH_TOKEN"
+          REG_TOKEN=$(curl -fsSL -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runners/registration-token" \
+            | jq -r .token)
 
-                  if [[ -z "$REG_TOKEN" || "$REG_TOKEN" == "null" ]]; then
-                    echo "Failed to get runner registration token" >&2
-                    exit 1
-                  fi
+          if [[ -z "$REG_TOKEN" || "$REG_TOKEN" == "null" ]]; then
+            echo "Failed to get runner registration token" >&2
+            exit 1
+          fi
 
-                  echo "::add-mask::$REG_TOKEN"
+          echo "::add-mask::$REG_TOKEN"
 
-                  REPO_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
+          REPO_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
 
-                  az vm run-command invoke \
-                    --command-id RunShellScript \
-                    --name "$VM_NAME" \
-                    --resource-group "$RG_NAME" \
-                    --scripts "sudo /opt/actions-runner/register-and-start.sh '$REPO_URL' '$REG_TOKEN' '$RUNNER_LABEL'"
+          az vm run-command invoke \
+            --command-id RunShellScript \
+            --name "$VM_NAME" \
+            --resource-group "$RG_NAME" \
+            --scripts "sudo /opt/actions-runner/register-and-start.sh '$REPO_URL' '$REG_TOKEN' '$RUNNER_LABEL'"
 
-    deploy:
-        name: Deployment (runs on ephemeral runner)
-        needs: provision-runner
-        #if: github.ref == 'refs/heads/main'
-        runs-on:
-            - self-hosted
-            - ${{ needs.provision-runner.outputs.runner_label }}
-        environment: ${{ inputs.environment_name }}
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  deploy:
+    name: Deployment (runs on ephemeral runner)
+    needs: provision-runner
+    ## if: github.ref == 'refs/heads/main'
+    runs-on:
+      - self-hosted
+      - ${{ needs.provision-runner.outputs.runner_label }}
+    environment: ${{ inputs.environment_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Azure CLI Login (OIDC)
-              uses: azure/login@v2
-              with:
-                  client-id: ${{ secrets.AZURE_CLIENT_ID }}
-                  tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-                  subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Azure CLI Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-            - name: Deploy
-              shell: bash
-              run: |
-                  # trying to see if it works.
-                  az keyvault secret list --vault-name aihdeployutilskv --output table
+      - name: Deploy
+        shell: bash
+        run: |
+          echo "Run your VNet-only deployment steps here."
 
-    destroy-runner:
-        name: Destroy Runner VM
-        needs: [provision-runner, deploy]
-        if: always() && github.ref == 'refs/heads/main'
-        runs-on: ubuntu-24.04
-        environment: ${{ inputs.environment_name }}
-        steps:
-            - name: Checkout
-              uses: actions/checkout@v4
+  destroy-runner:
+    name: Destroy Runner VM
+    needs: [provision-runner, deploy]
+    if: always()
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.environment_name }}
+    env:
+      CI: "true"
+      ARM_USE_OIDC: "true"
+      TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+      TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+      TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+      TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
+      TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-            - name: Azure CLI Login (OIDC)
-              uses: azure/login@v2
-              with:
-                  client-id: ${{ secrets.AZURE_CLIENT_ID }}
-                  tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-                  subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Azure CLI Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-            - name: Setup Terraform
-              uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
-              with:
-                  terraform_version: ${{ env.TF_VERSION }}
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
 
-            - name: Dump VM logs (always)
-              if: always()
-              shell: bash
-              env:
-                  CI: "true"
-                  ARM_USE_OIDC: "true"
-                  TF_VAR_app_name: "ai-hub-deploy-utils"
-                  TF_VAR_app_env: "${{ inputs.environment_name }}"
-                  TF_VAR_location: "Canada Central"
-                  TF_VAR_resource_group_name: "ai-hub-deploy-utils-${{ inputs.environment_name }}"
-                  TF_VAR_common_tags: >-
-                      {"environment":"${{ inputs.environment_name }}","app_env":"${{ inputs.environment_name }}","repo_name":"${{ github.event.repository.name }}"}
-                  TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-                  TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-                  TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
-                  TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
-                  TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
-                  TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
-                  TF_VAR_self_hosted_runner_vm_enabled: "true"
-              run: |
-                  set -euo pipefail
+      - name: Dump VM logs (always)
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
 
-                  chmod +x ./deploy-terraform.sh
+          chmod +x ./deploy-terraform.sh
 
-                  # Ensure terraform is initialized so we can read remote outputs.
-                  ./deploy-terraform.sh init
+          # Ensure terraform is initialized so we can read remote outputs.
+          ./deploy-terraform.sh init
 
-                  VM_NAME=$(terraform -chdir=infra output -raw self_hosted_runner_vm_name 2>/dev/null || true)
-                  RG_NAME=$(terraform -chdir=infra output -raw self_hosted_runner_vm_resource_group_name 2>/dev/null || true)
+          VM_NAME=$(terraform -chdir=infra output -raw self_hosted_runner_vm_name 2>/dev/null || true)
+          RG_NAME=$(terraform -chdir=infra output -raw self_hosted_runner_vm_resource_group_name 2>/dev/null || true)
 
-                  if [[ -z "${VM_NAME}" || -z "${RG_NAME}" ]]; then
-                      echo "VM outputs not available; skipping log dump."
-                      exit 0
-                  fi
+          if [[ -z "${VM_NAME}" || -z "${RG_NAME}" ]]; then
+              echo "VM outputs not available; skipping log dump."
+              exit 0
+          fi
 
-                  echo "Dumping logs from ${RG_NAME}/${VM_NAME} via Run Command..."
+          echo "Dumping logs from ${RG_NAME}/${VM_NAME} via Run Command..."
 
-                  # NOTE: This is management-plane Run Command (VM agent). Output is returned to this job log.
-                  az vm run-command invoke \
-                    --command-id RunShellScript \
-                    --name "${VM_NAME}" \
-                    --resource-group "${RG_NAME}" \
-                    --query "value[0].message" \
-                    -o tsv \
-                    --scripts "sudo bash -lc 'set -euo pipefail; echo \"===== VM LOG DUMP START =====\"; date; uname -a || true; echo; echo \"--- cloud-init status ---\"; cloud-init status --long 2>/dev/null || true; echo; echo \"--- /var/log/cloud-init-output.log (tail) ---\"; tail -n 5000 /var/log/cloud-init-output.log 2>/dev/null || true; echo; echo \"--- /var/log/cloud-init.log (tail) ---\"; tail -n 5000 /var/log/cloud-init.log 2>/dev/null || true; echo; echo \"--- /var/log/syslog (tail) ---\"; tail -n 5000 /var/log/syslog 2>/dev/null || true; echo; echo \"--- systemctl status actions.runner* ---\"; systemctl --no-pager --full status actions.runner* 2>/dev/null || true; echo; echo \"--- journalctl -u actions.runner* (tail) ---\"; journalctl --no-pager -u \"actions.runner*\" -n 5000 2>/dev/null || true; echo; echo \"--- /opt/actions-runner (ls) ---\"; ls -la /opt/actions-runner 2>/dev/null || true; echo \"===== VM LOG DUMP END =====\"'"
+          # NOTE: This is management-plane Run Command (VM agent). Output is returned to this job log.
+          az vm run-command invoke \
+            --command-id RunShellScript \
+            --name "${VM_NAME}" \
+            --resource-group "${RG_NAME}" \
+            --query "value[0].message" \
+            -o tsv \
+            --scripts "sudo bash -lc 'set -euo pipefail; echo \"===== VM LOG DUMP START =====\"; date; uname -a || true; echo; echo \"--- cloud-init status ---\"; cloud-init status --long 2>/dev/null || true; echo; echo \"--- /var/log/cloud-init-output.log (tail) ---\"; tail -n 5000 /var/log/cloud-init-output.log 2>/dev/null || true; echo; echo \"--- /var/log/cloud-init.log (tail) ---\"; tail -n 5000 /var/log/cloud-init.log 2>/dev/null || true; echo; echo \"--- /var/log/syslog (tail) ---\"; tail -n 5000 /var/log/syslog 2>/dev/null || true; echo; echo \"--- systemctl status actions.runner* ---\"; systemctl --no-pager --full status actions.runner* 2>/dev/null || true; echo; echo \"--- journalctl -u actions.runner* (tail) ---\"; journalctl --no-pager -u \"actions.runner*\" -n 5000 2>/dev/null || true; echo; echo \"--- /opt/actions-runner (ls) ---\"; ls -la /opt/actions-runner 2>/dev/null || true; echo \"===== VM LOG DUMP END =====\"'"
 
-            - name: Destroy runner VM (Terraform)
-              if: always()
-              shell: bash
-              env:
-                  CI: "true"
-                  ARM_USE_OIDC: "true"
-                  TF_VAR_app_name: "ai-hub-deploy-utils"
-                  TF_VAR_app_env: "${{ inputs.environment_name }}"
-                  TF_VAR_location: "Canada Central"
-                  TF_VAR_resource_group_name: "ai-hub-deploy-utils-${{ inputs.environment_name }}"
-                  TF_VAR_common_tags: >-
-                      {"environment":"${{ inputs.environment_name }}","app_env":"${{ inputs.environment_name }}","repo_name":"${{ github.event.repository.name }}"}
-                  TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-                  TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-                  TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
-                  TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
-                  TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
-                  TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
-                  TF_VAR_self_hosted_runner_vm_enabled: "true"
-              run: |
-                  chmod +x ./deploy-terraform.sh
-                  ./deploy-terraform.sh destroy -target=module.self_hosted_runner_vm
+      - name: Destroy runner VM (Terraform)
+        if: always()
+        shell: bash
+        run: |
+          chmod +x ./deploy-terraform.sh
+          ./deploy-terraform.sh destroy -target=module.self_hosted_runner_vm
