@@ -73,10 +73,9 @@ module "github_runners_aca" {
   private_endpoint_subnet_id = module.network.private_endpoint_subnet_id
 
   # Container configuration
-  container_cpu       = var.github_runners_container_cpu
-  container_memory    = var.github_runners_container_memory
-  max_runners         = var.github_runners_max_count
-  use_zone_redundancy = var.github_runners_use_zone_redundancy
+  container_cpu    = var.github_runners_container_cpu
+  container_memory = var.github_runners_container_memory
+  max_runners      = var.github_runners_max_count
 
   depends_on = [module.network]
 }

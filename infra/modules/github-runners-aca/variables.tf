@@ -89,9 +89,3 @@ variable "max_runners" {
   type        = number
   default     = 10
 }
-
-variable "use_zone_redundancy" {
-  description = "Enable zone redundancy for the deployment (may not be available in all regions)"
-  type        = bool
-  default     = false
-}

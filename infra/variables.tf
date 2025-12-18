@@ -106,9 +106,3 @@ variable "github_runners_max_count" {
   type        = number
   default     = 10
 }
-
-variable "github_runners_use_zone_redundancy" {
-  description = "Enable zone redundancy for runners (may not be available in all regions)"
-  type        = bool
-  default     = false
-}

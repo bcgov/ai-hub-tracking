@@ -7,7 +7,7 @@
 module "github_runners" {
   count   = var.enabled ? 1 : 0
   source  = "Azure/avm-ptn-cicd-agents-and-runners/azurerm"
-  version = "0.5.1"
+  version = "0.4.1"
 
   # Required inputs
   postfix                             = var.postfix
@@ -66,9 +66,6 @@ module "github_runners" {
   # Disable NAT Gateway and Public IP (using existing network infrastructure)
   nat_gateway_creation_enabled = false
   public_ip_creation_enabled   = false
-
-  # Disable zone redundancy if not supported in the region or to reduce costs
-  use_zone_redundancy = var.use_zone_redundancy
 
   # Disable telemetry
   enable_telemetry = false
