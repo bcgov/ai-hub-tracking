@@ -41,3 +41,15 @@ output "bastion_fqdn" {
   description = "FQDN of the Bastion service"
   value       = module.bastion.bastion_fqdn
 }
+
+# Ephemeral self-hosted runner VM outputs (used by GitHub Actions)
+output "self_hosted_runner_vm_name" {
+  description = "Name of the ephemeral self-hosted runner VM"
+  value       = module.self_hosted_runner_vm.vm_name
+}
+
+output "self_hosted_runner_vm_id" {
+  description = "Resource ID of the ephemeral self-hosted runner VM"
+  value       = module.self_hosted_runner_vm.vm_id
+}
+

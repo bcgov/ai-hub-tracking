@@ -59,3 +59,9 @@ variable "client_id" {
   type        = string
   sensitive   = true
 }
+
+variable "self_hosted_runner_vm_enabled" {
+  description = "Enable provisioning of the ephemeral self-hosted runner VM (used by GitHub Actions)"
+  type        = bool
+  default     = false
+}
