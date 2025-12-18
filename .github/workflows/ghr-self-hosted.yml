@@ -1,4 +1,4 @@
-name: Ephemeral Self-Hosted Runner (VM)
+name: Deploy GitHub Self Hosted Runners Infrastructure
 # This workflow deploys the Azure Container Apps-based GitHub self-hosted runners.
 # It's a one-time deployment (or run when you need to update the infrastructure).
 # Once deployed, runners auto-scale from 0 based on queued jobs.
@@ -35,7 +35,7 @@ env:
 
 jobs:
   deploy-runners:
-    name: Deploy GitHub Runners (${{ inputs.action }})
+    name: Deploy GitHub Runners (${{ inputs.action || 'apply' }})
     runs-on: ubuntu-24.04
     environment: tools
     env:
@@ -75,13 +75,13 @@ jobs:
           ./deploy-terraform.sh init
 
       - name: Terraform Plan
-        if: inputs.action == 'plan' || inputs.action == 'apply'
+        if: inputs.action == 'plan' || inputs.action == 'apply' || github.event_name == 'pull_request'
         shell: bash
         run: |
           ./deploy-terraform.sh plan -target=module.github_runners_aca
 
       - name: Terraform Apply
-        if: inputs.action == 'apply'
+        if: inputs.action == 'apply' || github.event_name == 'pull_request'
         shell: bash
         run: |
           ./deploy-terraform.sh apply -target=module.github_runners_aca
@@ -93,7 +93,7 @@ jobs:
           ./deploy-terraform.sh destroy -target=module.github_runners_aca
 
       - name: Output Runner Label
-        if: inputs.action == 'apply'
+        if: inputs.action == 'apply' || github.event_name == 'pull_request'
         shell: bash
         run: |
           echo "## GitHub Runners Deployed! 🚀" >> $GITHUB_STEP_SUMMARY
