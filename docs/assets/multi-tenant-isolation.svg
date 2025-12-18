@@ -1,0 +1,271 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 850">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="100%" style="stop-color:#1e293b"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-opacity="0.3"/>
+    </filter>
+    <pattern id="stripes-a" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
+      <line x1="0" y="0" x2="0" y2="10" stroke="#22c55e" stroke-width="2" opacity="0.3"/>
+    </pattern>
+    <pattern id="stripes-b" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
+      <line x1="0" y="0" x2="0" y2="10" stroke="#0ea5e9" stroke-width="2" opacity="0.3"/>
+    </pattern>
+    <pattern id="stripes-c" patternUnits="userSpaceOnUse" width="10" height="10" patternTransform="rotate(45)">
+      <line x1="0" y="0" x2="0" y2="10" stroke="#a855f7" stroke-width="2" opacity="0.3"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="850" fill="url(#bgGrad)"/>
+  <pattern id="grid" width="25" height="25" patternUnits="userSpaceOnUse">
+    <path d="M 25 0 L 0 0 0 25" fill="none" stroke="#334155" stroke-width="0.5" opacity="0.2"/>
+  </pattern>
+  <rect width="1200" height="850" fill="url(#grid)"/>
+
+  <!-- Title -->
+  <text x="600" y="40" text-anchor="middle" font-family="Arial, sans-serif" font-size="26" font-weight="bold" fill="white">Multi-Tenant Isolation Model</text>
+  <text x="600" y="65" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#94a3b8">How multiple BC Gov ministries share the AI Landing Zone securely</text>
+
+  <!-- Shared Infrastructure Box -->
+  <g filter="url(#shadow)">
+    <rect x="50" y="90" width="1100" height="120" rx="10" fill="#1e3a5f" stroke="#0078d4" stroke-width="2"/>
+    <text x="70" y="115" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#60a5fa">Shared Infrastructure (All Ministries)</text>
+
+    <g transform="translate(70, 130)">
+      <rect x="0" y="0" width="160" height="60" rx="5" fill="#1e40af" stroke="#3b82f6" stroke-width="1"/>
+      <text x="80" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">App Gateway</text>
+      <text x="80" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#93c5fd">Single Entry Point</text>
+    </g>
+
+    <g transform="translate(250, 130)">
+      <rect x="0" y="0" width="160" height="60" rx="5" fill="#1e40af" stroke="#3b82f6" stroke-width="1"/>
+      <text x="80" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">APIM</text>
+      <text x="80" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#93c5fd">API Management</text>
+    </g>
+
+    <g transform="translate(430, 130)">
+      <rect x="0" y="0" width="160" height="60" rx="5" fill="#1e40af" stroke="#3b82f6" stroke-width="1"/>
+      <text x="80" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">VNet + NSGs</text>
+      <text x="80" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#93c5fd">Network Isolation</text>
+    </g>
+
+    <g transform="translate(610, 130)">
+      <rect x="0" y="0" width="160" height="60" rx="5" fill="#1e40af" stroke="#3b82f6" stroke-width="1"/>
+      <text x="80" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">AI Models</text>
+      <text x="80" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#93c5fd">Shared Endpoints</text>
+    </g>
+
+    <g transform="translate(790, 130)">
+      <rect x="0" y="0" width="160" height="60" rx="5" fill="#1e40af" stroke="#3b82f6" stroke-width="1"/>
+      <text x="80" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Monitoring</text>
+      <text x="80" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#93c5fd">Log Analytics</text>
+    </g>
+
+    <g transform="translate(970, 130)">
+      <rect x="0" y="0" width="160" height="60" rx="5" fill="#1e40af" stroke="#3b82f6" stroke-width="1"/>
+      <text x="80" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Bastion</text>
+      <text x="80" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#93c5fd">Admin Access</text>
+    </g>
+  </g>
+
+  <!-- Ministry Isolation Section -->
+  <text x="600" y="240" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" font-weight="bold" fill="#fcba19">Isolated Resources Per Ministry (Tenant Boundaries)</text>
+
+  <!-- Ministry A -->
+  <g filter="url(#shadow)">
+    <rect x="50" y="260" width="350" height="340" rx="10" fill="#14532d" stroke="#22c55e" stroke-width="3"/>
+    <rect x="50" y="260" width="350" height="35" rx="10" fill="#166534"/>
+    <rect x="50" y="283" width="350" height="12" fill="#166534"/>
+    <text x="225" y="285" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">Ministry of Health</text>
+    <text x="225" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#86efac">Project: Health Info Chatbot</text>
+
+    <!-- Ministry A Resources -->
+    <g transform="translate(70, 340)">
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-a)" stroke="#22c55e" stroke-width="1"/>
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="#166534" fill-opacity="0.8"/>
+      <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Storage Account</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bbf7d0">Health Docs Only</text>
+    </g>
+
+    <g transform="translate(230, 340)">
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-a)" stroke="#22c55e" stroke-width="1"/>
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="#166534" fill-opacity="0.8"/>
+      <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Key Vault</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bbf7d0">Health Secrets</text>
+    </g>
+
+    <g transform="translate(70, 405)">
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-a)" stroke="#22c55e" stroke-width="1"/>
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="#166534" fill-opacity="0.8"/>
+      <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Resource Group</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bbf7d0">rg-health-ai</text>
+    </g>
+
+    <g transform="translate(230, 405)">
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-a)" stroke="#22c55e" stroke-width="1"/>
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="#166534" fill-opacity="0.8"/>
+      <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">APIM Subscription</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bbf7d0">Rate Limited</text>
+    </g>
+
+    <g transform="translate(70, 470)">
+      <rect x="0" y="0" width="300" height="50" rx="4" fill="#1f2937" stroke="#6b7280" stroke-width="1"/>
+      <text x="150" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">RBAC: Health Team Members Only</text>
+      <text x="150" y="35" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">Tags: ministry=health, cost-center=H001</text>
+    </g>
+
+    <g transform="translate(70, 535)">
+      <rect x="0" y="0" width="300" height="40" rx="4" fill="#022c22" stroke="#10b981" stroke-width="1"/>
+      <text x="150" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#34d399">AI Search Index: health-knowledge-base</text>
+    </g>
+  </g>
+
+  <!-- Ministry B -->
+  <g filter="url(#shadow)">
+    <rect x="425" y="260" width="350" height="340" rx="10" fill="#0c4a6e" stroke="#0ea5e9" stroke-width="3"/>
+    <rect x="425" y="260" width="350" height="35" rx="10" fill="#0369a1"/>
+    <rect x="425" y="283" width="350" height="12" fill="#0369a1"/>
+    <text x="600" y="285" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">SDPR (Social Development)</text>
+    <text x="600" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#7dd3fc">Project: Document OCR Processing</text>
+
+    <!-- Ministry B Resources -->
+    <g transform="translate(445, 340)">
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-b)" stroke="#0ea5e9" stroke-width="1"/>
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="#0369a1" fill-opacity="0.8"/>
+      <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Storage Account</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bae6fd">SDPR Docs Only</text>
+    </g>
+
+    <g transform="translate(605, 340)">
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-b)" stroke="#0ea5e9" stroke-width="1"/>
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="#0369a1" fill-opacity="0.8"/>
+      <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Key Vault</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bae6fd">SDPR Secrets</text>
+    </g>
+
+    <g transform="translate(445, 405)">
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-b)" stroke="#0ea5e9" stroke-width="1"/>
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="#0369a1" fill-opacity="0.8"/>
+      <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Resource Group</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bae6fd">rg-sdpr-ai</text>
+    </g>
+
+    <g transform="translate(605, 405)">
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-b)" stroke="#0ea5e9" stroke-width="1"/>
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="#0369a1" fill-opacity="0.8"/>
+      <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">APIM Subscription</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bae6fd">Rate Limited</text>
+    </g>
+
+    <g transform="translate(445, 470)">
+      <rect x="0" y="0" width="300" height="50" rx="4" fill="#1f2937" stroke="#6b7280" stroke-width="1"/>
+      <text x="150" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">RBAC: SDPR Team Members Only</text>
+      <text x="150" y="35" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">Tags: ministry=sdpr, cost-center=S002</text>
+    </g>
+
+    <g transform="translate(445, 535)">
+      <rect x="0" y="0" width="300" height="40" rx="4" fill="#082f49" stroke="#0ea5e9" stroke-width="1"/>
+      <text x="150" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#38bdf8">Document Intelligence: sdpr-ocr</text>
+    </g>
+  </g>
+
+  <!-- Ministry C -->
+  <g filter="url(#shadow)">
+    <rect x="800" y="260" width="350" height="340" rx="10" fill="#4c1d95" stroke="#a855f7" stroke-width="3"/>
+    <rect x="800" y="260" width="350" height="35" rx="10" fill="#6b21a8"/>
+    <rect x="800" y="283" width="350" height="12" fill="#6b21a8"/>
+    <text x="975" y="285" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">Ministry of Justice</text>
+    <text x="975" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#d8b4fe">Project: Legal Document Agent</text>
+
+    <!-- Ministry C Resources -->
+    <g transform="translate(820, 340)">
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-c)" stroke="#a855f7" stroke-width="1"/>
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="#6b21a8" fill-opacity="0.8"/>
+      <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Storage Account</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#e9d5ff">Justice Docs Only</text>
+    </g>
+
+    <g transform="translate(980, 340)">
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-c)" stroke="#a855f7" stroke-width="1"/>
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="#6b21a8" fill-opacity="0.8"/>
+      <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Key Vault</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#e9d5ff">Justice Secrets</text>
+    </g>
+
+    <g transform="translate(820, 405)">
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-c)" stroke="#a855f7" stroke-width="1"/>
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="#6b21a8" fill-opacity="0.8"/>
+      <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Resource Group</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#e9d5ff">rg-justice-ai</text>
+    </g>
+
+    <g transform="translate(980, 405)">
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-c)" stroke="#a855f7" stroke-width="1"/>
+      <rect x="0" y="0" width="140" height="50" rx="4" fill="#6b21a8" fill-opacity="0.8"/>
+      <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">APIM Subscription</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#e9d5ff">Rate Limited</text>
+    </g>
+
+    <g transform="translate(820, 470)">
+      <rect x="0" y="0" width="300" height="50" rx="4" fill="#1f2937" stroke="#6b7280" stroke-width="1"/>
+      <text x="150" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">RBAC: Justice Team Members Only</text>
+      <text x="150" y="35" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">Tags: ministry=justice, cost-center=J003</text>
+    </g>
+
+    <g transform="translate(820, 535)">
+      <rect x="0" y="0" width="300" height="40" rx="4" fill="#3b0764" stroke="#a855f7" stroke-width="1"/>
+      <text x="150" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#c084fc">AI Search Index: justice-legal-docs</text>
+    </g>
+  </g>
+
+  <!-- Isolation Mechanisms -->
+  <rect x="50" y="620" width="1100" height="140" rx="10" fill="#1f2937" stroke="#f97316" stroke-width="2"/>
+  <text x="70" y="645" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#f97316">Isolation Mechanisms</text>
+
+  <g transform="translate(70, 660)">
+    <rect x="0" y="0" width="200" height="80" rx="5" fill="#292524" stroke="#78716c" stroke-width="1"/>
+    <text x="100" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Storage Isolation</text>
+    <text x="100" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a8a29e">Separate accounts per ministry</text>
+    <text x="100" y="58" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a8a29e">RBAC on containers</text>
+    <text x="100" y="74" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a8a29e">CMK encryption keys</text>
+  </g>
+
+  <g transform="translate(290, 660)">
+    <rect x="0" y="0" width="200" height="80" rx="5" fill="#292524" stroke="#78716c" stroke-width="1"/>
+    <text x="100" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Network Isolation</text>
+    <text x="100" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a8a29e">NSG rules per resource group</text>
+    <text x="100" y="58" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a8a29e">Private endpoints</text>
+    <text x="100" y="74" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a8a29e">No cross-tenant traffic</text>
+  </g>
+
+  <g transform="translate(510, 660)">
+    <rect x="0" y="0" width="200" height="80" rx="5" fill="#292524" stroke="#78716c" stroke-width="1"/>
+    <text x="100" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Identity Isolation</text>
+    <text x="100" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a8a29e">RBAC per resource group</text>
+    <text x="100" y="58" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a8a29e">Managed identities</text>
+    <text x="100" y="74" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a8a29e">Ministry AD groups</text>
+  </g>
+
+  <g transform="translate(730, 660)">
+    <rect x="0" y="0" width="200" height="80" rx="5" fill="#292524" stroke="#78716c" stroke-width="1"/>
+    <text x="100" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">API Isolation</text>
+    <text x="100" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a8a29e">APIM subscriptions per team</text>
+    <text x="100" y="58" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a8a29e">Rate limiting per ministry</text>
+    <text x="100" y="74" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a8a29e">Usage tracking for chargeback</text>
+  </g>
+
+  <g transform="translate(950, 660)">
+    <rect x="0" y="0" width="180" height="80" rx="5" fill="#292524" stroke="#78716c" stroke-width="1"/>
+    <text x="90" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" font-weight="bold" fill="white">Cost Isolation</text>
+    <text x="90" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a8a29e">Tags per ministry</text>
+    <text x="90" y="58" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a8a29e">Budget alerts</text>
+    <text x="90" y="74" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a8a29e">Monthly chargeback</text>
+  </g>
+
+  <!-- Footer -->
+  <rect x="0" y="800" width="1200" height="50" fill="#fcba19"/>
+  <text x="600" y="830" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#003366">BC Gov AI Landing Zone - Multi-Tenant Isolation Model</text>
+</svg>

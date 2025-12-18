@@ -493,6 +493,90 @@
             color: var(--white);
         }
 
+        /* Accordion / Collapsible */
+        details {
+            background: var(--white);
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+            box-shadow: var(--shadow-sm);
+            border-left: 4px solid var(--bc-blue);
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        details:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        details[open] {
+            border-left-color: var(--bc-gold);
+        }
+
+        summary {
+            padding: 1rem 1.25rem;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--bc-blue);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            list-style: none;
+            user-select: none;
+            transition: var(--transition);
+        }
+
+        summary::-webkit-details-marker {
+            display: none;
+        }
+
+        summary::after {
+            content: '';
+            border: solid var(--bc-blue-light);
+            border-width: 0 2px 2px 0;
+            display: inline-block;
+            padding: 4px;
+            transform: rotate(-45deg);
+            transition: transform 0.2s ease;
+            flex-shrink: 0;
+            margin-left: 1rem;
+        }
+
+        details[open] summary::after {
+            transform: rotate(45deg);
+        }
+
+        summary:hover {
+            background: var(--bg-light);
+        }
+
+        details[open] summary {
+            border-bottom: 1px solid #e2e8f0;
+            background: var(--bg-light);
+        }
+
+        .accordion-content {
+            padding: 1rem 1.25rem;
+        }
+
+        .accordion-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Accordion with badge */
+        summary .badge {
+            margin-left: auto;
+            margin-right: 1rem;
+        }
+
+        /* Accordion group */
+        .accordion-group {
+            margin: 1rem 0;
+        }
+
+        .accordion-group details:last-child {
+            margin-bottom: 0;
+        }
+
         /* Footer */
         .site-footer {
             background: var(--bc-blue);
@@ -642,6 +726,8 @@
         </nav>
     </header>
     <main>
+<!-- TITLE: Architecture Diagrams -->
+<!-- NAV: diagrams -->
 
 <style>
 /* SVG Viewer Styles */
@@ -922,8 +1008,71 @@
 
 <h2>Select a Diagram</h2>
 
+<h3 style="color: var(--bc-gold); margin-top: 0;">Architecture Overview</h3>
 <div class="diagram-gallery" id="diagramGallery">
-    <div class="diagram-card active" onclick="loadDiagram('oidc-complete', this)">
+    <div class="diagram-card active" onclick="loadDiagram('architecture-layers', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/architecture-layers.svg" alt="Architecture Layers Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>Architecture Layers</h4>
+            <p>From Microsoft upstream to BC Gov adaptation to deployed environments</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('full-stack', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/full-stack-architecture.svg" alt="Full Stack Architecture Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>Full Stack Architecture</h4>
+            <p>Complete BC Gov adapted AI Landing Zone with all services and layers</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('multi-tenant', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/multi-tenant-isolation.svg" alt="Multi-Tenant Isolation Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>Multi-Tenant Isolation</h4>
+            <p>How ministries share the landing zone securely with data isolation</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('data-flow', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/data-flow.svg" alt="Data Flow Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>AI Request Data Flow</h4>
+            <p>Complete request path from user through App Gateway, APIM to AI response</p>
+        </div>
+    </div>
+</div>
+
+<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Network & Infrastructure</h3>
+<div class="diagram-gallery">
+    <div class="diagram-card" onclick="loadDiagram('network-environments', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/network-environments.svg" alt="Network Environments Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>Network Environments</h4>
+            <p>All 4 VNets (prod, test, dev, tools) with subnet allocations and NSG rules</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('network-arch', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/network-architecture.svg" alt="Network Architecture Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>Network Architecture</h4>
+            <p>VNet topology, subnets, NSGs, and Bastion connectivity</p>
+        </div>
+    </div>
+</div>
+
+<h3 style="color: #22c55e; margin-top: 1.5rem;">Authentication & CI/CD</h3>
+<div class="diagram-gallery">
+    <div class="diagram-card" onclick="loadDiagram('oidc-complete', this)">
         <div class="diagram-card-preview">
             <img src="assets/azure-oidc-complete-guide.svg" alt="OIDC Complete Guide Preview">
         </div>
@@ -941,15 +1090,6 @@
             <p>Detailed JWT token exchange between GitHub and Azure</p>
         </div>
     </div>
-    <div class="diagram-card" onclick="loadDiagram('network-arch', this)">
-        <div class="diagram-card-preview">
-            <img src="assets/network-architecture.svg" alt="Network Architecture Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
-        </div>
-        <div class="diagram-card-info">
-            <h4>Network Architecture</h4>
-            <p>VNet topology, subnets, NSGs, and Bastion connectivity</p>
-        </div>
-    </div>
     <div class="diagram-card" onclick="loadDiagram('deployment-pipeline', this)">
         <div class="diagram-card-preview">
             <img src="assets/deployment-pipeline.svg" alt="Deployment Pipeline Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
@@ -961,11 +1101,33 @@
     </div>
 </div>
 
+<h3 style="color: #0078d4; margin-top: 1.5rem;">Microsoft Reference (Upstream)</h3>
+<div class="diagram-gallery">
+    <div class="diagram-card" onclick="loadDiagram('ms-with-platform', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/AI-Landing-Zone-with-platform.png" alt="MS Reference With Platform" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>MS: With Platform LZ</h4>
+            <p>Microsoft's reference architecture with Platform Landing Zone (recommended)</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('ms-without-platform', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/AI-Landing-Zone-without-platform.png" alt="MS Reference Without Platform" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>MS: Without Platform LZ</h4>
+            <p>Microsoft's standalone application landing zone reference</p>
+        </div>
+    </div>
+</div>
+
 <h2>Interactive Viewer</h2>
 
 <div class="diagram-viewer" id="diagramViewer">
     <div class="diagram-toolbar">
-        <span class="diagram-title" id="currentDiagramTitle">OIDC Complete Guide</span>
+        <span class="diagram-title" id="currentDiagramTitle">Architecture Layers (Upstream to Deployment)</span>
         <div class="diagram-controls">
             <button class="diagram-btn" onclick="zoomOut()" title="Zoom Out (-)">
                 <span>−</span> Zoom Out
@@ -979,14 +1141,14 @@
             <button class="diagram-btn" onclick="toggleFullscreen()" id="fullscreenBtn" title="Fullscreen (F)">
                 ⛶ Fullscreen
             </button>
-            <a class="diagram-btn" id="downloadBtn" href="assets/azure-oidc-complete-guide.svg" download title="Download SVG">
+            <a class="diagram-btn" id="downloadBtn" href="assets/architecture-layers.svg" download title="Download SVG">
                 ↓ Download
             </a>
         </div>
     </div>
     <div class="diagram-container" id="diagramContainer">
         <div class="diagram-svg-wrapper" id="svgWrapper">
-            <img src="assets/azure-oidc-complete-guide.svg" alt="OIDC Complete Guide" id="currentDiagram">
+            <img src="assets/architecture-layers.svg" alt="Architecture Layers" id="currentDiagram">
         </div>
     </div>
 </div>
@@ -1052,6 +1214,17 @@
             <li>NSG rules and traffic flow</li>
             <li>Bastion and Jumpbox connectivity</li>
             <li>Private endpoint configurations</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: #fcba19;">
+        <h3 style="margin-top: 0;">Network Environments</h3>
+        <p>Complete environment layout:</p>
+        <ul style="margin-bottom: 0;">
+            <li>All 4 VNets (da4cf6-prod/test/dev/tools)</li>
+            <li>Subnet allocations per environment</li>
+            <li>Canada Central (prod) vs Canada East (non-prod)</li>
+            <li>Client connectivity via App Gateway + APIM</li>
+            <li>NSG rules and cross-environment isolation</li>
         </ul>
     </div>
     <div class="card" style="border-left-color: #0078d4;">
@@ -1125,6 +1298,16 @@
 // To add a new diagram: add an entry here and a card in the HTML gallery.
 
 const diagrams = {
+    // Architecture Overview
+    'architecture-layers': {
+        title: 'Architecture Layers (Upstream to Deployment)',
+        src: 'assets/architecture-layers.svg'
+    },
+    'full-stack': {
+        title: 'Full Stack Architecture (BC Gov Adapted)',
+        src: 'assets/full-stack-architecture.svg'
+    },
+    // Authentication
     'oidc-complete': {
         title: 'OIDC Complete Guide',
         src: 'assets/azure-oidc-complete-guide.svg'
@@ -1133,13 +1316,37 @@ const diagrams = {
         title: 'Token Exchange Flow',
         src: 'assets/token-flow.svg'
     },
+    // Networking
     'network-arch': {
         title: 'Network Architecture',
         src: 'assets/network-architecture.svg'
     },
+    'network-environments': {
+        title: 'Network Environments (All VNets)',
+        src: 'assets/network-environments.svg'
+    },
+    // Multi-Tenancy & Flow
+    'multi-tenant': {
+        title: 'Multi-Tenant Isolation Model',
+        src: 'assets/multi-tenant-isolation.svg'
+    },
+    'data-flow': {
+        title: 'AI Request Data Flow',
+        src: 'assets/data-flow.svg'
+    },
+    // CI/CD
     'deployment-pipeline': {
         title: 'Deployment Pipeline',
         src: 'assets/deployment-pipeline.svg'
+    },
+    // Microsoft Reference (PNG)
+    'ms-with-platform': {
+        title: 'MS Reference: With Platform LZ',
+        src: 'assets/AI-Landing-Zone-with-platform.png'
+    },
+    'ms-without-platform': {
+        title: 'MS Reference: Without Platform LZ',
+        src: 'assets/AI-Landing-Zone-without-platform.png'
     }
 };
 
@@ -1461,7 +1668,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // No hash or invalid hash - load the first diagram by default
     // querySelector returns the first matching element
-    loadDiagram('oidc-complete', document.querySelector('.diagram-card'));
+    loadDiagram('architecture-layers', document.querySelector('.diagram-card'));
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
