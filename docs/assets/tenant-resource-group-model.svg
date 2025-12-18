@@ -1,0 +1,294 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1000">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#003366"/>
+      <stop offset="100%" style="stop-color:#004488"/>
+    </linearGradient>
+    <linearGradient id="sharedGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#e8f4f8"/>
+      <stop offset="100%" style="stop-color:#d0e8f0"/>
+    </linearGradient>
+    <linearGradient id="tenantGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fff8e8"/>
+      <stop offset="100%" style="stop-color:#fff0d0"/>
+    </linearGradient>
+    <linearGradient id="notIncludedGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fee"/>
+      <stop offset="100%" style="stop-color:#fdd"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.2"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1400" height="1000" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1400" height="70" fill="url(#headerGrad)"/>
+  <text x="700" y="42" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="24" font-weight="bold">BC Gov AI Hub - Tenant Resource Group Model</text>
+  <text x="700" y="62" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="12">Multi-Tenant Architecture with IP Allocation &amp; AVM Modules</text>
+
+  <!-- SHARED INFRASTRUCTURE LAYER -->
+  <rect x="20" y="90" width="1360" height="180" rx="10" fill="url(#sharedGrad)" stroke="#003366" stroke-width="2" filter="url(#shadow)"/>
+  <text x="40" y="115" fill="#003366" font-family="Arial, sans-serif" font-size="16" font-weight="bold">SHARED INFRASTRUCTURE (One-Time Setup)</text>
+
+  <!-- App Gateway -->
+  <rect x="40" y="130" width="180" height="120" rx="8" fill="white" stroke="#0078d4" stroke-width="2"/>
+  <text x="130" y="155" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="14" font-weight="bold">App Gateway</text>
+  <text x="130" y="175" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">WAF Protection</text>
+  <text x="130" y="190" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">SSL Termination</text>
+  <text x="130" y="205" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">DDoS Mitigation</text>
+  <rect x="50" y="220" width="160" height="20" rx="3" fill="#e8f4e8"/>
+  <text x="130" y="234" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="10">AVM: network-applicationgateway</text>
+
+  <!-- Arrow -->
+  <path d="M 230 190 L 270 190" stroke="#003366" stroke-width="2" marker-end="url(#arrowhead)"/>
+  <defs><marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto"><polygon points="0 0, 10 3.5, 0 7" fill="#003366"/></marker></defs>
+
+  <!-- APIM -->
+  <rect x="280" y="130" width="200" height="120" rx="8" fill="white" stroke="#0078d4" stroke-width="2"/>
+  <text x="380" y="155" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="14" font-weight="bold">API Management</text>
+  <text x="380" y="175" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">Subscription Keys/Tenant</text>
+  <text x="380" y="190" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">Rate Limiting &amp; Quotas</text>
+  <text x="380" y="205" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">OpenAPI per Resource Group</text>
+  <rect x="290" y="220" width="180" height="20" rx="3" fill="#e8f4e8"/>
+  <text x="380" y="234" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="10">AVM: apimanagement-service</text>
+
+  <!-- VNet -->
+  <rect x="520" y="130" width="200" height="120" rx="8" fill="white" stroke="#0078d4" stroke-width="2"/>
+  <text x="620" y="155" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Virtual Network</text>
+  <text x="620" y="175" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">1000 IPs Total Allocation</text>
+  <text x="620" y="190" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">Subnets per Service Type</text>
+  <text x="620" y="205" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">NSG Rules Enforced</text>
+  <rect x="530" y="220" width="180" height="20" rx="3" fill="#e8f4e8"/>
+  <text x="620" y="234" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="10">AVM: network-virtualnetwork</text>
+
+  <!-- Bastion -->
+  <rect x="760" y="130" width="180" height="120" rx="8" fill="white" stroke="#0078d4" stroke-width="2"/>
+  <text x="850" y="155" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Bastion + Jumpbox</text>
+  <text x="850" y="175" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">Admin Access ONLY</text>
+  <text x="850" y="190" text-anchor="middle" fill="#ef4444" font-family="Arial, sans-serif" font-size="11" font-weight="bold">NOT for Tenants</text>
+  <text x="850" y="205" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">Platform Team Use</text>
+  <rect x="770" y="220" width="160" height="20" rx="3" fill="#e8f4e8"/>
+  <text x="850" y="234" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="10">AVM: network-bastionhost</text>
+
+  <!-- Key Vault Shared -->
+  <rect x="980" y="130" width="180" height="120" rx="8" fill="white" stroke="#0078d4" stroke-width="2"/>
+  <text x="1070" y="155" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Key Vault (Shared)</text>
+  <text x="1070" y="175" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">Platform Secrets</text>
+  <text x="1070" y="190" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">Certificates</text>
+  <text x="1070" y="205" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">RBAC Controlled</text>
+  <rect x="990" y="220" width="160" height="20" rx="3" fill="#e8f4e8"/>
+  <text x="1070" y="234" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="10">AVM: keyvault-vault</text>
+
+  <!-- Monitoring -->
+  <rect x="1200" y="130" width="160" height="120" rx="8" fill="white" stroke="#0078d4" stroke-width="2"/>
+  <text x="1280" y="155" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Monitoring</text>
+  <text x="1280" y="175" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">Log Analytics</text>
+  <text x="1280" y="190" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">App Insights</text>
+  <text x="1280" y="205" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">Cost Attribution</text>
+
+  <!-- TENANT RESOURCE GROUPS -->
+  <text x="40" y="300" fill="#003366" font-family="Arial, sans-serif" font-size="16" font-weight="bold">TENANT RESOURCE GROUPS (Per Ministry/Team)</text>
+
+  <!-- Tenant A -->
+  <rect x="20" y="315" width="440" height="300" rx="10" fill="url(#tenantGrad)" stroke="#fcba19" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="20" y="315" width="440" height="35" rx="10" fill="#fcba19"/>
+  <text x="240" y="338" text-anchor="middle" fill="#003366" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Ministry Health RG</text>
+  <text x="420" y="338" text-anchor="middle" fill="#003366" font-family="Arial, sans-serif" font-size="11">50 IPs</text>
+
+  <!-- Tenant A Services -->
+  <rect x="35" y="360" width="130" height="70" rx="5" fill="white" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="100" y="385" text-anchor="middle" fill="#8b5cf6" font-family="Arial, sans-serif" font-size="12" font-weight="bold">AI Foundry</text>
+  <text x="100" y="400" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="10">Projects + RBAC</text>
+  <text x="100" y="415" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="9">AVM: ml-workspace</text>
+
+  <rect x="175" y="360" width="130" height="70" rx="5" fill="white" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="240" y="385" text-anchor="middle" fill="#8b5cf6" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Doc Intelligence</text>
+  <text x="240" y="400" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="10">Form Processing</text>
+  <text x="240" y="415" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="9">AVM: cognitive-svc</text>
+
+  <rect x="315" y="360" width="130" height="70" rx="5" fill="white" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="380" y="385" text-anchor="middle" fill="#8b5cf6" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Storage</text>
+  <text x="380" y="400" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="10">RAG Documents</text>
+  <text x="380" y="415" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="9">AVM: storage-acct</text>
+
+  <rect x="35" y="440" width="130" height="70" rx="5" fill="white" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="100" y="465" text-anchor="middle" fill="#8b5cf6" font-family="Arial, sans-serif" font-size="12" font-weight="bold">AI Search</text>
+  <text x="100" y="480" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="10">Vector Index</text>
+  <text x="100" y="495" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="9">AVM: search-svc</text>
+
+  <rect x="175" y="440" width="130" height="70" rx="5" fill="white" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="240" y="465" text-anchor="middle" fill="#8b5cf6" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Cosmos DB</text>
+  <text x="240" y="480" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="10">Chat History</text>
+  <text x="240" y="495" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="9">AVM: cosmosdb</text>
+
+  <rect x="315" y="440" width="130" height="70" rx="5" fill="white" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="380" y="465" text-anchor="middle" fill="#8b5cf6" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Key Vault</text>
+  <text x="380" y="480" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="10">Tenant Secrets</text>
+  <text x="380" y="495" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="9">AVM: keyvault</text>
+
+  <!-- Billing tag -->
+  <rect x="35" y="520" width="200" height="30" rx="5" fill="#003366"/>
+  <text x="135" y="540" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="11">Billing: Cost Center Health-001</text>
+
+  <!-- Private Endpoints tag -->
+  <rect x="245" y="520" width="200" height="30" rx="5" fill="#0078d4"/>
+  <text x="345" y="540" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="11">Private Endpoints → VNet</text>
+
+  <!-- APIM Subscription -->
+  <rect x="35" y="560" width="410" height="45" rx="5" fill="#f0f9ff" stroke="#0078d4" stroke-width="1"/>
+  <text x="240" y="580" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="11" font-weight="bold">APIM Subscription: health-api-key-xxxxx</text>
+  <text x="240" y="595" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="10">OpenAPI: /health/* endpoints only | Rate Limit: 1000 req/min</text>
+
+  <!-- Tenant B -->
+  <rect x="480" y="315" width="440" height="300" rx="10" fill="url(#tenantGrad)" stroke="#fcba19" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="480" y="315" width="440" height="35" rx="10" fill="#fcba19"/>
+  <text x="700" y="338" text-anchor="middle" fill="#003366" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Ministry SDPR RG</text>
+  <text x="880" y="338" text-anchor="middle" fill="#003366" font-family="Arial, sans-serif" font-size="11">50 IPs</text>
+
+  <!-- Tenant B Services (simplified) -->
+  <rect x="495" y="360" width="130" height="70" rx="5" fill="white" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="560" y="385" text-anchor="middle" fill="#8b5cf6" font-family="Arial, sans-serif" font-size="12" font-weight="bold">AI Foundry</text>
+  <text x="560" y="400" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="10">Projects + RBAC</text>
+
+  <rect x="635" y="360" width="130" height="70" rx="5" fill="white" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="700" y="385" text-anchor="middle" fill="#8b5cf6" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Storage</text>
+  <text x="700" y="400" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="10">RAG Documents</text>
+
+  <rect x="775" y="360" width="130" height="70" rx="5" fill="white" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="840" y="385" text-anchor="middle" fill="#8b5cf6" font-family="Arial, sans-serif" font-size="12" font-weight="bold">AI Search</text>
+  <text x="840" y="400" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="10">Vector Index</text>
+
+  <!-- Shared Doc Intel callout -->
+  <rect x="495" y="440" width="410" height="50" rx="5" fill="#e8f4e8" stroke="#22c55e" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="700" y="465" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Uses SHARED Document Intelligence</text>
+  <text x="700" y="480" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="10">(Saves IPs - no dedicated instance needed)</text>
+
+  <!-- Billing tag B -->
+  <rect x="495" y="520" width="200" height="30" rx="5" fill="#003366"/>
+  <text x="595" y="540" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="11">Billing: Cost Center SDPR-002</text>
+
+  <!-- APIM Subscription B -->
+  <rect x="495" y="560" width="410" height="45" rx="5" fill="#f0f9ff" stroke="#0078d4" stroke-width="1"/>
+  <text x="700" y="580" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="11" font-weight="bold">APIM Subscription: sdpr-api-key-yyyyy</text>
+  <text x="700" y="595" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="10">OpenAPI: /sdpr/* endpoints only | Rate Limit: 500 req/min</text>
+
+  <!-- NOT INCLUDED Section -->
+  <rect x="940" y="315" width="440" height="300" rx="10" fill="url(#notIncludedGrad)" stroke="#ef4444" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="940" y="315" width="440" height="35" rx="10" fill="#ef4444"/>
+  <text x="1160" y="338" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">NOT INCLUDED / OUT OF SCOPE</text>
+
+  <!-- Not included items -->
+  <g transform="translate(960, 365)">
+    <rect x="0" y="0" width="400" height="35" rx="5" fill="white" stroke="#ef4444" stroke-width="1"/>
+    <text x="25" y="22" fill="#ef4444" font-family="Arial, sans-serif" font-size="20">✗</text>
+    <text x="50" y="22" fill="#333" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Bastion/VM per Tenant</text>
+    <text x="50" y="22" fill="#666" font-family="Arial, sans-serif" font-size="10" dx="170">Not scalable, security risk</text>
+  </g>
+
+  <g transform="translate(960, 410)">
+    <rect x="0" y="0" width="400" height="35" rx="5" fill="white" stroke="#ef4444" stroke-width="1"/>
+    <text x="25" y="22" fill="#ef4444" font-family="Arial, sans-serif" font-size="20">✗</text>
+    <text x="50" y="22" fill="#333" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Unlimited IP Addresses</text>
+    <text x="50" y="22" fill="#666" font-family="Arial, sans-serif" font-size="10" dx="160">1000 total, 50/tenant default</text>
+  </g>
+
+  <g transform="translate(960, 455)">
+    <rect x="0" y="0" width="400" height="35" rx="5" fill="white" stroke="#ef4444" stroke-width="1"/>
+    <text x="25" y="22" fill="#ef4444" font-family="Arial, sans-serif" font-size="20">✗</text>
+    <text x="50" y="22" fill="#333" font-family="Arial, sans-serif" font-size="12" font-weight="bold">UI/Portal Access</text>
+    <text x="50" y="22" fill="#666" font-family="Arial, sans-serif" font-size="10" dx="120">Requires public endpoints</text>
+  </g>
+
+  <g transform="translate(960, 500)">
+    <rect x="0" y="0" width="400" height="35" rx="5" fill="white" stroke="#ef4444" stroke-width="1"/>
+    <text x="25" y="22" fill="#ef4444" font-family="Arial, sans-serif" font-size="20">✗</text>
+    <text x="50" y="22" fill="#333" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Non-AVM Custom Services</text>
+    <text x="50" y="22" fill="#666" font-family="Arial, sans-serif" font-size="10" dx="175">Must use AVM modules</text>
+  </g>
+
+  <g transform="translate(960, 545)">
+    <rect x="0" y="0" width="400" height="35" rx="5" fill="#fffbeb" stroke="#f59e0b" stroke-width="1"/>
+    <text x="25" y="22" fill="#f59e0b" font-family="Arial, sans-serif" font-size="20">?</text>
+    <text x="50" y="22" fill="#333" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Direct ExpressRoute Access</text>
+    <text x="50" y="22" fill="#666" font-family="Arial, sans-serif" font-size="10" dx="180">Case-by-case (APIM recommended)</text>
+  </g>
+
+  <!-- KEY PRINCIPLES -->
+  <rect x="20" y="635" width="1360" height="160" rx="10" fill="white" stroke="#003366" stroke-width="2" filter="url(#shadow)"/>
+  <text x="700" y="660" text-anchor="middle" fill="#003366" font-family="Arial, sans-serif" font-size="16" font-weight="bold">KEY PRINCIPLES</text>
+
+  <g transform="translate(40, 680)">
+    <rect x="0" y="0" width="310" height="100" rx="8" fill="#e8f4e8" stroke="#22c55e" stroke-width="1"/>
+    <text x="155" y="25" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="13" font-weight="bold">DEFAULT: Share Resources</text>
+    <text x="155" y="45" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">Doc Intelligence, AI Search can be shared</text>
+    <text x="155" y="60" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">RBAC provides isolation</text>
+    <text x="155" y="75" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">Saves IP addresses &amp; cost</text>
+    <text x="155" y="90" text-anchor="middle" fill="#22c55e" font-family="Arial, sans-serif" font-size="10" font-weight="bold">Request dedicated only if required</text>
+  </g>
+
+  <g transform="translate(370, 680)">
+    <rect x="0" y="0" width="310" height="100" rx="8" fill="#fff8e8" stroke="#fcba19" stroke-width="1"/>
+    <text x="155" y="25" text-anchor="middle" fill="#92400e" font-family="Arial, sans-serif" font-size="13" font-weight="bold">API/Terraform ONLY</text>
+    <text x="155" y="45" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">All provisioning via AVM modules</text>
+    <text x="155" y="60" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">No UI access (requires public EP)</text>
+    <text x="155" y="75" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">Self-service via approved scripts</text>
+    <text x="155" y="90" text-anchor="middle" fill="#92400e" font-family="Arial, sans-serif" font-size="10" font-weight="bold">If no AVM module → not supported</text>
+  </g>
+
+  <g transform="translate(700, 680)">
+    <rect x="0" y="0" width="310" height="100" rx="8" fill="#f0f9ff" stroke="#0078d4" stroke-width="1"/>
+    <text x="155" y="25" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="13" font-weight="bold">IP Budget Per Tenant</text>
+    <text x="155" y="45" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">Default: 50 IPs per Resource Group</text>
+    <text x="155" y="60" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">Each private endpoint = 1 IP</text>
+    <text x="155" y="75" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">AKS nodes consume multiple IPs</text>
+    <text x="155" y="90" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="10" font-weight="bold">Plan carefully, request increase if needed</text>
+  </g>
+
+  <g transform="translate(1030, 680)">
+    <rect x="0" y="0" width="310" height="100" rx="8" fill="#fee" stroke="#ef4444" stroke-width="1"/>
+    <text x="155" y="25" text-anchor="middle" fill="#ef4444" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Private Endpoints ONLY</text>
+    <text x="155" y="45" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">No public endpoints ever</text>
+    <text x="155" y="60" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">BC Gov policy requirement</text>
+    <text x="155" y="75" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">All traffic via App Gateway/APIM</text>
+    <text x="155" y="90" text-anchor="middle" fill="#ef4444" font-family="Arial, sans-serif" font-size="10" font-weight="bold">No exceptions</text>
+  </g>
+
+  <!-- AVM Modules List -->
+  <rect x="20" y="810" width="1360" height="180" rx="10" fill="#f0f9ff" stroke="#0078d4" stroke-width="2" filter="url(#shadow)"/>
+  <text x="700" y="835" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="16" font-weight="bold">SUPPORTED AVM MODULES (Terraform)</text>
+
+  <g transform="translate(40, 850)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="12" font-weight="bold">AI &amp; Cognitive:</text>
+    <text x="0" y="35" fill="#333" font-family="monospace" font-size="10">avm-res-cognitiveservices-account (OpenAI, Doc Intel, Vision)</text>
+    <text x="0" y="50" fill="#333" font-family="monospace" font-size="10">avm-res-machinelearningservices-workspace (AI Foundry)</text>
+    <text x="0" y="65" fill="#333" font-family="monospace" font-size="10">avm-res-search-searchservice (AI Search)</text>
+  </g>
+
+  <g transform="translate(380, 850)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Storage &amp; Data:</text>
+    <text x="0" y="35" fill="#333" font-family="monospace" font-size="10">avm-res-storage-storageaccount</text>
+    <text x="0" y="50" fill="#333" font-family="monospace" font-size="10">avm-res-documentdb-databaseaccount (Cosmos DB)</text>
+    <text x="0" y="65" fill="#333" font-family="monospace" font-size="10">avm-res-keyvault-vault</text>
+  </g>
+
+  <g transform="translate(720, 850)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Networking:</text>
+    <text x="0" y="35" fill="#333" font-family="monospace" font-size="10">avm-res-network-virtualnetwork</text>
+    <text x="0" y="50" fill="#333" font-family="monospace" font-size="10">avm-res-network-applicationgateway</text>
+    <text x="0" y="65" fill="#333" font-family="monospace" font-size="10">avm-res-network-bastionhost</text>
+  </g>
+
+  <g transform="translate(1020, 850)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Compute &amp; API:</text>
+    <text x="0" y="35" fill="#333" font-family="monospace" font-size="10">avm-res-apimanagement-service</text>
+    <text x="0" y="50" fill="#333" font-family="monospace" font-size="10">avm-res-containerservice-managedcluster (AKS)</text>
+    <text x="0" y="65" fill="#333" font-family="monospace" font-size="10">avm-res-containerregistry-registry</text>
+  </g>
+
+  <text x="700" y="970" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="11">Full AVM catalog: https://azure.github.io/Azure-Verified-Modules/indexes/terraform/</text>
+
+</svg>

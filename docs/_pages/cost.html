@@ -1,0 +1,239 @@
+<!-- TITLE: Cost Tracking -->
+<!-- NAV: cost -->
+
+<h1>Cost Tracking</h1>
+
+<p>How costs are tracked and allocated for each project in the AI Hub.</p>
+
+<h2>Architecture</h2>
+
+<div class="img-container">
+    <img src="assets/cost-tracking-architecture.svg" alt="Project Resource Architecture" style="max-width: 100%;">
+</div>
+
+<h2>What Each Project Gets</h2>
+
+<table>
+    <tr>
+        <th>Resource</th>
+        <th>Type</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td><strong>Resource Group</strong></td>
+        <td><span class="badge" style="background:#3b82f6;color:white;">Dedicated</span></td>
+        <td>rg-{project}-{env} - contains all project resources</td>
+    </tr>
+    <tr>
+        <td><strong>Storage Account</strong></td>
+        <td><span class="badge" style="background:#3b82f6;color:white;">Dedicated</span></td>
+        <td>Project documents and data</td>
+    </tr>
+    <tr>
+        <td><strong>Search Service</strong></td>
+        <td><span class="badge" style="background:#3b82f6;color:white;">Dedicated</span></td>
+        <td>Project indexes for RAG</td>
+    </tr>
+    <tr>
+        <td><strong>Key Vault</strong></td>
+        <td><span class="badge" style="background:#3b82f6;color:white;">Dedicated</span></td>
+        <td>Project secrets and keys</td>
+    </tr>
+    <tr>
+        <td><strong>AI Foundry Project</strong></td>
+        <td><span class="badge" style="background:#7c3aed;color:white;">Dedicated</span></td>
+        <td>Project's own API endpoint, prompt flows, index (within shared Hub)</td>
+    </tr>
+    <tr>
+        <td><strong>APIM Subscription</strong></td>
+        <td><span class="badge" style="background:#7c3aed;color:white;">Dedicated</span></td>
+        <td>Project's API key for access</td>
+    </tr>
+    <tr>
+        <td><strong>AI Models (GPT-4, etc.)</strong></td>
+        <td><span class="badge" style="background:#f59e0b;color:white;">Shared</span></td>
+        <td>Deployed once in Hub, accessed via AI Foundry Project</td>
+    </tr>
+    <tr>
+        <td><strong>APIM, App Gateway, Firewall</strong></td>
+        <td><span class="badge" style="background:#f59e0b;color:white;">Shared</span></td>
+        <td>Entry point infrastructure</td>
+    </tr>
+</table>
+
+<h2>Terraform Deploys Everything</h2>
+
+<p>One module call creates all resources for a project. All resources use <strong>Azure Verified Modules (AVM)</strong>.</p>
+
+<pre>
+module "health_rag" {
+  source = "./modules/project"
+
+  project_name      = "health-rag"
+  ministry          = "health"
+  environment       = "prod"
+  ai_foundry_hub_id = module.hub.ai_foundry_id
+  apim_id           = module.hub.apim_id
+
+  tags = local.common_tags
+}
+</pre>
+
+<h3>AVM Modules Used</h3>
+
+<table>
+    <tr>
+        <th>Resource</th>
+        <th>AVM Module</th>
+    </tr>
+    <tr>
+        <td>Storage Account</td>
+        <td><code>avm-res-storage-storageaccount</code></td>
+    </tr>
+    <tr>
+        <td>Search Service</td>
+        <td><code>avm-res-search-searchservice</code></td>
+    </tr>
+    <tr>
+        <td>Key Vault</td>
+        <td><code>avm-res-keyvault-vault</code></td>
+    </tr>
+    <tr>
+        <td>AI Foundry Hub</td>
+        <td><code>avm-res-machinelearningservices-workspace</code></td>
+    </tr>
+    <tr>
+        <td>API Management</td>
+        <td><code>avm-res-apimanagement-service</code></td>
+    </tr>
+    <tr>
+        <td>Application Gateway</td>
+        <td><code>avm-res-network-applicationgateway</code></td>
+    </tr>
+    <tr>
+        <td>Virtual Network</td>
+        <td><code>avm-res-network-virtualnetwork</code></td>
+    </tr>
+</table>
+
+<h2>How Cost Tracking Works</h2>
+
+<div class="grid grid-3">
+    <div class="card" style="border-left-color: #22c55e;">
+        <h3 style="margin-top: 0; color: #166534;">Direct Costs</h3>
+        <p>Storage, Search, Key Vault</p>
+        <p style="font-size: 0.875rem; color: #64748b;">Tracked automatically by Azure Cost Management using Resource Group tags.</p>
+        <p><strong>~40% of total</strong></p>
+    </div>
+    <div class="card" style="border-left-color: #7c3aed;">
+        <h3 style="margin-top: 0; color: #6b21a8;">AI Usage</h3>
+        <p>Tokens, API calls</p>
+        <p style="font-size: 0.875rem; color: #64748b;">Tracked by AI Foundry per project. Each AI Foundry Project has its own metrics.</p>
+        <p><strong>~45% of total</strong></p>
+    </div>
+    <div class="card" style="border-left-color: #f59e0b;">
+        <h3 style="margin-top: 0; color: #92400e;">Platform Split</h3>
+        <p>APIM, Gateway, Firewall</p>
+        <p style="font-size: 0.875rem; color: #64748b;">Split evenly across all projects (shared infrastructure).</p>
+        <p><strong>~15% of total</strong></p>
+    </div>
+</div>
+
+<h2>Example Monthly Costs</h2>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: #3b82f6;">
+        <h3 style="margin-top: 0;">Health-RAG Project</h3>
+        <table style="margin: 0;">
+            <tr>
+                <td>Storage + Search + KV</td>
+                <td style="text-align: right;">$420</td>
+                <td><span class="badge" style="background:#22c55e;color:white;font-size:9px;">DIRECT</span></td>
+            </tr>
+            <tr>
+                <td>AI usage (60% of tokens)</td>
+                <td style="text-align: right;">$1,020</td>
+                <td><span class="badge" style="background:#7c3aed;color:white;font-size:9px;">AI</span></td>
+            </tr>
+            <tr>
+                <td>Platform share (50%)</td>
+                <td style="text-align: right;">$300</td>
+                <td><span class="badge" style="background:#f59e0b;color:white;font-size:9px;">SPLIT</span></td>
+            </tr>
+            <tr style="background: #dbeafe;">
+                <td><strong>Total</strong></td>
+                <td style="text-align: right;"><strong>$1,740</strong></td>
+                <td></td>
+            </tr>
+        </table>
+    </div>
+    <div class="card" style="border-left-color: #22c55e;">
+        <h3 style="margin-top: 0;">SDPR-Chatbot Project</h3>
+        <table style="margin: 0;">
+            <tr>
+                <td>Storage + Search + KV</td>
+                <td style="text-align: right;">$350</td>
+                <td><span class="badge" style="background:#22c55e;color:white;font-size:9px;">DIRECT</span></td>
+            </tr>
+            <tr>
+                <td>AI usage (40% of tokens)</td>
+                <td style="text-align: right;">$680</td>
+                <td><span class="badge" style="background:#7c3aed;color:white;font-size:9px;">AI</span></td>
+            </tr>
+            <tr>
+                <td>Platform share (50%)</td>
+                <td style="text-align: right;">$300</td>
+                <td><span class="badge" style="background:#f59e0b;color:white;font-size:9px;">SPLIT</span></td>
+            </tr>
+            <tr style="background: #dcfce7;">
+                <td><strong>Total</strong></td>
+                <td style="text-align: right;"><strong>$1,330</strong></td>
+                <td></td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<h2>Budget Alerts</h2>
+
+<table>
+    <tr>
+        <th>Threshold</th>
+        <th>Action</th>
+    </tr>
+    <tr>
+        <td>50% of budget</td>
+        <td>Email to project team</td>
+    </tr>
+    <tr>
+        <td>80% of budget</td>
+        <td>Email + Teams alert</td>
+    </tr>
+    <tr>
+        <td>100% of budget</td>
+        <td>Consider rate limiting via APIM</td>
+    </tr>
+</table>
+
+<h2>Related</h2>
+
+<div class="grid grid-3">
+    <a href="decisions.html#adr-006" class="card-link">
+        <div class="card" style="border-left-color: #f59e0b;">
+            <h3 style="margin-top: 0;">ADR-006</h3>
+            <p>Multi-Tenant Isolation</p>
+        </div>
+    </a>
+    <a href="diagrams.html" class="card-link">
+        <div class="card" style="border-left-color: #7c3aed;">
+            <h3 style="margin-top: 0;">Diagrams</h3>
+            <p>Architecture diagrams</p>
+        </div>
+    </a>
+    <a href="terraform.html" class="card-link">
+        <div class="card" style="border-left-color: #3b82f6;">
+            <h3 style="margin-top: 0;">Terraform</h3>
+            <p>Module documentation</p>
+        </div>
+    </a>
+</div>

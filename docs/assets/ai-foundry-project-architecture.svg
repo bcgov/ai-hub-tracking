@@ -1,0 +1,276 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1400" width="1200" height="1400">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1e3a5f"/>
+      <stop offset="100%" style="stop-color:#2d5a87"/>
+    </linearGradient>
+    <linearGradient id="hubGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fef3c7"/>
+      <stop offset="100%" style="stop-color:#fde68a"/>
+    </linearGradient>
+    <linearGradient id="foundryGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f3e8ff"/>
+      <stop offset="100%" style="stop-color:#e9d5ff"/>
+    </linearGradient>
+    <linearGradient id="projectAGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#dbeafe"/>
+      <stop offset="100%" style="stop-color:#bfdbfe"/>
+    </linearGradient>
+    <linearGradient id="projectBGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#dcfce7"/>
+      <stop offset="100%" style="stop-color:#bbf7d0"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#22c55e"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/>
+    </marker>
+    <marker id="arrowOrange" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#f59e0b"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="1400" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1200" height="80" fill="url(#headerGrad)"/>
+  <text x="600" y="32" font-family="Segoe UI, Arial" font-size="24" font-weight="bold" fill="white" text-anchor="middle">AI Foundry Project-Based Architecture</text>
+  <text x="600" y="55" font-family="Segoe UI, Arial" font-size="14" fill="#94a3b8" text-anchor="middle">BC Gov AI Hub - Each Project Gets Its Own AI Foundry Project + OpenAPI Access</text>
+
+  <!-- Key Insight Banner -->
+  <rect x="30" y="95" width="1140" height="55" rx="8" fill="#f0fdf4" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
+  <text x="60" y="120" font-family="Segoe UI, Arial" font-size="13" font-weight="bold" fill="#166534">KEY INSIGHT:</text>
+  <text x="175" y="120" font-family="Segoe UI, Arial" font-size="13" fill="#15803d">AI Foundry Hub supports multiple Projects. Each project gets its own AI Foundry Project with dedicated API endpoint,</text>
+  <text x="60" y="140" font-family="Segoe UI, Arial" font-size="13" fill="#15803d">connections, and usage tracking. No custom Gateway Function needed - AI Foundry handles isolation natively!</text>
+
+  <!-- Legend -->
+  <rect x="30" y="165" width="1140" height="40" rx="8" fill="white" stroke="#e2e8f0" filter="url(#shadow)"/>
+  <rect x="50" y="177" width="18" height="18" rx="3" fill="url(#hubGrad)" stroke="#f59e0b"/>
+  <text x="73" y="190" font-family="Segoe UI, Arial" font-size="11" fill="#334155">Shared Hub</text>
+  <rect x="160" y="177" width="18" height="18" rx="3" fill="url(#foundryGrad)" stroke="#7c3aed"/>
+  <text x="183" y="190" font-family="Segoe UI, Arial" font-size="11" fill="#334155">AI Foundry Hub</text>
+  <rect x="290" y="177" width="18" height="18" rx="3" fill="url(#projectAGrad)" stroke="#3b82f6"/>
+  <text x="313" y="190" font-family="Segoe UI, Arial" font-size="11" fill="#334155">Project A</text>
+  <rect x="400" y="177" width="18" height="18" rx="3" fill="url(#projectBGrad)" stroke="#22c55e"/>
+  <text x="423" y="190" font-family="Segoe UI, Arial" font-size="11" fill="#334155">Project B</text>
+  <rect x="510" y="177" width="50" height="18" rx="3" fill="#7c3aed"/>
+  <text x="565" y="190" font-family="Segoe UI, Arial" font-size="11" fill="#334155">AI Foundry Project</text>
+  <rect x="700" y="177" width="50" height="18" rx="3" fill="#22c55e"/>
+  <text x="755" y="190" font-family="Segoe UI, Arial" font-size="11" fill="#334155">Direct Cost</text>
+  <rect x="850" y="177" width="50" height="18" rx="3" fill="#f59e0b"/>
+  <text x="905" y="190" font-family="Segoe UI, Arial" font-size="11" fill="#334155">OpenAPI</text>
+
+  <!-- ==================== LAYER 1: SHARED HUB ==================== -->
+  <text x="30" y="235" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="#1e3a5f">LAYER 1: Shared Hub Platform</text>
+
+  <rect x="30" y="250" width="1140" height="100" rx="10" fill="url(#hubGrad)" stroke="#f59e0b" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="275" font-family="Segoe UI, Arial" font-size="14" font-weight="bold" fill="#92400e" text-anchor="middle">rg-hub-platform (Shared Infrastructure)</text>
+
+  <rect x="60" y="290" width="180" height="45" rx="6" fill="white" stroke="#fbbf24"/>
+  <text x="150" y="318" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#92400e" text-anchor="middle">API Management</text>
+
+  <rect x="270" y="290" width="180" height="45" rx="6" fill="white" stroke="#fbbf24"/>
+  <text x="360" y="318" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#92400e" text-anchor="middle">App Gateway + WAF</text>
+
+  <rect x="480" y="290" width="180" height="45" rx="6" fill="white" stroke="#fbbf24"/>
+  <text x="570" y="318" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#92400e" text-anchor="middle">Azure Firewall</text>
+
+  <rect x="690" y="290" width="180" height="45" rx="6" fill="white" stroke="#fbbf24"/>
+  <text x="780" y="318" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#92400e" text-anchor="middle">Hub VNet + DNS</text>
+
+  <rect x="900" y="290" width="180" height="45" rx="6" fill="white" stroke="#fbbf24"/>
+  <text x="990" y="318" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#92400e" text-anchor="middle">Bastion</text>
+
+  <!-- ==================== LAYER 2: AI FOUNDRY HUB ==================== -->
+  <text x="30" y="385" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="#1e3a5f">LAYER 2: AI Foundry Hub (Shared) with Per-Project AI Foundry Projects</text>
+
+  <rect x="30" y="400" width="1140" height="320" rx="10" fill="url(#foundryGrad)" stroke="#7c3aed" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="425" font-family="Segoe UI, Arial" font-size="14" font-weight="bold" fill="#6b21a8" text-anchor="middle">rg-ai-foundry-hub (Shared AI Foundry Hub)</text>
+
+  <!-- Model Deployments (shared) -->
+  <rect x="50" y="445" width="1100" height="70" rx="8" fill="white" stroke="#a855f7" stroke-width="2"/>
+  <text x="600" y="470" font-family="Segoe UI, Arial" font-size="13" font-weight="bold" fill="#6b21a8" text-anchor="middle">Shared Model Deployments (All Projects Access These)</text>
+  <rect x="70" y="480" width="150" height="28" rx="4" fill="#f3e8ff" stroke="#c4b5fd"/>
+  <text x="145" y="499" font-family="Segoe UI, Arial" font-size="11" fill="#7c3aed" text-anchor="middle">GPT-4o</text>
+  <rect x="240" y="480" width="150" height="28" rx="4" fill="#f3e8ff" stroke="#c4b5fd"/>
+  <text x="315" y="499" font-family="Segoe UI, Arial" font-size="11" fill="#7c3aed" text-anchor="middle">GPT-4</text>
+  <rect x="410" y="480" width="150" height="28" rx="4" fill="#f3e8ff" stroke="#c4b5fd"/>
+  <text x="485" y="499" font-family="Segoe UI, Arial" font-size="11" fill="#7c3aed" text-anchor="middle">text-embedding-3</text>
+  <rect x="580" y="480" width="180" height="28" rx="4" fill="#f3e8ff" stroke="#c4b5fd"/>
+  <text x="670" y="499" font-family="Segoe UI, Arial" font-size="11" fill="#7c3aed" text-anchor="middle">Document Intelligence</text>
+  <rect x="780" y="480" width="150" height="28" rx="4" fill="#f3e8ff" stroke="#c4b5fd"/>
+  <text x="855" y="499" font-family="Segoe UI, Arial" font-size="11" fill="#7c3aed" text-anchor="middle">Vision</text>
+  <rect x="950" y="480" width="180" height="28" rx="4" fill="#f3e8ff" stroke="#c4b5fd"/>
+  <text x="1040" y="499" font-family="Segoe UI, Arial" font-size="11" fill="#7c3aed" text-anchor="middle">Speech Services</text>
+
+  <!-- AI Foundry Project A -->
+  <rect x="50" y="530" width="530" height="175" rx="8" fill="url(#projectAGrad)" stroke="#3b82f6" stroke-width="2"/>
+  <rect x="50" y="530" width="530" height="30" rx="8" fill="#2563eb"/>
+  <text x="315" y="550" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="white" text-anchor="middle">AI Foundry Project: health-rag</text>
+
+  <rect x="70" y="570" width="240" height="55" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="190" y="590" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">Project API Endpoint</text>
+  <text x="190" y="608" font-family="Segoe UI, Arial" font-size="9" fill="#3b82f6" text-anchor="middle">https://health-rag.openai.azure.com</text>
+
+  <rect x="330" y="570" width="230" height="55" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="445" y="590" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">Project Connections</text>
+  <text x="445" y="608" font-family="Segoe UI, Arial" font-size="9" fill="#3b82f6" text-anchor="middle">→ Storage, Search, Key Vault</text>
+
+  <rect x="70" y="635" width="150" height="55" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="145" y="655" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">Prompt Flows</text>
+  <text x="145" y="673" font-family="Segoe UI, Arial" font-size="9" fill="#3b82f6" text-anchor="middle">RAG pipeline</text>
+
+  <rect x="240" y="635" width="150" height="55" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="315" y="655" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">Index</text>
+  <text x="315" y="673" font-family="Segoe UI, Arial" font-size="9" fill="#3b82f6" text-anchor="middle">health-docs-index</text>
+
+  <rect x="410" y="635" width="150" height="55" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="485" y="655" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">Usage Tracking</text>
+  <text x="485" y="673" font-family="Segoe UI, Arial" font-size="9" fill="#3b82f6" text-anchor="middle">Tokens per call</text>
+
+  <!-- AI Foundry Project B -->
+  <rect x="600" y="530" width="530" height="175" rx="8" fill="url(#projectBGrad)" stroke="#22c55e" stroke-width="2"/>
+  <rect x="600" y="530" width="530" height="30" rx="8" fill="#16a34a"/>
+  <text x="865" y="550" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="white" text-anchor="middle">AI Foundry Project: sdpr-chatbot</text>
+
+  <rect x="620" y="570" width="240" height="55" rx="6" fill="white" stroke="#4ade80"/>
+  <text x="740" y="590" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Project API Endpoint</text>
+  <text x="740" y="608" font-family="Segoe UI, Arial" font-size="9" fill="#22c55e" text-anchor="middle">https://sdpr-chatbot.openai.azure.com</text>
+
+  <rect x="880" y="570" width="230" height="55" rx="6" fill="white" stroke="#4ade80"/>
+  <text x="995" y="590" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Project Connections</text>
+  <text x="995" y="608" font-family="Segoe UI, Arial" font-size="9" fill="#22c55e" text-anchor="middle">→ Storage, Search, Key Vault</text>
+
+  <rect x="620" y="635" width="150" height="55" rx="6" fill="white" stroke="#4ade80"/>
+  <text x="695" y="655" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Prompt Flows</text>
+  <text x="695" y="673" font-family="Segoe UI, Arial" font-size="9" fill="#22c55e" text-anchor="middle">Chatbot pipeline</text>
+
+  <rect x="790" y="635" width="150" height="55" rx="6" fill="white" stroke="#4ade80"/>
+  <text x="865" y="655" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Index</text>
+  <text x="865" y="673" font-family="Segoe UI, Arial" font-size="9" fill="#22c55e" text-anchor="middle">sdpr-docs-index</text>
+
+  <rect x="960" y="635" width="150" height="55" rx="6" fill="white" stroke="#4ade80"/>
+  <text x="1035" y="655" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Usage Tracking</text>
+  <text x="1035" y="673" font-family="Segoe UI, Arial" font-size="9" fill="#22c55e" text-anchor="middle">Tokens per call</text>
+
+  <!-- ==================== LAYER 3: PROJECT RESOURCE GROUPS ==================== -->
+  <text x="30" y="755" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="#1e3a5f">LAYER 3: Project Resource Groups (Connected to AI Foundry Projects)</text>
+
+  <!-- Project A RG -->
+  <rect x="30" y="770" width="560" height="200" rx="10" fill="url(#projectAGrad)" stroke="#3b82f6" stroke-width="2" filter="url(#shadow)"/>
+  <text x="310" y="795" font-family="Segoe UI, Arial" font-size="14" font-weight="bold" fill="#1e40af" text-anchor="middle">rg-health-rag-prod</text>
+
+  <rect x="50" y="815" width="160" height="65" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="130" y="840" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">Storage Account</text>
+  <text x="130" y="858" font-family="Segoe UI, Arial" font-size="10" fill="#3b82f6" text-anchor="middle">$150/month</text>
+  <rect x="50" y="880" width="160" height="18" rx="3" fill="#22c55e"/>
+  <text x="130" y="893" font-family="Segoe UI, Arial" font-size="8" font-weight="bold" fill="white" text-anchor="middle">DIRECT COST</text>
+
+  <rect x="230" y="815" width="160" height="65" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="310" y="840" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">Search Service</text>
+  <text x="310" y="858" font-family="Segoe UI, Arial" font-size="10" fill="#3b82f6" text-anchor="middle">$250/month</text>
+  <rect x="230" y="880" width="160" height="18" rx="3" fill="#22c55e"/>
+  <text x="310" y="893" font-family="Segoe UI, Arial" font-size="8" font-weight="bold" fill="white" text-anchor="middle">DIRECT COST</text>
+
+  <rect x="410" y="815" width="160" height="65" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="490" y="840" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">Key Vault</text>
+  <text x="490" y="858" font-family="Segoe UI, Arial" font-size="10" fill="#3b82f6" text-anchor="middle">$20/month</text>
+  <rect x="410" y="880" width="160" height="18" rx="3" fill="#22c55e"/>
+  <text x="490" y="893" font-family="Segoe UI, Arial" font-size="8" font-weight="bold" fill="white" text-anchor="middle">DIRECT COST</text>
+
+  <rect x="50" y="910" width="520" height="45" rx="6" fill="#1e40af"/>
+  <text x="310" y="932" font-family="Segoe UI, Arial" font-size="11" fill="white" text-anchor="middle">AI Foundry Project Connection: health-rag → uses shared models</text>
+  <text x="310" y="948" font-family="Segoe UI, Arial" font-size="10" fill="#93c5fd" text-anchor="middle">Usage tracked per project via AI Foundry metrics</text>
+
+  <!-- Project B RG -->
+  <rect x="610" y="770" width="560" height="200" rx="10" fill="url(#projectBGrad)" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
+  <text x="890" y="795" font-family="Segoe UI, Arial" font-size="14" font-weight="bold" fill="#166534" text-anchor="middle">rg-sdpr-chatbot-prod</text>
+
+  <rect x="630" y="815" width="160" height="65" rx="6" fill="white" stroke="#4ade80"/>
+  <text x="710" y="840" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Storage Account</text>
+  <text x="710" y="858" font-family="Segoe UI, Arial" font-size="10" fill="#22c55e" text-anchor="middle">$80/month</text>
+  <rect x="630" y="880" width="160" height="18" rx="3" fill="#22c55e"/>
+  <text x="710" y="893" font-family="Segoe UI, Arial" font-size="8" font-weight="bold" fill="white" text-anchor="middle">DIRECT COST</text>
+
+  <rect x="810" y="815" width="160" height="65" rx="6" fill="white" stroke="#4ade80"/>
+  <text x="890" y="840" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Search Service</text>
+  <text x="890" y="858" font-family="Segoe UI, Arial" font-size="10" fill="#22c55e" text-anchor="middle">$250/month</text>
+  <rect x="810" y="880" width="160" height="18" rx="3" fill="#22c55e"/>
+  <text x="890" y="893" font-family="Segoe UI, Arial" font-size="8" font-weight="bold" fill="white" text-anchor="middle">DIRECT COST</text>
+
+  <rect x="990" y="815" width="160" height="65" rx="6" fill="white" stroke="#4ade80"/>
+  <text x="1070" y="840" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Key Vault</text>
+  <text x="1070" y="858" font-family="Segoe UI, Arial" font-size="10" fill="#22c55e" text-anchor="middle">$20/month</text>
+  <rect x="990" y="880" width="160" height="18" rx="3" fill="#22c55e"/>
+  <text x="1070" y="893" font-family="Segoe UI, Arial" font-size="8" font-weight="bold" fill="white" text-anchor="middle">DIRECT COST</text>
+
+  <rect x="630" y="910" width="520" height="45" rx="6" fill="#166534"/>
+  <text x="890" y="932" font-family="Segoe UI, Arial" font-size="11" fill="white" text-anchor="middle">AI Foundry Project Connection: sdpr-chatbot → uses shared models</text>
+  <text x="890" y="948" font-family="Segoe UI, Arial" font-size="10" fill="#bbf7d0" text-anchor="middle">Usage tracked per project via AI Foundry metrics</text>
+
+  <!-- Connection arrows from AI Foundry Projects to RGs -->
+  <path d="M 315 705 L 315 770" stroke="#3b82f6" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrowBlue)"/>
+  <path d="M 865 705 L 890 770" stroke="#22c55e" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrowGreen)"/>
+
+  <!-- ==================== LAYER 4: OPENAPI ACCESS ==================== -->
+  <text x="30" y="1005" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="#1e3a5f">LAYER 4: OpenAPI Access (Each Project Gets Full API Access)</text>
+
+  <rect x="30" y="1020" width="1140" height="180" rx="10" fill="white" stroke="#f59e0b" stroke-width="2" filter="url(#shadow)"/>
+
+  <!-- APIM with OpenAPI -->
+  <rect x="50" y="1040" width="350" height="145" rx="8" fill="url(#hubGrad)" stroke="#fbbf24"/>
+  <text x="225" y="1065" font-family="Segoe UI, Arial" font-size="13" font-weight="bold" fill="#92400e" text-anchor="middle">APIM + OpenAPI Specs</text>
+
+  <rect x="70" y="1080" width="310" height="90" rx="6" fill="white" stroke="#fbbf24"/>
+  <text x="225" y="1105" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">Auto-Generated OpenAPI per Project</text>
+  <text x="90" y="1125" font-family="Segoe UI, Arial" font-size="10" fill="#b45309">• /health-rag/chat - Chat completions</text>
+  <text x="90" y="1142" font-family="Segoe UI, Arial" font-size="10" fill="#b45309">• /health-rag/embeddings - Generate embeddings</text>
+  <text x="90" y="1159" font-family="Segoe UI, Arial" font-size="10" fill="#b45309">• /health-rag/documents - Document processing</text>
+
+  <!-- Project A Access -->
+  <rect x="430" y="1040" width="330" height="145" rx="8" fill="url(#projectAGrad)" stroke="#3b82f6"/>
+  <text x="595" y="1065" font-family="Segoe UI, Arial" font-size="13" font-weight="bold" fill="#1e40af" text-anchor="middle">Health-RAG API Access</text>
+
+  <rect x="450" y="1080" width="290" height="90" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="595" y="1100" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#1e40af" text-anchor="middle">Subscription Key: health-rag-key-xxx</text>
+  <text x="470" y="1120" font-family="Segoe UI, Arial" font-size="10" fill="#3b82f6">Base URL: api.aihub.gov.bc.ca/health-rag</text>
+  <text x="470" y="1137" font-family="Segoe UI, Arial" font-size="10" fill="#3b82f6">Rate Limit: 1000 req/min</text>
+  <text x="470" y="1154" font-family="Segoe UI, Arial" font-size="10" fill="#3b82f6">Token Budget: 1M tokens/month</text>
+
+  <!-- Project B Access -->
+  <rect x="790" y="1040" width="360" height="145" rx="8" fill="url(#projectBGrad)" stroke="#22c55e"/>
+  <text x="970" y="1065" font-family="Segoe UI, Arial" font-size="13" font-weight="bold" fill="#166534" text-anchor="middle">SDPR-Chatbot API Access</text>
+
+  <rect x="810" y="1080" width="320" height="90" rx="6" fill="white" stroke="#4ade80"/>
+  <text x="970" y="1100" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#166534" text-anchor="middle">Subscription Key: sdpr-chatbot-key-xxx</text>
+  <text x="830" y="1120" font-family="Segoe UI, Arial" font-size="10" fill="#22c55e">Base URL: api.aihub.gov.bc.ca/sdpr-chatbot</text>
+  <text x="830" y="1137" font-family="Segoe UI, Arial" font-size="10" fill="#22c55e">Rate Limit: 500 req/min</text>
+  <text x="830" y="1154" font-family="Segoe UI, Arial" font-size="10" fill="#22c55e">Token Budget: 500K tokens/month</text>
+
+  <!-- ==================== TERRAFORM MODULE ==================== -->
+  <text x="30" y="1235" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="#1e3a5f">Terraform Module Creates Everything for Each Project</text>
+
+  <rect x="30" y="1250" width="1140" height="100" rx="10" fill="#1e293b" filter="url(#shadow)"/>
+  <text x="50" y="1275" font-family="Consolas, monospace" font-size="11" fill="#94a3b8">module "health_rag" {</text>
+  <text x="70" y="1292" font-family="Consolas, monospace" font-size="11" fill="#94a3b8">source = "./modules/project"</text>
+  <text x="70" y="1309" font-family="Consolas, monospace" font-size="11" fill="#fbbf24">project_name = "health-rag"</text>
+  <text x="380" y="1309" font-family="Consolas, monospace" font-size="11" fill="#64748b"># Creates: RG + AI Foundry Project + Storage + Search + KV + APIM subscription</text>
+  <text x="70" y="1326" font-family="Consolas, monospace" font-size="11" fill="#94a3b8">ai_foundry_hub_id = module.hub.ai_foundry_id</text>
+  <text x="550" y="1326" font-family="Consolas, monospace" font-size="11" fill="#64748b"># Connects to shared hub</text>
+  <text x="70" y="1343" font-family="Consolas, monospace" font-size="11" fill="#94a3b8">}</text>
+
+  <!-- Footer -->
+  <rect x="0" y="1355" width="1200" height="45" fill="#1e3a5f"/>
+  <text x="600" y="1375" font-family="Segoe UI, Arial" font-size="12" fill="#94a3b8" text-anchor="middle">AI Foundry Project per project = Native isolation + Built-in usage tracking + OpenAPI access out of the box</text>
+  <text x="600" y="1392" font-family="Segoe UI, Arial" font-size="10" fill="#64748b" text-anchor="middle">No custom Gateway Function needed - AI Foundry handles multi-tenancy natively!</text>
+
+</svg>
