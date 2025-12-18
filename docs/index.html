@@ -756,27 +756,22 @@
         </div>
         <div>
             <h3 style="margin-top: 0; color: var(--bc-blue-dark);">Pilot Project Disclaimer</h3>
-            <p><strong>This is an early-stage pilot.</strong> Many architectural patterns are still being validated with Platform Services. This project consolidates hard-learned lessons from navigating Azure policy into a shared landing zone to help other BC Gov teams avoid the same pitfalls.</p>
-            <p><small><em>The upstream <a href="https://github.com/Azure/AI-Landing-Zones">Azure AI Landing Zones</a> reference architecture carries an archival risk, of which this project team is aware.</em></small></p>
+            <p><strong>This is an early-stage pilot.</strong> Many architectural patterns are still being validated with Platform Services.</p>
+            <p style="margin-bottom: 0.5rem;">This project was born after several teams struggled to navigate Azure policies, compliance, and networking individually. We consolidated these hard-learned lessons into a shared landing zone to help other BC Gov teams avoid the same pitfalls.</p>
+            <p><small><em>Based on <a href="https://github.com/Azure/AI-Landing-Zones">Azure AI Landing Zones</a> (upstream archival risk acknowledged).</em></small></p>
         </div>
     </div>
 </div>
 
-<h2>Project Scope: Enabling AI on Azure</h2>
-<div class="card card-gold">
-    <h3 style="margin-top:0;">This is an AI Platform, Not a General Azure Onboarding Tool</h3>
-    <p>The primary mission of this project is to create a secure, compliant, and reusable "paved road" for <strong>AI-specific workloads</strong> in the BC Government. It is not intended for general-purpose application hosting.</p>
-    <p>Our scope is defined by what can be provisioned and managed via Infrastructure as Code. We exclusively support services that have a mature <strong>Azure Verified Module (AVM)</strong> for Terraform. This ensures every component of the platform is repeatable, auditable, and aligned with industry best practices.</p>
-</div>
-
-<h2>The Challenge: Microsoft's Model vs. BC Gov's Reality</h2>
-
-<p>A newcomer to this project might ask: "Why is this so complex? Why not just follow Microsoft's tutorials?" This project exists to answer that question. There is a fundamental disconnect between Microsoft's standard approach and the strict policy requirements of the BC Government.</p>
-
-<div class="grid grid-2">
-    <div class="card" style="border-left-color: #0078d4;">
-        <h3 style="margin-top:0;">Microsoft's Assumption: UI-First, Public-Friendly</h3>
-        <p>Microsoft's documentation and tools (like Azure Portal and AI Studio) are designed for a user-friendly, web-based experience. This model assumes that Azure services have <strong>public endpoints</strong> so the browser-based UIs can connect to them.</p>
+<!-- Stats Row -->
+<div class="grid grid-4" style="margin-bottom: 2rem;">
+    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid var(--bc-gold);">
+        <div class="stat-number">0</div>
+        <div class="stat-label">Secrets to Manage</div>
+    </div>
+    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid var(--bc-blue);">
+        <div class="stat-number">3</div>
+        <div class="stat-label">Terraform Modules</div>
     </div>
     <div class="card" style="border-left-color: #ef4444;">
         <h3 style="margin-top:0;">BC Gov's Reality: Private-Only, Zero-Trust</h3>

@@ -149,25 +149,13 @@ details.adr.pending[open] summary {
         <td><a href="#adr-006">ADR-006</a></td>
         <td>Multi-Tenant Isolation Model</td>
         <td><span class="badge badge-blue">Policy</span></td>
-        <td><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
     </tr>
     <tr>
         <td><a href="#adr-007">ADR-007</a></td>
         <td>Client Connectivity via App Gateway + APIM</td>
         <td><span class="badge badge-blue">Policy</span></td>
-        <td><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></td>
-    </tr>
-    <tr>
-        <td><a href="#adr-008">ADR-008</a></td>
-        <td>No Azure Portal or Foundry Studio UI Access</td>
-        <td><span class="badge badge-blue">Policy</span></td>
-        <td><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></td>
-    </tr>
-    <tr>
-        <td><a href="#adr-009">ADR-009</a></td>
-        <td>Why AI Landing Zone vs Custom Solution</td>
-        <td><span class="badge" style="background:#22c55e;color:white;">Choice</span></td>
-        <td><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
     </tr>
 </table>
 
@@ -354,111 +342,6 @@ details.adr.pending[open] summary {
     <div>
         <strong>DNS & ExpressRoute Note:</strong> Private DNS zones are managed centrally by Platform Services, not by this Landing Zone. ExpressRoute connectivity exists for on-premises access, but AI Hub clients will connect through <strong>App Gateway + APIM</strong> endpoints rather than directly via ExpressRoute.
     </div>
-</div>
-
-<h4>How Access Actually Works (Public vs Private)</h4>
-
-<div class="alert alert-warning">
-    <span class="alert-icon">🔑</span>
-    <div>
-        <strong>Key Concept:</strong> "No public endpoints" doesn't mean "no access". It means access flows through <strong>controlled private channels</strong>, not the open internet.
-    </div>
-</div>
-
-<table>
-    <tr>
-        <th>Who</th>
-        <th>Access Path</th>
-        <th>Public IPs?</th>
-        <th>How It Works</th>
-    </tr>
-    <tr>
-        <td><strong>Platform Team (Admin)</strong></td>
-        <td>Internet → Azure Portal → Bastion → VMs</td>
-        <td><span class="badge" style="background:#f59e0b;color:white;">Bastion only</span></td>
-        <td>Bastion is Azure-managed PaaS with public IP. VMs have private IPs only. This is the ONE public-to-private bridge.</td>
-    </tr>
-    <tr>
-        <td><strong>Ministry Apps/Users</strong></td>
-        <td>Gov Network → ExpressRoute → App Gateway → APIM → Services</td>
-        <td><span class="badge" style="background:#22c55e;color:white;">None</span></td>
-        <td>ExpressRoute is a <strong>private dedicated circuit</strong> from BC Gov data centers to Azure backbone. Traffic never touches public internet.</td>
-    </tr>
-    <tr>
-        <td><strong>GitHub Actions (CI/CD)</strong></td>
-        <td>Self-hosted runners inside VNet → Private Endpoints</td>
-        <td><span class="badge" style="background:#22c55e;color:white;">None</span></td>
-        <td>Runners are VMs inside our VNet. They access Azure resources via private IPs directly.</td>
-    </tr>
-</table>
-
-<div class="grid grid-2" style="margin-top: 1rem;">
-    <div class="card" style="border-left-color: #8b5cf6;">
-        <h4 style="margin-top: 0; color: #7c3aed;">What is ExpressRoute?</h4>
-        <p>ExpressRoute is <strong>NOT</strong> a public endpoint. It's a dedicated fiber connection from BC Gov's data centers directly into Azure's network backbone.</p>
-        <ul style="margin-bottom: 0;">
-            <li>Traffic stays on private circuits (not internet)</li>
-            <li>Managed by BC Gov Platform Services</li>
-            <li>Already exists - we just use it</li>
-            <li>Like a private tunnel to Azure</li>
-        </ul>
-    </div>
-    <div class="card" style="border-left-color: #0078d4;">
-        <h4 style="margin-top: 0; color: #0078d4;">Why App Gateway + APIM are Internal</h4>
-        <p>App Gateway and APIM have <strong>private IPs only</strong>. They're reachable because:</p>
-        <ul style="margin-bottom: 0;">
-            <li>ExpressRoute connects Gov Network → Azure VNet</li>
-            <li>App Gateway listens on internal VNet IP</li>
-            <li>Gov users can reach internal IPs via ExpressRoute</li>
-            <li>No public internet exposure needed</li>
-        </ul>
-    </div>
-</div>
-
-<div class="card" style="border-left-color: #003366; margin-top: 1rem; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);">
-    <h4 style="margin-top: 0;">Summary: Only ONE Public Endpoint</h4>
-    <pre style="background: #1e1e1e; font-size: 11px; margin: 0.5rem 0; padding: 1rem;">
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           BC Gov Network                                      │
-│  ┌──────────────┐                                                            │
-│  │ Ministry     │                                                            │
-│  │ Applications │──┐                                                         │
-│  └──────────────┘  │                                                         │
-│                    │                                                         │
-│  ┌──────────────┐  │    ┌──────────────────────────────────────────────────┐│
-│  │ Ministry     │──┼────│         ExpressRoute (Private Circuit)           ││
-│  │ Users        │  │    │         NOT public internet!                     ││
-│  └──────────────┘  │    └──────────────────────────────────────────────────┘│
-└────────────────────┼─────────────────────────────────────────────────────────┘
-                     │
-                     ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Azure (Private VNet)                               │
-│                                                                              │
-│  ┌────────────────┐    ┌────────────────┐    ┌────────────────────────────┐ │
-│  │  App Gateway   │───▶│     APIM       │───▶│   Private Endpoints        │ │
-│  │  (Internal IP) │    │  (Internal IP) │    │   (Storage, OpenAI, etc.)  │ │
-│  └────────────────┘    └────────────────┘    └────────────────────────────┘ │
-│         ▲                                                                    │
-│         │                                                                    │
-│         │ All private IPs - reachable via ExpressRoute                      │
-│                                                                              │
-│  ════════════════════════════════════════════════════════════════════════   │
-│                                                                              │
-│  ┌────────────────┐    ┌────────────────┐                                   │
-│  │    BASTION     │───▶│   Jumpbox VM   │    ◀── Only Bastion has public IP │
-│  │  (PUBLIC IP)   │    │  (Private IP)  │        (for admin access)         │
-│  └────────────────┘    └────────────────┘                                   │
-│         ▲                                                                    │
-└─────────┼────────────────────────────────────────────────────────────────────┘
-          │
-          │ Admin accesses via Azure Portal (browser)
-          │
-┌─────────┴────────┐
-│    INTERNET      │
-│  (Platform Team) │
-└──────────────────┘
-    </pre>
 </div>
 
 <h4>What Other Repos Need To Do</h4>
@@ -842,8 +725,9 @@ details.adr.pending[open] summary {
     <li><a href="diagrams.html#network-environments">Network Environments Diagram</a></li>
 </ul>
 
-</div>
-</details>
+<!-- ============================================================================
+     ADR-004: Private Endpoints
+     ============================================================================ -->
 
 <!-- ADR-004 -->
 <details class="adr" id="adr-004">
@@ -1045,19 +929,14 @@ details.adr.pending[open] summary {
     <li>Added custom SVG viewer for diagrams</li>
 </ul>
 
-</div>
-</details>
+<!-- ============================================================================
+     ADR-006: Multi-Tenant Isolation Model
+     ============================================================================ -->
 
-<!-- ADR-006 -->
-<details class="adr pending" id="adr-006">
-<summary>
-    <span class="adr-title">ADR-006: Multi-Tenant Isolation Model</span>
-    <span class="adr-status"><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></span>
-</summary>
-<div class="adr-content">
+<h2 id="adr-006">ADR-006: Multi-Tenant Isolation Model</h2>
 
 <div class="grid grid-4" style="margin-bottom: 1rem;">
-    <div><strong>Status:</strong> <span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></div>
+    <div><strong>Status:</strong> Accepted</div>
     <div><strong>Date:</strong> 2025-12</div>
     <div><strong>Driver:</strong> <span class="badge badge-blue">Policy Required</span></div>
     <div><strong>Category:</strong> Architecture</div>
@@ -1196,38 +1075,21 @@ details.adr.pending[open] summary {
     <li><strong>Cost per ministry</strong> - Base cost increases with each ministry onboarded</li>
 </ul>
 
-<h3>Cost Tracking</h3>
-
-<p>Multi-tenant isolation also enables per-tenant cost tracking and chargeback. See the detailed cost allocation strategy:</p>
-
-<div class="img-container">
-    <a href="cost.html">
-        <img src="assets/cost-tracking-architecture.svg" alt="Multi-Tenant Cost Tracking Architecture" style="max-width: 100%; cursor: pointer;">
-    </a>
-    <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">Click diagram to view full Cost Tracking documentation</p>
-</div>
-
 <h3>References</h3>
 <ul>
-    <li><a href="cost.html">Cost Tracking Documentation</a> - Full cost allocation strategy</li>
     <li><a href="diagrams.html#multi-tenant">Multi-Tenant Isolation Diagram</a></li>
     <li><a href="https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/overview">Azure Multi-Tenant Architecture Guide</a></li>
     <li><a href="diagrams.html#data-flow">AI Request Data Flow Diagram</a></li>
 </ul>
 
-</div>
-</details>
+<!-- ============================================================================
+     ADR-007: Client Connectivity Model
+     ============================================================================ -->
 
-<!-- ADR-007 -->
-<details class="adr pending" id="adr-007">
-<summary>
-    <span class="adr-title">ADR-007: Client Connectivity via App Gateway + APIM</span>
-    <span class="adr-status"><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></span>
-</summary>
-<div class="adr-content">
+<h2 id="adr-007">ADR-007: Client Connectivity via App Gateway + APIM</h2>
 
 <div class="grid grid-4" style="margin-bottom: 1rem;">
-    <div><strong>Status:</strong> <span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></div>
+    <div><strong>Status:</strong> Accepted</div>
     <div><strong>Date:</strong> 2025-12</div>
     <div><strong>Driver:</strong> <span class="badge badge-blue">Policy Required</span></div>
     <div><strong>Category:</strong> Networking</div>
@@ -1238,51 +1100,42 @@ details.adr.pending[open] summary {
 <div class="alert alert-warning">
     <span class="alert-icon">🏛️</span>
     <div>
-        <strong>Platform Context:</strong> BC Gov Platform Services provides ExpressRoute connectivity to Azure for private, high-bandwidth access. ExpressRoute is <strong>available</strong>, not denied. However, for this multi-tenant AI Hub platform, we <strong>recommend</strong> all clients connect through App Gateway + APIM to ensure consistent security controls across all tenants.
+        <strong>Policy Driver:</strong> BC Gov has ExpressRoute connectivity to Azure for private, high-bandwidth access. However, AI Hub clients should not access backend services directly. All client traffic must pass through security layers that provide WAF protection, authentication, rate limiting, and audit logging.
     </div>
 </div>
 
-<p>BC Government Platform Services has established ExpressRoute connectivity between on-premises networks and Azure. For this AI Hub Landing Zone, the question arose: should ministry applications connect directly to AI services via ExpressRoute, or through a managed ingress layer?</p>
+<p>BC Government has established ExpressRoute connectivity between on-premises networks and Azure. The question arose: should ministry applications connect directly to AI services via ExpressRoute, or through a managed ingress layer?</p>
 
 <h3>Options Considered</h3>
 
 <div class="grid grid-2">
-    <div class="card" style="border-left-color: #f59e0b;">
+    <div class="card" style="border-left-color: #ef4444;">
         <h4 style="margin-top: 0;">Option A: Direct ExpressRoute Access</h4>
         <p>Clients connect directly to private endpoints via ExpressRoute.</p>
         <ul>
             <li>Lowest latency (no middlemen)</li>
-            <li>Simpler architecture for single-tenant</li>
-            <li>ExpressRoute is provided by Platform Services</li>
+            <li>Simpler architecture</li>
         </ul>
-        <p style="color:#f59e0b;margin-bottom:0;"><strong>Case-by-Case:</strong> Available upon request with justification. Requires separate security review as it bypasses WAF, rate limiting, and centralized audit logging.</p>
+        <p style="color:#ef4444;margin-bottom:0;"><strong>Rejected:</strong> No WAF, no rate limiting, no centralized auth, difficult to audit</p>
     </div>
     <div class="card" style="border-left-color: #22c55e;">
-        <h4 style="margin-top: 0;">Option B: App Gateway + APIM (Recommended)</h4>
+        <h4 style="margin-top: 0;">Option B: App Gateway + APIM</h4>
         <p>All traffic flows through App Gateway and APIM before reaching backends.</p>
         <ul>
             <li>WAF protection at ingress</li>
             <li>Centralized authentication</li>
-            <li>Rate limiting and quotas per tenant</li>
+            <li>Rate limiting and quotas</li>
             <li>Complete audit trail</li>
-            <li>Consistent multi-tenant isolation</li>
         </ul>
-        <p style="color:#22c55e;margin-bottom:0;"><strong>Recommended:</strong> Standard path for all AI Hub clients</p>
+        <p style="color:#22c55e;margin-bottom:0;"><strong>Selected:</strong> Provides security controls required by policy</p>
     </div>
 </div>
 
 <h3>Decision</h3>
 
-<p><strong>For a clear multi-tenant platform, we recommend all clients connect through App Gateway → APIM → Private Endpoints.</strong></p>
+<p><strong>All AI Hub client traffic must flow through App Gateway → APIM → Private Endpoints.</strong></p>
 
-<p>ExpressRoute connectivity is provided by Platform Services and is available. However, to support consistent security controls, audit logging, and fair resource allocation across multiple ministries, we recommend the App Gateway + APIM path as the standard connectivity model.</p>
-
-<div class="alert alert-info">
-    <span class="alert-icon">💡</span>
-    <div>
-        <strong>Direct ExpressRoute Access:</strong> If a client has a specific requirement for direct ExpressRoute access to backend services (e.g., extremely latency-sensitive workloads), this can be analyzed on a case-by-case basis. Such requests require justification and a separate security review.
-    </div>
-</div>
+<p>Even though ExpressRoute provides private connectivity, we require all client requests to pass through our security stack. This ensures consistent policy enforcement regardless of how clients connect to Azure.</p>
 
 <h3>Traffic Flow</h3>
 
@@ -1407,594 +1260,6 @@ details.adr.pending[open] summary {
     <li><a href="https://learn.microsoft.com/en-us/azure/api-management/api-management-key-concepts">Azure API Management Overview</a></li>
     <li><a href="https://learn.microsoft.com/en-us/azure/application-gateway/overview">Azure Application Gateway Overview</a></li>
 </ul>
-
-</div>
-</details>
-
-<!-- ADR-008 -->
-<details class="adr pending" id="adr-008">
-<summary>
-    <span class="adr-title">ADR-008: No Azure Portal or Foundry Studio UI Access</span>
-    <span class="adr-status"><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></span>
-</summary>
-<div class="adr-content">
-
-<div class="grid grid-4" style="margin-bottom: 1rem;">
-    <div><strong>Status:</strong> <span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></div>
-    <div><strong>Date:</strong> 2025-12</div>
-    <div><strong>Driver:</strong> <span class="badge badge-blue">Policy Required</span></div>
-    <div><strong>Category:</strong> Operations</div>
-</div>
-
-<h3>Context</h3>
-
-<div class="alert alert-warning">
-    <span class="alert-icon">🏛️</span>
-    <div>
-        <strong>Policy Driver:</strong> BC Gov requires all Azure services to use private endpoints only, with no public network access. Azure Portal, AI Foundry Studio, and other browser-based management tools require public endpoints to function. This creates a fundamental incompatibility.
-    </div>
-</div>
-
-<p>Microsoft's standard approach to AI Landing Zones assumes users will manage resources through:</p>
-<ul>
-    <li>Azure Portal (portal.azure.com)</li>
-    <li>AI Foundry Studio (ai.azure.com)</li>
-    <li>Azure Machine Learning Studio</li>
-</ul>
-
-<p>All of these require public endpoint access to the Azure services being managed.</p>
-
-<h3>The Problem: UI Requires Public Endpoints</h3>
-
-<div class="card" style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border-left-color: #ef4444;">
-<pre style="background: #1e1e1e; margin: 0; font-size: 12px;">
-User Browser (Public Internet)
-        │
-        ▼
-┌─────────────────────────────────────────────────────────────────┐
-│  ai.azure.com / portal.azure.com (Public Endpoint)              │
-│                                                                  │
-│  "To manage your AI Foundry project, we need to reach           │
-│   your Azure resources over the public internet"                │
-│                                                                  │
-│        │                                                        │
-│        ▼                                                        │
-│  ┌─────────────────────────────────────────────────┐           │
-│  │  Your AI Foundry / Storage / Search             │           │
-│  │                                                  │           │
-│  │  ❌ PUBLIC ENDPOINT REQUIRED                    │           │
-│  │     BC Gov Policy: DENIED                       │           │
-│  └─────────────────────────────────────────────────┘           │
-└─────────────────────────────────────────────────────────────────┘
-</pre>
-</div>
-
-<h3>Decision</h3>
-
-<p><strong>No browser-based UI access is supported for tenant management.</strong></p>
-
-<p>All resource provisioning and management must occur through:</p>
-<ul>
-    <li><strong>Terraform/AVM modules</strong> - Infrastructure as Code</li>
-    <li><strong>Azure CLI</strong> - Via self-hosted runners or Jumpbox (admin only)</li>
-    <li><strong>REST APIs</strong> - Via APIM with subscription keys</li>
-</ul>
-
-<h3>What This Means for Tenants</h3>
-
-<div class="alert alert-info" style="margin-bottom: 1rem;">
-    <span class="alert-icon">👁️</span>
-    <div>
-        <strong>Important Clarification:</strong> Tenants <strong>CAN</strong> navigate to Azure Portal and AI Foundry Studio. They can <strong>see</strong> their resources, browse the UI, and view configurations. However, <strong>operations that require the UI to communicate with Azure services will fail</strong> because those services have no public endpoints. The UI is read-only at best, non-functional at worst.
-    </div>
-</div>
-
-<div class="grid grid-3">
-    <div class="card" style="border-left-color: #22c55e;">
-        <h4 style="margin-top: 0; color: #22c55e;">Can Do (View Only)</h4>
-        <ul style="margin-bottom: 0;">
-            <li>Browse to portal.azure.com</li>
-            <li>See resource groups and resources</li>
-            <li>View configurations (read-only)</li>
-            <li>Navigate AI Foundry Studio UI</li>
-            <li>See project structure</li>
-        </ul>
-    </div>
-    <div class="card" style="border-left-color: #ef4444;">
-        <h4 style="margin-top: 0; color: #ef4444;">Cannot Do (UI Blocked)</h4>
-        <ul style="margin-bottom: 0;">
-            <li>Create/modify resources via Portal</li>
-            <li>Upload documents in Foundry Studio</li>
-            <li>Test models in Foundry playground</li>
-            <li>Configure settings via web forms</li>
-            <li>Any operation requiring service connection</li>
-        </ul>
-    </div>
-    <div class="card" style="border-left-color: var(--bc-gold);">
-        <h4 style="margin-top: 0; color: var(--bc-gold);">Supported Methods</h4>
-        <ul style="margin-bottom: 0;">
-            <li>Request resources via Terraform PR</li>
-            <li>Upload documents via API (APIM)</li>
-            <li>Query AI models via API (APIM)</li>
-            <li>Automate via CLI in pipelines</li>
-            <li>Use SDK from within VNet</li>
-        </ul>
-    </div>
-</div>
-
-<div class="card" style="border-left-color: #f59e0b; margin-top: 1rem;">
-    <h4 style="margin-top: 0;">Why Does This Happen?</h4>
-    <p>When you click "Upload Document" in Foundry Studio, the browser (on public internet) tries to connect directly to your Storage Account. But your Storage Account has <strong>no public endpoint</strong> - it only accepts connections from within the VNet via Private Endpoint.</p>
-    <pre style="background: #1e1e1e; font-size: 11px; margin: 0.5rem 0;">
-Browser (Public) → Storage Account (Private Only) = ❌ Connection Refused
-Pipeline (VNet)  → Storage Account (Private EP)   = ✅ Works
-    </pre>
-    <p style="margin-bottom: 0;">The UI shows the resource exists, but can't actually interact with it.</p>
-</div>
-
-<h3>Why Not Provide Bastion Access to Everyone?</h3>
-
-<div class="card" style="border-left-color: #f59e0b;">
-    <h4 style="margin-top: 0;">This was considered and rejected:</h4>
-    <table>
-        <tr>
-            <th>Approach</th>
-            <th>Problem</th>
-        </tr>
-        <tr>
-            <td>Bastion + VM per tenant</td>
-            <td>Not scalable (20 ministries = 20 VMs = $$$), security nightmare</td>
-        </tr>
-        <tr>
-            <td>Shared Jumpbox for all</td>
-            <td>Multi-tenant isolation violated, credential management chaos</td>
-        </tr>
-        <tr>
-            <td>VPN per tenant</td>
-            <td>Massive operational overhead, not self-service</td>
-        </tr>
-    </table>
-    <p style="margin-bottom: 0;"><strong>Result:</strong> Bastion/Jumpbox is for platform team administration only. Tenants interact via API.</p>
-</div>
-
-<h3>AVM Module Requirement</h3>
-
-<p>Because all management must be IaC-based, <strong>only services with Azure Verified Modules (AVM) are supported</strong>.</p>
-
-<div class="card" style="border-left-color: var(--bc-blue);">
-    <h4 style="margin-top: 0;">Supported AVM Modules</h4>
-    <div class="grid grid-3" style="font-size: 0.85rem;">
-        <div>
-            <strong>AI Services:</strong>
-            <ul style="margin: 0.25rem 0;">
-                <li>cognitiveservices-account</li>
-                <li>machinelearningservices-workspace</li>
-                <li>search-searchservice</li>
-            </ul>
-        </div>
-        <div>
-            <strong>Data:</strong>
-            <ul style="margin: 0.25rem 0;">
-                <li>storage-storageaccount</li>
-                <li>documentdb-databaseaccount</li>
-                <li>keyvault-vault</li>
-            </ul>
-        </div>
-        <div>
-            <strong>Compute:</strong>
-            <ul style="margin: 0.25rem 0;">
-                <li>containerservice-managedcluster</li>
-                <li>containerregistry-registry</li>
-                <li>apimanagement-service</li>
-            </ul>
-        </div>
-    </div>
-    <p style="margin-bottom: 0; margin-top: 0.5rem;"><strong>Full catalog:</strong> <a href="https://azure.github.io/Azure-Verified-Modules/indexes/terraform/">azure.github.io/Azure-Verified-Modules</a></p>
-</div>
-
-<h3>Consequences</h3>
-
-<h4>Positive</h4>
-<ul>
-    <li><strong>Policy compliant</strong> - No public endpoints ever exposed</li>
-    <li><strong>Reproducible</strong> - All infrastructure is code, auditable, version controlled</li>
-    <li><strong>Scalable</strong> - Onboard 100 tenants with same process as 1</li>
-    <li><strong>Secure</strong> - No browser-based attack surface</li>
-</ul>
-
-<h4>Negative</h4>
-<ul>
-    <li><strong>Steeper learning curve</strong> - Tenants must use IaC, not click-ops</li>
-    <li><strong>No visual management</strong> - Can't "see" resources in Portal</li>
-    <li><strong>Debugging harder</strong> - Must use CLI/API, not browser dev tools</li>
-    <li><strong>Microsoft disconnect</strong> - Their guidance assumes UI access</li>
-</ul>
-
-<h3>References</h3>
-<ul>
-    <li><a href="diagrams.html#ms-vs-bcgov">Microsoft vs BC Gov Comparison Diagram</a></li>
-    <li><a href="diagrams.html#whats-included">What's Included / Not Included Infographic</a></li>
-    <li><a href="https://azure.github.io/Azure-Verified-Modules/">Azure Verified Modules Catalog</a></li>
-</ul>
-
-</div>
-</details>
-
-<!-- ADR-009 -->
-<details class="adr pending" id="adr-009">
-<summary>
-    <span class="adr-title">ADR-009: Why AI Landing Zone vs Custom Solution</span>
-    <span class="adr-status"><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></span>
-</summary>
-<div class="adr-content">
-
-<div class="grid grid-4" style="margin-bottom: 1rem;">
-    <div><strong>Status:</strong> <span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></div>
-    <div><strong>Date:</strong> 2025-12</div>
-    <div><strong>Driver:</strong> <span class="badge" style="background:#22c55e;color:white;">Choice</span></div>
-    <div><strong>Category:</strong> Architecture</div>
-</div>
-
-<h3>Context</h3>
-
-<p>A valid question arises: <strong>If we're customizing everything for BC Gov requirements anyway, why use Microsoft's AI Landing Zone at all? Why not just build our own custom solution from scratch?</strong></p>
-
-<p>This ADR explains what value the AI Landing Zone and Azure Verified Modules (AVM) actually provide, even when we can't use Microsoft's default assumptions.</p>
-
-<h3>What AI Landing Zone Actually Provides</h3>
-
-<div class="alert alert-info">
-    <span class="alert-icon">💡</span>
-    <div>
-        <strong>Key Insight:</strong> We're not using Microsoft's AI Landing Zone as a turnkey solution. We're using it as a <strong>reference architecture</strong> and leveraging the <strong>Azure Verified Modules (AVM)</strong> it's built on. The value is in the tested, maintained, modular components - not the out-of-box configuration.
-    </div>
-</div>
-
-<h3>The Real Value: AVM Modules</h3>
-
-<div class="grid grid-2">
-    <div class="card" style="border-left-color: #ef4444;">
-        <h4 style="margin-top: 0; color: #ef4444;">Building From Scratch</h4>
-        <p>If we wrote our own Terraform modules:</p>
-        <ul style="margin-bottom: 0;">
-            <li>Write 1000+ lines of Terraform per service</li>
-            <li>Handle every Azure API change ourselves</li>
-            <li>Debug edge cases Microsoft already solved</li>
-            <li>Maintain security patches ourselves</li>
-            <li>No community validation or review</li>
-            <li>Reinvent private endpoint patterns</li>
-            <li>Figure out RBAC configurations</li>
-            <li>Test against every Azure region</li>
-        </ul>
-    </div>
-    <div class="card" style="border-left-color: #22c55e;">
-        <h4 style="margin-top: 0; color: #22c55e;">Using AVM Modules</h4>
-        <p>With Azure Verified Modules:</p>
-        <ul style="margin-bottom: 0;">
-            <li>~50 lines of Terraform to deploy a service</li>
-            <li>Microsoft maintains API compatibility</li>
-            <li>Edge cases handled by module maintainers</li>
-            <li>Security updates pushed automatically</li>
-            <li>Community tested, Microsoft validated</li>
-            <li>Private endpoint patterns built-in</li>
-            <li>RBAC best practices included</li>
-            <li>Tested across all Azure regions</li>
-        </ul>
-    </div>
-</div>
-
-<h3>What We Get From AI Landing Zone Reference</h3>
-
-<table>
-    <tr>
-        <th>Component</th>
-        <th>What Microsoft Provides</th>
-        <th>What We Customize</th>
-    </tr>
-    <tr>
-        <td><strong>Network Topology</strong></td>
-        <td>Hub-spoke pattern, subnet sizing guidance, NSG rule templates</td>
-        <td>IP ranges, Canada regions, Platform Services DNS integration</td>
-    </tr>
-    <tr>
-        <td><strong>AI Foundry Setup</strong></td>
-        <td>AVM module for workspace, project structure, compute patterns</td>
-        <td>Disable public access, multi-tenant project isolation</td>
-    </tr>
-    <tr>
-        <td><strong>Private Endpoints</strong></td>
-        <td>Patterns for connecting services privately, DNS zone integration</td>
-        <td>Link to Platform Services DNS, IP allocation per tenant</td>
-    </tr>
-    <tr>
-        <td><strong>APIM Integration</strong></td>
-        <td>AVM module, backend pool patterns, policy templates</td>
-        <td>Subscription per tenant, OpenAPI routing, rate limits</td>
-    </tr>
-    <tr>
-        <td><strong>Security Baseline</strong></td>
-        <td>RBAC templates, managed identity patterns, Key Vault integration</td>
-        <td>BC Gov RBAC requirements, ministry-level isolation</td>
-    </tr>
-</table>
-
-<h3>AVM Module Maturity - Honest Assessment</h3>
-
-<div class="alert alert-warning">
-    <span class="alert-icon">⚠️</span>
-    <div>
-        <strong>Important:</strong> Not all AVM modules are equally mature. AI Foundry modules are newer and still evolving. We must be realistic about what's production-ready vs what's in development.
-    </div>
-</div>
-
-<table>
-    <tr>
-        <th>Module</th>
-        <th>Status</th>
-        <th>Maturity</th>
-        <th>Notes</th>
-    </tr>
-    <tr>
-        <td><code>avm-res-storage-storageaccount</code></td>
-        <td><span class="badge" style="background:#22c55e;color:white;">Released</span></td>
-        <td>Production Ready</td>
-        <td>Mature, well-tested</td>
-    </tr>
-    <tr>
-        <td><code>avm-res-keyvault-vault</code></td>
-        <td><span class="badge" style="background:#22c55e;color:white;">Released</span></td>
-        <td>Production Ready</td>
-        <td>Mature, well-tested</td>
-    </tr>
-    <tr>
-        <td><code>avm-res-network-virtualnetwork</code></td>
-        <td><span class="badge" style="background:#22c55e;color:white;">Released</span></td>
-        <td>Production Ready</td>
-        <td>Mature, well-tested</td>
-    </tr>
-    <tr>
-        <td><code>avm-res-network-applicationgateway</code></td>
-        <td><span class="badge" style="background:#22c55e;color:white;">Released</span></td>
-        <td>Production Ready</td>
-        <td>Mature, well-tested</td>
-    </tr>
-    <tr>
-        <td><code>avm-res-network-bastionhost</code></td>
-        <td><span class="badge" style="background:#22c55e;color:white;">Released</span></td>
-        <td>Production Ready</td>
-        <td>Mature, well-tested</td>
-    </tr>
-    <tr>
-        <td><code>avm-res-documentdb-databaseaccount</code></td>
-        <td><span class="badge" style="background:#22c55e;color:white;">Released</span></td>
-        <td>Production Ready</td>
-        <td>Cosmos DB - mature</td>
-    </tr>
-    <tr>
-        <td><code>avm-res-apimanagement-service</code></td>
-        <td><span class="badge" style="background:#f59e0b;color:white;">Pending</span></td>
-        <td>Early Release</td>
-        <td>v0.0.5 - may need custom work</td>
-    </tr>
-    <tr>
-        <td><code>avm-res-cognitiveservices-account</code></td>
-        <td><span class="badge" style="background:#f59e0b;color:white;">Pending</span></td>
-        <td>Maturing</td>
-        <td>OpenAI, Doc Intel - verify features</td>
-    </tr>
-    <tr>
-        <td><code>avm-res-search-searchservice</code></td>
-        <td><span class="badge" style="background:#f59e0b;color:white;">Pending</span></td>
-        <td>Maturing</td>
-        <td>AI Search - verify private EP support</td>
-    </tr>
-    <tr>
-        <td><code>avm-res-machinelearningservices-workspace</code></td>
-        <td><span class="badge" style="background:#f59e0b;color:white;">Pending</span></td>
-        <td>Maturing</td>
-        <td>Core resource for Foundry Hub/Project</td>
-    </tr>
-    <tr>
-        <td><code>avm-ptn-aiml-ai-foundry</code></td>
-        <td><span class="badge" style="background:#ef4444;color:white;">In Development</span></td>
-        <td>Not Production Ready</td>
-        <td>Pattern module - active development</td>
-    </tr>
-    <tr>
-        <td><code>avm-ptn-ai-foundry-enterprise</code></td>
-        <td><span class="badge" style="background:#666;color:white;">Archived</span></td>
-        <td>Abandoned</td>
-        <td>Was archived July 2025 - do not use</td>
-    </tr>
-    <tr>
-        <td><code>avm-res-containerservice-managedcluster</code></td>
-        <td><span class="badge" style="background:#f59e0b;color:white;">Pending</span></td>
-        <td>Pre-release</td>
-        <td>AKS - v0.4.0-pre2</td>
-    </tr>
-</table>
-
-<h4>What This Means</h4>
-
-<div class="grid grid-2">
-    <div class="card" style="border-left-color: #22c55e;">
-        <h4 style="margin-top: 0; color: #22c55e;">Safe to Use AVM</h4>
-        <ul style="margin-bottom: 0;">
-            <li>Virtual Networks, Subnets, NSGs</li>
-            <li>Storage Accounts</li>
-            <li>Key Vault</li>
-            <li>Bastion Host</li>
-            <li>App Gateway</li>
-            <li>Cosmos DB</li>
-        </ul>
-    </div>
-    <div class="card" style="border-left-color: #f59e0b;">
-        <h4 style="margin-top: 0; color: #f59e0b;">Evaluate / May Need Custom</h4>
-        <ul style="margin-bottom: 0;">
-            <li>AI Foundry (use resource module, not pattern)</li>
-            <li>APIM (early version, test thoroughly)</li>
-            <li>Cognitive Services (verify private EP)</li>
-            <li>AI Search (verify features needed)</li>
-            <li>AKS (pre-release)</li>
-        </ul>
-    </div>
-</div>
-
-<div class="alert alert-info" style="margin-top: 1rem;">
-    <span class="alert-icon">💡</span>
-    <div>
-        <strong>Our Strategy:</strong> Use mature AVM modules for infrastructure (networking, storage, security). For AI Foundry, start with the core <code>machinelearningservices-workspace</code> resource module rather than the pattern modules. Be prepared to write custom Terraform for AI-specific configurations that AVM doesn't yet support.
-    </div>
-</div>
-
-<h3>Concrete Example: Storage Account</h3>
-
-<div class="card" style="border-left-color: var(--bc-blue);">
-    <h4 style="margin-top: 0;">Without AVM (Custom from scratch)</h4>
-    <pre style="background: #1e1e1e; font-size: 11px; margin: 0;">
-# ~200 lines of Terraform to handle:
-resource "azurerm_storage_account" "main" { ... }
-resource "azurerm_storage_account_network_rules" "main" { ... }
-resource "azurerm_private_endpoint" "blob" { ... }
-resource "azurerm_private_endpoint" "file" { ... }
-resource "azurerm_private_endpoint" "queue" { ... }
-resource "azurerm_private_dns_zone_virtual_network_link" "blob" { ... }
-resource "azurerm_role_assignment" "contributor" { ... }
-resource "azurerm_role_assignment" "reader" { ... }
-resource "azurerm_monitor_diagnostic_setting" "main" { ... }
-# Plus encryption, lifecycle policies, soft delete, versioning...
-# Plus handling for every Azure API version change...
-    </pre>
-</div>
-
-<div class="card" style="border-left-color: #22c55e; margin-top: 1rem;">
-    <h4 style="margin-top: 0;">With AVM Module</h4>
-    <pre style="background: #1e1e1e; font-size: 11px; margin: 0;">
-module "storage" {
-  source  = "Azure/avm-res-storage-storageaccount/azurerm"
-  version = "0.6.7"
-
-  name                = "ministryhealthstorage"
-  resource_group_name = azurerm_resource_group.ministry.name
-  location            = "canadacentral"
-
-  # Private endpoints - one line enables the pattern
-  private_endpoints = {
-    blob = { subnet_id = module.network.subnet_ids["private-endpoints"] }
-  }
-
-  # All the security, RBAC, monitoring handled by module
-  tags = var.common_tags
-}
-    </pre>
-    <p style="margin-bottom: 0;"><strong>Result:</strong> Same outcome, 10x less code, maintained by Microsoft.</p>
-</div>
-
-<h3>Why Not 100% Custom?</h3>
-
-<div class="grid grid-2">
-    <div class="card" style="border-left-color: #f59e0b;">
-        <h4 style="margin-top: 0;">Custom = Maintenance Burden</h4>
-        <ul style="margin-bottom: 0;">
-            <li>Azure releases ~100 API changes/month</li>
-            <li>Each change could break custom modules</li>
-            <li>Security vulnerabilities need patching</li>
-            <li>New features require manual implementation</li>
-            <li>Team turnover = knowledge loss</li>
-            <li><strong>Who maintains this in 3 years?</strong></li>
-        </ul>
-    </div>
-    <div class="card" style="border-left-color: #22c55e;">
-        <h4 style="margin-top: 0;">AVM = Shared Maintenance</h4>
-        <ul style="margin-bottom: 0;">
-            <li>Microsoft + community maintain modules</li>
-            <li>API changes handled upstream</li>
-            <li>Security patches published as versions</li>
-            <li>New features added automatically</li>
-            <li>Documentation maintained centrally</li>
-            <li><strong>Sustainable long-term</strong></li>
-        </ul>
-    </div>
-</div>
-
-<h3>What We're Actually Doing</h3>
-
-<div class="card" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left-color: #22c55e;">
-    <h4 style="margin-top: 0; color: #166534;">Our Approach: AVM + BC Gov Customization Layer</h4>
-    <pre style="background: #1e1e1e; font-size: 12px; margin: 0.5rem 0;">
-┌─────────────────────────────────────────────────────────────────────┐
-│                    BC Gov AI Hub Architecture                        │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                      │
-│   ┌─────────────────────────────────────────────────────────────┐   │
-│   │  BC Gov Customization Layer (Our Code)                      │   │
-│   │  • Multi-tenant resource group structure                    │   │
-│   │  • APIM subscription per ministry                           │   │
-│   │  • IP allocation policies                                   │   │
-│   │  • Platform Services DNS integration                        │   │
-│   │  • Canada data residency enforcement                        │   │
-│   └─────────────────────────────────────────────────────────────┘   │
-│                              │                                       │
-│                              ▼                                       │
-│   ┌─────────────────────────────────────────────────────────────┐   │
-│   │  Azure Verified Modules (Microsoft Maintained)              │   │
-│   │  • avm-res-cognitiveservices-account                        │   │
-│   │  • avm-res-machinelearningservices-workspace                │   │
-│   │  • avm-res-storage-storageaccount                           │   │
-│   │  • avm-res-network-virtualnetwork                           │   │
-│   │  • avm-res-apimanagement-service                            │   │
-│   │  • ... 100+ more modules                                    │   │
-│   └─────────────────────────────────────────────────────────────┘   │
-│                              │                                       │
-│                              ▼                                       │
-│   ┌─────────────────────────────────────────────────────────────┐   │
-│   │  Azure Resource Manager APIs                                │   │
-│   └─────────────────────────────────────────────────────────────┘   │
-│                                                                      │
-└─────────────────────────────────────────────────────────────────────┘
-    </pre>
-    <p style="margin-bottom: 0;"><strong>We write the thin customization layer. Microsoft maintains the heavy lifting.</strong></p>
-</div>
-
-<h3>Decision</h3>
-
-<p><strong>We use AI Landing Zone reference architecture and AVM modules as our foundation, with a BC Gov customization layer on top.</strong></p>
-
-<p>We do NOT use Microsoft's default configuration. We use their:</p>
-<ul>
-    <li><strong>Reference patterns</strong> - How to wire services together</li>
-    <li><strong>AVM modules</strong> - Tested, maintained infrastructure components</li>
-    <li><strong>Best practices</strong> - Security, networking, RBAC patterns</li>
-</ul>
-
-<h3>Consequences</h3>
-
-<h4>Positive</h4>
-<ul>
-    <li><strong>Reduced maintenance</strong> - Microsoft maintains 90% of the code</li>
-    <li><strong>Faster development</strong> - Use proven patterns instead of inventing</li>
-    <li><strong>Security updates</strong> - Get patches via module version bumps</li>
-    <li><strong>Community support</strong> - Issues/bugs reported and fixed by others</li>
-    <li><strong>Audit trail</strong> - Using "official" modules helps with compliance</li>
-</ul>
-
-<h4>Negative</h4>
-<ul>
-    <li><strong>Module constraints</strong> - Can only do what AVM modules support</li>
-    <li><strong>Version management</strong> - Must track and update module versions</li>
-    <li><strong>Abstraction leakage</strong> - Sometimes need to understand module internals</li>
-</ul>
-
-<h3>References</h3>
-<ul>
-    <li><a href="https://azure.github.io/Azure-Verified-Modules/">Azure Verified Modules (AVM)</a></li>
-    <li><a href="https://github.com/Azure/terraform-azurerm-avm-ptn-aiml-landing-zone">AI/ML Landing Zone Pattern Module</a></li>
-    <li><a href="https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/">Azure Landing Zone Concepts</a></li>
-    <li><a href="diagrams.html#architecture-layers">Architecture Layers Diagram</a></li>
-</ul>
-
-</div>
-</details>
 
 <h2>ADR Template</h2>
 
