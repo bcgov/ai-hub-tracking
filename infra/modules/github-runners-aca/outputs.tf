@@ -33,6 +33,6 @@ output "container_registry_login_server" {
 }
 
 output "runner_label" {
-  description = "The label to use in workflow runs-on to target these runners"
-  value       = var.enabled ? "self-hosted-aca-${var.github_repository}" : null
+  description = "The label to use in workflow runs-on to target these runners (use just 'self-hosted' for AVM-based runners)"
+  value       = "self-hosted"
 }

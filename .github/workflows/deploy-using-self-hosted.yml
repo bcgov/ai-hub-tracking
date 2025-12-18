@@ -25,9 +25,7 @@ jobs:
   deploy:
     name: Deploy via Self-Hosted Runner
     # Runners auto-scale from 0 - first job may take ~60-90s to spin up
-    runs-on:
-      - self-hosted
-      - self-hosted-aca-${{ github.event.repository.name }}
+    runs-on: self-hosted
     environment: ${{ inputs.environment_name }}
     steps:
       - name: Checkout
