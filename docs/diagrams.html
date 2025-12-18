@@ -1049,8 +1049,57 @@
     </div>
 </div>
 
+<h3 style="color: #ef4444; margin-top: 1.5rem;">Stakeholder Infographics (Share These!)</h3>
+<div class="diagram-gallery">
+    <div class="diagram-card" onclick="loadDiagram('tenant-rg-model', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/tenant-resource-group-model.svg" alt="Tenant RG Model Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>Tenant Resource Group Model</h4>
+            <p>One-pager: Per-ministry RG structure, IP allocation, AVM modules, what's included</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('ms-vs-bcgov', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/microsoft-vs-bcgov-comparison.svg" alt="MS vs BC Gov Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>Microsoft vs BC Gov</h4>
+            <p>Side-by-side: What Microsoft assumes vs what BC Gov requires</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('whats-included', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/whats-included-scope.svg" alt="Scope Infographic Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>What's Included / Not</h4>
+            <p>Included, conditional, and out-of-scope services with IP budget guide</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('ip-budget', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/ip-budget-breakdown.svg" alt="IP Budget Breakdown Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>IP Budget Breakdown</h4>
+            <p>Detailed IP allocation: base infrastructure, per-tenant consumption, 50 IP calculation</p>
+        </div>
+    </div>
+</div>
+
 <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Network & Infrastructure</h3>
 <div class="diagram-gallery">
+    <div class="diagram-card" onclick="loadDiagram('network-detailed', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/networking-architecture-detailed.svg" alt="Networking Architecture Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>Networking Architecture (Detailed)</h4>
+            <p>Complete network diagram: VNets, subnets, NSGs, traffic flow, private endpoints, IP budgets</p>
+        </div>
+    </div>
     <div class="diagram-card" onclick="loadDiagram('network-environments', this)">
         <div class="diagram-card-preview">
             <img src="assets/network-environments.svg" alt="Network Environments Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
@@ -1308,6 +1357,23 @@ const diagrams = {
         title: 'Full Stack Architecture (BC Gov Adapted)',
         src: 'assets/full-stack-architecture.svg'
     },
+    // Stakeholder Infographics (NEW)
+    'tenant-rg-model': {
+        title: 'Tenant Resource Group Model',
+        src: 'assets/tenant-resource-group-model.svg'
+    },
+    'ms-vs-bcgov': {
+        title: 'Microsoft vs BC Gov Comparison',
+        src: 'assets/microsoft-vs-bcgov-comparison.svg'
+    },
+    'whats-included': {
+        title: 'What\'s Included / Not Included',
+        src: 'assets/whats-included-scope.svg'
+    },
+    'ip-budget': {
+        title: 'IP Budget Breakdown',
+        src: 'assets/ip-budget-breakdown.svg'
+    },
     // Authentication
     'oidc-complete': {
         title: 'OIDC Complete Guide',
@@ -1318,6 +1384,10 @@ const diagrams = {
         src: 'assets/token-flow.svg'
     },
     // Networking
+    'network-detailed': {
+        title: 'Networking Architecture (Detailed)',
+        src: 'assets/networking-architecture-detailed.svg'
+    },
     'network-arch': {
         title: 'Network Architecture',
         src: 'assets/network-architecture.svg'
