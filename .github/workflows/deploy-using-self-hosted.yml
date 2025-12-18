@@ -47,6 +47,7 @@ jobs:
 
       - name: Terraform Init and Apply
         shell: bash
+        working-directory: ./infra-ai-hub
         env:
           CI: "true"
           ARM_USE_OIDC: "true"
