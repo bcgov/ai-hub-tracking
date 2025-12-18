@@ -493,6 +493,90 @@
             color: var(--white);
         }
 
+        /* Accordion / Collapsible */
+        details {
+            background: var(--white);
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+            box-shadow: var(--shadow-sm);
+            border-left: 4px solid var(--bc-blue);
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        details:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        details[open] {
+            border-left-color: var(--bc-gold);
+        }
+
+        summary {
+            padding: 1rem 1.25rem;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--bc-blue);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            list-style: none;
+            user-select: none;
+            transition: var(--transition);
+        }
+
+        summary::-webkit-details-marker {
+            display: none;
+        }
+
+        summary::after {
+            content: '';
+            border: solid var(--bc-blue-light);
+            border-width: 0 2px 2px 0;
+            display: inline-block;
+            padding: 4px;
+            transform: rotate(-45deg);
+            transition: transform 0.2s ease;
+            flex-shrink: 0;
+            margin-left: 1rem;
+        }
+
+        details[open] summary::after {
+            transform: rotate(45deg);
+        }
+
+        summary:hover {
+            background: var(--bg-light);
+        }
+
+        details[open] summary {
+            border-bottom: 1px solid #e2e8f0;
+            background: var(--bg-light);
+        }
+
+        .accordion-content {
+            padding: 1rem 1.25rem;
+        }
+
+        .accordion-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Accordion with badge */
+        summary .badge {
+            margin-left: auto;
+            margin-right: 1rem;
+        }
+
+        /* Accordion group */
+        .accordion-group {
+            margin: 1rem 0;
+        }
+
+        .accordion-group details:last-child {
+            margin-bottom: 0;
+        }
+
         /* Footer */
         .site-footer {
             background: var(--bc-blue);
@@ -642,6 +726,8 @@
         </nav>
     </header>
     <main>
+<!-- TITLE: Terraform Modules -->
+<!-- NAV: terraform -->
 
 <h1>Terraform Modules</h1>
 

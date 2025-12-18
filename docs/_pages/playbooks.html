@@ -6,7 +6,9 @@
 <p>Step-by-step procedures for common operational scenarios, troubleshooting, and disaster recovery. These runbooks help operators respond quickly to issues.</p>
 
 <div class="alert alert-warning">
-    <span class="alert-icon">⚠️</span>
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
     <div>
         <strong>Before You Begin</strong><br>
         Ensure you have the required permissions and have read the relevant documentation. When in doubt, escalate to the platform team.
@@ -18,7 +20,9 @@
 <div class="grid grid-3">
     <a href="#state-lock" class="card-link">
         <div class="card" style="border-left-color: #ef4444;">
-            <div class="feature-icon" style="background: rgba(239, 68, 68, 0.1);">🔒</div>
+            <div class="feature-icon" style="background: rgba(239, 68, 68, 0.1);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
             <h3 style="margin-top: 0;">State Lock Stuck</h3>
             <p>Terraform state is locked and won't release</p>
             <div class="card-arrow">View Playbook →</div>
@@ -26,7 +30,9 @@
     </a>
     <a href="#oidc-failure" class="card-link">
         <div class="card" style="border-left-color: #f97316;">
-            <div class="feature-icon" style="background: rgba(249, 115, 22, 0.1);">🔐</div>
+            <div class="feature-icon" style="background: rgba(249, 115, 22, 0.1);">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            </div>
             <h3 style="margin-top: 0;">OIDC Auth Failing</h3>
             <p>Token exchange errors between GitHub and Azure</p>
             <div class="card-arrow">View Playbook →</div>
@@ -34,7 +40,9 @@
     </a>
     <a href="#rollback" class="card-link">
         <div class="card" style="border-left-color: #8b5cf6;">
-            <div class="feature-icon purple">⏪</div>
+            <div class="feature-icon purple">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--bc-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h12a5 5 0 0 1 5 5v5"/></svg>
+            </div>
             <h3 style="margin-top: 0;">Rollback Deployment</h3>
             <p>Revert to a previous known-good state</p>
             <div class="card-arrow">View Playbook →</div>
@@ -42,7 +50,9 @@
     </a>
     <a href="#credential-rotation" class="card-link">
         <div class="card" style="border-left-color: #22c55e;">
-            <div class="feature-icon green">🔄</div>
+            <div class="feature-icon green">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
+            </div>
             <h3 style="margin-top: 0;">Rotate Credentials</h3>
             <p>Update federated credentials if compromised</p>
             <div class="card-arrow">View Playbook →</div>
@@ -50,7 +60,9 @@
     </a>
     <a href="#bastion-access" class="card-link">
         <div class="card" style="border-left-color: #0ea5e9;">
-            <div class="feature-icon blue">🖥️</div>
+            <div class="feature-icon blue">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+            </div>
             <h3 style="margin-top: 0;">Bastion Access Issues</h3>
             <p>Cannot connect to VMs via Bastion</p>
             <div class="card-arrow">View Playbook →</div>
@@ -58,7 +70,9 @@
     </a>
     <a href="#pipeline-stuck" class="card-link">
         <div class="card" style="border-left-color: #fcba19;">
-            <div class="feature-icon gold">⏸️</div>
+            <div class="feature-icon gold">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            </div>
             <h3 style="margin-top: 0;">Pipeline Stuck</h3>
             <p>GitHub Actions workflow hanging or failing</p>
             <div class="card-arrow">View Playbook →</div>
