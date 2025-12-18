@@ -50,3 +50,17 @@ module "jumpbox" {
   subnet_id           = module.network.jumpbox_subnet_id
   depends_on          = [module.network]
 }
+
+module "self_hosted_runner_vm" {
+  source = "./modules/self-hosted-runner-vm"
+
+  enabled              = var.self_hosted_runner_vm_enabled
+  app_name             = var.app_name
+  common_tags          = var.common_tags
+  location             = var.location
+  resource_group_name  = azurerm_resource_group.main.name
+  subnet_id            = module.network.jumpbox_subnet_id
+  ubuntu_image_version = var.self_hosted_runner_vm_ubuntu_image_version
+
+  depends_on = [module.network]
+}

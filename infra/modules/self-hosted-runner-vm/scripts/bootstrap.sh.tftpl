@@ -1,0 +1,69 @@
+#!/bin/bash
+set -euo pipefail
+exec > /var/log/cloud-init-gha-runner-bootstrap.log 2>&1
+
+echo "Bootstrap started at $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
+
+echo "Installing base packages..."
+apt-get update
+DEBIAN_FRONTEND=noninteractive apt-get install -y \
+  ca-certificates \
+  curl \
+  git \
+  jq \
+  unzip \
+  tar \
+  gzip \
+  python3 \
+  python3-pip \
+  python3-venv
+
+echo "Creating runner user..."
+if ! id -u runner >/dev/null 2>&1; then
+  useradd -m -s /bin/bash runner
+fi
+
+echo "Installing pinned CLIs (Terraform, kubectl, helm, gh, az)..."
+
+# Terraform
+curl -fsSL -o /tmp/terraform.zip "https://releases.hashicorp.com/terraform/${terraform_version}/terraform_${terraform_version}_linux_amd64.zip"
+unzip -o /tmp/terraform.zip -d /usr/local/bin
+chmod 0755 /usr/local/bin/terraform
+rm -f /tmp/terraform.zip
+
+# kubectl
+curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/v${kubectl_version}/bin/linux/amd64/kubectl"
+chmod 0755 /usr/local/bin/kubectl
+
+# helm
+curl -fsSL -o /tmp/helm.tgz "https://get.helm.sh/helm-v${helm_version}-linux-amd64.tar.gz"
+tar -xzf /tmp/helm.tgz -C /tmp
+mv /tmp/linux-amd64/helm /usr/local/bin/helm
+chmod 0755 /usr/local/bin/helm
+rm -rf /tmp/helm.tgz /tmp/linux-amd64
+
+# gh (GitHub CLI)
+curl -fsSL -o /tmp/gh.tgz "https://github.com/cli/cli/releases/download/v${gh_cli_version}/gh_${gh_cli_version}_linux_amd64.tar.gz"
+tar -xzf /tmp/gh.tgz -C /tmp
+mv "/tmp/gh_${gh_cli_version}_linux_amd64/bin/gh" /usr/local/bin/gh
+chmod 0755 /usr/local/bin/gh
+rm -rf /tmp/gh.tgz "/tmp/gh_${gh_cli_version}_linux_amd64"
+
+# Azure CLI (pip)
+# NOTE: Installing via system pip can be brittle across Python updates.
+# Use an isolated install via pipx while keeping version pinning.
+python3 -m pip install --no-cache-dir --upgrade pipx
+export PIPX_HOME=/opt/pipx
+export PIPX_BIN_DIR=/usr/local/bin
+pipx install --force "azure-cli==${azure_cli_version}"
+
+echo "Preparing actions runner directory and helper scripts..."
+install -d -m 0755 -o runner -g runner /opt/actions-runner
+
+cat >/opt/actions-runner/register-and-start.sh <<'SCRIPT'
+${register_and_start_script}
+SCRIPT
+
+chmod 0755 /opt/actions-runner/register-and-start.sh
+
+echo "Bootstrap complete at $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
