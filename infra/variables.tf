@@ -59,15 +59,3 @@ variable "client_id" {
   type        = string
   sensitive   = true
 }
-
-variable "self_hosted_runner_vm_enabled" {
-  description = "Enable provisioning of the ephemeral self-hosted runner VM (used by GitHub Actions)"
-  type        = bool
-  default     = false
-}
-
-variable "self_hosted_runner_vm_ubuntu_image_version" {
-  description = "Ubuntu 24.04 image version for the ephemeral runner VM. Use a specific version for reproducibility (default: latest)."
-  type        = string
-  default     = "latest"
-}
