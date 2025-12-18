@@ -92,17 +92,43 @@ variable "github_runner_pat" {
 variable "github_runners_container_cpu" {
   description = "CPU cores for each runner container"
   type        = number
-  default     = 2
+  default     = 1
 }
 
 variable "github_runners_container_memory" {
   description = "Memory for each runner container (e.g., '4Gi')"
   type        = string
-  default     = "4Gi"
+  default     = "8Gi"
 }
 
 variable "github_runners_max_count" {
   description = "Maximum number of concurrent runners"
   type        = number
-  default     = 10
+  default     = 1
+}
+
+variable "github_runners_log_analytics_workspace_creation_enabled" {
+  description = "Whether the GitHub runners module should create a Log Analytics workspace"
+  type        = bool
+  default     = true
+}
+
+variable "github_runners_log_analytics_workspace_id" {
+  description = "Existing Log Analytics workspace ID to use when workspace creation is disabled"
+  type        = string
+  default     = null
+  nullable    = true
+}
+
+
+variable "log_analytics_retention_days" {
+  description = "Number of days to retain data in Log Analytics Workspace"
+  type        = number
+  default     = 30
+}
+
+variable "log_analytics_sku" {
+  description = "SKU for Log Analytics Workspace"
+  type        = string
+  default     = "PerGB2018"
 }

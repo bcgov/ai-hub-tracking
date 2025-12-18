@@ -1,0 +1,1 @@
+# This specific folder is for infra which will be deployed by self hosted runner which runs within vnet.

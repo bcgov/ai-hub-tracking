@@ -68,6 +68,7 @@ variable "private_endpoint_subnet_id" {
   type        = string
 }
 
+
 # -----------------------------------------------------------------------------
 # Container Configuration
 # -----------------------------------------------------------------------------
@@ -75,17 +76,34 @@ variable "private_endpoint_subnet_id" {
 variable "container_cpu" {
   description = "CPU cores for each runner container (e.g., 1, 2, 4)"
   type        = number
-  default     = 2
+  default     = 4
 }
 
 variable "container_memory" {
   description = "Memory for each runner container (e.g., '4Gi')"
   type        = string
-  default     = "4Gi"
+  default     = "8Gi"
 }
 
 variable "max_runners" {
   description = "Maximum number of concurrent runners"
   type        = number
-  default     = 10
+  default     = 1
+}
+
+# -----------------------------------------------------------------------------
+# Monitoring (Log Analytics)
+# -----------------------------------------------------------------------------
+
+variable "log_analytics_workspace_creation_enabled" {
+  description = "Whether the AVM runner module should create a Log Analytics workspace"
+  type        = bool
+  default     = true
+}
+
+variable "log_analytics_workspace_id" {
+  description = "Existing Log Analytics workspace ID to use when creation is disabled"
+  type        = string
+  default     = null
+  nullable    = true
 }

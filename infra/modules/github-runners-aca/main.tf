@@ -54,16 +54,14 @@ module "github_runners" {
   container_app_container_memory = var.container_memory
 
   # Scaling configuration
-  container_app_min_execution_count      = 0 # Scale to zero when idle
+  container_app_min_execution_count      = 1 # Scale to zero when idle
   container_app_max_execution_count      = var.max_runners
-  container_app_polling_interval_seconds = 30
-  container_app_replica_timeout          = 1800 # 30 minutes max job time
+  container_app_polling_interval_seconds = 10
+  container_app_replica_timeout          = 3600 # 60 minutes max job time
 
-  # Log Analytics - create new one for runner logs
-  log_analytics_workspace_creation_enabled  = true
-  log_analytics_workspace_retention_in_days = 30
+  log_analytics_workspace_creation_enabled = var.log_analytics_workspace_creation_enabled
+  log_analytics_workspace_id               = var.log_analytics_workspace_creation_enabled ? null : var.log_analytics_workspace_id
 
-  # Disable NAT Gateway and Public IP (using existing network infrastructure)
   nat_gateway_creation_enabled = false
   public_ip_creation_enabled   = false
 
