@@ -93,9 +93,9 @@ resource "azurerm_linux_virtual_machine" "runner" {
       helm_version      = var.helm_version
       gh_cli_version    = var.gh_cli_version
       azure_cli_version = var.azure_cli_version
-      register_and_start_script = templatefile("${path.module}/scripts/register-and-start.sh.tftpl", {
+      register_and_start_script_b64 = base64encode(templatefile("${path.module}/scripts/register-and-start.sh.tftpl", {
         github_actions_runner_version = var.github_actions_runner_version
-      })
+      }))
     })
   )
 

@@ -1,6 +1,6 @@
 #cloud-config
 write_files:
-  - path: /var/lib/gha-runner/bootstrap.sh
+  - path: /usr/local/bin/gha-runner-bootstrap.sh
     owner: root:root
     permissions: '0755'
     content: |
@@ -63,16 +63,21 @@ write_files:
       pipx install --force "azure-cli==${azure_cli_version}"
 
       echo "Preparing actions runner directory and helper scripts..."
+      install -d -m 0755 /var/lib/gha-runner
       install -d -m 0755 -o runner -g runner /opt/actions-runner
 
-      cat >/opt/actions-runner/register-and-start.sh <<'SCRIPT'
-      ${register_and_start_script}
-      SCRIPT
+      REGISTER_AND_START_B64='${register_and_start_script_b64}'
+      if ! command -v base64 >/dev/null 2>&1; then
+        echo "base64 not found; installing coreutils..."
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y coreutils
+      fi
+      printf '%s' "$REGISTER_AND_START_B64" | base64 -d > /opt/actions-runner/register-and-start.sh
 
       chmod 0755 /opt/actions-runner/register-and-start.sh
 
       echo "Bootstrap complete at $(date -u +'%Y-%m-%dT%H:%M:%SZ')"
       touch /var/lib/gha-runner/bootstrap.done
 runcmd:
-  - [ bash, -lc, "/var/lib/gha-runner/bootstrap.sh" ]
+  - [ bash, -lc, "/usr/local/bin/gha-runner-bootstrap.sh" ]
 
