@@ -1,9 +1,6 @@
 name: Ephemeral Self-Hosted Runner (VM)
 
 on:
-  pull_request:
-    branches:
-      - main
   workflow_dispatch:
     inputs:
       environment_name:
@@ -37,7 +34,6 @@ env:
 jobs:
   provision-runner:
     name: Provision + Register Runner VM
-    ## if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     environment: ${{ inputs.environment_name || 'tools' }}
     env:
@@ -83,7 +79,7 @@ jobs:
       - name: Register runner on VM
         shell: bash
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           RUNNER_LABEL: ${{ steps.label.outputs.label }}
         run: |
           set -euo pipefail
@@ -100,17 +96,29 @@ jobs:
           echo "VM_NAME=$VM_NAME" >> "$GITHUB_ENV"
           echo "RG_NAME=$RG_NAME" >> "$GITHUB_ENV"
 
-          # Mint short-lived runner registration token (minutes)
+          # Mint short-lived runner registration token (~1 hour).
+          # If you see HTTP 403 here, the most common causes are:
+          # - Repo/Org setting enforces read-only GITHUB_TOKEN (Settings -> Actions -> General -> Workflow permissions)
+          # - Running this workflow from an untrusted context (e.g. PR from a fork) where the token is restricted
           echo "::add-mask::$GH_TOKEN"
-          REG_TOKEN=$(curl -fsSL -X POST \
+          RESP_FILE=$(mktemp)
+          HTTP_STATUS=$(curl -sS -o "$RESP_FILE" -w "%{http_code}" -X POST \
             -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $GH_TOKEN" \
+            -H "Authorization: token $GH_TOKEN" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runners/registration-token" \
-            | jq -r .token)
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runners/registration-token")
+
+          if [[ "$HTTP_STATUS" != "201" ]]; then
+            echo "GitHub API error: HTTP $HTTP_STATUS while requesting runner registration token" >&2
+            jq -r . "$RESP_FILE" 2>/dev/null || cat "$RESP_FILE" >&2
+            exit 1
+          fi
+
+          REG_TOKEN=$(jq -r .token "$RESP_FILE")
 
           if [[ -z "$REG_TOKEN" || "$REG_TOKEN" == "null" ]]; then
-            echo "Failed to get runner registration token" >&2
+            echo "GitHub API did not return a runner registration token" >&2
+            jq -r . "$RESP_FILE" 2>/dev/null || cat "$RESP_FILE" >&2
             exit 1
           fi
 
@@ -127,7 +135,6 @@ jobs:
   deploy:
     name: Deployment (runs on ephemeral runner)
     needs: provision-runner
-    ## if: github.ref == 'refs/heads/main'
     runs-on:
       - self-hosted
       - ${{ needs.provision-runner.outputs.runner_label }}
