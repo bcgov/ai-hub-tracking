@@ -42,24 +42,24 @@ output "bastion_fqdn" {
   value       = module.bastion.bastion_fqdn
 }
 
-# Ephemeral self-hosted runner VM outputs (used by GitHub Actions)
-output "self_hosted_runner_vm_name" {
-  description = "Name of the ephemeral self-hosted runner VM"
-  value       = module.self_hosted_runner_vm.vm_name
+# GitHub Runners on Azure Container Apps outputs
+output "github_runners_environment_name" {
+  description = "Name of the Container App Environment for GitHub runners"
+  value       = module.github_runners_aca.container_app_environment_name
 }
 
-output "self_hosted_runner_vm_id" {
-  description = "Resource ID of the ephemeral self-hosted runner VM"
-  value       = module.self_hosted_runner_vm.vm_id
+output "github_runners_job_name" {
+  description = "Name of the Container App Job running the GitHub runner"
+  value       = module.github_runners_aca.container_app_job_name
 }
 
-output "self_hosted_runner_vm_resource_group_name" {
-  description = "Resource group name of the ephemeral self-hosted runner VM"
-  value       = module.self_hosted_runner_vm.resource_group_name
+output "github_runners_label" {
+  description = "The label to use in workflow runs-on to target these runners"
+  value       = module.github_runners_aca.runner_label
 }
 
-output "self_hosted_runner_vm_private_ip" {
-  description = "Private IP of the ephemeral self-hosted runner VM"
-  value       = module.self_hosted_runner_vm.private_ip
+output "github_runners_acr_name" {
+  description = "Name of the Azure Container Registry for runner images"
+  value       = module.github_runners_aca.container_registry_name
 }
 

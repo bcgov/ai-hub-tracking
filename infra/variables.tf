@@ -60,14 +60,55 @@ variable "client_id" {
   sensitive   = true
 }
 
-variable "self_hosted_runner_vm_enabled" {
-  description = "Enable provisioning of the ephemeral self-hosted runner VM (used by GitHub Actions)"
+# -----------------------------------------------------------------------------
+# GitHub Runners on Azure Container Apps (AVM-based)
+# -----------------------------------------------------------------------------
+
+variable "github_runners_aca_enabled" {
+  description = "Enable GitHub self-hosted runners on Azure Container Apps"
   type        = bool
   default     = false
 }
 
-variable "self_hosted_runner_vm_ubuntu_image_version" {
-  description = "Ubuntu 24.04 image version for the ephemeral runner VM. Use a specific version for reproducibility (default: latest)."
+variable "github_organization" {
+  description = "GitHub organization name (e.g., 'bcgov')"
   type        = string
-  default     = "latest"
+  default     = ""
+}
+
+variable "github_repository" {
+  description = "GitHub repository name (e.g., 'ai-hub-tracking')"
+  type        = string
+  default     = ""
+}
+
+variable "github_runner_pat" {
+  description = "GitHub Personal Access Token with Administration:write permission for runner registration"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "github_runners_container_cpu" {
+  description = "CPU cores for each runner container"
+  type        = number
+  default     = 2
+}
+
+variable "github_runners_container_memory" {
+  description = "Memory for each runner container (e.g., '4Gi')"
+  type        = string
+  default     = "4Gi"
+}
+
+variable "github_runners_max_count" {
+  description = "Maximum number of concurrent runners"
+  type        = number
+  default     = 10
+}
+
+variable "github_runners_use_zone_redundancy" {
+  description = "Enable zone redundancy for runners (may not be available in all regions)"
+  type        = bool
+  default     = false
 }

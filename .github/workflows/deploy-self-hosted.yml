@@ -1,0 +1,64 @@
+name: Deploy (Self-Hosted Runner)
+
+# Example workflow that runs on self-hosted Azure Container Apps runners.
+# Prerequisites: Run the "Deploy GitHub Runners Infrastructure" workflow first.
+
+on:
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      environment_name:
+        description: "Target environment"
+        required: true
+        type: choice
+        default: tools
+        options:
+          - tools
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    name: Deploy via Self-Hosted Runner
+    # Runners auto-scale from 0 - first job may take ~60-90s to spin up
+    runs-on:
+      - self-hosted
+      - self-hosted-aca-${{ github.event.repository.name }}
+    environment: ${{ inputs.environment_name }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure CLI Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Install tools at runtime (runners use default Microsoft image)
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: 1.12.2
+
+      - name: Verify VNet Access
+        shell: bash
+        run: |
+          echo "Running on self-hosted runner with VNet access..."
+          echo "Hostname: $(hostname)"
+          echo "IP: $(hostname -I || echo 'N/A')"
+
+          # Example: Access private resources (Key Vault, databases, etc.)
+          echo "Testing private endpoint access..."
+          az keyvault secret list --vault-name aihdeployutilskv --output table || echo "Key Vault not accessible (expected if not deployed)"
+
+      - name: Run Deployment
+        shell: bash
+        run: |
+          echo "Add your deployment steps here..."
+          echo "This runner has access to private VNet resources."

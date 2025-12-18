@@ -51,16 +51,32 @@ module "jumpbox" {
   depends_on          = [module.network]
 }
 
-module "self_hosted_runner_vm" {
-  source = "./modules/self-hosted-runner-vm"
+# GitHub Self-Hosted Runners on Azure Container Apps (AVM-based)
+# These runners auto-scale from 0 based on queued jobs
+module "github_runners_aca" {
+  source = "./modules/github-runners-aca"
 
-  enabled              = var.self_hosted_runner_vm_enabled
-  app_name             = var.app_name
-  common_tags          = var.common_tags
-  location             = var.location
-  resource_group_name  = azurerm_resource_group.main.name
-  subnet_id            = module.network.jumpbox_subnet_id
-  ubuntu_image_version = var.self_hosted_runner_vm_ubuntu_image_version
+  enabled             = var.github_runners_aca_enabled
+  postfix             = var.app_name
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+  common_tags         = var.common_tags
+
+  # GitHub configuration
+  github_organization = var.github_organization
+  github_repository   = var.github_repository
+  github_runner_pat   = var.github_runner_pat
+
+  # Networking - use existing subnets
+  vnet_id                    = module.network.vnet_id
+  container_app_subnet_id    = module.network.container_apps_subnet_id
+  private_endpoint_subnet_id = module.network.private_endpoint_subnet_id
+
+  # Container configuration
+  container_cpu       = var.github_runners_container_cpu
+  container_memory    = var.github_runners_container_memory
+  max_runners         = var.github_runners_max_count
+  use_zone_redundancy = var.github_runners_use_zone_redundancy
 
   depends_on = [module.network]
 }

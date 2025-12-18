@@ -1,4 +1,7 @@
 name: Ephemeral Self-Hosted Runner (VM)
+# This workflow deploys the Azure Container Apps-based GitHub self-hosted runners.
+# It's a one-time deployment (or run when you need to update the infrastructure).
+# Once deployed, runners auto-scale from 0 based on queued jobs.
 
 on:
   pull_request:
@@ -6,39 +9,35 @@ on:
       - main
   workflow_dispatch:
     inputs:
-      environment_name:
-        description: "Target environment"
+      action:
+        description: "Terraform action to perform"
         required: true
         type: choice
-        default: tools
+        default: apply
         options:
-          - tools
+          - plan
+          - apply
+          - destroy
 
 permissions:
   id-token: write
   contents: read
-  actions: write
-
-concurrency:
-  group: ephemeral-runner-${{ github.ref }}
-  cancel-in-progress: false
 
 env:
   TF_VERSION: 1.12.2
   TF_LOG: ERROR
   TF_VAR_app_name: "ai-hub-deploy-utils"
-  TF_VAR_app_env: "${{ inputs.environment_name || 'tools' }}"
+  TF_VAR_app_env: "tools"
   TF_VAR_location: "Canada Central"
-  TF_VAR_resource_group_name: "ai-hub-deploy-utils-${{ inputs.environment_name || 'tools' }}"
+  TF_VAR_resource_group_name: "ai-hub-deploy-utils-tools"
   TF_VAR_common_tags: >-
-    {"environment":"${{ inputs.environment_name || 'tools' }}","app_env":"${{ inputs.environment_name || 'tools' }}","repo_name":"${{ github.event.repository.name }}"}
-  TF_VAR_self_hosted_runner_vm_enabled: "true"
+    {"environment":"tools","app_env":"tools","repo_name":"${{ github.event.repository.name }}"}
 
 jobs:
-  provision-runner:
-    name: Provision + Register Runner VM
+  deploy-runners:
+    name: Deploy GitHub Runners (${{ inputs.action }})
     runs-on: ubuntu-24.04
-    environment: ${{ inputs.environment_name || 'tools' }}
+    environment: tools
     env:
       CI: "true"
       ARM_USE_OIDC: "true"
@@ -48,8 +47,11 @@ jobs:
       TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
       TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
       TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
-    outputs:
-      runner_label: ${{ steps.label.outputs.label }}
+      # GitHub Runners configuration
+      TF_VAR_github_runners_aca_enabled: "true"
+      TF_VAR_github_organization: ${{ github.repository_owner }}
+      TF_VAR_github_repository: ${{ github.event.repository.name }}
+      TF_VAR_github_runner_pat: ${{ secrets.GH_RUNNER_PAT }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -66,184 +68,43 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Create runner VM (Terraform)
+      - name: Terraform Init
         shell: bash
         run: |
           chmod +x ./deploy-terraform.sh
-          ./deploy-terraform.sh apply -target=module.self_hosted_runner_vm
-
-      - name: Compute runner label
-        id: label
-        shell: bash
-        run: |
-          LABEL="ephemeral-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
-          echo "label=$LABEL" >> "$GITHUB_OUTPUT"
-
-      - name: Register runner on VM
-        shell: bash
-        env:
-          GH_RUNNER_PAT: ${{ secrets.GH_RUNNER_PAT }}
-          GITHUB_TOKEN: ${{ github.token }}
-          RUNNER_LABEL: ${{ steps.label.outputs.label }}
-        run: |
-          set -euo pipefail
-
-          # NOTE: This uses Azure *management-plane* "Run Command" (via the VM agent), not SSH.
-          # It works even if the VM has no inbound network access, as long as the workflow identity
-          # has RBAC to invoke run-command on the VM (e.g. permission like
-          # `Microsoft.Compute/virtualMachines/runCommand/action` on the VM/RG).
-
-          # Read Terraform outputs
-          VM_NAME=$(terraform -chdir=infra output -raw self_hosted_runner_vm_name)
-          RG_NAME=$(terraform -chdir=infra output -raw self_hosted_runner_vm_resource_group_name)
-
-          echo "VM_NAME=$VM_NAME" >> "$GITHUB_ENV"
-          echo "RG_NAME=$RG_NAME" >> "$GITHUB_ENV"
-
-          # Mint short-lived runner registration token (~1 hour).
-          # NOTE: This endpoint requires repo admin capability to manage self-hosted runners.
-          # In many orgs, the default GITHUB_TOKEN cannot call it and you will get:
-          #   HTTP 403 {"message":"Resource not accessible by integration"}
-          # If you cannot use a GitHub App, the remaining option is a fine-grained PAT with:
-          # Repository permissions: Administration (read & write)
-          # Store it as repo/org secret: GH_RUNNER_PAT
-          TOKEN="${GH_RUNNER_PAT:-$GITHUB_TOKEN}"
-
-          echo "::add-mask::$TOKEN"
-          RESP_FILE=$(mktemp)
-          HTTP_STATUS=$(curl -sS -o "$RESP_FILE" -w "%{http_code}" -X POST \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/runners/registration-token")
-
-          if [[ "$HTTP_STATUS" != "201" ]]; then
-            echo "GitHub API error: HTTP $HTTP_STATUS while requesting runner registration token" >&2
-            if command -v jq >/dev/null 2>&1; then
-              MSG=$(jq -r '.message // empty' "$RESP_FILE" 2>/dev/null || true)
-              jq -r . "$RESP_FILE" 2>/dev/null || cat "$RESP_FILE" >&2
-            else
-              MSG=""
-              cat "$RESP_FILE" >&2
-            fi
-
-            if [[ "$HTTP_STATUS" == "403" && "$MSG" == "Resource not accessible by integration" ]]; then
-              echo "" >&2
-              echo "This repo/org does not allow GITHUB_TOKEN to mint runner registration tokens." >&2
-              echo "Fix: provide GH_RUNNER_PAT (fine-grained PAT with Administration: write), or use a pre-registered long-lived self-hosted runner." >&2
-            fi
-            exit 1
-          fi
-
-          REG_TOKEN=$(jq -r .token "$RESP_FILE")
-
-          if [[ -z "$REG_TOKEN" || "$REG_TOKEN" == "null" ]]; then
-            echo "GitHub API did not return a runner registration token" >&2
-            jq -r . "$RESP_FILE" 2>/dev/null || cat "$RESP_FILE" >&2
-            exit 1
-          fi
-
-          echo "::add-mask::$REG_TOKEN"
-
-          REPO_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}"
-
-          # The VM may still be finishing cloud-init when Terraform returns.
-          # Wait (with timeout) for bootstrap to create the helper script, then run it.
-          az vm run-command invoke \
-            --command-id RunShellScript \
-            --name "$VM_NAME" \
-            --resource-group "$RG_NAME" \
-            --query "value[0].message" \
-            -o tsv \
-            --scripts "sudo bash -lc 'set -euo pipefail; echo \"Waiting for runner bootstrap (up to 15 minutes)...\"; for i in \$(seq 1 90); do if [[ -f /var/lib/gha-runner/bootstrap.done ]] || [[ -f /opt/actions-runner/register-and-start.sh ]]; then echo \"Bootstrap ready.\"; break; fi; if (( i % 6 == 0 )); then echo \"still waiting... (\$((i*10))/900s)\"; fi; sleep 10; done; if [[ ! -f /opt/actions-runner/register-and-start.sh ]]; then echo \"ERROR: /opt/actions-runner/register-and-start.sh not found after waiting\"; echo \"--- cloud-init status (tail) ---\"; (cloud-init status --long 2>/dev/null | tail -n 60) || true; echo \"--- ls /opt/actions-runner ---\"; ls -la /opt/actions-runner || true; echo \"--- tail bootstrap log ---\"; tail -n 200 /var/log/cloud-init-gha-runner-bootstrap.log 2>/dev/null || true; echo \"--- tail cloud-init-output ---\"; tail -n 200 /var/log/cloud-init-output.log 2>/dev/null || true; exit 1; fi; bash /opt/actions-runner/register-and-start.sh \"\$1\" \"\$2\" \"\$3\"' -- \"$REPO_URL\" \"$REG_TOKEN\" \"$RUNNER_LABEL\""
-
-  deploy:
-    name: Deployment (runs on ephemeral runner)
-    needs: provision-runner
-    runs-on:
-      - self-hosted
-      - ${{ needs.provision-runner.outputs.runner_label }}
-    environment: ${{ inputs.environment_name || 'tools' }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Azure CLI Login (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Deploy
-        shell: bash
-        run: |
-          echo "Run your VNet-only deployment steps here."
-          az keyvault secret list --vault-name aihdeployutilskv --output table
-  destroy-runner:
-    name: Destroy Runner VM
-    needs: [provision-runner, deploy]
-    if: always()
-    runs-on: ubuntu-24.04
-    environment: ${{ inputs.environment_name || 'tools' }}
-    env:
-      CI: "true"
-      ARM_USE_OIDC: "true"
-      TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-      TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
-      TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
-      TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
-      TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Azure CLI Login (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-
-      - name: Dump VM logs (always)
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-
-          chmod +x ./deploy-terraform.sh
-
-          # Ensure terraform is initialized so we can read remote outputs.
           ./deploy-terraform.sh init
 
-          VM_NAME=$(terraform -chdir=infra output -raw self_hosted_runner_vm_name 2>/dev/null || true)
-          RG_NAME=$(terraform -chdir=infra output -raw self_hosted_runner_vm_resource_group_name 2>/dev/null || true)
+      - name: Terraform Plan
+        if: inputs.action == 'plan' || inputs.action == 'apply'
+        shell: bash
+        run: |
+          ./deploy-terraform.sh plan -target=module.github_runners_aca
 
-          if [[ -z "${VM_NAME}" || -z "${RG_NAME}" ]]; then
-              echo "VM outputs not available; skipping log dump."
-              exit 0
-          fi
+      - name: Terraform Apply
+        if: inputs.action == 'apply'
+        shell: bash
+        run: |
+          ./deploy-terraform.sh apply -target=module.github_runners_aca
 
-          echo "Dumping logs from ${RG_NAME}/${VM_NAME} via Run Command..."
+      - name: Terraform Destroy
+        if: inputs.action == 'destroy'
+        shell: bash
+        run: |
+          ./deploy-terraform.sh destroy -target=module.github_runners_aca
 
-          # NOTE: This is management-plane Run Command (VM agent). Output is returned to this job log.
-          az vm run-command invoke \
-            --command-id RunShellScript \
-            --name "${VM_NAME}" \
-            --resource-group "${RG_NAME}" \
-            --query "value[0].message" \
-            -o tsv \
-            --scripts "sudo bash -lc 'set -euo pipefail; echo \"===== VM LOG DUMP START =====\"; date; uname -a || true; echo; echo \"--- cloud-init status ---\"; cloud-init status --long 2>/dev/null || true; echo; echo \"--- /var/log/cloud-init-output.log (tail) ---\"; tail -n 5000 /var/log/cloud-init-output.log 2>/dev/null || true; echo; echo \"--- /var/log/cloud-init.log (tail) ---\"; tail -n 5000 /var/log/cloud-init.log 2>/dev/null || true; echo; echo \"--- /var/log/syslog (tail) ---\"; tail -n 5000 /var/log/syslog 2>/dev/null || true; echo; echo \"--- systemctl status actions.runner* ---\"; systemctl --no-pager --full status actions.runner* 2>/dev/null || true; echo; echo \"--- journalctl -u actions.runner* (tail) ---\"; journalctl --no-pager -u \"actions.runner*\" -n 5000 2>/dev/null || true; echo; echo \"--- /opt/actions-runner (ls) ---\"; ls -la /opt/actions-runner 2>/dev/null || true; echo \"===== VM LOG DUMP END =====\"'"
-
-      #- name: Destroy runner VM (Terraform)
-      #  if: always()
-      #  shell: bash
-      #  run: |
-      #    chmod +x ./deploy-terraform.sh
-      #    ./deploy-terraform.sh destroy -target=module.self_hosted_runner_vm
+      - name: Output Runner Label
+        if: inputs.action == 'apply'
+        shell: bash
+        run: |
+          echo "## GitHub Runners Deployed! 🚀" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          RUNNER_LABEL=$(terraform -chdir=infra output -raw github_runners_label 2>/dev/null || echo "self-hosted-aca-${{ github.event.repository.name }}")
+          echo "Use this label in your workflows:" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo '```yaml' >> $GITHUB_STEP_SUMMARY
+          echo "runs-on:" >> $GITHUB_STEP_SUMMARY
+          echo "  - self-hosted" >> $GITHUB_STEP_SUMMARY
+          echo "  - ${RUNNER_LABEL}" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Runners scale from 0 and spin up automatically when jobs are queued." >> $GITHUB_STEP_SUMMARY
