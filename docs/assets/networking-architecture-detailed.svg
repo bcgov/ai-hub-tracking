@@ -1,0 +1,466 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1400">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#003366"/>
+      <stop offset="100%" style="stop-color:#004488"/>
+    </linearGradient>
+    <linearGradient id="vnetProdGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fef2f2"/>
+      <stop offset="100%" style="stop-color:#fee2e2"/>
+    </linearGradient>
+    <linearGradient id="vnetTestGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fffbeb"/>
+      <stop offset="100%" style="stop-color:#fef3c7"/>
+    </linearGradient>
+    <linearGradient id="vnetDevGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f0fdf4"/>
+      <stop offset="100%" style="stop-color:#dcfce7"/>
+    </linearGradient>
+    <linearGradient id="vnetToolsGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f0f9ff"/>
+      <stop offset="100%" style="stop-color:#dbeafe"/>
+    </linearGradient>
+    <linearGradient id="platformGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#faf5ff"/>
+      <stop offset="100%" style="stop-color:#f3e8ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#003366"/>
+    </marker>
+    <marker id="arrowheadGreen" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#22c55e"/>
+    </marker>
+    <marker id="arrowheadRed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1600" height="1400" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1600" height="80" fill="url(#headerGrad)"/>
+  <text x="800" y="35" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="28" font-weight="bold">BC Gov AI Hub - Networking Architecture</text>
+  <text x="800" y="60" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="14">VNets, Subnets, NSGs, Private Endpoints &amp; Traffic Flow</text>
+
+  <!-- On-Premises / ExpressRoute Section -->
+  <rect x="20" y="100" width="300" height="280" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="20" y="100" width="300" height="35" rx="10" fill="#64748b"/>
+  <text x="170" y="123" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">ON-PREMISES (BC Gov)</text>
+
+  <rect x="40" y="150" width="120" height="60" rx="5" fill="white" stroke="#64748b" stroke-width="1"/>
+  <text x="100" y="175" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Ministry Apps</text>
+  <text x="100" y="195" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="9">Health, SDPR, Justice</text>
+
+  <rect x="180" y="150" width="120" height="60" rx="5" fill="white" stroke="#64748b" stroke-width="1"/>
+  <text x="240" y="175" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Corporate Users</text>
+  <text x="240" y="195" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="9">IDIR Authentication</text>
+
+  <rect x="40" y="230" width="260" height="50" rx="5" fill="#8b5cf6" stroke="#7c3aed" stroke-width="1"/>
+  <text x="170" y="255" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="12" font-weight="bold">ExpressRoute Circuit</text>
+  <text x="170" y="270" text-anchor="middle" fill="#e9d5ff" font-family="Arial, sans-serif" font-size="9">Private connectivity to Azure</text>
+
+  <rect x="40" y="300" width="260" height="60" rx="5" fill="#fffbeb" stroke="#f59e0b" stroke-width="1"/>
+  <text x="170" y="325" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Direct ExpressRoute to backends:</text>
+  <text x="170" y="340" text-anchor="middle" fill="#f59e0b" font-family="Arial, sans-serif" font-size="10" font-weight="bold">CASE-BY-CASE</text>
+  <text x="170" y="352" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="9">Standard: App Gateway → APIM recommended</text>
+
+  <!-- Arrow from ExpressRoute to Azure -->
+  <path d="M 320 255 L 360 255" stroke="#8b5cf6" stroke-width="3" marker-end="url(#arrowhead)"/>
+
+  <!-- Platform Services Section -->
+  <rect x="20" y="400" width="300" height="180" rx="10" fill="url(#platformGrad)" stroke="#8b5cf6" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="20" y="400" width="300" height="35" rx="10" fill="#8b5cf6"/>
+  <text x="170" y="423" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">PLATFORM SERVICES</text>
+
+  <rect x="40" y="450" width="260" height="50" rx="5" fill="white" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="170" y="470" text-anchor="middle" fill="#7c3aed" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Private DNS Zones</text>
+  <text x="170" y="485" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="9">*.privatelink.blob.core.windows.net, etc.</text>
+  <text x="170" y="497" text-anchor="middle" fill="#22c55e" font-family="Arial, sans-serif" font-size="8">Managed by Platform Services (NOT AI Hub)</text>
+
+  <rect x="40" y="510" width="260" height="50" rx="5" fill="white" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="170" y="530" text-anchor="middle" fill="#7c3aed" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Hub VNet (Platform)</text>
+  <text x="170" y="545" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="9">Central connectivity, firewall, shared services</text>
+
+  <!-- Azure Landing Zone Section -->
+  <rect x="360" y="100" width="1220" height="690" rx="10" fill="white" stroke="#003366" stroke-width="3" filter="url(#shadow)"/>
+  <rect x="360" y="100" width="1220" height="40" rx="10" fill="#003366"/>
+  <text x="970" y="127" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="bold">AZURE AI HUB LANDING ZONE (da4cf6 License Plate)</text>
+
+  <!-- IP Allocation Summary -->
+  <rect x="380" y="155" width="280" height="80" rx="8" fill="#f0f9ff" stroke="#0078d4" stroke-width="1"/>
+  <text x="520" y="175" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="12" font-weight="bold">IP ALLOCATION SUMMARY</text>
+  <text x="400" y="195" fill="#333" font-family="Arial, sans-serif" font-size="10">Total Available: <tspan font-weight="bold">1000 IPs</tspan></text>
+  <text x="400" y="210" fill="#333" font-family="Arial, sans-serif" font-size="10">Prod: 4x /24 (1024) | Test: 2x /24 (512)</text>
+  <text x="400" y="225" fill="#333" font-family="Arial, sans-serif" font-size="10">Dev: 1x /24 (256) | Tools: 1x /24 (256)</text>
+
+  <!-- PROD VNet -->
+  <rect x="380" y="250" width="580" height="250" rx="8" fill="url(#vnetProdGrad)" stroke="#ef4444" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="380" y="250" width="580" height="30" rx="8" fill="#ef4444"/>
+  <text x="670" y="270" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="13" font-weight="bold">da4cf6-prod VNet (10.x.0.0/22 - 1024 IPs)</text>
+
+  <!-- Prod Subnets -->
+  <g transform="translate(395, 290)">
+    <rect x="0" y="0" width="130" height="70" rx="4" fill="white" stroke="#ef4444" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#ef4444" font-family="Arial, sans-serif" font-size="10" font-weight="bold">AppGateway</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">/26 (64 IPs)</text>
+    <text x="65" y="45" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">WAF, SSL Term</text>
+    <text x="65" y="58" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">DDoS Protection</text>
+  </g>
+
+  <g transform="translate(535, 290)">
+    <rect x="0" y="0" width="130" height="70" rx="4" fill="white" stroke="#ef4444" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#ef4444" font-family="Arial, sans-serif" font-size="10" font-weight="bold">APIM</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">/26 (64 IPs)</text>
+    <text x="65" y="45" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Internal Mode</text>
+    <text x="65" y="58" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Subscription Keys</text>
+  </g>
+
+  <g transform="translate(675, 290)">
+    <rect x="0" y="0" width="130" height="70" rx="4" fill="white" stroke="#ef4444" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#ef4444" font-family="Arial, sans-serif" font-size="10" font-weight="bold">AI Foundry</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">/25 (128 IPs)</text>
+    <text x="65" y="45" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Compute Instances</text>
+    <text x="65" y="58" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Training Jobs</text>
+  </g>
+
+  <g transform="translate(815, 290)">
+    <rect x="0" y="0" width="130" height="70" rx="4" fill="white" stroke="#ef4444" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#ef4444" font-family="Arial, sans-serif" font-size="10" font-weight="bold">PrivateLink</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">/24 (256 IPs)</text>
+    <text x="65" y="45" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Private Endpoints</text>
+    <text x="65" y="58" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Storage, KV, AI</text>
+  </g>
+
+  <g transform="translate(395, 370)">
+    <rect x="0" y="0" width="130" height="70" rx="4" fill="white" stroke="#ef4444" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#ef4444" font-family="Arial, sans-serif" font-size="10" font-weight="bold">AKS Nodes</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">/23 (512 IPs)</text>
+    <text x="65" y="45" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Kubernetes Pods</text>
+    <text x="65" y="58" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Auto-scaling</text>
+  </g>
+
+  <g transform="translate(535, 370)">
+    <rect x="0" y="0" width="130" height="70" rx="4" fill="#f0fdf4" stroke="#22c55e" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#22c55e" font-family="Arial, sans-serif" font-size="10" font-weight="bold">NSG: Strict</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">Inbound: Deny *</text>
+    <text x="65" y="45" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">Allow: AppGW → APIM</text>
+    <text x="65" y="58" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">Allow: APIM → PE</text>
+  </g>
+
+  <g transform="translate(675, 370)">
+    <rect x="0" y="0" width="270" height="70" rx="4" fill="#fee" stroke="#ef4444" stroke-width="1"/>
+    <text x="135" y="18" text-anchor="middle" fill="#ef4444" font-family="Arial, sans-serif" font-size="10" font-weight="bold">PRODUCTION - NO DIRECT ACCESS</text>
+    <text x="135" y="35" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">All traffic must flow: ExpressRoute → AppGW → APIM → PE</text>
+    <text x="135" y="50" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">No Bastion in Prod | No direct backend access</text>
+    <text x="135" y="65" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Changes via CI/CD pipelines only</text>
+  </g>
+
+  <!-- TOOLS VNet -->
+  <rect x="980" y="250" width="580" height="250" rx="8" fill="url(#vnetToolsGrad)" stroke="#0078d4" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="980" y="250" width="580" height="30" rx="8" fill="#0078d4"/>
+  <text x="1270" y="270" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="13" font-weight="bold">da4cf6-tools VNet (10.x.4.0/24 - 256 IPs)</text>
+
+  <!-- Tools Subnets -->
+  <g transform="translate(995, 290)">
+    <rect x="0" y="0" width="130" height="70" rx="4" fill="white" stroke="#0078d4" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="10" font-weight="bold">Bastion</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">/26 (64 IPs)</text>
+    <text x="65" y="45" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">AzureBastionSubnet</text>
+    <text x="65" y="58" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Admin only</text>
+  </g>
+
+  <g transform="translate(1135, 290)">
+    <rect x="0" y="0" width="130" height="70" rx="4" fill="white" stroke="#0078d4" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="10" font-weight="bold">Jumpbox</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">/28 (16 IPs)</text>
+    <text x="65" y="45" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Platform Team</text>
+    <text x="65" y="58" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Azure CLI access</text>
+  </g>
+
+  <g transform="translate(1275, 290)">
+    <rect x="0" y="0" width="130" height="70" rx="4" fill="white" stroke="#0078d4" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="10" font-weight="bold">Runners</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">/26 (64 IPs)</text>
+    <text x="65" y="45" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Self-hosted GH</text>
+    <text x="65" y="58" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Terraform runs</text>
+  </g>
+
+  <g transform="translate(1415, 290)">
+    <rect x="0" y="0" width="130" height="70" rx="4" fill="white" stroke="#0078d4" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="10" font-weight="bold">PrivateLink</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">/26 (64 IPs)</text>
+    <text x="65" y="45" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">TF State Storage</text>
+    <text x="65" y="58" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Key Vault</text>
+  </g>
+
+  <g transform="translate(995, 370)">
+    <rect x="0" y="0" width="550" height="70" rx="4" fill="#e8f4e8" stroke="#22c55e" stroke-width="1"/>
+    <text x="275" y="18" text-anchor="middle" fill="#22c55e" font-family="Arial, sans-serif" font-size="10" font-weight="bold">TOOLS VNet - PLATFORM TEAM ONLY</text>
+    <text x="275" y="35" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">Bastion + Jumpbox for emergency admin access | Self-hosted runners for CI/CD</text>
+    <text x="275" y="50" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">VNet peering to all environment VNets | NOT for tenant access</text>
+    <text x="275" y="65" text-anchor="middle" fill="#ef4444" font-family="Arial, sans-serif" font-size="8" font-weight="bold">Tenants DO NOT get Bastion/Jumpbox access</text>
+  </g>
+
+  <!-- TEST VNet -->
+  <rect x="380" y="520" width="580" height="180" rx="8" fill="url(#vnetTestGrad)" stroke="#f59e0b" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="380" y="520" width="580" height="30" rx="8" fill="#f59e0b"/>
+  <text x="670" y="540" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="13" font-weight="bold">da4cf6-test VNet (10.x.5.0/23 - 512 IPs)</text>
+
+  <!-- Test Subnets -->
+  <g transform="translate(395, 560)">
+    <rect x="0" y="0" width="130" height="55" rx="4" fill="white" stroke="#f59e0b" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#f59e0b" font-family="Arial, sans-serif" font-size="10" font-weight="bold">AppGateway</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">/27 (32 IPs)</text>
+    <text x="65" y="45" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Test WAF</text>
+  </g>
+
+  <g transform="translate(535, 560)">
+    <rect x="0" y="0" width="130" height="55" rx="4" fill="white" stroke="#f59e0b" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#f59e0b" font-family="Arial, sans-serif" font-size="10" font-weight="bold">APIM</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">/27 (32 IPs)</text>
+    <text x="65" y="45" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Test APIs</text>
+  </g>
+
+  <g transform="translate(675, 560)">
+    <rect x="0" y="0" width="130" height="55" rx="4" fill="white" stroke="#f59e0b" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#f59e0b" font-family="Arial, sans-serif" font-size="10" font-weight="bold">AI Foundry</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">/26 (64 IPs)</text>
+    <text x="65" y="45" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Test Projects</text>
+  </g>
+
+  <g transform="translate(815, 560)">
+    <rect x="0" y="0" width="130" height="55" rx="4" fill="white" stroke="#f59e0b" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#f59e0b" font-family="Arial, sans-serif" font-size="10" font-weight="bold">PrivateLink</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">/25 (128 IPs)</text>
+    <text x="65" y="45" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Test Endpoints</text>
+  </g>
+
+  <g transform="translate(395, 625)">
+    <rect x="0" y="0" width="550" height="55" rx="4" fill="#fffbeb" stroke="#f59e0b" stroke-width="1"/>
+    <text x="275" y="18" text-anchor="middle" fill="#92400e" font-family="Arial, sans-serif" font-size="10" font-weight="bold">TEST - Integration Testing</text>
+    <text x="275" y="35" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">UAT and integration testing | Mirrors prod architecture at smaller scale</text>
+    <text x="275" y="48" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Promotion path: Dev → Test → Prod</text>
+  </g>
+
+  <!-- DEV VNet -->
+  <rect x="980" y="520" width="580" height="180" rx="8" fill="url(#vnetDevGrad)" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="980" y="520" width="580" height="30" rx="8" fill="#22c55e"/>
+  <text x="1270" y="540" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="13" font-weight="bold">da4cf6-dev VNet (10.x.7.0/24 - 256 IPs)</text>
+
+  <!-- Dev Subnets -->
+  <g transform="translate(995, 560)">
+    <rect x="0" y="0" width="130" height="55" rx="4" fill="white" stroke="#22c55e" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#22c55e" font-family="Arial, sans-serif" font-size="10" font-weight="bold">AppGateway</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">/28 (16 IPs)</text>
+    <text x="65" y="45" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Dev WAF</text>
+  </g>
+
+  <g transform="translate(1135, 560)">
+    <rect x="0" y="0" width="130" height="55" rx="4" fill="white" stroke="#22c55e" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#22c55e" font-family="Arial, sans-serif" font-size="10" font-weight="bold">APIM</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">/28 (16 IPs)</text>
+    <text x="65" y="45" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Dev APIs</text>
+  </g>
+
+  <g transform="translate(1275, 560)">
+    <rect x="0" y="0" width="130" height="55" rx="4" fill="white" stroke="#22c55e" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#22c55e" font-family="Arial, sans-serif" font-size="10" font-weight="bold">AI Foundry</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">/27 (32 IPs)</text>
+    <text x="65" y="45" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Dev Projects</text>
+  </g>
+
+  <g transform="translate(1415, 560)">
+    <rect x="0" y="0" width="130" height="55" rx="4" fill="white" stroke="#22c55e" stroke-width="1"/>
+    <text x="65" y="18" text-anchor="middle" fill="#22c55e" font-family="Arial, sans-serif" font-size="10" font-weight="bold">PrivateLink</text>
+    <text x="65" y="32" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">/26 (64 IPs)</text>
+    <text x="65" y="45" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Dev Endpoints</text>
+  </g>
+
+  <g transform="translate(995, 625)">
+    <rect x="0" y="0" width="550" height="55" rx="4" fill="#f0fdf4" stroke="#22c55e" stroke-width="1"/>
+    <text x="275" y="18" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="10" font-weight="bold">DEV - Development &amp; Experimentation</text>
+    <text x="275" y="35" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">Feature development | Minimal scale | Fast iteration</text>
+    <text x="275" y="48" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="8">Changes promoted via PR to Test → Prod</text>
+  </g>
+
+  <!-- VNet Peering Arrows -->
+  <rect x="680" y="155" width="200" height="80" rx="8" fill="#f0f9ff" stroke="#0078d4" stroke-width="1"/>
+  <text x="780" y="175" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="11" font-weight="bold">VNet Peering</text>
+  <text x="780" y="195" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">Tools ↔ Prod ✓</text>
+  <text x="780" y="210" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">Tools ↔ Test ✓</text>
+  <text x="780" y="225" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="9">Tools ↔ Dev ✓</text>
+
+  <!-- Traffic Flow Section -->
+  <rect x="20" y="600" width="320" height="180" rx="10" fill="white" stroke="#003366" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="20" y="600" width="320" height="35" rx="10" fill="#003366"/>
+  <text x="180" y="623" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">TRAFFIC FLOW</text>
+
+  <g transform="translate(35, 645)">
+    <text x="0" y="15" fill="#22c55e" font-family="Arial, sans-serif" font-size="11" font-weight="bold">✓ Allowed:</text>
+    <text x="0" y="32" fill="#333" font-family="Arial, sans-serif" font-size="9">ExpressRoute → App Gateway → APIM → PE</text>
+    <text x="0" y="47" fill="#333" font-family="Arial, sans-serif" font-size="9">Bastion → Jumpbox → Any internal</text>
+    <text x="0" y="62" fill="#333" font-family="Arial, sans-serif" font-size="9">Runners → TF State Storage</text>
+    <text x="0" y="77" fill="#333" font-family="Arial, sans-serif" font-size="9">Runners → All VNets (Terraform)</text>
+  </g>
+
+  <g transform="translate(35, 730)">
+    <text x="0" y="15" fill="#ef4444" font-family="Arial, sans-serif" font-size="11" font-weight="bold">✗ Blocked:</text>
+    <text x="0" y="32" fill="#333" font-family="Arial, sans-serif" font-size="9">Internet → Any service (no public endpoints)</text>
+  </g>
+
+  <g transform="translate(35, 765)">
+    <text x="0" y="15" fill="#f59e0b" font-family="Arial, sans-serif" font-size="11" font-weight="bold">? Case-by-Case:</text>
+    <text x="0" y="32" fill="#333" font-family="Arial, sans-serif" font-size="9">ExpressRoute → Backend direct (requires justification)</text>
+  </g>
+
+  <!-- NSG Rules Section -->
+  <rect x="20" y="800" width="1560" height="190" rx="10" fill="white" stroke="#003366" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="20" y="800" width="1560" height="35" rx="10" fill="#003366"/>
+  <text x="800" y="823" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="bold">NSG RULES BY SUBNET</text>
+
+  <!-- NSG Rules Table -->
+  <g transform="translate(40, 850)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="11" font-weight="bold">AppGateway Subnet NSG:</text>
+    <text x="0" y="32" fill="#333" font-family="monospace" font-size="9">Inbound: Allow GatewayManager (65200-65535), Allow AzureLoadBalancer</text>
+    <text x="0" y="47" fill="#333" font-family="monospace" font-size="9">Outbound: Allow → APIM subnet, Deny → *</text>
+  </g>
+
+  <g transform="translate(40, 900)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="11" font-weight="bold">APIM Subnet NSG:</text>
+    <text x="0" y="32" fill="#333" font-family="monospace" font-size="9">Inbound: Allow ← AppGateway subnet (443), Deny → *</text>
+    <text x="0" y="47" fill="#333" font-family="monospace" font-size="9">Outbound: Allow → PrivateLink subnet, Allow → AzureMonitor, Deny → *</text>
+  </g>
+
+  <g transform="translate(550, 850)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="11" font-weight="bold">PrivateLink Subnet NSG:</text>
+    <text x="0" y="32" fill="#333" font-family="monospace" font-size="9">Inbound: Allow ← APIM subnet, Allow ← AI Foundry subnet</text>
+    <text x="0" y="47" fill="#333" font-family="monospace" font-size="9">Outbound: Allow → Azure Services (Storage, KV, OpenAI)</text>
+  </g>
+
+  <g transform="translate(550, 900)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="11" font-weight="bold">AI Foundry Subnet NSG:</text>
+    <text x="0" y="32" fill="#333" font-family="monospace" font-size="9">Inbound: Allow ← APIM subnet (compute), Deny → *</text>
+    <text x="0" y="47" fill="#333" font-family="monospace" font-size="9">Outbound: Allow → PrivateLink subnet, Allow → AzureML service tag</text>
+  </g>
+
+  <g transform="translate(1060, 850)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Bastion Subnet NSG:</text>
+    <text x="0" y="32" fill="#333" font-family="monospace" font-size="9">Inbound: Allow ← Internet (443), GatewayManager</text>
+    <text x="0" y="47" fill="#333" font-family="monospace" font-size="9">Outbound: Allow → VirtualNetwork (SSH/RDP), AzureCloud</text>
+  </g>
+
+  <g transform="translate(1060, 900)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Runners Subnet NSG:</text>
+    <text x="0" y="32" fill="#333" font-family="monospace" font-size="9">Inbound: Deny → * (initiated from runner)</text>
+    <text x="0" y="47" fill="#333" font-family="monospace" font-size="9">Outbound: Allow → All VNets, Allow → GitHub, Allow → Azure</text>
+  </g>
+
+  <!-- Private Endpoints Section -->
+  <rect x="20" y="1010" width="1560" height="180" rx="10" fill="white" stroke="#8b5cf6" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="20" y="1010" width="1560" height="35" rx="10" fill="#8b5cf6"/>
+  <text x="800" y="1033" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="bold">PRIVATE ENDPOINTS (IP Consumers)</text>
+
+  <g transform="translate(40, 1060)">
+    <rect x="0" y="0" width="230" height="110" rx="5" fill="#f0fdf4" stroke="#22c55e" stroke-width="1"/>
+    <text x="115" y="20" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Low IP (1-2 per service)</text>
+    <text x="10" y="40" fill="#333" font-family="Arial, sans-serif" font-size="9">• Storage Account: 1 IP/endpoint</text>
+    <text x="10" y="55" fill="#333" font-family="Arial, sans-serif" font-size="9">• Key Vault: 1 IP</text>
+    <text x="10" y="70" fill="#333" font-family="Arial, sans-serif" font-size="9">• Doc Intelligence: 1-2 IPs</text>
+    <text x="10" y="85" fill="#333" font-family="Arial, sans-serif" font-size="9">• Azure OpenAI: 1-2 IPs</text>
+    <text x="10" y="100" fill="#22c55e" font-family="Arial, sans-serif" font-size="8">Safe for most tenants</text>
+  </g>
+
+  <g transform="translate(290, 1060)">
+    <rect x="0" y="0" width="230" height="110" rx="5" fill="#fffbeb" stroke="#f59e0b" stroke-width="1"/>
+    <text x="115" y="20" text-anchor="middle" fill="#92400e" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Medium IP (3-10 per service)</text>
+    <text x="10" y="40" fill="#333" font-family="Arial, sans-serif" font-size="9">• AI Search: 3-5 IPs</text>
+    <text x="10" y="55" fill="#333" font-family="Arial, sans-serif" font-size="9">• Cosmos DB: 3-5 IPs</text>
+    <text x="10" y="70" fill="#333" font-family="Arial, sans-serif" font-size="9">• Container Registry: 2-3 IPs</text>
+    <text x="10" y="85" fill="#333" font-family="Arial, sans-serif" font-size="9">• AI Foundry Hub: 5-8 IPs</text>
+    <text x="10" y="100" fill="#f59e0b" font-family="Arial, sans-serif" font-size="8">Plan carefully</text>
+  </g>
+
+  <g transform="translate(540, 1060)">
+    <rect x="0" y="0" width="230" height="110" rx="5" fill="#fee" stroke="#ef4444" stroke-width="1"/>
+    <text x="115" y="20" text-anchor="middle" fill="#ef4444" font-family="Arial, sans-serif" font-size="11" font-weight="bold">High IP (10+ per service)</text>
+    <text x="10" y="40" fill="#333" font-family="Arial, sans-serif" font-size="9">• AKS (3 nodes): 10-15 IPs</text>
+    <text x="10" y="55" fill="#333" font-family="Arial, sans-serif" font-size="9">• AKS (10 nodes): 30-50 IPs</text>
+    <text x="10" y="70" fill="#333" font-family="Arial, sans-serif" font-size="9">• APIM (internal): 10-15 IPs</text>
+    <text x="10" y="85" fill="#333" font-family="Arial, sans-serif" font-size="9">• App Gateway: 10-15 IPs</text>
+    <text x="10" y="100" fill="#ef4444" font-family="Arial, sans-serif" font-size="8">Requires justification</text>
+  </g>
+
+  <g transform="translate(790, 1060)">
+    <rect x="0" y="0" width="350" height="110" rx="5" fill="#003366"/>
+    <text x="175" y="25" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="12" font-weight="bold">TENANT IP BUDGET</text>
+    <text x="175" y="50" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="24" font-weight="bold">50 IPs Default</text>
+    <text x="175" y="70" text-anchor="middle" fill="#ccc" font-family="Arial, sans-serif" font-size="10">Typical allocation per ministry resource group</text>
+    <text x="175" y="90" text-anchor="middle" fill="#ccc" font-family="Arial, sans-serif" font-size="9">Covers: Foundry + Storage + Search + KV + extras</text>
+    <text x="175" y="105" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="9">Request increase with capacity plan</text>
+  </g>
+
+  <g transform="translate(1160, 1060)">
+    <rect x="0" y="0" width="400" height="110" rx="5" fill="#f0f9ff" stroke="#0078d4" stroke-width="1"/>
+    <text x="200" y="20" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="11" font-weight="bold">DNS RESOLUTION (Platform Services)</text>
+    <text x="10" y="40" fill="#333" font-family="Arial, sans-serif" font-size="9">All private DNS zones managed by Platform Services team:</text>
+    <text x="10" y="55" fill="#666" font-family="monospace" font-size="8">privatelink.blob.core.windows.net → Storage</text>
+    <text x="10" y="68" fill="#666" font-family="monospace" font-size="8">privatelink.vaultcore.azure.net → Key Vault</text>
+    <text x="10" y="81" fill="#666" font-family="monospace" font-size="8">privatelink.openai.azure.com → Azure OpenAI</text>
+    <text x="10" y="94" fill="#666" font-family="monospace" font-size="8">privatelink.cognitiveservices.azure.com → AI Services</text>
+    <text x="10" y="107" fill="#22c55e" font-family="Arial, sans-serif" font-size="8">AI Hub team does NOT manage DNS zones</text>
+  </g>
+
+  <!-- Legend -->
+  <rect x="20" y="1210" width="1560" height="170" rx="10" fill="#f8fafc" stroke="#003366" stroke-width="2" filter="url(#shadow)"/>
+  <text x="800" y="1235" text-anchor="middle" fill="#003366" font-family="Arial, sans-serif" font-size="16" font-weight="bold">LEGEND &amp; KEY POINTS</text>
+
+  <g transform="translate(40, 1255)">
+    <rect x="0" y="0" width="20" height="20" fill="#ef4444"/>
+    <text x="30" y="15" fill="#333" font-family="Arial, sans-serif" font-size="11">Production VNet - Highest security, no direct access</text>
+  </g>
+  <g transform="translate(40, 1285)">
+    <rect x="0" y="0" width="20" height="20" fill="#f59e0b"/>
+    <text x="30" y="15" fill="#333" font-family="Arial, sans-serif" font-size="11">Test VNet - UAT and integration testing</text>
+  </g>
+  <g transform="translate(40, 1315)">
+    <rect x="0" y="0" width="20" height="20" fill="#22c55e"/>
+    <text x="30" y="15" fill="#333" font-family="Arial, sans-serif" font-size="11">Dev VNet - Development and experimentation</text>
+  </g>
+  <g transform="translate(40, 1345)">
+    <rect x="0" y="0" width="20" height="20" fill="#0078d4"/>
+    <text x="30" y="15" fill="#333" font-family="Arial, sans-serif" font-size="11">Tools VNet - Platform team only (Bastion, Runners)</text>
+  </g>
+
+  <g transform="translate(450, 1255)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Key Architecture Decisions:</text>
+    <text x="0" y="35" fill="#333" font-family="Arial, sans-serif" font-size="10">• All traffic via App Gateway → APIM → Private Endpoints</text>
+    <text x="0" y="52" fill="#333" font-family="Arial, sans-serif" font-size="10">• No public endpoints on any service</text>
+    <text x="0" y="69" fill="#333" font-family="Arial, sans-serif" font-size="10">• DNS managed by Platform Services (not AI Hub)</text>
+    <text x="0" y="86" fill="#333" font-family="Arial, sans-serif" font-size="10">• Bastion/Jumpbox for platform team emergency access only</text>
+    <text x="0" y="103" fill="#333" font-family="Arial, sans-serif" font-size="10">• Self-hosted runners for CI/CD (no public GitHub runners for private access)</text>
+  </g>
+
+  <g transform="translate(950, 1255)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Tenant Access Model:</text>
+    <text x="0" y="35" fill="#22c55e" font-family="Arial, sans-serif" font-size="10">✓ API access via APIM (subscription key)</text>
+    <text x="0" y="52" fill="#22c55e" font-family="Arial, sans-serif" font-size="10">✓ Resource provisioning via Terraform PR</text>
+    <text x="0" y="69" fill="#22c55e" font-family="Arial, sans-serif" font-size="10">✓ View resources in Azure Portal (read-only)</text>
+    <text x="0" y="86" fill="#ef4444" font-family="Arial, sans-serif" font-size="10">✗ No Bastion/Jumpbox access</text>
+    <text x="0" y="103" fill="#f59e0b" font-family="Arial, sans-serif" font-size="10">? Direct ExpressRoute: case-by-case</text>
+  </g>
+
+  <g transform="translate(1300, 1255)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="11" font-weight="bold">IP Allocation:</text>
+    <text x="0" y="35" fill="#333" font-family="Arial, sans-serif" font-size="10">Total: ~2000 IPs across 4 VNets</text>
+    <text x="0" y="52" fill="#333" font-family="Arial, sans-serif" font-size="10">Prod: 1024 | Test: 512</text>
+    <text x="0" y="69" fill="#333" font-family="Arial, sans-serif" font-size="10">Dev: 256 | Tools: 256</text>
+    <text x="0" y="86" fill="#333" font-family="Arial, sans-serif" font-size="10">Tenant default: 50 IPs</text>
+    <text x="0" y="103" fill="#f59e0b" font-family="Arial, sans-serif" font-size="10">Plan carefully!</text>
+  </g>
+
+</svg>

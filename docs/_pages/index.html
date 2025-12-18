@@ -34,42 +34,54 @@
     </div>
 </div>
 
-<!-- Stats Row -->
-<div class="grid grid-4" style="margin-bottom: 2rem;">
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid var(--bc-gold);">
-        <div class="stat-number">0</div>
-        <div class="stat-label">Secrets to Manage</div>
+<h2>Project Scope: Enabling AI on Azure</h2>
+<div class="card card-gold">
+    <h3 style="margin-top:0;">This is an AI Platform, Not a General Azure Onboarding Tool</h3>
+    <p>The primary mission of this project is to create a secure, compliant, and reusable "paved road" for <strong>AI-specific workloads</strong> in the BC Government. It is not intended for general-purpose application hosting.</p>
+    <p>Our scope is defined by what can be provisioned and managed via Infrastructure as Code. We exclusively support services that have a mature <strong>Azure Verified Module (AVM)</strong> for Terraform. This ensures every component of the platform is repeatable, auditable, and aligned with industry best practices.</p>
+</div>
+
+<h2>The Challenge: Microsoft's Model vs. BC Gov's Reality</h2>
+
+<p>A newcomer to this project might ask: "Why is this so complex? Why not just follow Microsoft's tutorials?" This project exists to answer that question. There is a fundamental disconnect between Microsoft's standard approach and the strict policy requirements of the BC Government.</p>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: #0078d4;">
+        <h3 style="margin-top:0;">Microsoft's Assumption: UI-First, Public-Friendly</h3>
+        <p>Microsoft's documentation and tools (like Azure Portal and AI Studio) are designed for a user-friendly, web-based experience. This model assumes that Azure services have <strong>public endpoints</strong> so the browser-based UIs can connect to them.</p>
     </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid var(--bc-blue);">
-        <div class="stat-number">3</div>
-        <div class="stat-label">Terraform Modules</div>
-    </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid #22c55e;">
-        <div class="stat-number">4</div>
-        <div class="stat-label">GitHub Workflows</div>
-    </div>
-    <div class="card" style="text-align: center; border-left: none; border-top: 4px solid #8b5cf6;">
-        <div class="stat-number">5+</div>
-        <div class="stat-label">Ops Playbooks</div>
+    <div class="card" style="border-left-color: #ef4444;">
+        <h3 style="margin-top:0;">BC Gov's Reality: Private-Only, Zero-Trust</h3>
+        <p>BC Government security policy mandates a "zero-trust" network model. Critically, this means **no public endpoints** on any Azure PaaS services. All access must be from within a private, controlled network.</p>
     </div>
 </div>
 
-<h2>Project Vision: A Shared AI Landing Zone</h2>
-
-<div class="grid grid-2">
-    <div class="card">
-        <h3>Why This Exists</h3>
-        <p>The B.C. Government is rapidly adopting AI technologies. However, setting up secure, compliant cloud infrastructure for AI workloads allows teams to get bogged down in networking, identity management, and security compliance.</p>
-        <p><strong>AI Hub Tracking</strong> serves as a reference implementation and reusable landing zone pattern. It solves the "blank slate" problem by providing a standardized, secure-by-default environment specifically designed for AI experimentation and production.</p>
+<div class="alert alert-info" style="margin-top: 1rem;">
+    <div class="alert-icon">💡</div>
+    <div>
+        <strong>This is the core problem.</strong> The "no public endpoints" policy makes the standard, UI-driven Microsoft workflow non-functional. This project implements the architecture required to operate securely within this constraint. For a full breakdown, see <a href="diagrams.html#ms-vs-bcgov">Microsoft vs BC Gov Comparison</a> and <a href="decisions.html#adr-008">ADR-008</a>.
     </div>
-    <div class="card" style="border-left-color: var(--bc-gold);">
-        <h3>Problems We Solve</h3>
-        <ul style="margin-top: 0;">
-            <li><strong>Secret Fatigue:</strong> Eliminates the need to rotate client secrets by using OIDC.</li>
-            <li><strong>Network Complexity:</strong> Pre-wired VNet, Subnets, and NSGs so you don't have to be a network engineer.</li>
-            <li><strong>Security Compliance:</strong> Implements "Least Privilege" and private networking by default.</li>
-            <li><strong>Inconsistent Environments:</strong> Ensures Dev and Prod look identical, reducing deployment surprises.</li>
-        </ul>
+</div>
+
+<h2>Our Solution: An API-First, Secure Landing Zone</h2>
+
+<p>This repository provides a standardized, secure-by-default environment that solves the challenges above. Instead of a UI-driven model, we provide an <strong>API-first, Infrastructure-as-Code (IaC) model</strong>.</p>
+
+<div class="grid grid-3">
+    <div class="card">
+        <h4 style="margin-top:0;">1. Secure Private Network</h4>
+        <p>A shared VNet isolates all resources. A <strong>Bastion Host</strong> and <strong>Jumpbox VM</strong> provide the only secure administrative access. Self-hosted runners execute deployments from within the network.</p>
+        <p><small>See <a href="decisions.html#adr-001">ADR-001: Shared Landing Zone</a></small></p>
+    </div>
+    <div class="card">
+        <h4 style="margin-top:0;">2. Passwordless OIDC Auth</h4>
+        <p>We eliminate long-lived secrets by using <strong>OpenID Connect (OIDC)</strong>. GitHub Actions receives temporary, auto-expiring tokens from Azure for each deployment, dramatically improving security.</p>
+        <p><small>See <a href="decisions.html#adr-002">ADR-002: OIDC Authentication</a></small></p>
+    </div>
+    <div class="card">
+        <h4 style="margin-top:0;">3. Reusable IaC Modules</h4>
+        <p>We use Microsoft's official <strong>Azure Verified Modules (AVM)</strong> to define infrastructure. This provides a library of tested, maintained, and reusable components for anyone to consume.</p>
+        <p><small>See <a href="decisions.html#adr-009">ADR-009: Why AVMs</a></small></p>
     </div>
 </div>
 

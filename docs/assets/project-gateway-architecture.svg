@@ -1,0 +1,233 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1100" width="1200" height="1100">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1e3a5f"/>
+      <stop offset="100%" style="stop-color:#2d5a87"/>
+    </linearGradient>
+    <linearGradient id="sharedGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fef3c7"/>
+      <stop offset="100%" style="stop-color:#fde68a"/>
+    </linearGradient>
+    <linearGradient id="projectGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#dbeafe"/>
+      <stop offset="100%" style="stop-color:#bfdbfe"/>
+    </linearGradient>
+    <linearGradient id="gatewayGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#dcfce7"/>
+      <stop offset="100%" style="stop-color:#bbf7d0"/>
+    </linearGradient>
+    <linearGradient id="aiGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f3e8ff"/>
+      <stop offset="100%" style="stop-color:#e9d5ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#22c55e"/>
+    </marker>
+    <marker id="arrowPurple" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#7c3aed"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="1100" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1200" height="80" fill="url(#headerGrad)"/>
+  <text x="600" y="35" font-family="Segoe UI, Arial" font-size="24" font-weight="bold" fill="white" text-anchor="middle">Project Gateway Architecture (Proposed)</text>
+  <text x="600" y="60" font-family="Segoe UI, Arial" font-size="14" fill="#94a3b8" text-anchor="middle">Two-Level RBAC: APIM (Auth) + Project RG (Isolation) | Direct Cost Tracking via Resource Groups</text>
+
+  <!-- Legend -->
+  <rect x="20" y="95" width="1160" height="45" rx="8" fill="white" stroke="#e2e8f0" filter="url(#shadow)"/>
+  <rect x="40" y="107" width="20" height="20" rx="3" fill="url(#sharedGrad)" stroke="#f59e0b"/>
+  <text x="65" y="122" font-family="Segoe UI, Arial" font-size="11" fill="#334155">Shared Platform</text>
+  <rect x="180" y="107" width="20" height="20" rx="3" fill="url(#projectGrad)" stroke="#3b82f6"/>
+  <text x="205" y="122" font-family="Segoe UI, Arial" font-size="11" fill="#334155">Project RG (Direct Cost)</text>
+  <rect x="360" y="107" width="20" height="20" rx="3" fill="url(#gatewayGrad)" stroke="#22c55e"/>
+  <text x="385" y="122" font-family="Segoe UI, Arial" font-size="11" fill="#334155">Project Gateway (Proxy)</text>
+  <rect x="540" y="107" width="20" height="20" rx="3" fill="url(#aiGrad)" stroke="#7c3aed"/>
+  <text x="565" y="122" font-family="Segoe UI, Arial" font-size="11" fill="#334155">Shared AI Services</text>
+  <line x1="720" y1="117" x2="760" y2="117" stroke="#22c55e" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <text x="765" y="122" font-family="Segoe UI, Arial" font-size="11" fill="#334155">Direct Cost Flow</text>
+  <line x1="890" y1="117" x2="930" y2="117" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrowPurple)"/>
+  <text x="935" y="122" font-family="Segoe UI, Arial" font-size="11" fill="#334155">Usage Tracked</text>
+
+  <!-- Client -->
+  <rect x="540" y="155" width="120" height="40" rx="8" fill="#1e293b" filter="url(#shadow)"/>
+  <text x="600" y="180" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="white" text-anchor="middle">Ministry Client</text>
+  <line x1="600" y1="195" x2="600" y2="220" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- LEVEL 1: Shared Platform -->
+  <text x="30" y="250" font-family="Segoe UI, Arial" font-size="14" font-weight="bold" fill="#1e3a5f">LEVEL 1: Shared Entry Point (Authentication + Routing)</text>
+
+  <rect x="30" y="265" width="1140" height="100" rx="10" fill="url(#sharedGrad)" stroke="#f59e0b" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="290" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#92400e" text-anchor="middle">rg-shared-platform</text>
+
+  <rect x="350" y="305" width="140" height="45" rx="6" fill="white" stroke="#fbbf24"/>
+  <text x="420" y="328" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">App Gateway</text>
+  <text x="420" y="343" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">WAF + SSL</text>
+
+  <line x1="490" y1="327" x2="540" y2="327" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <rect x="540" y="305" width="200" height="45" rx="6" fill="white" stroke="#fbbf24"/>
+  <text x="640" y="328" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">APIM (Gatekeeper #1)</text>
+  <text x="640" y="343" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">Auth + Rate Limit + Route by Sub Key</text>
+
+  <rect x="800" y="305" width="140" height="45" rx="6" fill="white" stroke="#fbbf24"/>
+  <text x="870" y="328" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">Bastion</text>
+  <text x="870" y="343" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">Admin Access</text>
+
+  <!-- Arrows from APIM to Project RGs -->
+  <line x1="580" y1="365" x2="240" y2="420" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="640" y1="365" x2="600" y2="420" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="700" y1="365" x2="960" y2="420" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- LEVEL 2: Project Resource Groups -->
+  <text x="30" y="410" font-family="Segoe UI, Arial" font-size="14" font-weight="bold" fill="#1e3a5f">LEVEL 2: Project Resource Groups (Isolation + Direct Cost Tracking)</text>
+
+  <!-- Project A -->
+  <rect x="50" y="425" width="320" height="280" rx="10" fill="url(#projectGrad)" stroke="#3b82f6" stroke-width="2" filter="url(#shadow)"/>
+  <text x="210" y="450" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#1e40af" text-anchor="middle">rg-health-rag</text>
+  <text x="210" y="465" font-family="Segoe UI, Arial" font-size="9" fill="#3b82f6" text-anchor="middle">(Ministry of Health - RAG Project)</text>
+
+  <!-- Project Gateway Function A -->
+  <rect x="70" y="480" width="280" height="70" rx="8" fill="url(#gatewayGrad)" stroke="#22c55e" stroke-width="2"/>
+  <text x="210" y="505" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Project Gateway Function</text>
+  <text x="210" y="520" font-family="Segoe UI, Arial" font-size="9" fill="#15803d" text-anchor="middle">Logs all requests + Routes to shared AI</text>
+  <text x="210" y="535" font-family="Segoe UI, Arial" font-size="9" fill="#15803d" text-anchor="middle">RBAC: Managed Identity</text>
+
+  <!-- Project A Resources -->
+  <rect x="70" y="560" width="85" height="55" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="112" y="583" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#1e40af" text-anchor="middle">Storage</text>
+  <text x="112" y="598" font-family="Segoe UI, Arial" font-size="8" fill="#3b82f6" text-anchor="middle">$150/mo</text>
+
+  <rect x="167" y="560" width="85" height="55" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="209" y="583" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#1e40af" text-anchor="middle">Search</text>
+  <text x="209" y="598" font-family="Segoe UI, Arial" font-size="8" fill="#3b82f6" text-anchor="middle">$250/mo</text>
+
+  <rect x="264" y="560" width="85" height="55" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="306" y="583" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#1e40af" text-anchor="middle">Key Vault</text>
+  <text x="306" y="598" font-family="Segoe UI, Arial" font-size="8" fill="#3b82f6" text-anchor="middle">$20/mo</text>
+
+  <!-- Cost badge A -->
+  <rect x="70" y="625" width="280" height="30" rx="6" fill="#1e40af"/>
+  <text x="210" y="645" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="white" text-anchor="middle">DIRECT COST: $520/month (RG tracked)</text>
+
+  <!-- Arrow from Gateway A -->
+  <line x1="210" y1="705" x2="210" y2="760" stroke="#22c55e" stroke-width="2" stroke-dasharray="5,3"/>
+  <line x1="210" y1="760" x2="600" y2="830" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrowPurple)"/>
+
+  <!-- Project B -->
+  <rect x="440" y="425" width="320" height="280" rx="10" fill="url(#projectGrad)" stroke="#3b82f6" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="450" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#1e40af" text-anchor="middle">rg-sdpr-chatbot</text>
+  <text x="600" y="465" font-family="Segoe UI, Arial" font-size="9" fill="#3b82f6" text-anchor="middle">(Ministry of SDPR - Chatbot Project)</text>
+
+  <!-- Project Gateway Function B -->
+  <rect x="460" y="480" width="280" height="70" rx="8" fill="url(#gatewayGrad)" stroke="#22c55e" stroke-width="2"/>
+  <text x="600" y="505" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Project Gateway Function</text>
+  <text x="600" y="520" font-family="Segoe UI, Arial" font-size="9" fill="#15803d" text-anchor="middle">Logs all requests + Routes to shared AI</text>
+  <text x="600" y="535" font-family="Segoe UI, Arial" font-size="9" fill="#15803d" text-anchor="middle">RBAC: Managed Identity</text>
+
+  <!-- Project B Resources -->
+  <rect x="460" y="560" width="85" height="55" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="502" y="583" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#1e40af" text-anchor="middle">Storage</text>
+  <text x="502" y="598" font-family="Segoe UI, Arial" font-size="8" fill="#3b82f6" text-anchor="middle">$80/mo</text>
+
+  <rect x="557" y="560" width="85" height="55" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="599" y="583" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#1e40af" text-anchor="middle">Search</text>
+  <text x="599" y="598" font-family="Segoe UI, Arial" font-size="8" fill="#3b82f6" text-anchor="middle">$250/mo</text>
+
+  <rect x="654" y="560" width="85" height="55" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="696" y="583" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#1e40af" text-anchor="middle">Key Vault</text>
+  <text x="696" y="598" font-family="Segoe UI, Arial" font-size="8" fill="#3b82f6" text-anchor="middle">$20/mo</text>
+
+  <!-- Cost badge B -->
+  <rect x="460" y="625" width="280" height="30" rx="6" fill="#1e40af"/>
+  <text x="600" y="645" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="white" text-anchor="middle">DIRECT COST: $450/month (RG tracked)</text>
+
+  <!-- Arrow from Gateway B -->
+  <line x1="600" y1="705" x2="600" y2="830" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrowPurple)"/>
+
+  <!-- Project C -->
+  <rect x="830" y="425" width="320" height="280" rx="10" fill="url(#projectGrad)" stroke="#3b82f6" stroke-width="2" filter="url(#shadow)"/>
+  <text x="990" y="450" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#1e40af" text-anchor="middle">rg-justice-search</text>
+  <text x="990" y="465" font-family="Segoe UI, Arial" font-size="9" fill="#3b82f6" text-anchor="middle">(Ministry of Justice - Search Project)</text>
+
+  <!-- Project Gateway Function C -->
+  <rect x="850" y="480" width="280" height="70" rx="8" fill="url(#gatewayGrad)" stroke="#22c55e" stroke-width="2"/>
+  <text x="990" y="505" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Project Gateway Function</text>
+  <text x="990" y="520" font-family="Segoe UI, Arial" font-size="9" fill="#15803d" text-anchor="middle">Logs all requests + Routes to shared AI</text>
+  <text x="990" y="535" font-family="Segoe UI, Arial" font-size="9" fill="#15803d" text-anchor="middle">RBAC: Managed Identity</text>
+
+  <!-- Project C Resources -->
+  <rect x="850" y="560" width="85" height="55" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="892" y="583" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#1e40af" text-anchor="middle">Storage</text>
+  <text x="892" y="598" font-family="Segoe UI, Arial" font-size="8" fill="#3b82f6" text-anchor="middle">$200/mo</text>
+
+  <rect x="947" y="560" width="85" height="55" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="989" y="583" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#1e40af" text-anchor="middle">Search</text>
+  <text x="989" y="598" font-family="Segoe UI, Arial" font-size="8" fill="#3b82f6" text-anchor="middle">$400/mo</text>
+
+  <rect x="1044" y="560" width="85" height="55" rx="6" fill="white" stroke="#60a5fa"/>
+  <text x="1086" y="583" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#1e40af" text-anchor="middle">Key Vault</text>
+  <text x="1086" y="598" font-family="Segoe UI, Arial" font-size="8" fill="#3b82f6" text-anchor="middle">$20/mo</text>
+
+  <!-- Cost badge C -->
+  <rect x="850" y="625" width="280" height="30" rx="6" fill="#1e40af"/>
+  <text x="990" y="645" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="white" text-anchor="middle">DIRECT COST: $720/month (RG tracked)</text>
+
+  <!-- Arrow from Gateway C -->
+  <line x1="990" y1="705" x2="990" y2="760" stroke="#22c55e" stroke-width="2" stroke-dasharray="5,3"/>
+  <line x1="990" y1="760" x2="600" y2="830" stroke="#7c3aed" stroke-width="2" stroke-dasharray="5,3" marker-end="url(#arrowPurple)"/>
+
+  <!-- LEVEL 3: Shared AI Services -->
+  <text x="30" y="785" font-family="Segoe UI, Arial" font-size="14" font-weight="bold" fill="#1e3a5f">LEVEL 3: Shared AI Services (Usage Logged by Project Gateway)</text>
+
+  <rect x="200" y="800" width="800" height="120" rx="10" fill="url(#aiGrad)" stroke="#7c3aed" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="825" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#6b21a8" text-anchor="middle">rg-shared-ai-services</text>
+
+  <rect x="230" y="845" width="160" height="55" rx="6" fill="white" stroke="#a855f7"/>
+  <text x="310" y="868" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#6b21a8" text-anchor="middle">AI Foundry Hub</text>
+  <text x="310" y="883" font-family="Segoe UI, Arial" font-size="8" fill="#7c3aed" text-anchor="middle">GPT-4, Embeddings</text>
+
+  <rect x="420" y="845" width="160" height="55" rx="6" fill="white" stroke="#a855f7"/>
+  <text x="500" y="868" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#6b21a8" text-anchor="middle">Document Intel</text>
+  <text x="500" y="883" font-family="Segoe UI, Arial" font-size="8" fill="#7c3aed" text-anchor="middle">OCR, Forms</text>
+
+  <rect x="610" y="845" width="160" height="55" rx="6" fill="white" stroke="#a855f7"/>
+  <text x="690" y="868" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#6b21a8" text-anchor="middle">OpenAI Models</text>
+  <text x="690" y="883" font-family="Segoe UI, Arial" font-size="8" fill="#7c3aed" text-anchor="middle">GPT-4o, GPT-4</text>
+
+  <rect x="800" y="845" width="160" height="55" rx="6" fill="white" stroke="#a855f7"/>
+  <text x="880" y="868" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#6b21a8" text-anchor="middle">Other AI</text>
+  <text x="880" y="883" font-family="Segoe UI, Arial" font-size="8" fill="#7c3aed" text-anchor="middle">Speech, Vision, etc.</text>
+
+  <!-- Summary Box -->
+  <rect x="30" y="940" width="1140" height="140" rx="10" fill="white" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="970" font-family="Segoe UI, Arial" font-size="14" font-weight="bold" fill="#166534" text-anchor="middle">Why This Architecture Works</text>
+
+  <rect x="50" y="985" width="350" height="80" rx="6" fill="#f0fdf4" stroke="#22c55e"/>
+  <text x="225" y="1010" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Two-Level RBAC</text>
+  <text x="70" y="1030" font-family="Segoe UI, Arial" font-size="9" fill="#15803d">Level 1: APIM authenticates + routes by sub key</text>
+  <text x="70" y="1045" font-family="Segoe UI, Arial" font-size="9" fill="#15803d">Level 2: Project RG has Managed Identity RBAC</text>
+  <text x="70" y="1060" font-family="Segoe UI, Arial" font-size="9" fill="#15803d">Defense in depth - bypass one, still blocked</text>
+
+  <rect x="425" y="985" width="350" height="80" rx="6" fill="#dbeafe" stroke="#3b82f6"/>
+  <text x="600" y="1010" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">Direct Cost Tracking</text>
+  <text x="445" y="1030" font-family="Segoe UI, Arial" font-size="9" fill="#1e40af">Project Gateway Function = in project RG</text>
+  <text x="445" y="1045" font-family="Segoe UI, Arial" font-size="9" fill="#1e40af">Storage, Search, Key Vault = in project RG</text>
+  <text x="445" y="1060" font-family="Segoe UI, Arial" font-size="9" fill="#1e40af">~80% of costs captured directly via Azure Cost Mgmt</text>
+
+  <rect x="800" y="985" width="350" height="80" rx="6" fill="#f3e8ff" stroke="#7c3aed"/>
+  <text x="975" y="1010" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#6b21a8" text-anchor="middle">Usage Logging</text>
+  <text x="820" y="1030" font-family="Segoe UI, Arial" font-size="9" fill="#6b21a8">Project Gateway logs all AI service calls</text>
+  <text x="820" y="1045" font-family="Segoe UI, Arial" font-size="9" fill="#6b21a8">Tokens, pages, requests tracked per project</text>
+  <text x="820" y="1060" font-family="Segoe UI, Arial" font-size="9" fill="#6b21a8">Remaining ~20% allocated via usage logs</text>
+
+</svg>

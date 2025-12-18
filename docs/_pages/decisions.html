@@ -1,6 +1,76 @@
 <!-- TITLE: Architecture Decisions -->
 <!-- NAV: decisions -->
 
+<style>
+/* Collapsible ADR Styling */
+details.adr {
+    background: var(--white);
+    border-radius: 8px;
+    margin-bottom: 1rem;
+    box-shadow: var(--shadow-sm);
+    border: 1px solid #e2e8f0;
+    overflow: hidden;
+}
+
+details.adr[open] {
+    border-color: var(--bc-gold);
+    box-shadow: var(--shadow-md);
+}
+
+details.adr summary {
+    padding: 1rem 1.5rem;
+    cursor: pointer;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-bottom: 2px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-weight: 600;
+    color: var(--bc-blue);
+    list-style: none;
+}
+
+details.adr summary::-webkit-details-marker {
+    display: none;
+}
+
+details.adr summary::before {
+    content: "▶";
+    font-size: 0.8rem;
+    transition: transform 0.2s;
+    color: var(--bc-gold);
+}
+
+details.adr[open] summary::before {
+    transform: rotate(90deg);
+}
+
+details.adr[open] summary {
+    border-bottom: 2px solid var(--bc-gold);
+    background: linear-gradient(135deg, #fef9e7 0%, #fef3c7 100%);
+}
+
+details.adr summary .adr-title {
+    flex: 1;
+}
+
+details.adr summary .adr-status {
+    font-size: 0.85rem;
+}
+
+details.adr .adr-content {
+    padding: 1.5rem;
+}
+
+details.adr.pending summary {
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+}
+
+details.adr.pending[open] summary {
+    background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+}
+</style>
+
 <h1>Architecture Decision Records</h1>
 
 <p>This page documents key architectural decisions for the AI Hub Tracking infrastructure. Each ADR explains the context, decision, and consequences to help future maintainers understand why things are built the way they are.</p>
@@ -89,11 +159,13 @@
     </tr>
 </table>
 
-<!-- ============================================================================
-     ADR-001: Shared Landing Zone Architecture (THE FOUNDATION)
-     ============================================================================ -->
-
-<h2 id="adr-001">ADR-001: Shared Landing Zone with Bastion/Jumpbox</h2>
+<!-- ADR-001 -->
+<details class="adr" id="adr-001" open>
+<summary>
+    <span class="adr-title">ADR-001: Shared Landing Zone with Bastion/Jumpbox</span>
+    <span class="adr-status"><span class="badge badge-gold">Accepted</span></span>
+</summary>
+<div class="adr-content">
 
 <div class="grid grid-4" style="margin-bottom: 1rem;">
     <div><strong>Status:</strong> Accepted</div>
@@ -345,11 +417,16 @@
     <li><a href="diagrams.html#network-arch">Network Architecture Diagram</a></li>
 </ul>
 
-<!-- ============================================================================
-     ADR-002: OIDC vs Service Principal
-     ============================================================================ -->
+</div>
+</details>
 
-<h2 id="adr-002">ADR-002: Use OIDC instead of Service Principal Secrets</h2>
+<!-- ADR-002 -->
+<details class="adr" id="adr-002">
+<summary>
+    <span class="adr-title">ADR-002: Use OIDC instead of Service Principal Secrets</span>
+    <span class="adr-status"><span class="badge badge-gold">Accepted</span></span>
+</summary>
+<div class="adr-content">
 
 <div class="grid grid-4" style="margin-bottom: 1rem;">
     <div><strong>Status:</strong> Accepted</div>
@@ -492,11 +569,16 @@
     <li><a href="diagrams.html#token-flow">Token Exchange Flow Diagram</a></li>
 </ul>
 
-<!-- ============================================================================
-     ADR-003: Azure Bastion vs VPN
-     ============================================================================ -->
+</div>
+</details>
 
-<h2 id="adr-003">ADR-003: Use Azure Bastion for VM Access</h2>
+<!-- ADR-003 -->
+<details class="adr" id="adr-003">
+<summary>
+    <span class="adr-title">ADR-003: Use Azure Bastion for VM Access</span>
+    <span class="adr-status"><span class="badge badge-gold">Accepted</span></span>
+</summary>
+<div class="adr-content">
 
 <div class="grid grid-4" style="margin-bottom: 1rem;">
     <div><strong>Status:</strong> Accepted</div>
@@ -513,6 +595,48 @@
         <strong>Policy Driver:</strong> BC Gov policy prohibits public IP addresses on virtual machines. VMs must only be accessible through private networks. Azure Bastion provides compliant access without exposing VMs to the internet.
     </div>
 </div>
+
+<div class="alert alert-info">
+    <span class="alert-icon">🌉</span>
+    <div>
+        <strong>Bastion = The Public-to-Private Bridge</strong><br>
+        Azure Bastion is the <strong>one approved exception</strong> to the "no public endpoints" rule. It's an Azure-managed PaaS service with a public IP that provides secure browser-based access to private VMs. The key point: Bastion has the public IP, not the VMs themselves.
+    </div>
+</div>
+
+<h4>Public Endpoints in the Architecture</h4>
+<table>
+    <tr>
+        <th>Service</th>
+        <th>Has Public IP?</th>
+        <th>Why</th>
+    </tr>
+    <tr>
+        <td><strong>Azure Bastion</strong></td>
+        <td><span class="badge" style="background:#f59e0b;color:white;">Yes (exception)</span></td>
+        <td>Required for browser-based VM access. Azure-managed, AAD-authenticated. This is the public-to-private bridge for admin access.</td>
+    </tr>
+    <tr>
+        <td>App Gateway</td>
+        <td><span class="badge" style="background:#22c55e;color:white;">No (internal)</span></td>
+        <td>Receives traffic from ExpressRoute (on-premises), not public internet. Internal listener only.</td>
+    </tr>
+    <tr>
+        <td>APIM</td>
+        <td><span class="badge" style="background:#22c55e;color:white;">No (internal)</span></td>
+        <td>Deployed in internal mode, sits behind App Gateway. No public exposure.</td>
+    </tr>
+    <tr>
+        <td>VMs (Jumpbox)</td>
+        <td><span class="badge" style="background:#22c55e;color:white;">No</span></td>
+        <td>Private IPs only. Access via Bastion.</td>
+    </tr>
+    <tr>
+        <td>Storage, Key Vault, etc.</td>
+        <td><span class="badge" style="background:#22c55e;color:white;">No</span></td>
+        <td>Private endpoints only. Public access disabled.</td>
+    </tr>
+</table>
 
 <p>Operators need secure access to jumpbox VMs for debugging and administration. The VMs cannot have public IPs per policy. We evaluated:</p>
 
@@ -605,7 +729,13 @@
      ADR-004: Private Endpoints
      ============================================================================ -->
 
-<h2 id="adr-004">ADR-004: Private Endpoints for All Azure Services</h2>
+<!-- ADR-004 -->
+<details class="adr" id="adr-004">
+<summary>
+    <span class="adr-title">ADR-004: Private Endpoints for All Azure Services</span>
+    <span class="adr-status"><span class="badge badge-gold">Accepted</span></span>
+</summary>
+<div class="adr-content">
 
 <div class="grid grid-4" style="margin-bottom: 1rem;">
     <div><strong>Status:</strong> Accepted</div>
@@ -717,11 +847,16 @@
     <li><a href="diagrams.html#network-arch">Network Architecture Diagram</a></li>
 </ul>
 
-<!-- ============================================================================
-     ADR-005: Zero-Dependency Docs
-     ============================================================================ -->
+</div>
+</details>
 
-<h2 id="adr-005">ADR-005: Zero-Dependency Documentation System</h2>
+<!-- ADR-005 -->
+<details class="adr" id="adr-005">
+<summary>
+    <span class="adr-title">ADR-005: Zero-Dependency Documentation System</span>
+    <span class="adr-status"><span class="badge badge-gold">Accepted</span></span>
+</summary>
+<div class="adr-content">
 
 <div class="grid grid-4" style="margin-bottom: 1rem;">
     <div><strong>Status:</strong> Accepted</div>

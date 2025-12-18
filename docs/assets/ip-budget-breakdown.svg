@@ -1,0 +1,537 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 2150">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#003366"/>
+      <stop offset="100%" style="stop-color:#004488"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1400" height="2150" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1400" height="80" fill="url(#headerGrad)"/>
+  <text x="700" y="35" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="26" font-weight="bold">BC Gov AI Hub - IP Budget Breakdown</text>
+  <text x="700" y="60" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="14">How we calculated 50 IPs per tenant resource group</text>
+
+  <!-- Total Allocation Summary -->
+  <rect x="20" y="100" width="1360" height="120" rx="10" fill="white" stroke="#003366" stroke-width="2" filter="url(#shadow)"/>
+  <text x="700" y="130" text-anchor="middle" fill="#003366" font-family="Arial, sans-serif" font-size="18" font-weight="bold">TOTAL IP ALLOCATION (da4cf6 License Plate)</text>
+
+  <g transform="translate(50, 150)">
+    <rect x="0" y="0" width="200" height="50" rx="5" fill="#ef4444"/>
+    <text x="100" y="20" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="12" font-weight="bold">PROD VNet</text>
+    <text x="100" y="38" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">/22 = 1,024 IPs</text>
+  </g>
+  <g transform="translate(270, 150)">
+    <rect x="0" y="0" width="200" height="50" rx="5" fill="#f59e0b"/>
+    <text x="100" y="20" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="12" font-weight="bold">TEST VNet</text>
+    <text x="100" y="38" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">/23 = 512 IPs</text>
+  </g>
+  <g transform="translate(490, 150)">
+    <rect x="0" y="0" width="200" height="50" rx="5" fill="#22c55e"/>
+    <text x="100" y="20" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="12" font-weight="bold">DEV VNet</text>
+    <text x="100" y="38" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">/24 = 256 IPs</text>
+  </g>
+  <g transform="translate(710, 150)">
+    <rect x="0" y="0" width="200" height="50" rx="5" fill="#0078d4"/>
+    <text x="100" y="20" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="12" font-weight="bold">TOOLS VNet</text>
+    <text x="100" y="38" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">/24 = 256 IPs</text>
+  </g>
+  <g transform="translate(930, 150)">
+    <rect x="0" y="0" width="200" height="50" rx="5" fill="#003366"/>
+    <text x="100" y="20" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="12" font-weight="bold">TOTAL</text>
+    <text x="100" y="38" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">2,048 IPs</text>
+  </g>
+  <g transform="translate(1150, 150)">
+    <rect x="0" y="0" width="200" height="50" rx="5" fill="#8b5cf6"/>
+    <text x="100" y="20" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="12" font-weight="bold">USABLE*</text>
+    <text x="100" y="38" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="14" font-weight="bold">~1,800 IPs</text>
+  </g>
+
+  <!-- Section 1: Shared Infrastructure (PROD) -->
+  <rect x="20" y="240" width="680" height="480" rx="10" fill="white" stroke="#ef4444" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="20" y="240" width="680" height="40" rx="10" fill="#ef4444"/>
+  <text x="360" y="267" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="bold">PROD VNET - SHARED INFRASTRUCTURE</text>
+
+  <!-- Shared infra table -->
+  <g transform="translate(40, 295)">
+    <text x="0" y="0" fill="#003366" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Subnet Allocations (Fixed Costs)</text>
+
+    <!-- Header -->
+    <rect x="0" y="15" width="640" height="25" fill="#f1f5f9"/>
+    <text x="10" y="32" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Subnet</text>
+    <text x="200" y="32" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">CIDR</text>
+    <text x="280" y="32" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Total IPs</text>
+    <text x="360" y="32" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Usable*</text>
+    <text x="440" y="32" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Used By</text>
+
+    <!-- App Gateway -->
+    <rect x="0" y="45" width="640" height="30" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="65" fill="#333" font-family="Arial, sans-serif" font-size="10">AppGatewaySubnet</text>
+    <text x="200" y="65" fill="#333" font-family="monospace" font-size="10">/26</text>
+    <text x="280" y="65" fill="#333" font-family="Arial, sans-serif" font-size="10">64</text>
+    <text x="360" y="65" fill="#ef4444" font-family="Arial, sans-serif" font-size="10" font-weight="bold">59</text>
+    <text x="440" y="65" fill="#666" font-family="Arial, sans-serif" font-size="9">WAF instances (~15 used)</text>
+
+    <!-- APIM -->
+    <rect x="0" y="75" width="640" height="30" fill="#fafafa" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="95" fill="#333" font-family="Arial, sans-serif" font-size="10">APIMSubnet</text>
+    <text x="200" y="95" fill="#333" font-family="monospace" font-size="10">/26</text>
+    <text x="280" y="95" fill="#333" font-family="Arial, sans-serif" font-size="10">64</text>
+    <text x="360" y="95" fill="#ef4444" font-family="Arial, sans-serif" font-size="10" font-weight="bold">59</text>
+    <text x="440" y="95" fill="#666" font-family="Arial, sans-serif" font-size="9">Internal APIM (~12 used)</text>
+
+    <!-- AI Foundry Compute -->
+    <rect x="0" y="105" width="640" height="30" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="125" fill="#333" font-family="Arial, sans-serif" font-size="10">AIFoundryCompute</text>
+    <text x="200" y="125" fill="#333" font-family="monospace" font-size="10">/25</text>
+    <text x="280" y="125" fill="#333" font-family="Arial, sans-serif" font-size="10">128</text>
+    <text x="360" y="125" fill="#ef4444" font-family="Arial, sans-serif" font-size="10" font-weight="bold">123</text>
+    <text x="440" y="125" fill="#666" font-family="Arial, sans-serif" font-size="9">Compute instances, training</text>
+
+    <!-- PrivateLink -->
+    <rect x="0" y="135" width="640" height="30" fill="#fafafa" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="155" fill="#333" font-family="Arial, sans-serif" font-size="10">PrivateLinkSubnet</text>
+    <text x="200" y="155" fill="#333" font-family="monospace" font-size="10">/24</text>
+    <text x="280" y="155" fill="#333" font-family="Arial, sans-serif" font-size="10">256</text>
+    <text x="360" y="155" fill="#22c55e" font-family="Arial, sans-serif" font-size="10" font-weight="bold">251</text>
+    <text x="440" y="155" fill="#22c55e" font-family="Arial, sans-serif" font-size="9" font-weight="bold">TENANT PRIVATE ENDPOINTS</text>
+
+    <!-- AKS -->
+    <rect x="0" y="165" width="640" height="30" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="185" fill="#333" font-family="Arial, sans-serif" font-size="10">AKSNodeSubnet</text>
+    <text x="200" y="185" fill="#333" font-family="monospace" font-size="10">/23</text>
+    <text x="280" y="185" fill="#333" font-family="Arial, sans-serif" font-size="10">512</text>
+    <text x="360" y="185" fill="#ef4444" font-family="Arial, sans-serif" font-size="10" font-weight="bold">507</text>
+    <text x="440" y="185" fill="#666" font-family="Arial, sans-serif" font-size="9">K8s nodes + pods (if used)</text>
+
+    <!-- Total -->
+    <rect x="0" y="200" width="640" height="30" fill="#003366"/>
+    <text x="10" y="220" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">PROD TOTAL</text>
+    <text x="200" y="220" fill="white" font-family="monospace" font-size="10">/22</text>
+    <text x="280" y="220" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">1,024</text>
+    <text x="360" y="220" fill="#fcba19" font-family="Arial, sans-serif" font-size="11" font-weight="bold">~999</text>
+    <text x="440" y="220" fill="#fcba19" font-family="Arial, sans-serif" font-size="10">*Azure reserves 5 per subnet</text>
+  </g>
+
+  <!-- Shared infra IP consumption -->
+  <g transform="translate(40, 545)">
+    <text x="0" y="0" fill="#003366" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Shared Infrastructure IP Consumption (One-time, all tenants share)</text>
+
+    <rect x="0" y="15" width="640" height="140" rx="5" fill="#fee2e2" stroke="#ef4444" stroke-width="1"/>
+
+    <text x="20" y="40" fill="#333" font-family="Arial, sans-serif" font-size="11">App Gateway (WAF instances, frontend IPs):</text>
+    <text x="400" y="40" fill="#ef4444" font-family="Arial, sans-serif" font-size="11" font-weight="bold">~15 IPs</text>
+
+    <text x="20" y="60" fill="#333" font-family="Arial, sans-serif" font-size="11">APIM Internal Mode (units, management):</text>
+    <text x="400" y="60" fill="#ef4444" font-family="Arial, sans-serif" font-size="11" font-weight="bold">~12 IPs</text>
+
+    <text x="20" y="80" fill="#333" font-family="Arial, sans-serif" font-size="11">Shared Platform Private Endpoints:</text>
+    <text x="400" y="80" fill="#ef4444" font-family="Arial, sans-serif" font-size="11" font-weight="bold">~10 IPs</text>
+    <text x="420" y="80" fill="#666" font-family="Arial, sans-serif" font-size="9">(TF state, shared KV, ACR)</text>
+
+    <text x="20" y="100" fill="#333" font-family="Arial, sans-serif" font-size="11">AI Foundry Hub (shared compute pool):</text>
+    <text x="400" y="100" fill="#ef4444" font-family="Arial, sans-serif" font-size="11" font-weight="bold">~20 IPs</text>
+
+    <text x="20" y="120" fill="#333" font-family="Arial, sans-serif" font-size="11">Azure Reserved (5 per subnet × 5 subnets):</text>
+    <text x="400" y="120" fill="#ef4444" font-family="Arial, sans-serif" font-size="11" font-weight="bold">~25 IPs</text>
+
+    <rect x="20" y="130" width="600" height="20" fill="#ef4444"/>
+    <text x="320" y="145" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">TOTAL SHARED INFRASTRUCTURE: ~82 IPs consumed</text>
+  </g>
+
+  <!-- Section 2: Tools VNet -->
+  <rect x="720" y="240" width="660" height="230" rx="10" fill="white" stroke="#0078d4" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="720" y="240" width="660" height="40" rx="10" fill="#0078d4"/>
+  <text x="1050" y="267" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="bold">TOOLS VNET - PLATFORM TEAM ONLY</text>
+
+  <g transform="translate(740, 295)">
+    <rect x="0" y="0" width="620" height="25" fill="#f1f5f9"/>
+    <text x="10" y="17" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Subnet</text>
+    <text x="180" y="17" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">CIDR</text>
+    <text x="250" y="17" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">IPs</text>
+    <text x="310" y="17" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Used</text>
+    <text x="380" y="17" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Purpose</text>
+
+    <rect x="0" y="30" width="620" height="25" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="47" fill="#333" font-family="Arial, sans-serif" font-size="10">AzureBastionSubnet</text>
+    <text x="180" y="47" fill="#333" font-family="monospace" font-size="10">/26</text>
+    <text x="250" y="47" fill="#333" font-family="Arial, sans-serif" font-size="10">64</text>
+    <text x="310" y="47" fill="#0078d4" font-family="Arial, sans-serif" font-size="10" font-weight="bold">~5</text>
+    <text x="380" y="47" fill="#666" font-family="Arial, sans-serif" font-size="9">Admin access (platform team)</text>
+
+    <rect x="0" y="55" width="620" height="25" fill="#fafafa" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="72" fill="#333" font-family="Arial, sans-serif" font-size="10">JumpboxSubnet</text>
+    <text x="180" y="72" fill="#333" font-family="monospace" font-size="10">/28</text>
+    <text x="250" y="72" fill="#333" font-family="Arial, sans-serif" font-size="10">16</text>
+    <text x="310" y="72" fill="#0078d4" font-family="Arial, sans-serif" font-size="10" font-weight="bold">~2</text>
+    <text x="380" y="72" fill="#666" font-family="Arial, sans-serif" font-size="9">1-2 VMs for emergency access</text>
+
+    <rect x="0" y="80" width="620" height="25" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="97" fill="#333" font-family="Arial, sans-serif" font-size="10">RunnersSubnet</text>
+    <text x="180" y="97" fill="#333" font-family="monospace" font-size="10">/26</text>
+    <text x="250" y="97" fill="#333" font-family="Arial, sans-serif" font-size="10">64</text>
+    <text x="310" y="97" fill="#0078d4" font-family="Arial, sans-serif" font-size="10" font-weight="bold">~10</text>
+    <text x="380" y="97" fill="#666" font-family="Arial, sans-serif" font-size="9">Self-hosted GitHub runners</text>
+
+    <rect x="0" y="105" width="620" height="25" fill="#fafafa" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="122" fill="#333" font-family="Arial, sans-serif" font-size="10">ToolsPrivateLink</text>
+    <text x="180" y="122" fill="#333" font-family="monospace" font-size="10">/26</text>
+    <text x="250" y="122" fill="#333" font-family="Arial, sans-serif" font-size="10">64</text>
+    <text x="310" y="122" fill="#0078d4" font-family="Arial, sans-serif" font-size="10" font-weight="bold">~8</text>
+    <text x="380" y="122" fill="#666" font-family="Arial, sans-serif" font-size="9">TF state, shared secrets</text>
+
+    <rect x="0" y="135" width="620" height="25" fill="#0078d4"/>
+    <text x="10" y="152" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">TOOLS TOTAL</text>
+    <text x="180" y="152" fill="white" font-family="monospace" font-size="10">/24</text>
+    <text x="250" y="152" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">256</text>
+    <text x="310" y="152" fill="#fcba19" font-family="Arial, sans-serif" font-size="11" font-weight="bold">~25</text>
+    <text x="380" y="152" fill="#fcba19" font-family="Arial, sans-serif" font-size="10">NOT for tenant use</text>
+  </g>
+
+  <!-- Available for Tenants Box -->
+  <rect x="720" y="490" width="660" height="230" rx="10" fill="white" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="720" y="490" width="660" height="40" rx="10" fill="#22c55e"/>
+  <text x="1050" y="517" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="bold">AVAILABLE FOR TENANT PRIVATE ENDPOINTS</text>
+
+  <g transform="translate(740, 545)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="12" font-weight="bold">PrivateLink Subnet Capacity (where tenant PEs live):</text>
+
+    <rect x="0" y="25" width="620" height="80" rx="5" fill="#f0fdf4" stroke="#22c55e" stroke-width="1"/>
+    <text x="20" y="50" fill="#333" font-family="Arial, sans-serif" font-size="11">PROD PrivateLink Subnet (/24):</text>
+    <text x="300" y="50" fill="#333" font-family="Arial, sans-serif" font-size="11">256 IPs - 5 reserved - 10 shared =</text>
+    <text x="530" y="50" fill="#22c55e" font-family="Arial, sans-serif" font-size="14" font-weight="bold">~241 IPs</text>
+
+    <text x="20" y="75" fill="#333" font-family="Arial, sans-serif" font-size="11">TEST PrivateLink Subnet (/25):</text>
+    <text x="300" y="75" fill="#333" font-family="Arial, sans-serif" font-size="11">128 IPs - 5 reserved - 5 shared =</text>
+    <text x="530" y="75" fill="#22c55e" font-family="Arial, sans-serif" font-size="14" font-weight="bold">~118 IPs</text>
+
+    <text x="20" y="100" fill="#333" font-family="Arial, sans-serif" font-size="11">DEV PrivateLink Subnet (/26):</text>
+    <text x="300" y="100" fill="#333" font-family="Arial, sans-serif" font-size="11">64 IPs - 5 reserved - 5 shared =</text>
+    <text x="530" y="100" fill="#22c55e" font-family="Arial, sans-serif" font-size="14" font-weight="bold">~54 IPs</text>
+
+    <rect x="0" y="115" width="620" height="45" rx="5" fill="#003366"/>
+    <text x="310" y="135" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="12" font-weight="bold">TOTAL AVAILABLE FOR TENANT PRIVATE ENDPOINTS</text>
+    <text x="310" y="155" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="18" font-weight="bold">~413 IPs across all environments</text>
+  </g>
+
+  <!-- Section 3: Per Tenant Consumption -->
+  <rect x="20" y="740" width="1360" height="380" rx="10" fill="white" stroke="#8b5cf6" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="20" y="740" width="1360" height="40" rx="10" fill="#8b5cf6"/>
+  <text x="700" y="767" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="bold">PER-TENANT RESOURCE GROUP IP CONSUMPTION</text>
+
+  <!-- Tenant services table -->
+  <g transform="translate(40, 795)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="14" font-weight="bold">What each tenant's private endpoints consume:</text>
+
+    <rect x="0" y="30" width="430" height="25" fill="#f1f5f9"/>
+    <text x="10" y="47" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Service</text>
+    <text x="200" y="47" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Endpoints Needed</text>
+    <text x="330" y="47" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">IPs</text>
+
+    <!-- Always included -->
+    <rect x="0" y="55" width="430" height="25" fill="#f0fdf4" stroke="#22c55e" stroke-width="1"/>
+    <text x="10" y="72" fill="#22c55e" font-family="Arial, sans-serif" font-size="10" font-weight="bold">ALWAYS INCLUDED:</text>
+
+    <rect x="0" y="80" width="430" height="22" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="95" fill="#333" font-family="Arial, sans-serif" font-size="10">Storage Account</text>
+    <text x="200" y="95" fill="#666" font-family="Arial, sans-serif" font-size="9">blob, file, queue, table</text>
+    <text x="330" y="95" fill="#333" font-family="Arial, sans-serif" font-size="10" font-weight="bold">4 IPs</text>
+
+    <rect x="0" y="102" width="430" height="22" fill="#fafafa" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="117" fill="#333" font-family="Arial, sans-serif" font-size="10">Key Vault</text>
+    <text x="200" y="117" fill="#666" font-family="Arial, sans-serif" font-size="9">vault</text>
+    <text x="330" y="117" fill="#333" font-family="Arial, sans-serif" font-size="10" font-weight="bold">1 IP</text>
+
+    <rect x="0" y="124" width="430" height="22" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="139" fill="#333" font-family="Arial, sans-serif" font-size="10">AI Foundry Project</text>
+    <text x="200" y="139" fill="#666" font-family="Arial, sans-serif" font-size="9">workspace</text>
+    <text x="330" y="139" fill="#333" font-family="Arial, sans-serif" font-size="10" font-weight="bold">2 IPs</text>
+
+    <rect x="0" y="146" width="430" height="22" fill="#fafafa" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="161" fill="#333" font-family="Arial, sans-serif" font-size="10">Azure OpenAI</text>
+    <text x="200" y="161" fill="#666" font-family="Arial, sans-serif" font-size="9">cognitiveservices</text>
+    <text x="330" y="161" fill="#333" font-family="Arial, sans-serif" font-size="10" font-weight="bold">1 IP</text>
+
+    <rect x="0" y="168" width="430" height="25" fill="#22c55e"/>
+    <text x="10" y="185" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">BASE MINIMUM</text>
+    <text x="330" y="185" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">8 IPs</text>
+
+    <!-- Conditional -->
+    <rect x="0" y="200" width="430" height="25" fill="#fffbeb" stroke="#f59e0b" stroke-width="1"/>
+    <text x="10" y="217" fill="#92400e" font-family="Arial, sans-serif" font-size="10" font-weight="bold">CONDITIONAL (if dedicated, not shared):</text>
+
+    <rect x="0" y="225" width="430" height="22" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="240" fill="#333" font-family="Arial, sans-serif" font-size="10">AI Search (dedicated)</text>
+    <text x="200" y="240" fill="#666" font-family="Arial, sans-serif" font-size="9">searchService</text>
+    <text x="330" y="240" fill="#f59e0b" font-family="Arial, sans-serif" font-size="10" font-weight="bold">3-5 IPs</text>
+
+    <rect x="0" y="247" width="430" height="22" fill="#fafafa" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="262" fill="#333" font-family="Arial, sans-serif" font-size="10">Document Intelligence (dedicated)</text>
+    <text x="200" y="262" fill="#666" font-family="Arial, sans-serif" font-size="9">cognitiveservices</text>
+    <text x="330" y="262" fill="#f59e0b" font-family="Arial, sans-serif" font-size="10" font-weight="bold">1-2 IPs</text>
+
+    <rect x="0" y="269" width="430" height="22" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="284" fill="#333" font-family="Arial, sans-serif" font-size="10">Cosmos DB</text>
+    <text x="200" y="284" fill="#666" font-family="Arial, sans-serif" font-size="9">sql, mongodb</text>
+    <text x="330" y="284" fill="#f59e0b" font-family="Arial, sans-serif" font-size="10" font-weight="bold">3-5 IPs</text>
+
+    <rect x="0" y="291" width="430" height="22" fill="#fafafa" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="306" fill="#333" font-family="Arial, sans-serif" font-size="10">Container Registry (dedicated)</text>
+    <text x="200" y="306" fill="#666" font-family="Arial, sans-serif" font-size="9">registry</text>
+    <text x="330" y="306" fill="#f59e0b" font-family="Arial, sans-serif" font-size="10" font-weight="bold">2-3 IPs</text>
+  </g>
+
+  <!-- Example scenarios -->
+  <g transform="translate(500, 795)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Example Tenant Scenarios:</text>
+
+    <!-- Minimal -->
+    <rect x="0" y="30" width="400" height="90" rx="5" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+    <text x="200" y="50" text-anchor="middle" fill="#22c55e" font-family="Arial, sans-serif" font-size="12" font-weight="bold">MINIMAL: Basic RAG Chatbot</text>
+    <text x="20" y="70" fill="#333" font-family="Arial, sans-serif" font-size="10">Storage + KV + Foundry + OpenAI + Shared Search</text>
+    <text x="20" y="85" fill="#333" font-family="Arial, sans-serif" font-size="10">Buffer for growth</text>
+    <text x="300" y="70" fill="#333" font-family="Arial, sans-serif" font-size="10">= 8 IPs</text>
+    <text x="300" y="85" fill="#333" font-family="Arial, sans-serif" font-size="10">= 7 IPs</text>
+    <rect x="280" y="95" width="100" height="20" fill="#22c55e"/>
+    <text x="330" y="110" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">~15 IPs</text>
+
+    <!-- Standard -->
+    <rect x="0" y="130" width="400" height="100" rx="5" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+    <text x="200" y="150" text-anchor="middle" fill="#92400e" font-family="Arial, sans-serif" font-size="12" font-weight="bold">STANDARD: Full AI Solution</text>
+    <text x="20" y="170" fill="#333" font-family="Arial, sans-serif" font-size="10">Base minimum</text>
+    <text x="20" y="185" fill="#333" font-family="Arial, sans-serif" font-size="10">+ Dedicated AI Search + Cosmos DB</text>
+    <text x="20" y="200" fill="#333" font-family="Arial, sans-serif" font-size="10">+ Doc Intelligence + Buffer</text>
+    <text x="300" y="170" fill="#333" font-family="Arial, sans-serif" font-size="10">= 8 IPs</text>
+    <text x="300" y="185" fill="#333" font-family="Arial, sans-serif" font-size="10">= 8 IPs</text>
+    <text x="300" y="200" fill="#333" font-family="Arial, sans-serif" font-size="10">= 12 IPs</text>
+    <rect x="280" y="205" width="100" height="20" fill="#f59e0b"/>
+    <text x="330" y="220" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">~28 IPs</text>
+
+    <!-- Full -->
+    <rect x="0" y="240" width="400" height="100" rx="5" fill="#fee" stroke="#ef4444" stroke-width="2"/>
+    <text x="200" y="260" text-anchor="middle" fill="#ef4444" font-family="Arial, sans-serif" font-size="12" font-weight="bold">FULL: Enterprise with AKS</text>
+    <text x="20" y="280" fill="#333" font-family="Arial, sans-serif" font-size="10">Standard allocation</text>
+    <text x="20" y="295" fill="#333" font-family="Arial, sans-serif" font-size="10">+ AKS cluster (5 nodes)</text>
+    <text x="20" y="310" fill="#333" font-family="Arial, sans-serif" font-size="10">+ ACR + Additional buffer</text>
+    <text x="300" y="280" fill="#333" font-family="Arial, sans-serif" font-size="10">= 28 IPs</text>
+    <text x="300" y="295" fill="#333" font-family="Arial, sans-serif" font-size="10">= 20 IPs</text>
+    <text x="300" y="310" fill="#333" font-family="Arial, sans-serif" font-size="10">= 12 IPs</text>
+    <rect x="280" y="315" width="100" height="20" fill="#ef4444"/>
+    <text x="330" y="330" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">~60 IPs</text>
+  </g>
+
+  <!-- 50 IP Justification -->
+  <g transform="translate(930, 795)">
+    <rect x="0" y="0" width="420" height="310" rx="8" fill="#003366"/>
+    <text x="210" y="30" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="16" font-weight="bold">WHY 50 IPs PER TENANT?</text>
+
+    <text x="20" y="60" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Calculation:</text>
+    <text x="20" y="85" fill="#ccc" font-family="Arial, sans-serif" font-size="10">PROD PrivateLink available: ~241 IPs</text>
+    <text x="20" y="102" fill="#ccc" font-family="Arial, sans-serif" font-size="10">Target: 5 ministries in PROD</text>
+    <text x="20" y="119" fill="#ccc" font-family="Arial, sans-serif" font-size="10">241 ÷ 5 = ~48 IPs per tenant</text>
+    <text x="20" y="136" fill="#fcba19" font-family="Arial, sans-serif" font-size="10" font-weight="bold">Rounded to 50 for clean allocation</text>
+
+    <rect x="20" y="150" width="380" height="2" fill="#fcba19"/>
+
+    <text x="20" y="175" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Why 50 works:</text>
+    <text x="20" y="195" fill="#22c55e" font-family="Arial, sans-serif" font-size="10">✓ Covers minimal scenario (15 IPs) with room</text>
+    <text x="20" y="212" fill="#22c55e" font-family="Arial, sans-serif" font-size="10">✓ Covers standard scenario (28 IPs) comfortably</text>
+    <text x="20" y="229" fill="#f59e0b" font-family="Arial, sans-serif" font-size="10">⚠ Full/AKS scenario needs increase request</text>
+
+    <rect x="20" y="245" width="380" height="2" fill="#fcba19"/>
+
+    <text x="20" y="270" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Policy:</text>
+    <text x="20" y="290" fill="#ccc" font-family="Arial, sans-serif" font-size="10">Default: 50 IPs per tenant resource group</text>
+    <text x="20" y="305" fill="#ccc" font-family="Arial, sans-serif" font-size="10">Increase: Submit capacity plan with justification</text>
+  </g>
+
+  <!-- Section 4: Summary -->
+  <rect x="20" y="1140" width="1360" height="220" rx="10" fill="white" stroke="#003366" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="20" y="1140" width="1360" height="40" rx="10" fill="#003366"/>
+  <text x="700" y="1167" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="bold">COMPLETE IP BUDGET SUMMARY</text>
+
+  <g transform="translate(40, 1195)">
+    <!-- Total budget bar -->
+    <rect x="0" y="0" width="1300" height="40" fill="#f1f5f9" stroke="#003366" stroke-width="1" rx="5"/>
+
+    <!-- Shared infra -->
+    <rect x="0" y="0" width="130" height="40" fill="#ef4444" rx="5"/>
+    <text x="65" y="15" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="9" font-weight="bold">Shared Infra</text>
+    <text x="65" y="30" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">~82 IPs</text>
+
+    <!-- Tools -->
+    <rect x="130" y="0" width="50" height="40" fill="#0078d4"/>
+    <text x="155" y="15" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="8" font-weight="bold">Tools</text>
+    <text x="155" y="30" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="10" font-weight="bold">~25</text>
+
+    <!-- Tenant 1 -->
+    <rect x="180" y="0" width="100" height="40" fill="#22c55e"/>
+    <text x="230" y="15" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="9" font-weight="bold">Health</text>
+    <text x="230" y="30" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="10" font-weight="bold">50 IPs</text>
+
+    <!-- Tenant 2 -->
+    <rect x="280" y="0" width="100" height="40" fill="#22c55e"/>
+    <text x="330" y="15" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="9" font-weight="bold">SDPR</text>
+    <text x="330" y="30" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="10" font-weight="bold">50 IPs</text>
+
+    <!-- Tenant 3 -->
+    <rect x="380" y="0" width="100" height="40" fill="#22c55e"/>
+    <text x="430" y="15" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="9" font-weight="bold">Justice</text>
+    <text x="430" y="30" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="10" font-weight="bold">50 IPs</text>
+
+    <!-- Tenant 4 -->
+    <rect x="480" y="0" width="100" height="40" fill="#f59e0b"/>
+    <text x="530" y="15" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="9" font-weight="bold">Future</text>
+    <text x="530" y="30" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="10" font-weight="bold">50 IPs</text>
+
+    <!-- Tenant 5 -->
+    <rect x="580" y="0" width="100" height="40" fill="#f59e0b"/>
+    <text x="630" y="15" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="9" font-weight="bold">Future</text>
+    <text x="630" y="30" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="10" font-weight="bold">50 IPs</text>
+
+    <!-- Reserve -->
+    <rect x="680" y="0" width="620" height="40" fill="#8b5cf6" rx="5"/>
+    <text x="990" y="15" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="10" font-weight="bold">RESERVE / GROWTH CAPACITY</text>
+    <text x="990" y="32" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="12" font-weight="bold">~143 IPs remaining for additional tenants or expansions</text>
+  </g>
+
+  <g transform="translate(40, 1260)">
+    <rect x="0" y="0" width="420" height="80" rx="5" fill="#f0fdf4" stroke="#22c55e" stroke-width="1"/>
+    <text x="210" y="20" text-anchor="middle" fill="#22c55e" font-family="Arial, sans-serif" font-size="12" font-weight="bold">PROD PRIVATELINK MATH</text>
+    <text x="20" y="40" fill="#333" font-family="Arial, sans-serif" font-size="10">Total: 256 - Reserved: 5 - Shared: 10 = 241 usable</text>
+    <text x="20" y="55" fill="#333" font-family="Arial, sans-serif" font-size="10">5 tenants × 50 IPs = 250 IPs allocated</text>
+    <text x="20" y="70" fill="#ef4444" font-family="Arial, sans-serif" font-size="10" font-weight="bold">NOTE: Slightly over! May need /23 for PrivateLink</text>
+  </g>
+
+  <g transform="translate(480, 1260)">
+    <rect x="0" y="0" width="420" height="80" rx="5" fill="#fffbeb" stroke="#f59e0b" stroke-width="1"/>
+    <text x="210" y="20" text-anchor="middle" fill="#92400e" font-family="Arial, sans-serif" font-size="12" font-weight="bold">EXPANSION OPTIONS</text>
+    <text x="20" y="40" fill="#333" font-family="Arial, sans-serif" font-size="10">1. Increase PrivateLink subnet to /23 (512 IPs)</text>
+    <text x="20" y="55" fill="#333" font-family="Arial, sans-serif" font-size="10">2. Reduce AKS subnet if not using K8s</text>
+    <text x="20" y="70" fill="#333" font-family="Arial, sans-serif" font-size="10">3. Use shared services more aggressively</text>
+  </g>
+
+  <g transform="translate(920, 1260)">
+    <rect x="0" y="0" width="420" height="80" rx="5" fill="#003366"/>
+    <text x="210" y="20" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="12" font-weight="bold">KEY TAKEAWAY</text>
+    <text x="20" y="42" fill="white" font-family="Arial, sans-serif" font-size="10">50 IPs/tenant is based on real capacity planning.</text>
+    <text x="20" y="57" fill="white" font-family="Arial, sans-serif" font-size="10">Share services by default. Dedicated = justify the IPs.</text>
+    <text x="20" y="72" fill="#fcba19" font-family="Arial, sans-serif" font-size="10" font-weight="bold">AKS users need expansion request.</text>
+  </g>
+
+  <!-- Section 5: CIDR Notation Explainer -->
+  <rect x="20" y="1380" width="660" height="280" rx="10" fill="white" stroke="#8b5cf6" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="20" y="1380" width="660" height="40" rx="10" fill="#8b5cf6"/>
+  <text x="350" y="1407" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="bold">CIDR NOTATION EXPLAINED</text>
+
+  <g transform="translate(40, 1435)">
+    <text x="0" y="0" fill="#003366" font-family="Arial, sans-serif" font-size="12" font-weight="bold">How to read /XX notation (subnet mask):</text>
+    <text x="0" y="20" fill="#666" font-family="Arial, sans-serif" font-size="10">Formula: 2^(32 - XX) = Total IPs | Usable = Total - 5 (Azure reserved)</text>
+
+    <rect x="0" y="35" width="620" height="25" fill="#f1f5f9"/>
+    <text x="10" y="52" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">CIDR</text>
+    <text x="80" y="52" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Calculation</text>
+    <text x="220" y="52" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Total IPs</text>
+    <text x="310" y="52" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Usable</text>
+    <text x="400" y="52" fill="#333" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Example Use</text>
+
+    <rect x="0" y="60" width="620" height="22" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="76" fill="#333" font-family="monospace" font-size="10" font-weight="bold">/22</text>
+    <text x="80" y="76" fill="#666" font-family="monospace" font-size="9">2^(32-22) = 2^10</text>
+    <text x="220" y="76" fill="#ef4444" font-family="Arial, sans-serif" font-size="10" font-weight="bold">1,024</text>
+    <text x="310" y="76" fill="#333" font-family="Arial, sans-serif" font-size="10">~999</text>
+    <text x="400" y="76" fill="#666" font-family="Arial, sans-serif" font-size="9">PROD VNet (large)</text>
+
+    <rect x="0" y="82" width="620" height="22" fill="#fafafa" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="98" fill="#333" font-family="monospace" font-size="10" font-weight="bold">/23</text>
+    <text x="80" y="98" fill="#666" font-family="monospace" font-size="9">2^(32-23) = 2^9</text>
+    <text x="220" y="98" fill="#f59e0b" font-family="Arial, sans-serif" font-size="10" font-weight="bold">512</text>
+    <text x="310" y="98" fill="#333" font-family="Arial, sans-serif" font-size="10">~507</text>
+    <text x="400" y="98" fill="#666" font-family="Arial, sans-serif" font-size="9">TEST VNet, AKS subnet</text>
+
+    <rect x="0" y="104" width="620" height="22" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="120" fill="#333" font-family="monospace" font-size="10" font-weight="bold">/24</text>
+    <text x="80" y="120" fill="#666" font-family="monospace" font-size="9">2^(32-24) = 2^8</text>
+    <text x="220" y="120" fill="#22c55e" font-family="Arial, sans-serif" font-size="10" font-weight="bold">256</text>
+    <text x="310" y="120" fill="#333" font-family="Arial, sans-serif" font-size="10">~251</text>
+    <text x="400" y="120" fill="#666" font-family="Arial, sans-serif" font-size="9">DEV VNet, PrivateLink</text>
+
+    <rect x="0" y="126" width="620" height="22" fill="#fafafa" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="142" fill="#333" font-family="monospace" font-size="10" font-weight="bold">/25</text>
+    <text x="80" y="142" fill="#666" font-family="monospace" font-size="9">2^(32-25) = 2^7</text>
+    <text x="220" y="142" fill="#333" font-family="Arial, sans-serif" font-size="10">128</text>
+    <text x="310" y="142" fill="#333" font-family="Arial, sans-serif" font-size="10">~123</text>
+    <text x="400" y="142" fill="#666" font-family="Arial, sans-serif" font-size="9">AI Foundry Compute</text>
+
+    <rect x="0" y="148" width="620" height="22" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="164" fill="#333" font-family="monospace" font-size="10" font-weight="bold">/26</text>
+    <text x="80" y="164" fill="#666" font-family="monospace" font-size="9">2^(32-26) = 2^6</text>
+    <text x="220" y="164" fill="#333" font-family="Arial, sans-serif" font-size="10">64</text>
+    <text x="310" y="164" fill="#333" font-family="Arial, sans-serif" font-size="10">~59</text>
+    <text x="400" y="164" fill="#666" font-family="Arial, sans-serif" font-size="9">App Gateway, APIM, Bastion</text>
+
+    <rect x="0" y="170" width="620" height="22" fill="#fafafa" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="186" fill="#333" font-family="monospace" font-size="10" font-weight="bold">/27</text>
+    <text x="80" y="186" fill="#666" font-family="monospace" font-size="9">2^(32-27) = 2^5</text>
+    <text x="220" y="186" fill="#333" font-family="Arial, sans-serif" font-size="10">32</text>
+    <text x="310" y="186" fill="#333" font-family="Arial, sans-serif" font-size="10">~27</text>
+    <text x="400" y="186" fill="#666" font-family="Arial, sans-serif" font-size="9">Small service subnet</text>
+
+    <rect x="0" y="192" width="620" height="22" fill="white" stroke="#e5e7eb" stroke-width="1"/>
+    <text x="10" y="208" fill="#333" font-family="monospace" font-size="10" font-weight="bold">/28</text>
+    <text x="80" y="208" fill="#666" font-family="monospace" font-size="9">2^(32-28) = 2^4</text>
+    <text x="220" y="208" fill="#333" font-family="Arial, sans-serif" font-size="10">16</text>
+    <text x="310" y="208" fill="#333" font-family="Arial, sans-serif" font-size="10">~11</text>
+    <text x="400" y="208" fill="#666" font-family="Arial, sans-serif" font-size="9">Jumpbox subnet (minimal)</text>
+  </g>
+
+  <!-- Section 6: How Many Tenants Per Environment -->
+  <rect x="700" y="1380" width="680" height="280" rx="10" fill="white" stroke="#003366" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="700" y="1380" width="680" height="40" rx="10" fill="#003366"/>
+  <text x="1040" y="1407" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="16" font-weight="bold">HOW MANY TENANTS CAN WE SUPPORT?</text>
+
+  <g transform="translate(720, 1435)">
+    <text x="0" y="0" fill="#003366" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Calculation per environment (50 IPs/tenant baseline):</text>
+
+    <!-- PROD -->
+    <rect x="0" y="20" width="640" height="60" rx="5" fill="#fee2e2" stroke="#ef4444" stroke-width="2"/>
+    <text x="20" y="42" fill="#ef4444" font-family="Arial, sans-serif" font-size="14" font-weight="bold">PROD (/22 = 1,024 IPs)</text>
+    <text x="20" y="60" fill="#333" font-family="Arial, sans-serif" font-size="10">PrivateLink subnet /24 = 256 IPs → 256 - 5 reserved - 10 shared = 241 usable</text>
+    <text x="20" y="75" fill="#333" font-family="Arial, sans-serif" font-size="10">241 ÷ 50 IPs/tenant =</text>
+    <text x="180" y="75" fill="#ef4444" font-family="Arial, sans-serif" font-size="12" font-weight="bold">4-5 tenants</text>
+    <text x="280" y="75" fill="#666" font-family="Arial, sans-serif" font-size="9">(or 8 minimal tenants, 3 full/AKS tenants)</text>
+
+    <!-- TEST -->
+    <rect x="0" y="90" width="640" height="60" rx="5" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
+    <text x="20" y="112" fill="#92400e" font-family="Arial, sans-serif" font-size="14" font-weight="bold">TEST (/23 = 512 IPs)</text>
+    <text x="20" y="130" fill="#333" font-family="Arial, sans-serif" font-size="10">PrivateLink subnet /25 = 128 IPs → 128 - 5 reserved - 5 shared = 118 usable</text>
+    <text x="20" y="145" fill="#333" font-family="Arial, sans-serif" font-size="10">118 ÷ 50 IPs/tenant =</text>
+    <text x="180" y="145" fill="#f59e0b" font-family="Arial, sans-serif" font-size="12" font-weight="bold">2-3 tenants</text>
+    <text x="280" y="145" fill="#666" font-family="Arial, sans-serif" font-size="9">(most tenants share TEST env anyway)</text>
+
+    <!-- DEV -->
+    <rect x="0" y="160" width="640" height="60" rx="5" fill="#f0fdf4" stroke="#22c55e" stroke-width="2"/>
+    <text x="20" y="182" fill="#166534" font-family="Arial, sans-serif" font-size="14" font-weight="bold">DEV (/24 = 256 IPs)</text>
+    <text x="20" y="200" fill="#333" font-family="Arial, sans-serif" font-size="10">PrivateLink subnet /26 = 64 IPs → 64 - 5 reserved - 5 shared = 54 usable</text>
+    <text x="20" y="215" fill="#333" font-family="Arial, sans-serif" font-size="10">54 ÷ 50 IPs/tenant =</text>
+    <text x="180" y="215" fill="#22c55e" font-family="Arial, sans-serif" font-size="12" font-weight="bold">1 tenant</text>
+    <text x="280" y="215" fill="#666" font-family="Arial, sans-serif" font-size="9">(DEV is for platform team / single dev tenant)</text>
+  </g>
+
+  <!-- Footer notes -->
+  <rect x="20" y="1680" width="1360" height="130" rx="10" fill="#f1f5f9" stroke="#64748b" stroke-width="1"/>
+  <text x="40" y="1705" fill="#64748b" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Notes:</text>
+  <text x="40" y="1725" fill="#666" font-family="Arial, sans-serif" font-size="10">* Azure reserves 5 IPs per subnet (network address, gateway, broadcast, 2× Azure DNS). These are NOT usable for resources.</text>
+  <text x="40" y="1740" fill="#666" font-family="Arial, sans-serif" font-size="10">* Private endpoints consume 1 IP each. Multi-endpoint services (Storage with blob+file+queue+table) consume multiple IPs.</text>
+  <text x="40" y="1755" fill="#666" font-family="Arial, sans-serif" font-size="10">* AKS nodes consume IPs for the node itself plus IP-per-pod (Azure CNI). A 5-node cluster can easily use 30-50 IPs.</text>
+  <text x="40" y="1770" fill="#666" font-family="Arial, sans-serif" font-size="10">* Shared services (Doc Intelligence, AI Search) can serve multiple tenants via RBAC - this SAVES IPs. Dedicated instances = consume tenant's IP budget.</text>
+  <text x="40" y="1785" fill="#666" font-family="Arial, sans-serif" font-size="10">* To support more tenants: (1) Expand PrivateLink subnet to /23, (2) Reduce AKS allocation if not using K8s, (3) Encourage shared services over dedicated.</text>
+  <text x="40" y="1800" fill="#003366" font-family="Arial, sans-serif" font-size="10" font-weight="bold">* CIDR Quick Reference: Each step up (e.g., /24 → /23) DOUBLES the IPs. Each step down (e.g., /24 → /25) HALVES the IPs.</text>
+
+</svg>
