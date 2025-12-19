@@ -31,12 +31,25 @@ resource "azurerm_key_vault" "main" {
   # Policy-friendly configuration: private-only access.
   public_network_access_enabled = false
 
-  # Many org policies require Key Vault RBAC rather than access policies.
-  enable_rbac_authorization = true
-
   network_acls {
     default_action = "Deny"
     bypass         = "AzureServices"
+  }
+
+  # Grant this principal secret permissions via access policies.
+  # This avoids needing Microsoft.Authorization/roleAssignments/write.
+  access_policy {
+    tenant_id = data.azurerm_client_config.current.tenant_id
+    object_id = data.azurerm_client_config.current.object_id
+
+    secret_permissions = [
+      "Get",
+      "List",
+      "Set",
+      "Delete",
+      "Purge",
+      "Recover"
+    ]
   }
 
   tags = var.common_tags
@@ -46,14 +59,6 @@ resource "azurerm_key_vault" "main" {
   }
 
   depends_on = [azurerm_resource_group.main]
-}
-
-resource "azurerm_role_assignment" "kv_secrets_officer" {
-  scope                = azurerm_key_vault.main.id
-  role_definition_name = "Key Vault Secrets Officer"
-  principal_id         = data.azurerm_client_config.current.object_id
-
-  depends_on = [azurerm_key_vault.main]
 }
 
 ## Private Endpoint for azure kv
@@ -91,10 +96,7 @@ resource "random_password" "secret_two" {
 
 resource "time_sleep" "wait_for_kv_access" {
   create_duration = "30s"
-  depends_on = [
-    azurerm_private_endpoint.key_vault_pe,
-    azurerm_role_assignment.kv_secrets_officer
-  ]
+  depends_on      = [azurerm_private_endpoint.key_vault_pe]
 }
 
 resource "azurerm_key_vault_secret" "secret_one" {
