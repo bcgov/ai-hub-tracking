@@ -75,20 +75,20 @@ variable "private_endpoint_subnet_id" {
 
 variable "container_cpu" {
   description = "CPU cores for each runner container (e.g., 1, 2, 4)"
-  type        = number
-  default     = 4
+  type        = string
+  default     = "1"
 }
 
 variable "container_memory" {
   description = "Memory for each runner container (e.g., '4Gi')"
   type        = string
-  default     = "8Gi"
+  default     = "2Gi"
 }
 
 variable "max_runners" {
   description = "Maximum number of concurrent runners"
   type        = number
-  default     = 1
+  default     = 4
 }
 
 # -----------------------------------------------------------------------------

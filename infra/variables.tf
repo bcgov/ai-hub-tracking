@@ -91,20 +91,20 @@ variable "github_runner_pat" {
 
 variable "github_runners_container_cpu" {
   description = "CPU cores for each runner container"
-  type        = number
-  default     = 1
+  type        = string
+  default     = "1"
 }
 
 variable "github_runners_container_memory" {
   description = "Memory for each runner container (e.g., '4Gi')"
   type        = string
-  default     = "8Gi"
+  default     = "2Gi"
 }
 
 variable "github_runners_max_count" {
   description = "Maximum number of concurrent runners"
   type        = number
-  default     = 1
+  default     = 4
 }
 
 variable "github_runners_log_analytics_workspace_creation_enabled" {

@@ -50,8 +50,8 @@ module "github_runners" {
   use_default_container_image = true
 
   # Container App configuration
-  container_app_container_cpu    = 4
-  container_app_container_memory = "8Gi"
+  container_app_container_cpu    = var.container_cpu
+  container_app_container_memory = var.container_memory
 
   # Scaling configuration
   container_app_min_execution_count      = 0 # Scale to zero when idle
