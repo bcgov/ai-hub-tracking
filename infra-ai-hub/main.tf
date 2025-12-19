@@ -52,6 +52,29 @@ resource "azurerm_key_vault" "main" {
   depends_on = [azurerm_resource_group.main]
 }
 
+## Private Endpoint for azure kv
+resource "azurerm_private_endpoint" "key_vault_pe" {
+  name                = "${var.app_name}-kv-pe"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+  subnet_id           = "var.key_vault_private_endpoint_subnet_id"
+
+  private_service_connection {
+    name                           = "${var.app_name}-kv-psc"
+    private_connection_resource_id = azurerm_key_vault.main.id
+    is_manual_connection           = false
+    subresource_names              = ["vault"]
+  }
+
+  tags = var.common_tags
+
+  lifecycle {
+    ignore_changes = [tags, private_dns_zone_group]
+  }
+
+  depends_on = [azurerm_key_vault.main]
+}
+
 resource "random_password" "secret_one" {
   length  = 32
   special = true
