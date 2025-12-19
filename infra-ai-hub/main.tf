@@ -103,7 +103,7 @@ resource "azurerm_key_vault_secret" "secret_one" {
   name            = "example-secret-one"
   value           = random_password.secret_one.result
   key_vault_id    = azurerm_key_vault.main.id
-  expiration_date = tomorrow()
+  expiration_date = "2025-12-31T23:59:59Z"
   content_type    = "text/plain"
   depends_on      = [time_sleep.wait_for_kv_access]
 }
@@ -114,6 +114,6 @@ resource "azurerm_key_vault_secret" "secret_two" {
   key_vault_id    = azurerm_key_vault.main.id
   expiration_date = "2025-12-31T23:59:59Z"
 
-  content_type    = "text/plain"
-  depends_on      = [time_sleep.wait_for_kv_access]
+  content_type = "text/plain"
+  depends_on   = [time_sleep.wait_for_kv_access]
 }
