@@ -63,7 +63,6 @@ jobs:
           TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
           TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
-          TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
         run: |
           terraform init -upgrade -reconfigure \
             -backend-config="resource_group_name=${{ secrets.VNET_RESOURCE_GROUP_NAME }}" \
