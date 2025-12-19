@@ -119,16 +119,3 @@ variable "github_runners_log_analytics_workspace_id" {
   default     = null
   nullable    = true
 }
-
-
-variable "log_analytics_retention_days" {
-  description = "Number of days to retain data in Log Analytics Workspace"
-  type        = number
-  default     = 30
-}
-
-variable "log_analytics_sku" {
-  description = "SKU for Log Analytics Workspace"
-  type        = string
-  default     = "PerGB2018"
-}
