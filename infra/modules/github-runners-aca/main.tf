@@ -50,17 +50,16 @@ module "github_runners" {
   use_default_container_image = true
 
   # Container App configuration
-  container_app_container_cpu    = var.container_cpu
-  container_app_container_memory = var.container_memory
+  container_app_container_cpu    = 4
+  container_app_container_memory = "8Gi"
 
   # Scaling configuration
-  container_app_min_execution_count      = 1 # Scale to zero when idle
+  container_app_min_execution_count      = 0 # Scale to zero when idle
   container_app_max_execution_count      = var.max_runners
   container_app_polling_interval_seconds = 10
   container_app_replica_timeout          = 3600 # 60 minutes max job time
 
-  log_analytics_workspace_creation_enabled = var.log_analytics_workspace_creation_enabled
-  log_analytics_workspace_id               = var.log_analytics_workspace_creation_enabled ? null : var.log_analytics_workspace_id
+  log_analytics_workspace_creation_enabled = true
 
   nat_gateway_creation_enabled = false
   public_ip_creation_enabled   = false
