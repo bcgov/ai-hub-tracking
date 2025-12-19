@@ -28,23 +28,15 @@ resource "azurerm_key_vault" "main" {
   purge_protection_enabled   = true
   soft_delete_retention_days = 90
 
-  # Keep simple for now (no private endpoint in this folder).
-  public_network_access_enabled = true
+  # Policy-friendly configuration: private-only access.
+  public_network_access_enabled = false
 
-  # Access policy so Terraform can write secrets.
-  # (If your org uses RBAC-only Key Vault, we can switch to enable_rbac_authorization=true.)
-  access_policy {
-    tenant_id = data.azurerm_client_config.current.tenant_id
-    object_id = data.azurerm_client_config.current.object_id
+  # Many org policies require Key Vault RBAC rather than access policies.
+  enable_rbac_authorization = true
 
-    secret_permissions = [
-      "Get",
-      "List",
-      "Set",
-      "Delete",
-      "Purge",
-      "Recover"
-    ]
+  network_acls {
+    default_action = "Deny"
+    bypass         = "AzureServices"
   }
 
   tags = var.common_tags
@@ -54,6 +46,14 @@ resource "azurerm_key_vault" "main" {
   }
 
   depends_on = [azurerm_resource_group.main]
+}
+
+resource "azurerm_role_assignment" "kv_secrets_officer" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = data.azurerm_client_config.current.object_id
+
+  depends_on = [azurerm_key_vault.main]
 }
 
 ## Private Endpoint for azure kv
@@ -89,14 +89,26 @@ resource "random_password" "secret_two" {
   special = true
 }
 
+resource "time_sleep" "wait_for_kv_access" {
+  create_duration = "30s"
+  depends_on = [
+    azurerm_private_endpoint.key_vault_pe,
+    azurerm_role_assignment.kv_secrets_officer
+  ]
+}
+
 resource "azurerm_key_vault_secret" "secret_one" {
   name         = "example-secret-one"
   value        = random_password.secret_one.result
   key_vault_id = azurerm_key_vault.main.id
+
+  depends_on = [time_sleep.wait_for_kv_access]
 }
 
 resource "azurerm_key_vault_secret" "secret_two" {
   name         = "example-secret-two"
   value        = random_password.secret_two.result
   key_vault_id = azurerm_key_vault.main.id
+
+  depends_on = [time_sleep.wait_for_kv_access]
 }
