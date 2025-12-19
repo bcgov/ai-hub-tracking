@@ -1,0 +1,323 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 1100">
+  <defs>
+    <linearGradient id="includedGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f0fdf4"/>
+      <stop offset="100%" style="stop-color:#dcfce7"/>
+    </linearGradient>
+    <linearGradient id="notIncludedGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fef2f2"/>
+      <stop offset="100%" style="stop-color:#fecaca"/>
+    </linearGradient>
+    <linearGradient id="conditionalGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fffbeb"/>
+      <stop offset="100%" style="stop-color:#fef3c7"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="1100" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1200" height="80" fill="#003366"/>
+  <text x="600" y="35" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="26" font-weight="bold">BC Gov AI Hub - Service Scope</text>
+  <text x="600" y="60" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="14">What's Included, Conditional, and Out of Scope</text>
+
+  <!-- INCLUDED Section -->
+  <rect x="30" y="100" width="370" height="620" rx="10" fill="url(#includedGrad)" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="30" y="100" width="370" height="45" rx="10" fill="#22c55e"/>
+  <text x="50" y="130" fill="white" font-family="Arial, sans-serif" font-size="20" font-weight="bold">INCLUDED</text>
+  <text x="380" y="130" text-anchor="end" fill="white" font-family="Arial, sans-serif" font-size="14">Per Tenant RG</text>
+
+  <!-- Included items -->
+  <g transform="translate(45, 160)">
+    <rect x="0" y="0" width="340" height="45" rx="5" fill="white" stroke="#22c55e" stroke-width="1"/>
+    <text x="15" y="20" fill="#22c55e" font-family="Arial, sans-serif" font-size="16">&#10003;</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">AI Foundry Project(s)</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">RBAC-controlled, multiple projects per RG</text>
+  </g>
+
+  <g transform="translate(45, 215)">
+    <rect x="0" y="0" width="340" height="45" rx="5" fill="white" stroke="#22c55e" stroke-width="1"/>
+    <text x="15" y="20" fill="#22c55e" font-family="Arial, sans-serif" font-size="16">&#10003;</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Storage Account</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">RAG documents, model artifacts</text>
+  </g>
+
+  <g transform="translate(45, 270)">
+    <rect x="0" y="0" width="340" height="45" rx="5" fill="white" stroke="#22c55e" stroke-width="1"/>
+    <text x="15" y="20" fill="#22c55e" font-family="Arial, sans-serif" font-size="16">&#10003;</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Key Vault (Tenant)</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">API keys, connection strings, secrets</text>
+  </g>
+
+  <g transform="translate(45, 325)">
+    <rect x="0" y="0" width="340" height="45" rx="5" fill="white" stroke="#22c55e" stroke-width="1"/>
+    <text x="15" y="20" fill="#22c55e" font-family="Arial, sans-serif" font-size="16">&#10003;</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">APIM Subscription</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Unique API key, rate limits, OpenAPI routing</text>
+  </g>
+
+  <g transform="translate(45, 380)">
+    <rect x="0" y="0" width="340" height="45" rx="5" fill="white" stroke="#22c55e" stroke-width="1"/>
+    <text x="15" y="20" fill="#22c55e" font-family="Arial, sans-serif" font-size="16">&#10003;</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Private Endpoints</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Secure connectivity to all services</text>
+  </g>
+
+  <g transform="translate(45, 435)">
+    <rect x="0" y="0" width="340" height="45" rx="5" fill="white" stroke="#22c65e" stroke-width="1"/>
+    <text x="15" y="20" fill="#22c55e" font-family="Arial, sans-serif" font-size="16">&#10003;</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Cost Attribution Tags</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Billing tracked to ministry cost center</text>
+  </g>
+
+  <g transform="translate(45, 490)">
+    <rect x="0" y="0" width="340" height="45" rx="5" fill="white" stroke="#22c55e" stroke-width="1"/>
+    <text x="15" y="20" fill="#22c55e" font-family="Arial, sans-serif" font-size="16">&#10003;</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">RBAC Configuration</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Role assignments for tenant users</text>
+  </g>
+
+  <g transform="translate(45, 545)">
+    <rect x="0" y="0" width="340" height="45" rx="5" fill="white" stroke="#22c55e" stroke-width="1"/>
+    <text x="15" y="20" fill="#22c55e" font-family="Arial, sans-serif" font-size="16">&#10003;</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Default IP Allocation (50)</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Expandable upon request with justification</text>
+  </g>
+
+  <g transform="translate(45, 600)">
+    <rect x="0" y="0" width="340" height="45" rx="5" fill="white" stroke="#22c55e" stroke-width="1"/>
+    <text x="15" y="20" fill="#22c55e" font-family="Arial, sans-serif" font-size="16">&#10003;</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Monitoring &amp; Logging</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Tenant-scoped dashboards &amp; alerts</text>
+  </g>
+
+  <g transform="translate(45, 655)">
+    <rect x="0" y="0" width="340" height="45" rx="5" fill="#e8f4e8" stroke="#22c55e" stroke-width="1"/>
+    <text x="170" y="28" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="11" font-weight="bold">All via Terraform/AVM - No Manual Setup</text>
+  </g>
+
+  <!-- CONDITIONAL Section -->
+  <rect x="415" y="100" width="370" height="620" rx="10" fill="url(#conditionalGrad)" stroke="#f59e0b" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="415" y="100" width="370" height="45" rx="10" fill="#f59e0b"/>
+  <text x="435" y="130" fill="white" font-family="Arial, sans-serif" font-size="20" font-weight="bold">CONDITIONAL</text>
+  <text x="765" y="130" text-anchor="end" fill="white" font-family="Arial, sans-serif" font-size="14">Request Required</text>
+
+  <!-- Conditional items -->
+  <g transform="translate(430, 160)">
+    <rect x="0" y="0" width="340" height="60" rx="5" fill="white" stroke="#f59e0b" stroke-width="1"/>
+    <text x="15" y="20" fill="#f59e0b" font-family="Arial, sans-serif" font-size="16">?</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Dedicated Document Intelligence</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Default: shared. Dedicated if data isolation required</text>
+    <text x="40" y="50" fill="#92400e" font-family="Arial, sans-serif" font-size="9">Cost: ~3 IPs per instance</text>
+  </g>
+
+  <g transform="translate(430, 230)">
+    <rect x="0" y="0" width="340" height="60" rx="5" fill="white" stroke="#f59e0b" stroke-width="1"/>
+    <text x="15" y="20" fill="#f59e0b" font-family="Arial, sans-serif" font-size="16">?</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Dedicated AI Search</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Default: shared index. Dedicated if needed</text>
+    <text x="40" y="50" fill="#92400e" font-family="Arial, sans-serif" font-size="9">Cost: ~3 IPs per instance + storage</text>
+  </g>
+
+  <g transform="translate(430, 300)">
+    <rect x="0" y="0" width="340" height="60" rx="5" fill="white" stroke="#f59e0b" stroke-width="1"/>
+    <text x="15" y="20" fill="#f59e0b" font-family="Arial, sans-serif" font-size="16">?</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Cosmos DB</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">For chat history, session state</text>
+    <text x="40" y="50" fill="#92400e" font-family="Arial, sans-serif" font-size="9">Cost: ~3 IPs + RU-based pricing</text>
+  </g>
+
+  <g transform="translate(430, 370)">
+    <rect x="0" y="0" width="340" height="60" rx="5" fill="white" stroke="#f59e0b" stroke-width="1"/>
+    <text x="15" y="20" fill="#f59e0b" font-family="Arial, sans-serif" font-size="16">?</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">AKS Cluster</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">For custom model hosting, containers</text>
+    <text x="40" y="50" fill="#92400e" font-family="Arial, sans-serif" font-size="9">Cost: 10-30+ IPs depending on node count</text>
+  </g>
+
+  <g transform="translate(430, 440)">
+    <rect x="0" y="0" width="340" height="60" rx="5" fill="white" stroke="#f59e0b" stroke-width="1"/>
+    <text x="15" y="20" fill="#f59e0b" font-family="Arial, sans-serif" font-size="16">?</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Container Registry (Dedicated)</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Default: shared. Dedicated if isolation needed</text>
+    <text x="40" y="50" fill="#92400e" font-family="Arial, sans-serif" font-size="9">Cost: ~2 IPs per instance</text>
+  </g>
+
+  <g transform="translate(430, 510)">
+    <rect x="0" y="0" width="340" height="60" rx="5" fill="white" stroke="#f59e0b" stroke-width="1"/>
+    <text x="15" y="20" fill="#f59e0b" font-family="Arial, sans-serif" font-size="16">?</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Additional IP Allocation</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Beyond default 50 IPs per tenant</text>
+    <text x="40" y="50" fill="#92400e" font-family="Arial, sans-serif" font-size="9">Requires: capacity planning justification</text>
+  </g>
+
+  <g transform="translate(430, 580)">
+    <rect x="0" y="0" width="340" height="60" rx="5" fill="white" stroke="#f59e0b" stroke-width="1"/>
+    <text x="15" y="20" fill="#f59e0b" font-family="Arial, sans-serif" font-size="16">?</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">GPU Compute (AI Foundry)</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">For fine-tuning, custom model training</text>
+    <text x="40" y="50" fill="#92400e" font-family="Arial, sans-serif" font-size="9">Requires: quota request + cost approval</text>
+  </g>
+
+  <g transform="translate(430, 655)">
+    <rect x="0" y="0" width="340" height="45" rx="5" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+    <text x="170" y="28" text-anchor="middle" fill="#92400e" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Must justify IP cost + use AVM module</text>
+  </g>
+
+  <!-- NOT INCLUDED Section -->
+  <rect x="800" y="100" width="370" height="620" rx="10" fill="url(#notIncludedGrad)" stroke="#ef4444" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="800" y="100" width="370" height="45" rx="10" fill="#ef4444"/>
+  <text x="820" y="130" fill="white" font-family="Arial, sans-serif" font-size="20" font-weight="bold">NOT INCLUDED</text>
+  <text x="1150" y="130" text-anchor="end" fill="white" font-family="Arial, sans-serif" font-size="14">Out of Scope</text>
+
+  <!-- Not included items -->
+  <g transform="translate(815, 160)">
+    <rect x="0" y="0" width="340" height="55" rx="5" fill="white" stroke="#ef4444" stroke-width="1"/>
+    <text x="15" y="20" fill="#ef4444" font-family="Arial, sans-serif" font-size="16">&#10007;</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Bastion/Jumpbox Access</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Platform team only - not for tenants</text>
+    <text x="40" y="50" fill="#ef4444" font-family="Arial, sans-serif" font-size="9">Reason: Not scalable, security risk</text>
+  </g>
+
+  <g transform="translate(815, 225)">
+    <rect x="0" y="0" width="340" height="55" rx="5" fill="white" stroke="#ef4444" stroke-width="1"/>
+    <text x="15" y="20" fill="#ef4444" font-family="Arial, sans-serif" font-size="16">&#10007;</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Azure Portal / UI Access</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">No browser-based management</text>
+    <text x="40" y="50" fill="#ef4444" font-family="Arial, sans-serif" font-size="9">Reason: Requires public endpoints</text>
+  </g>
+
+  <g transform="translate(815, 290)">
+    <rect x="0" y="0" width="340" height="55" rx="5" fill="white" stroke="#ef4444" stroke-width="1"/>
+    <text x="15" y="20" fill="#ef4444" font-family="Arial, sans-serif" font-size="16">&#10007;</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Foundry Studio UI</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">No browser-based project management</text>
+    <text x="40" y="50" fill="#ef4444" font-family="Arial, sans-serif" font-size="9">Reason: Requires public endpoints</text>
+  </g>
+
+  <g transform="translate(815, 355)">
+    <rect x="0" y="0" width="340" height="55" rx="5" fill="white" stroke="#ef4444" stroke-width="1"/>
+    <text x="15" y="20" fill="#ef4444" font-family="Arial, sans-serif" font-size="16">&#10007;</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Non-AVM Services</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Any service without AVM Terraform module</text>
+    <text x="40" y="50" fill="#ef4444" font-family="Arial, sans-serif" font-size="9">Reason: Cannot automate, no IaC support</text>
+  </g>
+
+  <g transform="translate(815, 420)">
+    <rect x="0" y="0" width="340" height="55" rx="5" fill="#fffbeb" stroke="#f59e0b" stroke-width="1"/>
+    <text x="15" y="20" fill="#f59e0b" font-family="Arial, sans-serif" font-size="16">?</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Direct ExpressRoute Access</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Available via Platform Services (case-by-case)</text>
+    <text x="40" y="50" fill="#f59e0b" font-family="Arial, sans-serif" font-size="9">Standard: App Gateway + APIM recommended</text>
+  </g>
+
+  <g transform="translate(815, 485)">
+    <rect x="0" y="0" width="340" height="55" rx="5" fill="white" stroke="#ef4444" stroke-width="1"/>
+    <text x="15" y="20" fill="#ef4444" font-family="Arial, sans-serif" font-size="16">&#10007;</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Public Endpoints</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Any service exposed to internet</text>
+    <text x="40" y="50" fill="#ef4444" font-family="Arial, sans-serif" font-size="9">Reason: BC Gov policy - no exceptions</text>
+  </g>
+
+  <g transform="translate(815, 550)">
+    <rect x="0" y="0" width="340" height="55" rx="5" fill="white" stroke="#ef4444" stroke-width="1"/>
+    <text x="15" y="20" fill="#ef4444" font-family="Arial, sans-serif" font-size="16">&#10007;</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Unlimited Resources</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Unconstrained IP or service allocation</text>
+    <text x="40" y="50" fill="#ef4444" font-family="Arial, sans-serif" font-size="9">Reason: 1000 IP limit, shared capacity</text>
+  </g>
+
+  <g transform="translate(815, 615)">
+    <rect x="0" y="0" width="340" height="55" rx="5" fill="white" stroke="#ef4444" stroke-width="1"/>
+    <text x="15" y="20" fill="#ef4444" font-family="Arial, sans-serif" font-size="16">&#10007;</text>
+    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Manual/Click-Ops Setup</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Any manual Azure portal configuration</text>
+    <text x="40" y="50" fill="#ef4444" font-family="Arial, sans-serif" font-size="9">Reason: Must be reproducible IaC</text>
+  </g>
+
+  <!-- Bottom AVM Module Reference -->
+  <rect x="30" y="740" width="1140" height="170" rx="10" fill="white" stroke="#0078d4" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="770" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="16" font-weight="bold">Supported AVM Modules (Terraform)</text>
+
+  <g transform="translate(50, 790)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="12" font-weight="bold">AI Services:</text>
+    <text x="0" y="32" fill="#333" font-family="monospace" font-size="9">avm-res-cognitiveservices-account</text>
+    <text x="0" y="46" fill="#333" font-family="monospace" font-size="9">avm-res-machinelearningservices-workspace</text>
+    <text x="0" y="60" fill="#333" font-family="monospace" font-size="9">avm-res-search-searchservice</text>
+  </g>
+
+  <g transform="translate(280, 790)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Storage/Data:</text>
+    <text x="0" y="32" fill="#333" font-family="monospace" font-size="9">avm-res-storage-storageaccount</text>
+    <text x="0" y="46" fill="#333" font-family="monospace" font-size="9">avm-res-documentdb-databaseaccount</text>
+    <text x="0" y="60" fill="#333" font-family="monospace" font-size="9">avm-res-keyvault-vault</text>
+  </g>
+
+  <g transform="translate(510, 790)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Networking:</text>
+    <text x="0" y="32" fill="#333" font-family="monospace" font-size="9">avm-res-network-virtualnetwork</text>
+    <text x="0" y="46" fill="#333" font-family="monospace" font-size="9">avm-res-network-applicationgateway</text>
+    <text x="0" y="60" fill="#333" font-family="monospace" font-size="9">avm-res-network-bastionhost</text>
+  </g>
+
+  <g transform="translate(740, 790)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Compute/API:</text>
+    <text x="0" y="32" fill="#333" font-family="monospace" font-size="9">avm-res-apimanagement-service</text>
+    <text x="0" y="46" fill="#333" font-family="monospace" font-size="9">avm-res-containerservice-managedcluster</text>
+    <text x="0" y="60" fill="#333" font-family="monospace" font-size="9">avm-res-containerregistry-registry</text>
+  </g>
+
+  <g transform="translate(970, 790)">
+    <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Monitoring:</text>
+    <text x="0" y="32" fill="#333" font-family="monospace" font-size="9">avm-res-operationalinsights-workspace</text>
+    <text x="0" y="46" fill="#333" font-family="monospace" font-size="9">avm-res-insights-component</text>
+    <text x="0" y="60" fill="#666" font-family="Arial, sans-serif" font-size="9">(App Insights)</text>
+  </g>
+
+  <text x="600" y="875" text-anchor="middle" fill="#666" font-family="Arial, sans-serif" font-size="10">Full AVM catalog: https://azure.github.io/Azure-Verified-Modules/indexes/terraform/</text>
+
+  <!-- IP Budget callout -->
+  <rect x="30" y="920" width="1140" height="160" rx="10" fill="#f0f9ff" stroke="#003366" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="950" text-anchor="middle" fill="#003366" font-family="Arial, sans-serif" font-size="16" font-weight="bold">IP Budget Planning (1000 Total)</text>
+
+  <g transform="translate(50, 970)">
+    <rect x="0" y="0" width="250" height="90" rx="5" fill="#e8f4e8" stroke="#22c55e" stroke-width="1"/>
+    <text x="125" y="20" text-anchor="middle" fill="#166534" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Low IP Services (1-3 IPs)</text>
+    <text x="10" y="40" fill="#333" font-family="Arial, sans-serif" font-size="10">- Storage Account: 1 IP</text>
+    <text x="10" y="55" fill="#333" font-family="Arial, sans-serif" font-size="10">- Key Vault: 1 IP</text>
+    <text x="10" y="70" fill="#333" font-family="Arial, sans-serif" font-size="10">- AI Foundry: 2-3 IPs</text>
+    <text x="10" y="85" fill="#333" font-family="Arial, sans-serif" font-size="10">- Doc Intelligence: 1-2 IPs</text>
+  </g>
+
+  <g transform="translate(320, 970)">
+    <rect x="0" y="0" width="250" height="90" rx="5" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+    <text x="125" y="20" text-anchor="middle" fill="#92400e" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Medium IP Services (3-10 IPs)</text>
+    <text x="10" y="40" fill="#333" font-family="Arial, sans-serif" font-size="10">- AI Search: 3-5 IPs</text>
+    <text x="10" y="55" fill="#333" font-family="Arial, sans-serif" font-size="10">- Cosmos DB: 3-5 IPs</text>
+    <text x="10" y="70" fill="#333" font-family="Arial, sans-serif" font-size="10">- Container Registry: 2-3 IPs</text>
+    <text x="10" y="85" fill="#333" font-family="Arial, sans-serif" font-size="10">- APIM (internal): 5-10 IPs</text>
+  </g>
+
+  <g transform="translate(590, 970)">
+    <rect x="0" y="0" width="250" height="90" rx="5" fill="#fee" stroke="#ef4444" stroke-width="1"/>
+    <text x="125" y="20" text-anchor="middle" fill="#ef4444" font-family="Arial, sans-serif" font-size="12" font-weight="bold">High IP Services (10+ IPs)</text>
+    <text x="10" y="40" fill="#333" font-family="Arial, sans-serif" font-size="10">- AKS (3 nodes): 10-15 IPs</text>
+    <text x="10" y="55" fill="#333" font-family="Arial, sans-serif" font-size="10">- AKS (10 nodes): 30-50 IPs</text>
+    <text x="10" y="70" fill="#333" font-family="Arial, sans-serif" font-size="10">- App Gateway: 10-15 IPs</text>
+    <text x="10" y="85" fill="#ef4444" font-family="Arial, sans-serif" font-size="10" font-weight="bold">Plan carefully!</text>
+  </g>
+
+  <g transform="translate(860, 970)">
+    <rect x="0" y="0" width="290" height="90" rx="5" fill="#003366"/>
+    <text x="145" y="20" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Default Allocation Per Tenant</text>
+    <text x="145" y="45" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="24" font-weight="bold">50 IPs</text>
+    <text x="145" y="65" text-anchor="middle" fill="#ccc" font-family="Arial, sans-serif" font-size="10">Covers: Foundry + Storage + Search + KV</text>
+    <text x="145" y="80" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="10">Request increase with justification</text>
+  </g>
+
+</svg>

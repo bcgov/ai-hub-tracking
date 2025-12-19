@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 950" width="1200" height="950">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1e3a5f"/>
+      <stop offset="100%" style="stop-color:#2d5a87"/>
+    </linearGradient>
+    <linearGradient id="hubGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fef3c7"/>
+      <stop offset="100%" style="stop-color:#fde68a"/>
+    </linearGradient>
+    <linearGradient id="spokeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#dbeafe"/>
+      <stop offset="100%" style="stop-color:#bfdbfe"/>
+    </linearGradient>
+    <linearGradient id="avmGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#dcfce7"/>
+      <stop offset="100%" style="stop-color:#bbf7d0"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="950" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1200" height="80" fill="url(#headerGrad)"/>
+  <text x="600" y="35" font-family="Segoe UI, Arial" font-size="24" font-weight="bold" fill="white" text-anchor="middle">Azure Landing Zone + AVM Alignment</text>
+  <text x="600" y="60" font-family="Segoe UI, Arial" font-size="14" fill="#94a3b8" text-anchor="middle">Project Gateway Model fits ALZ Hub-Spoke Pattern | All components use AVM modules</text>
+
+  <!-- ALZ Pattern Section -->
+  <text x="30" y="115" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="#1e3a5f">Azure Landing Zone Hub-Spoke Pattern</text>
+
+  <!-- Hub -->
+  <rect x="30" y="135" width="550" height="350" rx="12" fill="url(#hubGrad)" stroke="#f59e0b" stroke-width="3" filter="url(#shadow)"/>
+  <text x="305" y="165" font-family="Segoe UI, Arial" font-size="14" font-weight="bold" fill="#92400e" text-anchor="middle">HUB (Shared Platform)</text>
+  <text x="305" y="185" font-family="Segoe UI, Arial" font-size="10" fill="#b45309" text-anchor="middle">rg-shared-platform + rg-shared-ai-services</text>
+
+  <!-- Hub Components -->
+  <rect x="50" y="200" width="120" height="60" rx="6" fill="white" stroke="#fbbf24"/>
+  <text x="110" y="225" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#92400e" text-anchor="middle">App Gateway</text>
+  <text x="110" y="240" font-family="Segoe UI, Arial" font-size="8" fill="#b45309" text-anchor="middle">avm-res-network</text>
+  <text x="110" y="252" font-family="Segoe UI, Arial" font-size="8" fill="#b45309" text-anchor="middle">-applicationgateway</text>
+
+  <rect x="190" y="200" width="120" height="60" rx="6" fill="white" stroke="#fbbf24"/>
+  <text x="250" y="225" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#92400e" text-anchor="middle">APIM</text>
+  <text x="250" y="240" font-family="Segoe UI, Arial" font-size="8" fill="#b45309" text-anchor="middle">avm-res-apimanagement</text>
+  <text x="250" y="252" font-family="Segoe UI, Arial" font-size="8" fill="#b45309" text-anchor="middle">-service</text>
+
+  <rect x="330" y="200" width="120" height="60" rx="6" fill="white" stroke="#fbbf24"/>
+  <text x="390" y="225" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#92400e" text-anchor="middle">Bastion</text>
+  <text x="390" y="240" font-family="Segoe UI, Arial" font-size="8" fill="#b45309" text-anchor="middle">avm-res-network</text>
+  <text x="390" y="252" font-family="Segoe UI, Arial" font-size="8" fill="#b45309" text-anchor="middle">-bastionhost</text>
+
+  <rect x="50" y="275" width="120" height="60" rx="6" fill="white" stroke="#fbbf24"/>
+  <text x="110" y="300" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#92400e" text-anchor="middle">VNet (Hub)</text>
+  <text x="110" y="315" font-family="Segoe UI, Arial" font-size="8" fill="#b45309" text-anchor="middle">avm-res-network</text>
+  <text x="110" y="327" font-family="Segoe UI, Arial" font-size="8" fill="#b45309" text-anchor="middle">-virtualnetwork</text>
+
+  <rect x="190" y="275" width="120" height="60" rx="6" fill="white" stroke="#fbbf24"/>
+  <text x="250" y="300" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#92400e" text-anchor="middle">Firewall</text>
+  <text x="250" y="315" font-family="Segoe UI, Arial" font-size="8" fill="#b45309" text-anchor="middle">avm-res-network</text>
+  <text x="250" y="327" font-family="Segoe UI, Arial" font-size="8" fill="#b45309" text-anchor="middle">-azurefirewall</text>
+
+  <rect x="330" y="275" width="120" height="60" rx="6" fill="white" stroke="#fbbf24"/>
+  <text x="390" y="300" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#92400e" text-anchor="middle">Private DNS</text>
+  <text x="390" y="315" font-family="Segoe UI, Arial" font-size="8" fill="#b45309" text-anchor="middle">avm-res-network</text>
+  <text x="390" y="327" font-family="Segoe UI, Arial" font-size="8" fill="#b45309" text-anchor="middle">-privatednszone</text>
+
+  <!-- Shared AI in Hub -->
+  <rect x="50" y="350" width="240" height="60" rx="6" fill="#f3e8ff" stroke="#7c3aed"/>
+  <text x="170" y="375" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#6b21a8" text-anchor="middle">AI Foundry Hub</text>
+  <text x="170" y="390" font-family="Segoe UI, Arial" font-size="8" fill="#7c3aed" text-anchor="middle">avm-res-machinelearningservices-workspace</text>
+
+  <rect x="310" y="350" width="240" height="60" rx="6" fill="#f3e8ff" stroke="#7c3aed"/>
+  <text x="430" y="375" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#6b21a8" text-anchor="middle">Document Intelligence</text>
+  <text x="430" y="390" font-family="Segoe UI, Arial" font-size="8" fill="#7c3aed" text-anchor="middle">avm-res-cognitiveservices-account</text>
+
+  <rect x="50" y="420" width="500" height="50" rx="6" fill="#fef2f2" stroke="#ef4444"/>
+  <text x="300" y="442" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#b91c1c" text-anchor="middle">Log Analytics + Monitor</text>
+  <text x="300" y="458" font-family="Segoe UI, Arial" font-size="8" fill="#dc2626" text-anchor="middle">avm-res-operationalinsights-workspace | Centralized monitoring for all spokes</text>
+
+  <!-- Spokes -->
+  <rect x="620" y="135" width="550" height="350" rx="12" fill="url(#spokeGrad)" stroke="#3b82f6" stroke-width="3" filter="url(#shadow)"/>
+  <text x="895" y="165" font-family="Segoe UI, Arial" font-size="14" font-weight="bold" fill="#1e40af" text-anchor="middle">SPOKES (Project Resource Groups)</text>
+  <text x="895" y="185" font-family="Segoe UI, Arial" font-size="10" fill="#3b82f6" text-anchor="middle">Each project = separate RG in spoke VNet</text>
+
+  <!-- Spoke A -->
+  <rect x="640" y="200" width="250" height="135" rx="8" fill="white" stroke="#60a5fa" stroke-width="2"/>
+  <text x="765" y="220" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">rg-health-rag (Spoke A)</text>
+
+  <rect x="655" y="235" width="100" height="40" rx="4" fill="url(#avmGrad)" stroke="#22c55e"/>
+  <text x="705" y="255" font-family="Segoe UI, Arial" font-size="8" font-weight="bold" fill="#166534" text-anchor="middle">Gateway Func</text>
+  <text x="705" y="268" font-family="Segoe UI, Arial" font-size="7" fill="#15803d" text-anchor="middle">avm-res-web-site</text>
+
+  <rect x="765" y="235" width="115" height="40" rx="4" fill="white" stroke="#60a5fa"/>
+  <text x="822" y="255" font-family="Segoe UI, Arial" font-size="8" font-weight="bold" fill="#1e40af" text-anchor="middle">Storage/Search/KV</text>
+  <text x="822" y="268" font-family="Segoe UI, Arial" font-size="7" fill="#3b82f6" text-anchor="middle">avm-res-*</text>
+
+  <rect x="655" y="285" width="225" height="40" rx="4" fill="#e0f2fe" stroke="#0ea5e9"/>
+  <text x="767" y="305" font-family="Segoe UI, Arial" font-size="8" font-weight="bold" fill="#0369a1" text-anchor="middle">Spoke VNet (peered to Hub)</text>
+  <text x="767" y="318" font-family="Segoe UI, Arial" font-size="7" fill="#0284c7" text-anchor="middle">avm-res-network-virtualnetwork</text>
+
+  <!-- Spoke B -->
+  <rect x="905" y="200" width="250" height="135" rx="8" fill="white" stroke="#60a5fa" stroke-width="2"/>
+  <text x="1030" y="220" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">rg-sdpr-chatbot (Spoke B)</text>
+
+  <rect x="920" y="235" width="100" height="40" rx="4" fill="url(#avmGrad)" stroke="#22c55e"/>
+  <text x="970" y="255" font-family="Segoe UI, Arial" font-size="8" font-weight="bold" fill="#166534" text-anchor="middle">Gateway Func</text>
+  <text x="970" y="268" font-family="Segoe UI, Arial" font-size="7" fill="#15803d" text-anchor="middle">avm-res-web-site</text>
+
+  <rect x="1030" y="235" width="115" height="40" rx="4" fill="white" stroke="#60a5fa"/>
+  <text x="1087" y="255" font-family="Segoe UI, Arial" font-size="8" font-weight="bold" fill="#1e40af" text-anchor="middle">Storage/Search/KV</text>
+  <text x="1087" y="268" font-family="Segoe UI, Arial" font-size="7" fill="#3b82f6" text-anchor="middle">avm-res-*</text>
+
+  <rect x="920" y="285" width="225" height="40" rx="4" fill="#e0f2fe" stroke="#0ea5e9"/>
+  <text x="1032" y="305" font-family="Segoe UI, Arial" font-size="8" font-weight="bold" fill="#0369a1" text-anchor="middle">Spoke VNet (peered to Hub)</text>
+  <text x="1032" y="318" font-family="Segoe UI, Arial" font-size="7" fill="#0284c7" text-anchor="middle">avm-res-network-virtualnetwork</text>
+
+  <!-- VNet Peering -->
+  <rect x="640" y="350" width="515" height="120" rx="8" fill="#f0f9ff" stroke="#0ea5e9" stroke-dasharray="5,3"/>
+  <text x="897" y="375" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#0369a1" text-anchor="middle">VNet Peering (Hub-Spoke)</text>
+
+  <text x="660" y="400" font-family="Segoe UI, Arial" font-size="9" fill="#0284c7">Spoke VNets peered to Hub VNet</text>
+  <text x="660" y="415" font-family="Segoe UI, Arial" font-size="9" fill="#0284c7">Project Gateway → Private Endpoint → Shared AI (in Hub)</text>
+  <text x="660" y="430" font-family="Segoe UI, Arial" font-size="9" fill="#0284c7">All traffic through Hub firewall (optional)</text>
+  <text x="660" y="445" font-family="Segoe UI, Arial" font-size="9" fill="#0284c7">UDR routes to force tunnel through Hub</text>
+  <text x="660" y="460" font-family="Segoe UI, Arial" font-size="9" fill="#0284c7">avm-res-network-virtualnetworkpeering</text>
+
+  <!-- Terraform Section -->
+  <text x="30" y="520" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="#1e3a5f">Terraform Module Structure (Per-Project)</text>
+
+  <rect x="30" y="540" width="1140" height="200" rx="10" fill="white" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
+
+  <!-- Module boxes -->
+  <rect x="50" y="560" width="200" height="160" rx="8" fill="#f0fdf4" stroke="#22c55e"/>
+  <text x="150" y="585" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">module "project"</text>
+  <text x="70" y="610" font-family="Segoe UI, Arial" font-size="9" fill="#15803d">source = "./modules/project"</text>
+  <text x="70" y="630" font-family="Segoe UI, Arial" font-size="9" fill="#15803d">project_name = "health-rag"</text>
+  <text x="70" y="650" font-family="Segoe UI, Arial" font-size="9" fill="#15803d">ministry = "health"</text>
+  <text x="70" y="670" font-family="Segoe UI, Arial" font-size="9" fill="#15803d">hub_vnet_id = data.hub.vnet_id</text>
+  <text x="70" y="690" font-family="Segoe UI, Arial" font-size="9" fill="#15803d">shared_ai_rg = data.shared.rg</text>
+  <text x="70" y="710" font-family="Segoe UI, Arial" font-size="9" fill="#15803d">apim_id = data.shared.apim_id</text>
+
+  <text x="270" y="640" font-family="Segoe UI, Arial" font-size="16" fill="#22c55e">→</text>
+
+  <rect x="290" y="560" width="280" height="160" rx="8" fill="#dbeafe" stroke="#3b82f6"/>
+  <text x="430" y="585" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#1e40af" text-anchor="middle">modules/project/main.tf</text>
+  <text x="310" y="610" font-family="Segoe UI, Arial" font-size="9" fill="#3b82f6"># Creates project resource group</text>
+  <text x="310" y="630" font-family="Segoe UI, Arial" font-size="9" fill="#3b82f6"># Deploys spoke VNet + peers to hub</text>
+  <text x="310" y="650" font-family="Segoe UI, Arial" font-size="9" fill="#3b82f6"># Deploys Gateway Function (avm-res-web-site)</text>
+  <text x="310" y="670" font-family="Segoe UI, Arial" font-size="9" fill="#3b82f6"># Deploys Storage, Search, Key Vault</text>
+  <text x="310" y="690" font-family="Segoe UI, Arial" font-size="9" fill="#3b82f6"># Creates APIM subscription for project</text>
+  <text x="310" y="710" font-family="Segoe UI, Arial" font-size="9" fill="#3b82f6"># Sets up RBAC to shared AI services</text>
+
+  <text x="590" y="640" font-family="Segoe UI, Arial" font-size="16" fill="#3b82f6">→</text>
+
+  <rect x="610" y="560" width="280" height="160" rx="8" fill="#f3e8ff" stroke="#7c3aed"/>
+  <text x="750" y="585" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#6b21a8" text-anchor="middle">AVM Modules Used</text>
+  <text x="630" y="610" font-family="Segoe UI, Arial" font-size="9" fill="#7c3aed">avm-res-resources-resourcegroup</text>
+  <text x="630" y="630" font-family="Segoe UI, Arial" font-size="9" fill="#7c3aed">avm-res-network-virtualnetwork</text>
+  <text x="630" y="650" font-family="Segoe UI, Arial" font-size="9" fill="#7c3aed">avm-res-web-site (functionapp)</text>
+  <text x="630" y="670" font-family="Segoe UI, Arial" font-size="9" fill="#7c3aed">avm-res-storage-storageaccount</text>
+  <text x="630" y="690" font-family="Segoe UI, Arial" font-size="9" fill="#7c3aed">avm-res-search-searchservice</text>
+  <text x="630" y="710" font-family="Segoe UI, Arial" font-size="9" fill="#7c3aed">avm-res-keyvault-vault</text>
+
+  <text x="910" y="640" font-family="Segoe UI, Arial" font-size="16" fill="#7c3aed">→</text>
+
+  <rect x="930" y="560" width="220" height="160" rx="8" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="1040" y="585" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">Output</text>
+  <text x="950" y="610" font-family="Segoe UI, Arial" font-size="9" fill="#b45309">project_rg_id</text>
+  <text x="950" y="630" font-family="Segoe UI, Arial" font-size="9" fill="#b45309">gateway_function_url</text>
+  <text x="950" y="650" font-family="Segoe UI, Arial" font-size="9" fill="#b45309">apim_subscription_key</text>
+  <text x="950" y="670" font-family="Segoe UI, Arial" font-size="9" fill="#b45309">storage_account_id</text>
+  <text x="950" y="690" font-family="Segoe UI, Arial" font-size="9" fill="#b45309">search_service_endpoint</text>
+  <text x="950" y="710" font-family="Segoe UI, Arial" font-size="9" fill="#b45309">managed_identity_id</text>
+
+  <!-- Alignment Summary -->
+  <text x="30" y="770" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="#1e3a5f">Alignment Summary</text>
+
+  <rect x="30" y="790" width="370" height="140" rx="10" fill="#f0fdf4" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
+  <text x="215" y="820" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#166534" text-anchor="middle">Azure Landing Zone</text>
+  <text x="50" y="845" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">Hub-Spoke network topology</text>
+  <text x="50" y="865" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">Centralized connectivity (APIM, Firewall)</text>
+  <text x="50" y="885" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">Shared services in Hub</text>
+  <text x="50" y="905" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">Workloads isolated in Spokes</text>
+  <text x="50" y="925" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">Private endpoints for all services</text>
+
+  <rect x="415" y="790" width="370" height="140" rx="10" fill="#dbeafe" stroke="#3b82f6" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="820" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#1e40af" text-anchor="middle">AVM Modules</text>
+  <text x="435" y="845" font-family="Segoe UI, Arial" font-size="10" fill="#1e40af">100% AVM module coverage</text>
+  <text x="435" y="865" font-family="Segoe UI, Arial" font-size="10" fill="#1e40af">Microsoft-maintained, production-ready</text>
+  <text x="435" y="885" font-family="Segoe UI, Arial" font-size="10" fill="#1e40af">Built-in private endpoint support</text>
+  <text x="435" y="905" font-family="Segoe UI, Arial" font-size="10" fill="#1e40af">Consistent tagging and naming</text>
+  <text x="435" y="925" font-family="Segoe UI, Arial" font-size="10" fill="#1e40af">Diagnostic settings included</text>
+
+  <rect x="800" y="790" width="370" height="140" rx="10" fill="#f3e8ff" stroke="#7c3aed" stroke-width="2" filter="url(#shadow)"/>
+  <text x="985" y="820" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#6b21a8" text-anchor="middle">Project Gateway Benefit</text>
+  <text x="820" y="845" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">Fits ALZ pattern perfectly</text>
+  <text x="820" y="865" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">Gateway Function = just another AVM module</text>
+  <text x="820" y="885" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">Each project = Terraform module call</text>
+  <text x="820" y="905" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">Repeatable, consistent deployments</text>
+  <text x="820" y="925" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">Cost tracking built into the pattern</text>
+
+</svg>
