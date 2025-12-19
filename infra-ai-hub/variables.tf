@@ -54,3 +54,12 @@ variable "key_vault_name" {
   type        = string
   default     = "ai-hub-kv-tools"
 }
+
+variable "vnet_name" {
+  description = "Name of the existing virtual network"
+  type        = string
+}
+variable "vnet_resource_group_name" {
+  description = "Resource group name where the virtual network exists"
+  type        = string
+}

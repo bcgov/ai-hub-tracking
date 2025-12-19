@@ -1,7 +1,11 @@
 data "azurerm_client_config" "current" {}
 
 data "azurerm_subscription" "current" {}
-
+data "azurerm_subnet" "pe-subnet" {
+  name                 = "privateendpoints-subnet"
+  virtual_network_name = var.vnet_name
+  resource_group_name  = var.vnet_resource_group_name
+}
 resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name
   location = var.location
@@ -57,7 +61,7 @@ resource "azurerm_private_endpoint" "key_vault_pe" {
   name                = "${var.app_name}-kv-pe"
   location            = var.location
   resource_group_name = azurerm_resource_group.main.name
-  subnet_id           = "var.key_vault_private_endpoint_subnet_id"
+  subnet_id           = data.azurerm_subnet.pe-subnet.id
 
   private_service_connection {
     name                           = "${var.app_name}-kv-psc"
