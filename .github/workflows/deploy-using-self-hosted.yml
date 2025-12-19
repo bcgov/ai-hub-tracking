@@ -66,7 +66,7 @@ jobs:
           TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
         run: |
           terraform init -upgrade -reconfigure \
-            -backend-config="resource_group_name=ai-hub-deploy-utils-tools" \
+            -backend-config="resource_group_name=${{ secrets.VNET_RESOURCE_GROUP_NAME }}" \
             -backend-config="storage_account_name=${{ vars.STORAGE_ACCOUNT_NAME }}" \
             -backend-config="container_name=tfstate" \
             -backend-config="key=ai-hub/tools/terraform.tfstate" \
