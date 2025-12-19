@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TerraformModules | AI Hub Tracking</title>
+    <title>CostTracking | AI Hub Tracking</title>
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <style>
         :root {
@@ -727,338 +727,243 @@
         </nav>
     </header>
     <main>
-<!-- TITLE: Terraform Modules -->
-<!-- NAV: terraform -->
 
-<h1>Terraform Modules</h1>
+<h1>Cost Tracking</h1>
 
-<p>This project uses modular Terraform configuration for Azure Landing Zone infrastructure. Each module is designed to be reusable and follows Azure best practices.</p>
+<p>How costs are tracked and allocated for each project in the AI Hub.</p>
 
-<h2>Module Overview</h2>
+<h2>Architecture</h2>
+
+<div class="img-container">
+    <img src="assets/cost-tracking-architecture.svg" alt="Project Resource Architecture" style="max-width: 100%;">
+</div>
+
+<h2>What Each Project Gets</h2>
 
 <table>
-    <thead>
-        <tr>
-            <th>Module</th>
-            <th>Purpose</th>
-            <th>Key Resources</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td><strong>network</strong></td>
-            <td>VNet subnets and NSG configuration</td>
-            <td>Subnets, Network Security Groups</td>
-        </tr>
-        <tr>
-            <td><strong>bastion</strong></td>
-            <td>Secure VM access without public IPs</td>
-            <td>Azure Bastion Host, Public IP</td>
-        </tr>
-        <tr>
-            <td><strong>jumpbox</strong></td>
-            <td>Development VM with CLI tools</td>
-            <td>Linux VM, SSH Keys, Auto-shutdown</td>
-        </tr>
-    </tbody>
+    <tr>
+        <th>Resource</th>
+        <th>Type</th>
+        <th>Description</th>
+    </tr>
+    <tr>
+        <td><strong>Resource Group</strong></td>
+        <td><span class="badge" style="background:#3b82f6;color:white;">Dedicated</span></td>
+        <td>rg-{project}-{env} - contains all project resources</td>
+    </tr>
+    <tr>
+        <td><strong>Storage Account</strong></td>
+        <td><span class="badge" style="background:#3b82f6;color:white;">Dedicated</span></td>
+        <td>Project documents and data</td>
+    </tr>
+    <tr>
+        <td><strong>Search Service</strong></td>
+        <td><span class="badge" style="background:#3b82f6;color:white;">Dedicated</span></td>
+        <td>Project indexes for RAG</td>
+    </tr>
+    <tr>
+        <td><strong>Key Vault</strong></td>
+        <td><span class="badge" style="background:#3b82f6;color:white;">Dedicated</span></td>
+        <td>Project secrets and keys</td>
+    </tr>
+    <tr>
+        <td><strong>AI Foundry Project</strong></td>
+        <td><span class="badge" style="background:#7c3aed;color:white;">Dedicated</span></td>
+        <td>Project's own API endpoint, prompt flows, index (within shared Hub)</td>
+    </tr>
+    <tr>
+        <td><strong>APIM Subscription</strong></td>
+        <td><span class="badge" style="background:#7c3aed;color:white;">Dedicated</span></td>
+        <td>Project's API key for access</td>
+    </tr>
+    <tr>
+        <td><strong>AI Models (GPT-4, etc.)</strong></td>
+        <td><span class="badge" style="background:#f59e0b;color:white;">Shared</span></td>
+        <td>Deployed once in Hub, accessed via AI Foundry Project</td>
+    </tr>
+    <tr>
+        <td><strong>APIM, App Gateway, Firewall</strong></td>
+        <td><span class="badge" style="background:#f59e0b;color:white;">Shared</span></td>
+        <td>Entry point infrastructure</td>
+    </tr>
 </table>
 
-<h2>Deployment Script: deploy-terraform.sh</h2>
+<h2>Terraform Deploys Everything</h2>
 
-<p>A wrapper script that simplifies Terraform operations with proper Azure authentication.</p>
+<p>One module call creates all resources for a project. All resources use <strong>Azure Verified Modules (AVM)</strong>.</p>
 
-<h3>Usage</h3>
+<pre>
+module "health_rag" {
+  source = "./modules/project"
 
-<pre>./deploy-terraform.sh &lt;command&gt; [options]
+  project_name      = "health-rag"
+  ministry          = "health"
+  environment       = "prod"
+  ai_foundry_hub_id = module.hub.ai_foundry_id
+  apim_id           = module.hub.apim_id
 
-Commands:
-  init     Initialize Terraform with backend configuration
-  plan     Preview infrastructure changes
-  apply    Apply infrastructure changes
-  destroy  Destroy all infrastructure
-  output   Display Terraform outputs</pre>
+  tags = local.common_tags
+}
+</pre>
 
-<h3>Examples</h3>
-
-<div class="grid grid-2">
-    <div class="card">
-        <h3>Full Deployment</h3>
-        <pre>./deploy-terraform.sh init
-./deploy-terraform.sh plan
-./deploy-terraform.sh apply</pre>
-    </div>
-    <div class="card">
-        <h3>Target Specific Module</h3>
-        <pre># Deploy only bastion
-./deploy-terraform.sh apply \
-  -target=module.bastion
-
-# Deploy only jumpbox
-./deploy-terraform.sh apply \
-  -target=module.jumpbox</pre>
-    </div>
-</div>
-
-<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
-
-<h2>Network Module</h2>
-
-<p>Configures subnets within an existing VNet and creates Network Security Groups (NSGs) for traffic control.</p>
-
-<div class="card">
-    <h3>Subnets Created</h3>
-    <table>
-        <thead>
-            <tr>
-                <th>Subnet</th>
-                <th>Purpose</th>
-                <th>Delegation</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td><code>AzureBastionSubnet</code></td>
-                <td>Azure Bastion service</td>
-                <td>None (required name)</td>
-            </tr>
-            <tr>
-                <td><code>jumpbox-subnet</code></td>
-                <td>Jumpbox VM</td>
-                <td>None</td>
-            </tr>
-            <tr>
-                <td><code>privateendpoints-subnet</code></td>
-                <td>Private Endpoints for Azure services</td>
-                <td>None</td>
-            </tr>
-            <tr>
-                <td><code>app-service-subnet</code></td>
-                <td>App Service VNet integration</td>
-                <td>Microsoft.Web/serverFarms</td>
-            </tr>
-            <tr>
-                <td><code>container-instance-subnet</code></td>
-                <td>Azure Container Instances</td>
-                <td>Microsoft.ContainerInstance/containerGroups</td>
-            </tr>
-            <tr>
-                <td><code>container-apps-subnet</code></td>
-                <td>Azure Container Apps Environment</td>
-                <td>Microsoft.App/environments</td>
-            </tr>
-            <tr>
-                <td><code>apim-subnet</code></td>
-                <td>Azure API Management</td>
-                <td>Microsoft.Web/serverFarms</td>
-            </tr>
-        </tbody>
-    </table>
-</div>
-
-<div class="card card-gold">
-    <h3>Network Security Groups</h3>
-    <p>Each subnet has a dedicated NSG with rules for:</p>
-    <ul>
-        <li><strong>Bastion NSG</strong>: HTTPS inbound, Gateway Manager, SSH/RDP to VNet</li>
-        <li><strong>Jumpbox NSG</strong>: SSH/RDP from Bastion only, outbound to Private Endpoints</li>
-        <li><strong>App Service NSG</strong>: HTTP/HTTPS from internet, communication with Private Endpoints</li>
-        <li><strong>Container Apps NSG</strong>: Load Balancer, HTTP/HTTPS, Private Endpoint access</li>
-        <li><strong>APIM NSG</strong>: API Management traffic, backend service access</li>
-    </ul>
-</div>
-
-<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
-
-<h2>Bastion Module</h2>
-
-<p>Deploys Azure Bastion for secure, browser-based SSH/RDP access to VMs without exposing public IPs.</p>
-
-<div class="grid grid-2">
-    <div class="card">
-        <h3>Resources Created</h3>
-        <ul>
-            <li><strong>Public IP</strong>: Static, Standard SKU (required for Bastion)</li>
-            <li><strong>Bastion Host</strong>: Basic SKU for cost optimization</li>
-        </ul>
-    </div>
-    <div class="card">
-        <h3>Features</h3>
-        <ul>
-            <li>Web-based SSH/RDP from Azure Portal</li>
-            <li>No public IPs needed on VMs</li>
-            <li>TLS encryption for all sessions</li>
-            <li>NSG rules per Microsoft requirements</li>
-        </ul>
-    </div>
-</div>
-
-<div class="alert alert-info">
-    <strong>Cost Tip:</strong> Azure Bastion has hourly charges. Use the <code>bastion-add-or-remove.yml</code> workflow to deploy/destroy Bastion on demand.
-</div>
-
-<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
-
-<h2>Jumpbox Module</h2>
-
-<p>Creates a Linux VM for development and administration tasks, pre-configured with essential CLI tools.</p>
-
-<div class="card">
-    <h3>VM Configuration</h3>
-    <table>
-        <thead>
-            <tr>
-                <th>Setting</th>
-                <th>Value</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td>OS</td>
-                <td>Ubuntu 24.04 LTS (Noble Numbat)</td>
-            </tr>
-            <tr>
-                <td>Size</td>
-                <td>B-series burstable (configurable)</td>
-            </tr>
-            <tr>
-                <td>Authentication</td>
-                <td>SSH Key (auto-generated, stored in <code>sensitive/</code>)</td>
-            </tr>
-            <tr>
-                <td>Public IP</td>
-                <td>None (access via Bastion only)</td>
-            </tr>
-            <tr>
-                <td>Identity</td>
-                <td>System-assigned managed identity</td>
-            </tr>
-        </tbody>
-    </table>
-</div>
-
-<div class="card card-gold">
-    <h3>Pre-installed Tools</h3>
-    <p>The VM is bootstrapped with cloud-init to install:</p>
-    <div class="grid grid-3">
-        <div>
-            <strong>Azure & Cloud</strong>
-            <ul>
-                <li>Azure CLI</li>
-                <li>Terraform</li>
-                <li>kubectl</li>
-            </ul>
-        </div>
-        <div>
-            <strong>Development</strong>
-            <ul>
-                <li>Docker & Compose</li>
-                <li>GitHub CLI</li>
-                <li>Python 3 & pip</li>
-            </ul>
-        </div>
-        <div>
-            <strong>Utilities</strong>
-            <ul>
-                <li>git, vim, tmux</li>
-                <li>jq, curl, wget</li>
-                <li>htop, net-tools</li>
-            </ul>
-        </div>
-    </div>
-</div>
-
-<div class="card">
-    <h3>Auto-Shutdown & Start</h3>
-    <p>Cost optimization through scheduled operations:</p>
-    <table>
-        <thead>
-            <tr>
-                <th>Schedule</th>
-                <th>Time</th>
-                <th>Method</th>
-            </tr>
-        </thead>
-        <tbody>
-            <tr>
-                <td><strong>Auto-Shutdown</strong></td>
-                <td>7:00 PM PST daily</td>
-                <td>Azure Dev/Test shutdown schedule</td>
-            </tr>
-            <tr>
-                <td><strong>Auto-Start</strong></td>
-                <td>8:00 AM PST Mon-Fri</td>
-                <td>Azure Automation Runbook (Python3)</td>
-            </tr>
-        </tbody>
-    </table>
-</div>
-
-<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
-
-<h2>Backend Configuration</h2>
-
-<p>Terraform state is stored in Azure Blob Storage with Azure AD authentication.</p>
-
-<pre># infra/backend.tf
-terraform {
-  backend "azurerm" {
-    resource_group_name  = "your-resource-group"
-    storage_account_name = "tfstateaccount"
-    container_name       = "tfstate"
-    key                  = "terraform.tfstate"
-    use_azuread_auth     = true  # Required for OIDC
-  }
-}</pre>
-
-<div class="alert alert-warning">
-    <strong>Important:</strong> The <code>use_azuread_auth = true</code> setting is required when using OIDC authentication. Without it, Terraform will fail to access the state file.
-</div>
-
-<h2>Variables Reference</h2>
-
-<p>Key variables used across modules:</p>
+<h3>AVM Modules Used</h3>
 
 <table>
-    <thead>
-        <tr>
-            <th>Variable</th>
-            <th>Description</th>
-            <th>Source</th>
-        </tr>
-    </thead>
-    <tbody>
-        <tr>
-            <td><code>app_name</code></td>
-            <td>Application name prefix for resources</td>
-            <td>Environment variable</td>
-        </tr>
-        <tr>
-            <td><code>app_env</code></td>
-            <td>Environment (dev, test, prod)</td>
-            <td>GitHub Environment</td>
-        </tr>
-        <tr>
-            <td><code>location</code></td>
-            <td>Azure region</td>
-            <td>Default: Canada Central</td>
-        </tr>
-        <tr>
-            <td><code>resource_group_name</code></td>
-            <td>Target resource group</td>
-            <td>Environment variable</td>
-        </tr>
-        <tr>
-            <td><code>vnet_name</code></td>
-            <td>Existing VNet name</td>
-            <td>GitHub Secret</td>
-        </tr>
-        <tr>
-            <td><code>vnet_address_space</code></td>
-            <td>VNet CIDR for subnet calculation</td>
-            <td>GitHub Secret</td>
-        </tr>
-    </tbody>
+    <tr>
+        <th>Resource</th>
+        <th>AVM Module</th>
+    </tr>
+    <tr>
+        <td>Storage Account</td>
+        <td><code>avm-res-storage-storageaccount</code></td>
+    </tr>
+    <tr>
+        <td>Search Service</td>
+        <td><code>avm-res-search-searchservice</code></td>
+    </tr>
+    <tr>
+        <td>Key Vault</td>
+        <td><code>avm-res-keyvault-vault</code></td>
+    </tr>
+    <tr>
+        <td>AI Foundry Hub</td>
+        <td><code>avm-res-machinelearningservices-workspace</code></td>
+    </tr>
+    <tr>
+        <td>API Management</td>
+        <td><code>avm-res-apimanagement-service</code></td>
+    </tr>
+    <tr>
+        <td>Application Gateway</td>
+        <td><code>avm-res-network-applicationgateway</code></td>
+    </tr>
+    <tr>
+        <td>Virtual Network</td>
+        <td><code>avm-res-network-virtualnetwork</code></td>
+    </tr>
 </table>
+
+<h2>How Cost Tracking Works</h2>
+
+<div class="grid grid-3">
+    <div class="card" style="border-left-color: #22c55e;">
+        <h3 style="margin-top: 0; color: #166534;">Direct Costs</h3>
+        <p>Storage, Search, Key Vault</p>
+        <p style="font-size: 0.875rem; color: #64748b;">Tracked automatically by Azure Cost Management using Resource Group tags.</p>
+        <p><strong>~40% of total</strong></p>
+    </div>
+    <div class="card" style="border-left-color: #7c3aed;">
+        <h3 style="margin-top: 0; color: #6b21a8;">AI Usage</h3>
+        <p>Tokens, API calls</p>
+        <p style="font-size: 0.875rem; color: #64748b;">Tracked by AI Foundry per project. Each AI Foundry Project has its own metrics.</p>
+        <p><strong>~45% of total</strong></p>
+    </div>
+    <div class="card" style="border-left-color: #f59e0b;">
+        <h3 style="margin-top: 0; color: #92400e;">Platform Split</h3>
+        <p>APIM, Gateway, Firewall</p>
+        <p style="font-size: 0.875rem; color: #64748b;">Split evenly across all projects (shared infrastructure).</p>
+        <p><strong>~15% of total</strong></p>
+    </div>
+</div>
+
+<h2>Example Monthly Costs</h2>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: #3b82f6;">
+        <h3 style="margin-top: 0;">Health-RAG Project</h3>
+        <table style="margin: 0;">
+            <tr>
+                <td>Storage + Search + KV</td>
+                <td style="text-align: right;">$420</td>
+                <td><span class="badge" style="background:#22c55e;color:white;font-size:9px;">DIRECT</span></td>
+            </tr>
+            <tr>
+                <td>AI usage (60% of tokens)</td>
+                <td style="text-align: right;">$1,020</td>
+                <td><span class="badge" style="background:#7c3aed;color:white;font-size:9px;">AI</span></td>
+            </tr>
+            <tr>
+                <td>Platform share (50%)</td>
+                <td style="text-align: right;">$300</td>
+                <td><span class="badge" style="background:#f59e0b;color:white;font-size:9px;">SPLIT</span></td>
+            </tr>
+            <tr style="background: #dbeafe;">
+                <td><strong>Total</strong></td>
+                <td style="text-align: right;"><strong>$1,740</strong></td>
+                <td></td>
+            </tr>
+        </table>
+    </div>
+    <div class="card" style="border-left-color: #22c55e;">
+        <h3 style="margin-top: 0;">SDPR-Chatbot Project</h3>
+        <table style="margin: 0;">
+            <tr>
+                <td>Storage + Search + KV</td>
+                <td style="text-align: right;">$350</td>
+                <td><span class="badge" style="background:#22c55e;color:white;font-size:9px;">DIRECT</span></td>
+            </tr>
+            <tr>
+                <td>AI usage (40% of tokens)</td>
+                <td style="text-align: right;">$680</td>
+                <td><span class="badge" style="background:#7c3aed;color:white;font-size:9px;">AI</span></td>
+            </tr>
+            <tr>
+                <td>Platform share (50%)</td>
+                <td style="text-align: right;">$300</td>
+                <td><span class="badge" style="background:#f59e0b;color:white;font-size:9px;">SPLIT</span></td>
+            </tr>
+            <tr style="background: #dcfce7;">
+                <td><strong>Total</strong></td>
+                <td style="text-align: right;"><strong>$1,330</strong></td>
+                <td></td>
+            </tr>
+        </table>
+    </div>
+</div>
+
+<h2>Budget Alerts</h2>
+
+<table>
+    <tr>
+        <th>Threshold</th>
+        <th>Action</th>
+    </tr>
+    <tr>
+        <td>50% of budget</td>
+        <td>Email to project team</td>
+    </tr>
+    <tr>
+        <td>80% of budget</td>
+        <td>Email + Teams alert</td>
+    </tr>
+    <tr>
+        <td>100% of budget</td>
+        <td>Consider rate limiting via APIM</td>
+    </tr>
+</table>
+
+<h2>Related</h2>
+
+<div class="grid grid-3">
+    <a href="decisions.html#adr-006" class="card-link">
+        <div class="card" style="border-left-color: #f59e0b;">
+            <h3 style="margin-top: 0;">ADR-006</h3>
+            <p>Multi-Tenant Isolation</p>
+        </div>
+    </a>
+    <a href="diagrams.html" class="card-link">
+        <div class="card" style="border-left-color: #7c3aed;">
+            <h3 style="margin-top: 0;">Diagrams</h3>
+            <p>Architecture diagrams</p>
+        </div>
+    </a>
+    <a href="terraform.html" class="card-link">
+        <div class="card" style="border-left-color: #3b82f6;">
+            <h3 style="margin-top: 0;">Terraform</h3>
+            <p>Module documentation</p>
+        </div>
+    </a>
+</div>
     </main>
     <footer class="site-footer">
         <div class="footer-content">

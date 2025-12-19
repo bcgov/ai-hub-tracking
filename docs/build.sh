@@ -55,6 +55,7 @@ for page in "$PAGES_DIR"/*.html; do
         header="${header//\{\{NAV_TERRAFORM-REFERENCE\}\}/}"
         header="${header//\{\{NAV_PLAYBOOKS\}\}/}"
         header="${header//\{\{NAV_DECISIONS\}\}/}"
+        header="${header//\{\{NAV_COST\}\}/}"
         header="${header//\{\{NAV_FAQ\}\}/}"
 
         if [ -n "$nav_active" ]; then

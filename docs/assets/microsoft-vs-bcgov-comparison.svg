@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 900">
+  <defs>
+    <linearGradient id="msGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#f0f9ff"/>
+      <stop offset="100%" style="stop-color:#dbeafe"/>
+    </linearGradient>
+    <linearGradient id="bcGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fff8e8"/>
+      <stop offset="100%" style="stop-color:#fef3c7"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="900" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1200" height="80" fill="#003366"/>
+  <text x="600" y="35" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="26" font-weight="bold">Microsoft Assumption vs BC Gov Reality</text>
+  <text x="600" y="60" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="14">Why the standard AI Landing Zone approach doesn't work for us</text>
+
+  <!-- Two columns header -->
+  <rect x="30" y="100" width="550" height="50" rx="8" fill="#0078d4"/>
+  <text x="305" y="132" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="18" font-weight="bold">Microsoft Assumes...</text>
+
+  <rect x="620" y="100" width="550" height="50" rx="8" fill="#003366"/>
+  <text x="895" y="132" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="18" font-weight="bold">BC Gov Reality</text>
+
+  <!-- Row 1: AI = Foundry Only -->
+  <rect x="30" y="160" width="550" height="90" rx="8" fill="url(#msGrad)" stroke="#0078d4" stroke-width="1" filter="url(#shadow)"/>
+  <text x="50" y="190" fill="#0078d4" font-family="Arial, sans-serif" font-size="14" font-weight="bold">"AI Landing Zone = AI Foundry"</text>
+  <text x="50" y="210" fill="#333" font-family="Arial, sans-serif" font-size="12">Everything runs inside Foundry projects</text>
+  <text x="50" y="228" fill="#333" font-family="Arial, sans-serif" font-size="12">Other services are "not AI" and out of scope</text>
+
+  <rect x="620" y="160" width="550" height="90" rx="8" fill="url(#bcGrad)" stroke="#fcba19" stroke-width="1" filter="url(#shadow)"/>
+  <text x="640" y="190" fill="#003366" font-family="Arial, sans-serif" font-size="14" font-weight="bold">AI = Full Stack (Foundry + Everything Else)</text>
+  <text x="640" y="210" fill="#333" font-family="Arial, sans-serif" font-size="12">Need: Doc Intelligence, AI Search, Cosmos DB, AKS, Storage</text>
+  <text x="640" y="228" fill="#333" font-family="Arial, sans-serif" font-size="12">Foundry is ONE component, not the entire solution</text>
+
+  <!-- Row 2: Single Tenant -->
+  <rect x="30" y="260" width="550" height="90" rx="8" fill="url(#msGrad)" stroke="#0078d4" stroke-width="1" filter="url(#shadow)"/>
+  <text x="50" y="290" fill="#0078d4" font-family="Arial, sans-serif" font-size="14" font-weight="bold">"One organization = One tenant"</text>
+  <text x="50" y="310" fill="#333" font-family="Arial, sans-serif" font-size="12">Single subscription, single resource group</text>
+  <text x="50" y="328" fill="#333" font-family="Arial, sans-serif" font-size="12">No need for complex isolation</text>
+
+  <rect x="620" y="260" width="550" height="90" rx="8" fill="url(#bcGrad)" stroke="#fcba19" stroke-width="1" filter="url(#shadow)"/>
+  <text x="640" y="290" fill="#003366" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Multi-Ministry from Day One</text>
+  <text x="640" y="310" fill="#333" font-family="Arial, sans-serif" font-size="12">Health, SDPR, Justice - all need strict data isolation</text>
+  <text x="640" y="328" fill="#333" font-family="Arial, sans-serif" font-size="12">Separate billing, RBAC, APIM subscriptions per ministry</text>
+
+  <!-- Row 3: Portal/UI Access -->
+  <rect x="30" y="360" width="550" height="90" rx="8" fill="url(#msGrad)" stroke="#0078d4" stroke-width="1" filter="url(#shadow)"/>
+  <text x="50" y="390" fill="#0078d4" font-family="Arial, sans-serif" font-size="14" font-weight="bold">"Use Azure Portal / Foundry Studio UI"</text>
+  <text x="50" y="410" fill="#333" font-family="Arial, sans-serif" font-size="12">Manage projects, upload docs, configure via browser</text>
+  <text x="50" y="428" fill="#333" font-family="Arial, sans-serif" font-size="12">Public endpoints are fine for UI access</text>
+
+  <rect x="620" y="360" width="550" height="90" rx="8" fill="url(#bcGrad)" stroke="#fcba19" stroke-width="1" filter="url(#shadow)"/>
+  <text x="640" y="390" fill="#ef4444" font-family="Arial, sans-serif" font-size="14" font-weight="bold">NO Public Endpoints - Ever</text>
+  <text x="640" y="410" fill="#333" font-family="Arial, sans-serif" font-size="12">BC Gov policy: all services must be private-only</text>
+  <text x="640" y="428" fill="#333" font-family="Arial, sans-serif" font-size="12">UI requires public endpoint → UI is not supported</text>
+
+  <!-- Row 4: Management -->
+  <rect x="30" y="460" width="550" height="90" rx="8" fill="url(#msGrad)" stroke="#0078d4" stroke-width="1" filter="url(#shadow)"/>
+  <text x="50" y="490" fill="#0078d4" font-family="Arial, sans-serif" font-size="14" font-weight="bold">"Click-ops is acceptable"</text>
+  <text x="50" y="510" fill="#333" font-family="Arial, sans-serif" font-size="12">Manual setup through Azure Portal</text>
+  <text x="50" y="528" fill="#333" font-family="Arial, sans-serif" font-size="12">Automation is optional enhancement</text>
+
+  <rect x="620" y="460" width="550" height="90" rx="8" fill="url(#bcGrad)" stroke="#fcba19" stroke-width="1" filter="url(#shadow)"/>
+  <text x="640" y="490" fill="#003366" font-family="Arial, sans-serif" font-size="14" font-weight="bold">API/Terraform ONLY (AVM Modules)</text>
+  <text x="640" y="510" fill="#333" font-family="Arial, sans-serif" font-size="12">Everything must be Infrastructure-as-Code</text>
+  <text x="640" y="528" fill="#333" font-family="Arial, sans-serif" font-size="12">If no AVM module exists, service is not supported</text>
+
+  <!-- Row 5: Access Model -->
+  <rect x="30" y="560" width="550" height="90" rx="8" fill="url(#msGrad)" stroke="#0078d4" stroke-width="1" filter="url(#shadow)"/>
+  <text x="50" y="590" fill="#0078d4" font-family="Arial, sans-serif" font-size="14" font-weight="bold">"Give everyone Bastion/VM access"</text>
+  <text x="50" y="610" fill="#333" font-family="Arial, sans-serif" font-size="12">Each team gets their own jump box</text>
+  <text x="50" y="628" fill="#333" font-family="Arial, sans-serif" font-size="12">Manual management through VMs</text>
+
+  <rect x="620" y="560" width="550" height="90" rx="8" fill="url(#bcGrad)" stroke="#fcba19" stroke-width="1" filter="url(#shadow)"/>
+  <text x="640" y="590" fill="#ef4444" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Bastion = Platform Team ONLY</text>
+  <text x="640" y="610" fill="#333" font-family="Arial, sans-serif" font-size="12">Not scalable: can't give 20 ministries 20 VMs</text>
+  <text x="640" y="628" fill="#333" font-family="Arial, sans-serif" font-size="12">Tenants access via API (APIM subscription keys)</text>
+
+  <!-- Row 6: IP/Resource Planning -->
+  <rect x="30" y="660" width="550" height="90" rx="8" fill="url(#msGrad)" stroke="#0078d4" stroke-width="1" filter="url(#shadow)"/>
+  <text x="50" y="690" fill="#0078d4" font-family="Arial, sans-serif" font-size="14" font-weight="bold">"Unlimited resources available"</text>
+  <text x="50" y="710" fill="#333" font-family="Arial, sans-serif" font-size="12">Spin up whatever you need</text>
+  <text x="50" y="728" fill="#333" font-family="Arial, sans-serif" font-size="12">Private endpoint IP exhaustion isn't considered</text>
+
+  <rect x="620" y="660" width="550" height="90" rx="8" fill="url(#bcGrad)" stroke="#fcba19" stroke-width="1" filter="url(#shadow)"/>
+  <text x="640" y="690" fill="#003366" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Strict IP Budget: 1000 Total, ~50 per Tenant</text>
+  <text x="640" y="710" fill="#333" font-family="Arial, sans-serif" font-size="12">Every private endpoint consumes an IP</text>
+  <text x="640" y="728" fill="#333" font-family="Arial, sans-serif" font-size="12">Default: share services. Dedicated = justify the IP cost</text>
+
+  <!-- Bottom callout -->
+  <rect x="30" y="770" width="1140" height="110" rx="10" fill="#fee2e2" stroke="#ef4444" stroke-width="2" filter="url(#shadow)"/>
+  <text x="600" y="800" text-anchor="middle" fill="#991b1b" font-family="Arial, sans-serif" font-size="18" font-weight="bold">THE FUNDAMENTAL DISCONNECT</text>
+  <text x="600" y="830" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="14">Microsoft's AI Landing Zone reference assumes: public endpoints OK, single tenant, UI-based management, unlimited resources</text>
+  <text x="600" y="855" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="14">BC Gov requires: private-only, multi-tenant, API/IaC-only, resource-constrained, policy-driven</text>
+  <text x="600" y="875" text-anchor="middle" fill="#991b1b" font-family="Arial, sans-serif" font-size="12" font-weight="bold">We cannot use Microsoft's approach as-is. Our architecture must adapt to these constraints.</text>
+
+</svg>
