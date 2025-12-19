@@ -51,18 +51,6 @@ module "jumpbox" {
   depends_on          = [module.network]
 }
 
-# Shared user-assigned managed identity for GitHub runners (avoids ACR<->runner cycles)
-resource "azurerm_user_assigned_identity" "github_runners" {
-  count = var.github_runners_aca_enabled ? 1 : 0
-
-  name                = "uami-${var.app_name}-github-runners"
-  location            = var.location
-  resource_group_name = azurerm_resource_group.main.name
-  tags                = var.common_tags
-
-  depends_on = [azurerm_resource_group.main]
-}
-
 # GitHub Self-Hosted Runners on Azure Container Apps (AVM-based)
 # These runners auto-scale from 0 based on queued jobs
 module "github_runners_aca" {
