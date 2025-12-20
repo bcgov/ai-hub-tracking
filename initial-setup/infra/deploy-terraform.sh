@@ -32,7 +32,7 @@
 #   TF_VAR_client_id           - Azure Client ID (for OIDC)
 #   ARM_USE_OIDC=true          - Use OIDC authentication
 #
-# Examples (from repo root):
+# Examples:
 #   ./initial-setup/infra/deploy-terraform.sh init
 #   ./initial-setup/infra/deploy-terraform.sh plan
 #   ./initial-setup/infra/deploy-terraform.sh apply

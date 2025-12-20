@@ -1259,14 +1259,14 @@ deploy_initial_infrastructure() {
     # Ask for confirmation before deploying infrastructure
     log_warning "This will deploy foundational infrastructure to Azure."
     log_info "Resources to be created: Resource Group, Network (subnets/NSGs), and optionally Bastion/Jumpbox"
-    read -p "Do you want to proceed with infrastructure deployment? (yes/no): " confirm
+    read -p "Do you want to proceed with infrastructure deployment, default is network and self hossted runner, if you want all , type all? (all/yes/no): " confirm
     
-    if [[ "$confirm" != "yes" ]]; then
+    # Check user confirmation for all or yes
+    if [[ "$confirm" != "all" && "$confirm" != "yes" ]]; then
         log_info "Infrastructure deployment skipped"
         log_info "Run manually when ready: cd initial-setup/infra && ./deploy-terraform.sh apply"
         return 0
     fi
-
     # Make script executable
     chmod +x "$deploy_script"
 
@@ -1275,7 +1275,13 @@ deploy_initial_infrastructure() {
     (cd "${script_dir}/infra" && ./deploy-terraform.sh init)
     
     log_info "Applying Terraform configuration..."
-    (cd "${script_dir}/infra" && ./deploy-terraform.sh apply)
+    # if all is selected, deploy all resources
+    if [[ "$confirm" == "all" ]]; then
+        (cd "${script_dir}/infra" && export CI=true && ./deploy-terraform.sh apply)
+    else
+        # else deploy only network and self hosted runner
+        (cd "${script_dir}/infra" && export CI=true &&  ./deploy-terraform.sh apply --target=module.network --target=module.github_runners_aca)
+    fi
     
     log_success "Infrastructure deployment completed!"
 }
