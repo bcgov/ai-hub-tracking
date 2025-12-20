@@ -1,10 +1,13 @@
 #!/bin/bash
 # =============================================================================
-# Terraform Deployment Script - Run it from local dev machine
+# Terraform Deployment Script - Run from initial-setup/infra/ or repo root
 # =============================================================================
 # Reusable script for Terraform operations (init, plan, apply, destroy, etc.)
 #
-# Usage:
+# Usage (from repo root):
+#   ./initial-setup/infra/deploy-terraform.sh <command> [options]
+#
+# Usage (from initial-setup/infra folder):
 #   ./deploy-terraform.sh <command> [options]
 #
 # Commands:
@@ -29,13 +32,13 @@
 #   TF_VAR_client_id           - Azure Client ID (for OIDC)
 #   ARM_USE_OIDC=true          - Use OIDC authentication
 #
-# Examples:
-#   ./deploy-terraform.sh init
-#   ./deploy-terraform.sh plan
-#   ./deploy-terraform.sh apply
-#   ./deploy-terraform.sh apply -target=module.jumpbox
-#   export CI=true && ./deploy-terraform.sh apply
-#   ./deploy-terraform.sh destroy
+# Examples (from repo root):
+#   ./initial-setup/infra/deploy-terraform.sh init
+#   ./initial-setup/infra/deploy-terraform.sh plan
+#   ./initial-setup/infra/deploy-terraform.sh apply
+#   ./initial-setup/infra/deploy-terraform.sh apply -target=module.jumpbox
+#   export CI=true && ./initial-setup/infra/deploy-terraform.sh apply
+#   ./initial-setup/infra/deploy-terraform.sh destroy
 # =============================================================================
 
 set -euo pipefail
@@ -44,7 +47,8 @@ set -euo pipefail
 # Configuration
 # =============================================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INFRA_DIR="${SCRIPT_DIR}/infra"
+# Script is now inside infra/, so INFRA_DIR is the same as SCRIPT_DIR
+INFRA_DIR="${SCRIPT_DIR}"
 TFVARS_FILE="${INFRA_DIR}/terraform.tfvars"
 
 # Backend configuration (can be overridden by environment variables)

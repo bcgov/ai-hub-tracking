@@ -397,17 +397,227 @@ generate_storage_account_name() {
 }
 
 # ================================================================================
+# Detect the operating system
+# ================================================================================
+detect_os() {
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        echo "linux"
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "macos"
+    else
+        echo "unknown"
+    fi
+}
+
+# ================================================================================
+# Check if a command exists
+# ================================================================================
+command_exists() {
+    command -v "$1" &> /dev/null
+}
+
+# ================================================================================
+# Install Azure CLI
+# ================================================================================
+install_azure_cli() {
+    log_info "Installing Azure CLI..."
+    
+    local os=$(detect_os)
+    
+    case "$os" in
+        linux)
+            # Check for package manager
+            if command_exists apt-get; then
+                log_info "Using apt package manager"
+                sudo apt-get update
+                sudo apt-get install -y azure-cli
+            elif command_exists yum; then
+                log_info "Using yum package manager"
+                sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+                sudo yum install -y azure-cli
+            elif command_exists pacman; then
+                log_info "Using pacman package manager"
+                sudo pacman -S azure-cli
+            else
+                log_error "No supported package manager found. Please install Azure CLI manually."
+                log_error "Visit: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
+                exit 1
+            fi
+            ;;
+        macos)
+            if command_exists brew; then
+                log_info "Using Homebrew"
+                brew install azure-cli
+            else
+                log_error "Homebrew not found. Please install Homebrew or Azure CLI manually."
+                log_error "Visit: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
+                exit 1
+            fi
+            ;;
+        *)
+            log_error "Unsupported operating system. Azure CLI installation is only supported on Linux and macOS."
+            log_error "Please install manually from: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
+            exit 1
+            ;;
+    esac
+    
+    log_success "Azure CLI installed successfully"
+}
+
+# ================================================================================
+# Install Terraform
+# ================================================================================
+install_terraform() {
+    log_info "Installing Terraform..."
+    
+    local os=$(detect_os)
+    
+    case "$os" in
+        linux)
+            if command_exists apt-get; then
+                log_info "Using apt package manager"
+                sudo apt-get update
+                sudo apt-get install -y gnupg software-properties-common curl
+                curl https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+                sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+                sudo apt-get update
+                sudo apt-get install -y terraform
+            elif command_exists yum; then
+                log_info "Using yum package manager"
+                sudo yum install -y yum-utils
+                sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
+                sudo yum -y install terraform
+            else
+                log_error "No supported package manager found. Please install Terraform manually."
+                log_error "Visit: https://www.terraform.io/downloads.html"
+                exit 1
+            fi
+            ;;
+        macos)
+            if command_exists brew; then
+                log_info "Using Homebrew"
+                brew tap hashicorp/tap
+                brew install hashicorp/tap/terraform
+            else
+                log_error "Homebrew not found. Please install Homebrew or Terraform manually."
+                log_error "Visit: https://www.terraform.io/downloads.html"
+                exit 1
+            fi
+            ;;
+        *)
+            log_error "Unsupported operating system. Terraform installation is only supported on Linux and macOS."
+            log_error "Visit: https://www.terraform.io/downloads.html"
+            exit 1
+            ;;
+    esac
+    
+    log_success "Terraform installed successfully"
+}
+
+# ================================================================================
+# Install GitHub CLI
+# ================================================================================
+install_github_cli() {
+    log_info "Installing GitHub CLI..."
+    
+    local os=$(detect_os)
+    
+    case "$os" in
+        linux)
+            if command_exists apt-get; then
+                log_info "Using apt package manager"
+                sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0
+                sudo apt-add-repository https://cli.github.com/packages
+                sudo apt update
+                sudo apt install -y gh
+            elif command_exists yum; then
+                log_info "Using yum package manager"
+                sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+                sudo dnf install -y gh
+            else
+                log_error "No supported package manager found. Please install GitHub CLI manually."
+                log_error "Visit: https://cli.github.com/"
+                exit 1
+            fi
+            ;;
+        macos)
+            if command_exists brew; then
+                log_info "Using Homebrew"
+                brew install gh
+            else
+                log_error "Homebrew not found. Please install Homebrew or GitHub CLI manually."
+                log_error "Visit: https://cli.github.com/"
+                exit 1
+            fi
+            ;;
+        *)
+            log_error "Unsupported operating system. GitHub CLI installation is only supported on Linux and macOS."
+            log_error "Visit: https://cli.github.com/ to install manually"
+            exit 1
+            ;;
+    esac
+    
+    log_success "GitHub CLI installed successfully"
+}
+
+# ================================================================================
+# Check and install required tools
+# ================================================================================
+check_and_install_tools() {
+    log_info "Checking for required tools..."
+    
+    # Check and install Azure CLI
+    if ! command_exists az; then
+        log_warning "Azure CLI not found. Would you like to install it? (yes/no)"
+        read -p "Install Azure CLI? " install_az
+        if [[ "$install_az" == "yes" ]]; then
+            install_azure_cli
+        else
+            log_error "Azure CLI is required. Please install manually from: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
+            exit 1
+        fi
+    else
+        log_success "Azure CLI found ($(az version --query '["azure-cli"].version' -o tsv 2>/dev/null || echo 'version unknown'))"
+    fi
+    
+    # Check and install Terraform
+    if ! command_exists terraform; then
+        log_warning "Terraform not found. Would you like to install it? (yes/no)"
+        read -p "Install Terraform? " install_tf
+        if [[ "$install_tf" == "yes" ]]; then
+            install_terraform
+        else
+            log_error "Terraform is required. Please install manually from: https://www.terraform.io/downloads.html"
+            exit 1
+        fi
+    else
+        log_success "Terraform found ($(terraform version -json 2>/dev/null | grep -o '"terraform_version":"[^"]*' | cut -d'"' -f4 || echo 'version unknown'))"
+    fi
+    
+    # Check and optionally install GitHub CLI
+    if ! command_exists gh; then
+        log_warning "GitHub CLI not found. It's optional but recommended for auto-secret creation."
+        read -p "Install GitHub CLI? (yes/no) " install_gh
+        if [[ "$install_gh" == "yes" ]]; then
+            install_github_cli
+        else
+            log_info "GitHub CLI is optional. You can install it later if needed: https://cli.github.com/"
+        fi
+    else
+        log_success "GitHub CLI found ($(gh version 2>/dev/null | head -1 || echo 'version unknown'))"
+    fi
+    
+    log_success "Tool check completed"
+}
+
+# ================================================================================
 # Verify that required tools are installed and user is authenticated
 # ================================================================================
 check_prerequisites() {
     log_info "Checking prerequisites..."
     
-    # Verify Azure CLI is installed
-    if ! command -v az &> /dev/null; then
-        log_error "Azure CLI is not installed!"
-        log_error "Please install from: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
-        exit 1
-    fi
+    # First, check and install tools if needed
+    check_and_install_tools
     
     # Verify user is logged into Azure CLI
     if ! az account show &> /dev/null; then
@@ -1000,6 +1210,77 @@ EOF
 }
 
 # ================================================================================
+# Deploy initial infrastructure using Terraform (for tools environment only)
+# This provisions the foundational resources needed before other environments
+# This is specific to this product ,as it follows vnet peering between tools and other envs
+# so that tools runs the github runner in ACA, and does the deployment to other environments
+# ================================================================================
+deploy_initial_infrastructure() {
+    # Only deploy infrastructure for the "tools" environment
+    if [[ "$GITHUB_ENVIRONMENT" != "tools" ]]; then
+        log_info "Skipping infrastructure deployment (only runs for 'tools' environment)"
+        return 0
+    fi
+
+    log_info "========================================"
+    log_info "Deploying Initial Infrastructure"
+    log_info "========================================"
+    log_info "Environment 'tools' detected - will provision foundational infrastructure"
+
+    # Path to the deploy script (relative to this script's location)
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local deploy_script="${script_dir}/infra/deploy-terraform.sh"
+
+    # Check if deploy script exists
+    if [[ ! -f "$deploy_script" ]]; then
+        log_error "Deploy script not found: $deploy_script"
+        log_error "Please ensure the infra/ directory exists with deploy-terraform.sh"
+        return 1
+    fi
+
+    # Check if terraform.tfvars exists
+    local tfvars_file="${script_dir}/infra/terraform.tfvars"
+    if [[ ! -f "$tfvars_file" ]]; then
+        log_warning "terraform.tfvars not found at: $tfvars_file"
+        log_warning "You will need to provide configuration via environment variables or create terraform.tfvars"
+        log_info "Skipping automatic infrastructure deployment"
+        log_info "Run manually: cd initial-setup/infra && ./deploy-terraform.sh apply"
+        return 0
+    fi
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would execute Terraform deployment:"
+        echo "    cd ${script_dir}/infra"
+        echo "    ./deploy-terraform.sh init"
+        echo "    ./deploy-terraform.sh apply"
+        return 0
+    fi
+
+    # Ask for confirmation before deploying infrastructure
+    log_warning "This will deploy foundational infrastructure to Azure."
+    log_info "Resources to be created: Resource Group, Network (subnets/NSGs), and optionally Bastion/Jumpbox"
+    read -p "Do you want to proceed with infrastructure deployment? (yes/no): " confirm
+    
+    if [[ "$confirm" != "yes" ]]; then
+        log_info "Infrastructure deployment skipped"
+        log_info "Run manually when ready: cd initial-setup/infra && ./deploy-terraform.sh apply"
+        return 0
+    fi
+
+    # Make script executable
+    chmod +x "$deploy_script"
+
+    # Change to infra directory and run terraform
+    log_info "Initializing Terraform..."
+    (cd "${script_dir}/infra" && ./deploy-terraform.sh init)
+    
+    log_info "Applying Terraform configuration..."
+    (cd "${script_dir}/infra" && ./deploy-terraform.sh apply)
+    
+    log_success "Infrastructure deployment completed!"
+}
+
+# ================================================================================
 # Main function that orchestrates the entire setup process
 # ================================================================================
 main() {
@@ -1053,6 +1334,9 @@ main() {
             display_terraform_backend_config
         fi
     fi
+
+    # Step 11: Deploy initial infrastructure for tools environment
+    deploy_initial_infrastructure
 
     # Final success message
     log_success "GitHub Actions OIDC setup completed successfully!"

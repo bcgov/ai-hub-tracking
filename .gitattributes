@@ -1,4 +1,3 @@
-infra/modules/self-hosted-runner-vm/scripts/*.tftpl text eol=lf
 # Autodetect text files and forces unix eols, so Windows does not break them
 * text=auto eol=lf
 

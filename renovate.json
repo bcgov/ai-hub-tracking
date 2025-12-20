@@ -4,7 +4,9 @@
   "enabledManagers": ["terraform", "regex", "github-actions"],
   "regexManagers": [
     {
-      "fileMatch": ["^infra/modules/self-hosted-runner-vm/variables\\.tf$"],
+      "fileMatch": [
+        "^initial-setup/infra/modules/self-hosted-runner-vm/variables\\.tf$"
+      ],
       "matchStrings": [
         "variable \\\"github_actions_runner_version\\\"[\\s\\S]*?default\\s*=\\s*\\\"(?<currentValue>[^\\\"]+)\\\""
       ],
@@ -13,7 +15,9 @@
       "depNameTemplate": "actions/runner"
     },
     {
-      "fileMatch": ["^infra/modules/self-hosted-runner-vm/variables\\.tf$"],
+      "fileMatch": [
+        "^initial-setup/infra/modules/self-hosted-runner-vm/variables\\.tf$"
+      ],
       "matchStrings": [
         "variable \\\"terraform_version\\\"[\\s\\S]*?default\\s*=\\s*\\\"(?<currentValue>[^\\\"]+)\\\""
       ],
@@ -22,7 +26,9 @@
       "depNameTemplate": "hashicorp/terraform"
     },
     {
-      "fileMatch": ["^infra/modules/self-hosted-runner-vm/variables\\.tf$"],
+      "fileMatch": [
+        "^initial-setup/infra/modules/self-hosted-runner-vm/variables\\.tf$"
+      ],
       "matchStrings": [
         "variable \\\"kubectl_version\\\"[\\s\\S]*?default\\s*=\\s*\\\"(?<currentValue>[^\\\"]+)\\\""
       ],
@@ -31,7 +37,9 @@
       "depNameTemplate": "kubernetes/kubernetes"
     },
     {
-      "fileMatch": ["^infra/modules/self-hosted-runner-vm/variables\\.tf$"],
+      "fileMatch": [
+        "^initial-setup/infra/modules/self-hosted-runner-vm/variables\\.tf$"
+      ],
       "matchStrings": [
         "variable \\\"helm_version\\\"[\\s\\S]*?default\\s*=\\s*\\\"(?<currentValue>[^\\\"]+)\\\""
       ],
@@ -40,7 +48,9 @@
       "depNameTemplate": "helm/helm"
     },
     {
-      "fileMatch": ["^infra/modules/self-hosted-runner-vm/variables\\.tf$"],
+      "fileMatch": [
+        "^initial-setup/infra/modules/self-hosted-runner-vm/variables\\.tf$"
+      ],
       "matchStrings": [
         "variable \\\"azure_cli_version\\\"[\\s\\S]*?default\\s*=\\s*\\\"(?<currentValue>[^\\\"]+)\\\""
       ],
@@ -49,7 +59,9 @@
       "depNameTemplate": "Azure/azure-cli"
     },
     {
-      "fileMatch": ["^infra/modules/self-hosted-runner-vm/variables\\.tf$"],
+      "fileMatch": [
+        "^initial-setup/infra/modules/self-hosted-runner-vm/variables\\.tf$"
+      ],
       "matchStrings": [
         "variable \\\"gh_cli_version\\\"[\\s\\S]*?default\\s*=\\s*\\\"(?<currentValue>[^\\\"]+)\\\""
       ],

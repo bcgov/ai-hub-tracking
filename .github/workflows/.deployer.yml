@@ -47,7 +47,8 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Run Terraform
+      - name: Run Terraform for bastion
+        if: inputs.target_module == 'bastion'
         shell: bash
         env:
           CI: "true"
@@ -66,11 +67,11 @@ jobs:
           TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
           TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
         run: |
-          chmod +x ./deploy-terraform.sh
+          chmod +x ./infra/deploy-terraform.sh
 
           # Build command with optional target
           if [[ -n "${{ inputs.target_module }}" ]]; then
-            ./deploy-terraform.sh ${{ inputs.command }} -target=module.${{ inputs.target_module }}
+            ./infra/deploy-terraform.sh ${{ inputs.command }} -target=module.${{ inputs.target_module }}
           else
-            ./deploy-terraform.sh ${{ inputs.command }}
+            ./infra/deploy-terraform.sh ${{ inputs.command }}
           fi

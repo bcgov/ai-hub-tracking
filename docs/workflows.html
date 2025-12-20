@@ -994,9 +994,9 @@ on:
 az login
 
 # Run Terraform commands locally
-./deploy-terraform.sh init
-./deploy-terraform.sh plan
-./deploy-terraform.sh apply</pre>
+./initial-setup/infra/deploy-terraform.sh init
+./initial-setup/infra/deploy-terraform.sh plan
+./initial-setup/infra/deploy-terraform.sh apply</pre>
 
 <div class="alert alert-info">
     <strong>Note:</strong> Local runs use your Azure CLI credentials instead of OIDC. Make sure you have the required permissions.

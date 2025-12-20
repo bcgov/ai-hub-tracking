@@ -30,7 +30,7 @@ set -e
 
 # Default values
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INFRA_DIR="${SCRIPT_DIR}/../infra"
+INFRA_DIR="${SCRIPT_DIR}/../initial-setup/infra"
 OUTPUT_FILE="${SCRIPT_DIR}/_pages/terraform-reference.html"
 
 # Colors for output
@@ -298,7 +298,7 @@ if [ -d "${INFRA_DIR}/modules" ]; then
                 fi
                 [ -n "$desc" ] && echo "<p>$desc</p>"
 
-                echo "<p><strong>Location:</strong> <code>infra/modules/${module_name}/</code></p>"
+                echo "<p><strong>Location:</strong> <code>initial-setup/infra/modules/${module_name}/</code></p>"
 
                 # List files in module
                 echo "<details>"
