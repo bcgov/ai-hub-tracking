@@ -24,8 +24,10 @@ module "network" {
   vnet_address_space       = var.vnet_address_space
   vnet_name                = var.vnet_name
   vnet_resource_group_name = var.vnet_resource_group_name
-
-  depends_on = [azurerm_resource_group.main]
+  dev_address_spaces       = var.dev_address_spaces
+  test_address_spaces      = var.test_address_spaces
+  prod_address_spaces      = var.prod_address_spaces
+  depends_on               = [azurerm_resource_group.main]
 }
 
 module "bastion" {
