@@ -49,13 +49,17 @@ resource "azurerm_key_vault" "main" {
 }
 
 # With RBAC-enabled Key Vaults, data-plane permissions are granted via Azure RBAC roles.
-resource "azurerm_role_assignment" "key_vault_secrets_officer_current" {
+# it is a chicken vs egg story, kv permission cannot be added without a name in a blnket way and the
+# managed identity which runs the terraform code cannot access the kv until it has been created.
+# So, for simplicity, we are granting the current identity access to the kv after creation using portal until 
+# we have a more automated solution.
+/* resource "azurerm_role_assignment" "key_vault_secrets_officer_current" {
   scope                = azurerm_key_vault.main.id
   role_definition_name = "Key Vault Secrets Officer"
   principal_id         = data.azurerm_client_config.current.object_id
 
   depends_on = [azurerm_key_vault.main]
-}
+} */
 
 ## Private Endpoint for azure kv
 /* resource "azurerm_private_endpoint" "key_vault_pe" {
