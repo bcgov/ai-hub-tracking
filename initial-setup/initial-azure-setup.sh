@@ -735,6 +735,26 @@ extract_license_plate() {
     echo "$license_plate"
 }
 
+# =============================================================================
+# Derive a stable subscription name token from the subscription display name.
+# Example: "da4cf6-dev" -> "da4cf6"
+# =============================================================================
+derive_subscription_name_from_display_name() {
+    local display_name="$1"
+
+    # Normalize: lowercase, trim, replace spaces/underscores with '-', remove other special chars
+    local normalized
+    normalized=$(echo "$display_name" | tr '[:upper:]' '[:lower:]' | xargs | tr ' _' '--' | sed 's/[^a-z0-9-]//g' | sed 's/--*/-/g' | sed 's/^-//; s/-$//')
+
+    # Strip trailing environment token if present
+    normalized=$(echo "$normalized" | sed -E 's/-(dev|test|prod|tools)$//')
+
+    # Keep only the first segment (repo convention: "da4cf6")
+    normalized=$(echo "$normalized" | cut -d'-' -f1 | sed 's/^-//; s/-$//')
+
+    echo "$normalized"
+}
+
 # ================================================================================
 # Generate default security group name based on license plate
 # ================================================================================
@@ -930,6 +950,17 @@ Repository Secrets:
 - AZURE_CLIENT_ID: $CLIENT_ID
 - AZURE_SUBSCRIPTION_ID: $(az account show --query "id" --output tsv 2>/dev/null || echo "[SUBSCRIPTION-ID]")
 - AZURE_TENANT_ID: $(az account show --query "tenantId" --output tsv 2>/dev/null || echo "[TENANT-ID]")
+
+Repository Variables:
+- SUBSCRIPTION_NAME: $(derive_subscription_name_from_display_name "$(az account show --query "name" --output tsv 2>/dev/null || echo "[SUBSCRIPTION-NAME]")")
+
+Repository Secrets:
+- SOURCE_VNET_ADDRESS_SPACE: (tools VNet addressSpace.addressPrefixes[0])
+
+Environment Secrets (per env: dev/test/prod/tools):
+- VNET_NAME: (derived from networking RG)
+- VNET_RESOURCE_GROUP_NAME: (networking RG)
+- TARGET_VNET_ADDRESS_SPACES: (JSON array) addressSpace.addressPrefixes from the env VNet
 
 Managed Identity Details:
 - Name: $IDENTITY_NAME
@@ -1249,27 +1280,117 @@ EOF
 
     # Add secrets to the environment
     log_info "Adding secrets and variables to GitHub environment '$GITHUB_ENVIRONMENT'..."
+
+    # ---------------------------------------------------------------------
+    # Repo-level variable: SUBSCRIPTION_NAME (shared across environments)
+    # ---------------------------------------------------------------------
+    local subscription_display_name
+    subscription_display_name=$(az account show --query "name" --output tsv 2>/dev/null || true)
+    local subscription_name
+    subscription_name=$(derive_subscription_name_from_display_name "$subscription_display_name")
+    if [[ -n "$subscription_name" ]]; then
+        gh variable set SUBSCRIPTION_NAME \
+            --repo "$GITHUB_REPO" \
+            --body "$subscription_name"
+        log_success "Set repo variable SUBSCRIPTION_NAME='$subscription_name' (from subscription display name '$subscription_display_name')"
+        printf "SUBSCRIPTION_NAME=%s\n" "$subscription_name"
+    else
+        log_warning "Could not derive SUBSCRIPTION_NAME from subscription display name '$subscription_display_name'"
+    fi
+
     # Add environment-specific secrets
+    local azure_subscription_id
+    azure_subscription_id=$(az account show --query "id" --output tsv 2>/dev/null || echo "[SUBSCRIPTION-ID]")
+    local azure_tenant_id
+    azure_tenant_id=$(az account show --query "tenantId" --output tsv 2>/dev/null || echo "[TENANT-ID]")
+
     gh secret set AZURE_CLIENT_ID \
         --repo "$GITHUB_REPO" \
         --env "$GITHUB_ENVIRONMENT" \
         --body "$CLIENT_ID"
+    printf "✓ Set Actions secret AZURE_CLIENT_ID=%s\n" "$CLIENT_ID"
     gh secret set AZURE_SUBSCRIPTION_ID \
         --repo "$GITHUB_REPO" \
         --env "$GITHUB_ENVIRONMENT" \
-        --body "$(az account show --query "id" --output tsv 2>/dev/null || echo "[SUBSCRIPTION-ID]")"
+        --body "$azure_subscription_id"
+    printf "✓ Set Actions secret AZURE_SUBSCRIPTION_ID=%s\n" "$azure_subscription_id"
     gh secret set AZURE_TENANT_ID \
         --repo "$GITHUB_REPO" \
         --env "$GITHUB_ENVIRONMENT" \
-        --body "$(az account show --query "tenantId" --output tsv 2>/dev/null || echo "[TENANT-ID]")"
+        --body "$azure_tenant_id"
+    printf "✓ Set Actions secret AZURE_TENANT_ID=%s\n" "$azure_tenant_id"
+
+    local vnet_name
+    vnet_name=$(echo "$RESOURCE_GROUP" | sed 's/-networking/-vwan-spoke/')
     gh secret set VNET_NAME \
         --repo "$GITHUB_REPO" \
         --env "$GITHUB_ENVIRONMENT" \
-        --body "$(echo "$RESOURCE_GROUP" | sed 's/-networking/-vwan-spoke/')"
+        --body "$vnet_name"
+    printf "✓ Set Actions secret VNET_NAME=%s\n" "$vnet_name"
     gh secret set VNET_RESOURCE_GROUP_NAME \
         --repo "$GITHUB_REPO" \
         --env "$GITHUB_ENVIRONMENT" \
         --body "$RESOURCE_GROUP"
+    printf "✓ Set Actions secret VNET_RESOURCE_GROUP_NAME=%s\n" "$RESOURCE_GROUP"
+
+    # ---------------------------------------------------------------------
+    # VNet address spaces (for passing to Terraform)
+    # TARGET_VNET_ADDRESS_SPACES: JSON array string (env-specific)
+    # SOURCE_VNET_ADDRESS_SPACE: single CIDR (repo-level, set from tools)
+    # ---------------------------------------------------------------------
+    local target_vnet_address_spaces_json=""
+    local -a target_vnet_address_prefixes=()
+    while IFS= read -r line; do
+        # Skip empty lines (defensive)
+        [[ -n "$line" ]] && target_vnet_address_prefixes+=("$line")
+    done < <(
+        az network vnet show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$vnet_name" \
+            --query "addressSpace.addressPrefixes" \
+            --output tsv 2>/dev/null || true
+    )
+
+    if [[ ${#target_vnet_address_prefixes[@]} -gt 0 ]]; then
+        target_vnet_address_spaces_json="["
+        for ((i=0; i<${#target_vnet_address_prefixes[@]}; i++)); do
+            target_vnet_address_spaces_json+="\"${target_vnet_address_prefixes[$i]}\""
+            if [[ $i -lt $((${#target_vnet_address_prefixes[@]} - 1)) ]]; then
+                target_vnet_address_spaces_json+=","
+            fi
+        done
+        target_vnet_address_spaces_json+="]"
+    fi
+
+    if [[ -n "$target_vnet_address_spaces_json" ]]; then
+        gh secret set TARGET_VNET_ADDRESS_SPACES \
+            --repo "$GITHUB_REPO" \
+            --env "$GITHUB_ENVIRONMENT" \
+            --body "$target_vnet_address_spaces_json"
+        log_success "Set env secret TARGET_VNET_ADDRESS_SPACES for '$GITHUB_ENVIRONMENT'"
+        printf "✓ Set Actions secret TARGET_VNET_ADDRESS_SPACES=%s\n" "$target_vnet_address_spaces_json"
+    else
+        log_warning "Could not query VNet address spaces for '$vnet_name' in '$RESOURCE_GROUP'"
+    fi
+
+    if [[ "$GITHUB_ENVIRONMENT" == "tools" ]]; then
+        local source_vnet_address_space=""
+        source_vnet_address_space=$(az network vnet show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$vnet_name" \
+            --query "addressSpace.addressPrefixes[0]" \
+            --output tsv 2>/dev/null || true)
+
+        if [[ -n "$source_vnet_address_space" ]]; then
+            gh secret set SOURCE_VNET_ADDRESS_SPACE \
+                --repo "$GITHUB_REPO" \
+                --body "$source_vnet_address_space"
+            log_success "Set repo secret SOURCE_VNET_ADDRESS_SPACE (from tools VNet)"
+            printf "✓ Set Actions secret SOURCE_VNET_ADDRESS_SPACE=%s\n" "$source_vnet_address_space"
+        else
+            log_warning "Could not query SOURCE_VNET_ADDRESS_SPACE from tools VNet '$vnet_name'"
+        fi
+    fi
     
     gh variable set STORAGE_ACCOUNT_NAME \
         --repo "$GITHUB_REPO" \

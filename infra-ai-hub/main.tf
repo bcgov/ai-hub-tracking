@@ -1,11 +1,6 @@
 data "azurerm_client_config" "current" {}
 
 data "azurerm_subscription" "current" {}
-/* data "azurerm_subnet" "pe-subnet" {
-  name                 = "privateendpoints-subnet"
-  virtual_network_name = var.vnet_name
-  resource_group_name  = var.vnet_resource_group_name
-} */
 resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name
   location = var.location
@@ -14,6 +9,25 @@ resource "azurerm_resource_group" "main" {
   lifecycle {
     ignore_changes = [tags]
   }
+}
+
+module "network" {
+  source = "./modules/network"
+
+  name_prefix = var.resource_group_name
+  location    = var.location
+  common_tags = var.common_tags
+
+  vnet_name                = var.vnet_name
+  vnet_resource_group_name = var.vnet_resource_group_name
+
+  target_vnet_address_spaces            = var.target_vnet_address_spaces
+  source_vnet_address_space             = var.source_vnet_address_space
+  private_endpoint_subnet_name          = var.private_endpoint_subnet_name
+  private_endpoint_subnet_prefix_length = var.private_endpoint_subnet_prefix_length
+  private_endpoint_subnet_netnum        = var.private_endpoint_subnet_netnum
+
+  depends_on = [azurerm_resource_group.main]
 }
 
 resource "azurerm_key_vault" "main" {
@@ -32,6 +46,8 @@ resource "azurerm_key_vault" "main" {
   public_network_access_enabled = false
 
   # Azure Policy in the Landing Zone requires the RBAC permission model.
+  # Roles must have been assigned to the identity running the tf scripts(managed identity)
+  # the managed identity setup done in this project handles that, look at initial setup script.
   rbac_authorization_enabled = true
 
   network_acls {
@@ -45,29 +61,15 @@ resource "azurerm_key_vault" "main" {
     ignore_changes = [tags]
   }
 
-  depends_on = [azurerm_resource_group.main]
+  depends_on = [azurerm_resource_group.main, module.network]
 }
 
-# With RBAC-enabled Key Vaults, data-plane permissions are granted via Azure RBAC roles.
-# it is a chicken vs egg story, kv permission cannot be added without a name in a blnket way and the
-# managed identity which runs the terraform code cannot access the kv until it has been created.
-# So, for simplicity, we are granting the current identity access to the kv after creation using portal until 
-# we have a more automated solution.
-/* resource "azurerm_role_assignment" "key_vault_secrets_officer_current" {
-  scope                = azurerm_key_vault.main.id
-  role_definition_name = "Key Vault Secrets Officer"
-  principal_id         = data.azurerm_client_config.current.object_id
-
-  depends_on = [azurerm_key_vault.main]
-} */
-
 ## Private Endpoint for azure kv
-/* resource "azurerm_private_endpoint" "key_vault_pe" {
+resource "azurerm_private_endpoint" "key_vault_pe" {
   name                = "${var.app_name}-kv-pe"
   location            = var.location
   resource_group_name = azurerm_resource_group.main.name
-  subnet_id           = data.azurerm_subnet.pe-subnet.id
-
+  subnet_id           = module.network.private_endpoint_subnet_id
   private_service_connection {
     name                           = "${var.app_name}-kv-psc"
     private_connection_resource_id = azurerm_key_vault.main.id
@@ -82,7 +84,7 @@ resource "azurerm_key_vault" "main" {
   }
 
   depends_on = [azurerm_key_vault.main]
-} */
+}
 
 resource "random_password" "secret_one" {
   length  = 32
@@ -93,12 +95,6 @@ resource "random_password" "secret_two" {
   length  = 48
   special = true
 }
-/* 
-resource "time_sleep" "wait_for_kv_access" {
-  create_duration = "30s"
-  depends_on      = [azurerm_private_endpoint.key_vault_pe]
-}
- */
 
 resource "azurerm_key_vault_secret" "secret_one" {
   name            = "example-secret-one"
@@ -106,7 +102,6 @@ resource "azurerm_key_vault_secret" "secret_one" {
   key_vault_id    = azurerm_key_vault.main.id
   expiration_date = "2025-12-31T23:59:59Z"
   content_type    = "text/plain"
-  #depends_on      = [time_sleep.wait_for_kv_access]
 }
 
 resource "azurerm_key_vault_secret" "secret_two" {
@@ -116,5 +111,4 @@ resource "azurerm_key_vault_secret" "secret_two" {
   expiration_date = "2025-12-31T23:59:59Z"
 
   content_type = "text/plain"
-  #depends_on   = [time_sleep.wait_for_kv_access]
 }
