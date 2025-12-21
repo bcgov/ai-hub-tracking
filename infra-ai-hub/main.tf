@@ -31,25 +31,12 @@ resource "azurerm_key_vault" "main" {
   # Policy-friendly configuration: private-only access.
   public_network_access_enabled = false
 
+  # Azure Policy in the Landing Zone requires the RBAC permission model.
+  rbac_authorization_enabled = true
+
   network_acls {
     default_action = "Deny"
     bypass         = "AzureServices"
-  }
-
-  # Grant this principal secret permissions via access policies.
-  # This avoids needing Microsoft.Authorization/roleAssignments/write.
-  access_policy {
-    tenant_id = data.azurerm_client_config.current.tenant_id
-    object_id = data.azurerm_client_config.current.object_id
-
-    secret_permissions = [
-      "Get",
-      "List",
-      "Set",
-      "Delete",
-      "Purge",
-      "Recover"
-    ]
   }
 
   tags = var.common_tags
@@ -59,6 +46,15 @@ resource "azurerm_key_vault" "main" {
   }
 
   depends_on = [azurerm_resource_group.main]
+}
+
+# With RBAC-enabled Key Vaults, data-plane permissions are granted via Azure RBAC roles.
+resource "azurerm_role_assignment" "key_vault_secrets_officer_current" {
+  scope                = azurerm_key_vault.main.id
+  role_definition_name = "Key Vault Secrets Officer"
+  principal_id         = data.azurerm_client_config.current.object_id
+
+  depends_on = [azurerm_key_vault.main]
 }
 
 ## Private Endpoint for azure kv
