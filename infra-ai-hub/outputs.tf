@@ -13,10 +13,10 @@ output "key_vault_name" {
   value       = azurerm_key_vault.main.name
 }
 
-output "secret_names" {
+/* output "secret_names" {
   description = "Names of the example secrets created in the Key Vault"
   value = [
     azurerm_key_vault_secret.secret_one.name,
     azurerm_key_vault_secret.secret_two.name
   ]
-}
+} */
