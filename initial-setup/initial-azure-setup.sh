@@ -1030,6 +1030,78 @@ assign_storage_roles() {
 }
 
 
+# =============================================================================
+# Assign Key Vault Secrets Officer to the managed identity (RBAC permission model)
+# This is required in Landing Zones where Key Vault Access Policies are denied by policy.
+# Idempotent: does nothing if the assignment already exists.
+# =============================================================================
+assign_key_vault_secrets_officer_role() {
+    log_info "Ensuring managed identity has 'Key Vault Secrets Officer' role..."
+
+    local role_name="Key Vault Secrets Officer"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would ensure role '$role_name' is assigned to principal '$PRINCIPAL_ID' at subscription scope"
+        return 0
+    fi
+
+    local subscription_id
+    subscription_id=$(az account show --query "id" --output tsv 2>/dev/null || true)
+    if [[ -z "$subscription_id" ]]; then
+        log_warning "Unable to determine current subscription ID; skipping Key Vault role assignment."
+        return 0
+    fi
+
+    local scope="/subscriptions/${subscription_id}"
+
+    # Check if role assignment already exists (idempotent)
+    local existing_assignment_id=""
+    set +e
+    existing_assignment_id=$(az role assignment list \
+        --assignee-object-id "$PRINCIPAL_ID" \
+        --scope "$scope" \
+        --role "$role_name" \
+        --query "[0].id" \
+        --output tsv 2>/dev/null)
+    local list_rc=$?
+    set -e
+
+    if [[ $list_rc -ne 0 ]]; then
+        log_warning "Unable to query existing role assignments. Skipping Key Vault role assignment."
+        log_warning "If you need Key Vault secret access, assign '$role_name' to '$IDENTITY_NAME' at scope '$scope'."
+        return 0
+    fi
+
+    if [[ -n "$existing_assignment_id" ]]; then
+        log_success "Role '$role_name' is already assigned at subscription scope"
+        return 0
+    fi
+
+    # Create role assignment
+    log_info "Creating role assignment '$role_name' for principal '$PRINCIPAL_ID' at scope '$scope'..."
+    local create_output=""
+    set +e
+    create_output=$(az role assignment create \
+        --assignee-object-id "$PRINCIPAL_ID" \
+        --assignee-principal-type ServicePrincipal \
+        --role "$role_name" \
+        --scope "$scope" 2>&1)
+    local create_rc=$?
+    set -e
+
+    if [[ $create_rc -eq 0 ]] || echo "$create_output" | grep -qi "RoleAssignmentExists"; then
+        log_success "Assigned '$role_name' to managed identity '$IDENTITY_NAME' at subscription scope"
+        return 0
+    fi
+
+    log_warning "Failed to create role assignment '$role_name'."
+    log_warning "This typically requires Owner or User Access Administrator on the scope."
+    log_warning "Azure CLI output: $create_output"
+    log_warning "Manual action: assign '$role_name' to '$IDENTITY_NAME' (principal: $PRINCIPAL_ID) at scope '$scope'."
+    return 0
+}
+
+
 # ================================================================================
 # Function to display Terraform backend configuration
 # ================================================================================
@@ -1319,6 +1391,9 @@ main() {
 
     # Step 5: Add managed identity to the security group for deployment permissions
     add_to_security_group
+
+    # Step 5b: Grant Key Vault data-plane permissions via RBAC (Landing Zone policy compliant)
+    assign_key_vault_secrets_officer_role
     
     # Step 6: Create Terraform state storage if requested
     create_terraform_storage
