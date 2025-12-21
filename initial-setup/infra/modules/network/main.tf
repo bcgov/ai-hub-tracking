@@ -424,7 +424,7 @@ resource "azurerm_network_security_group" "container_apps" {
   dynamic "security_rule" {
     for_each = var.dev_address_spaces
     content {
-      name                       = "AllowInboundFromPeeredDevVNet-${replace(security_rule.value, ".", "-")}"
+      name                       = "AllowInboundFromPeeredDevVNet-${index(var.dev_address_spaces, security_rule.value)}"
       priority                   = 200 + index(var.dev_address_spaces, security_rule.value)
       direction                  = "Inbound"
       access                     = "Allow"
@@ -438,7 +438,7 @@ resource "azurerm_network_security_group" "container_apps" {
   dynamic "security_rule" {
     for_each = var.dev_address_spaces
     content {
-      name                       = "AllowOutboundFromPeeredDevVNet-${replace(security_rule.value, ".", "-")}"
+      name                       = "AllowOutboundFromPeeredDevVNet-${index(var.dev_address_spaces, security_rule.value)}"
       priority                   = 300 + index(var.dev_address_spaces, security_rule.value)
       direction                  = "Outbound"
       access                     = "Allow"
@@ -454,7 +454,7 @@ resource "azurerm_network_security_group" "container_apps" {
   dynamic "security_rule" {
     for_each = var.test_address_spaces
     content {
-      name                       = "AllowInboundFromPeeredTestVNet-${replace(security_rule.value, ".", "-")}"
+      name                       = "AllowInboundFromPeeredTestVNet-${index(var.test_address_spaces, security_rule.value)}"
       priority                   = 400 + index(var.test_address_spaces, security_rule.value)
       direction                  = "Inbound"
       access                     = "Allow"
@@ -468,7 +468,7 @@ resource "azurerm_network_security_group" "container_apps" {
   dynamic "security_rule" {
     for_each = var.test_address_spaces
     content {
-      name                       = "AllowOutboundFromPeeredTestVNet-${replace(security_rule.value, ".", "-")}"
+      name                       = "AllowOutboundFromPeeredTestVNet-${index(var.test_address_spaces, security_rule.value)}"
       priority                   = 500 + index(var.test_address_spaces, security_rule.value)
       direction                  = "Outbound"
       access                     = "Allow"
@@ -484,7 +484,7 @@ resource "azurerm_network_security_group" "container_apps" {
   dynamic "security_rule" {
     for_each = var.prod_address_spaces
     content {
-      name                       = "AllowInboundFromPeeredProdVNet-${replace(security_rule.value, ".", "-")}"
+      name                       = "AllowInboundFromPeeredProdVNet-${index(var.prod_address_spaces, security_rule.value)}"
       priority                   = 600 + index(var.prod_address_spaces, security_rule.value)
       direction                  = "Inbound"
       access                     = "Allow"
@@ -498,7 +498,7 @@ resource "azurerm_network_security_group" "container_apps" {
   dynamic "security_rule" {
     for_each = var.prod_address_spaces
     content {
-      name                       = "AllowOutboundFromPeeredProdVNet-${replace(security_rule.value, ".", "-")}"
+      name                       = "AllowOutboundFromPeeredProdVNet-${index(var.prod_address_spaces, security_rule.value)}"
       priority                   = 700 + index(var.prod_address_spaces, security_rule.value)
       direction                  = "Outbound"
       access                     = "Allow"

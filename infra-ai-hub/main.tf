@@ -1,11 +1,11 @@
 data "azurerm_client_config" "current" {}
 
 data "azurerm_subscription" "current" {}
-data "azurerm_subnet" "pe-subnet" {
+/* data "azurerm_subnet" "pe-subnet" {
   name                 = "privateendpoints-subnet"
   virtual_network_name = var.vnet_name
   resource_group_name  = var.vnet_resource_group_name
-}
+} */
 resource "azurerm_resource_group" "main" {
   name     = var.resource_group_name
   location = var.location
@@ -62,7 +62,7 @@ resource "azurerm_key_vault" "main" {
 }
 
 ## Private Endpoint for azure kv
-resource "azurerm_private_endpoint" "key_vault_pe" {
+/* resource "azurerm_private_endpoint" "key_vault_pe" {
   name                = "${var.app_name}-kv-pe"
   location            = var.location
   resource_group_name = azurerm_resource_group.main.name
@@ -82,7 +82,7 @@ resource "azurerm_private_endpoint" "key_vault_pe" {
   }
 
   depends_on = [azurerm_key_vault.main]
-}
+} */
 
 resource "random_password" "secret_one" {
   length  = 32
