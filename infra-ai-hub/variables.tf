@@ -52,7 +52,6 @@ variable "resource_group_name" {
 variable "key_vault_name" {
   description = "Key Vault name (3-24 chars, alphanumeric only)"
   type        = string
-  default     = "ai-hub-kv-tools"
 }
 
 variable "vnet_name" {
