@@ -93,7 +93,7 @@ resource "random_password" "secret_two" {
   length  = 48
   special = true
 }
-
+/* 
 resource "time_sleep" "wait_for_kv_access" {
   create_duration = "30s"
   depends_on      = [azurerm_private_endpoint.key_vault_pe]
@@ -117,3 +117,4 @@ resource "azurerm_key_vault_secret" "secret_two" {
   content_type = "text/plain"
   depends_on   = [time_sleep.wait_for_kv_access]
 }
+ */
