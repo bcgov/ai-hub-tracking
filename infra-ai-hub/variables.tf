@@ -105,3 +105,15 @@ variable "private_endpoint_subnet_netnum" {
     error_message = "private_endpoint_subnet_netnum must be >= 0."
   }
 }
+
+variable "private_endpoint_dns_wait_duration" {
+  description = "Max time Terraform should wait for hub policy to attach Private DNS and create A-records for a private endpoint (e.g., 10m)."
+  type        = string
+  default     = "12m"
+}
+
+variable "private_endpoint_dns_poll_interval" {
+  description = "How often Terraform should poll for the policy-created private DNS zone group on the private endpoint (e.g., 15s)."
+  type        = string
+  default     = "30s"
+}

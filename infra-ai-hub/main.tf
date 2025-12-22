@@ -86,6 +86,90 @@ resource "azurerm_private_endpoint" "key_vault_pe" {
   depends_on = [azurerm_key_vault.main]
 }
 
+# Hub policy attaches the Private DNS zone group and creates the A-record asynchronously.
+# Data-plane operations (like creating secrets) can fail until DNS is ready.
+#
+# "Smarter" wait: poll Azure ARM until the policy-managed DNS zone group exists on the private endpoint.
+resource "null_resource" "wait_for_key_vault_private_dns" {
+  triggers = {
+    private_endpoint_id = azurerm_private_endpoint.key_vault_pe.id
+    resource_group_name = azurerm_resource_group.main.name
+    private_endpoint    = azurerm_private_endpoint.key_vault_pe.name
+    timeout             = var.private_endpoint_dns_wait_duration
+    interval            = var.private_endpoint_dns_poll_interval
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-lc"]
+    command     = <<-EOT
+      set -euo pipefail
+
+      duration_to_seconds() {
+        value="$1"
+
+        if echo "$value" | grep -Eq '^[0-9]+$'; then
+          echo "$value"
+          return 0
+        fi
+
+        if ! echo "$value" | grep -Eq '^[0-9]+[smhd]$'; then
+          echo "Unsupported duration '$value'. Use e.g. 15s, 10m, 1h (or a raw number of seconds)." >&2
+          return 1
+        fi
+
+        num="$(echo "$value" | sed -E 's/^([0-9]+)[smhd]$/\1/')"
+        unit="$(echo "$value" | sed -E 's/^[0-9]+([smhd])$/\1/')"
+
+        case "$unit" in
+          s) echo "$num" ;;
+          m) echo $((num * 60)) ;;
+          h) echo $((num * 3600)) ;;
+          d) echo $((num * 86400)) ;;
+        esac
+      }
+
+      if ! command -v az >/dev/null 2>&1; then
+        echo "Azure CLI (az) not found. Cannot poll for private DNS zone group." >&2
+        exit 1
+      fi
+
+      RG="${azurerm_resource_group.main.name}"
+      PE_NAME="${azurerm_private_endpoint.key_vault_pe.name}"
+      TIMEOUT="${var.private_endpoint_dns_wait_duration}"
+      INTERVAL="${var.private_endpoint_dns_poll_interval}"
+
+      timeout_seconds="$(duration_to_seconds "$TIMEOUT")"
+      interval_seconds="$(duration_to_seconds "$INTERVAL")"
+
+      echo "Waiting for policy-created private DNS zone group on private endpoint '$PE_NAME' (rg='$RG')..." >&2
+      echo "Timeout: $TIMEOUT ($timeout_seconds seconds), interval: $INTERVAL ($interval_seconds seconds)" >&2
+
+      SECONDS=0
+      while true; do
+        zone_group_count="$(az network private-endpoint dns-zone-group list \
+          --resource-group "$RG" \
+          --endpoint-name "$PE_NAME" \
+          --query "length(@)" \
+          -o tsv 2>/dev/null || echo 0)"
+
+        if [[ "$zone_group_count" =~ ^[0-9]+$ ]] && [[ "$zone_group_count" -gt 0 ]]; then
+          echo "Found $zone_group_count private DNS zone group(s) on '$PE_NAME'." >&2
+          exit 0
+        fi
+
+        if [[ "$SECONDS" -ge "$timeout_seconds" ]]; then
+          echo "Timed out waiting for policy-managed private DNS zone group on '$PE_NAME' after $TIMEOUT." >&2
+          exit 1
+        fi
+
+        sleep "$interval_seconds"
+      done
+    EOT
+  }
+
+  depends_on = [azurerm_private_endpoint.key_vault_pe]
+}
+
 resource "random_password" "secret_one" {
   length  = 32
   special = true
@@ -102,6 +186,7 @@ resource "azurerm_key_vault_secret" "secret_one" {
   key_vault_id    = azurerm_key_vault.main.id
   expiration_date = "2025-12-31T23:59:59Z"
   content_type    = "text/plain"
+  depends_on      = [null_resource.wait_for_key_vault_private_dns]
 }
 
 resource "azurerm_key_vault_secret" "secret_two" {
@@ -109,6 +194,6 @@ resource "azurerm_key_vault_secret" "secret_two" {
   value           = random_password.secret_two.result
   key_vault_id    = azurerm_key_vault.main.id
   expiration_date = "2025-12-31T23:59:59Z"
-
-  content_type = "text/plain"
+  content_type    = "text/plain"
+  depends_on      = [null_resource.wait_for_key_vault_private_dns]
 }
