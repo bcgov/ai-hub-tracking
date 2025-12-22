@@ -119,3 +119,24 @@ variable "github_runners_log_analytics_workspace_id" {
   default     = null
   nullable    = true
 }
+
+# Environment-specific VNet address spaces for the self hosted runner to have access to, 
+# make sure the vnet peering is already done for this to work
+variable "dev_address_spaces" {
+  description = "Address space for the dev environment of the vnet peering"
+  type        = list(string)
+  nullable    = true
+  default     = []
+}
+variable "prod_address_spaces" {
+  description = "Address space for the prod environment of the vnet peering"
+  type        = list(string)
+  nullable    = true
+  default     = []
+}
+variable "test_address_spaces" {
+  description = "Address space for the test environment of the vnet peering"
+  type        = list(string)
+  nullable    = true
+  default     = []
+}

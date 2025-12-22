@@ -1,41 +1,11 @@
-variable "app_env" {
-  description = "Application environment (dev, test, prod)"
-  type        = string
-}
-
-variable "app_name" {
-  description = "Name of the application"
+variable "name_prefix" {
+  description = "Prefix used for naming resources (e.g., ai-hub-dev)"
   type        = string
 }
 
 variable "location" {
   description = "Azure region for resources"
   type        = string
-  default     = "Canada Central"
-}
-
-variable "subscription_id" {
-  description = "Azure subscription ID"
-  type        = string
-  sensitive   = true
-}
-
-variable "tenant_id" {
-  description = "Azure tenant ID"
-  type        = string
-  sensitive   = true
-}
-
-variable "client_id" {
-  description = "Azure client ID for the service principal (OIDC)"
-  type        = string
-  sensitive   = true
-}
-
-variable "use_oidc" {
-  description = "Use OIDC for authentication"
-  type        = bool
-  default     = true
 }
 
 variable "common_tags" {
@@ -44,22 +14,13 @@ variable "common_tags" {
   default     = {}
 }
 
-variable "resource_group_name" {
-  description = "Resource group name for the AI Hub infra"
-  type        = string
-}
-
-variable "key_vault_name" {
-  description = "Key Vault name (3-24 chars, alphanumeric only)"
-  type        = string
-}
-
 variable "vnet_name" {
-  description = "Name of the existing virtual network"
+  description = "Name of the existing virtual network (target environment)"
   type        = string
 }
+
 variable "vnet_resource_group_name" {
-  description = "Resource group name where the virtual network exists"
+  description = "Resource group name where the virtual network exists (target environment)"
   type        = string
 }
 
@@ -104,16 +65,4 @@ variable "private_endpoint_subnet_netnum" {
     condition     = var.private_endpoint_subnet_netnum >= 0
     error_message = "private_endpoint_subnet_netnum must be >= 0."
   }
-}
-
-variable "private_endpoint_dns_wait_duration" {
-  description = "Max time Terraform should wait for hub policy to attach Private DNS and create A-records for a private endpoint (e.g., 10m)."
-  type        = string
-  default     = "12m"
-}
-
-variable "private_endpoint_dns_poll_interval" {
-  description = "How often Terraform should poll for the policy-created private DNS zone group on the private endpoint (e.g., 15s)."
-  type        = string
-  default     = "30s"
 }

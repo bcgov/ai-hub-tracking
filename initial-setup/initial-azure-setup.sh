@@ -735,6 +735,26 @@ extract_license_plate() {
     echo "$license_plate"
 }
 
+# =============================================================================
+# Derive a stable subscription name token from the subscription display name.
+# Example: "da4cf6-dev" -> "da4cf6"
+# =============================================================================
+derive_subscription_name_from_display_name() {
+    local display_name="$1"
+
+    # Normalize: lowercase, trim, replace spaces/underscores with '-', remove other special chars
+    local normalized
+    normalized=$(echo "$display_name" | tr '[:upper:]' '[:lower:]' | xargs | tr ' _' '--' | sed 's/[^a-z0-9-]//g' | sed 's/--*/-/g' | sed 's/^-//; s/-$//')
+
+    # Strip trailing environment token if present
+    normalized=$(echo "$normalized" | sed -E 's/-(dev|test|prod|tools)$//')
+
+    # Keep only the first segment (repo convention: "da4cf6")
+    normalized=$(echo "$normalized" | cut -d'-' -f1 | sed 's/^-//; s/-$//')
+
+    echo "$normalized"
+}
+
 # ================================================================================
 # Generate default security group name based on license plate
 # ================================================================================
@@ -931,6 +951,17 @@ Repository Secrets:
 - AZURE_SUBSCRIPTION_ID: $(az account show --query "id" --output tsv 2>/dev/null || echo "[SUBSCRIPTION-ID]")
 - AZURE_TENANT_ID: $(az account show --query "tenantId" --output tsv 2>/dev/null || echo "[TENANT-ID]")
 
+Repository Variables:
+- SUBSCRIPTION_NAME: $(derive_subscription_name_from_display_name "$(az account show --query "name" --output tsv 2>/dev/null || echo "[SUBSCRIPTION-NAME]")")
+
+Repository Secrets:
+- SOURCE_VNET_ADDRESS_SPACE: (tools VNet addressSpace.addressPrefixes[0])
+
+Environment Secrets (per env: dev/test/prod/tools):
+- VNET_NAME: (derived from networking RG)
+- VNET_RESOURCE_GROUP_NAME: (networking RG)
+- TARGET_VNET_ADDRESS_SPACES: (JSON array) addressSpace.addressPrefixes from the env VNet
+
 Managed Identity Details:
 - Name: $IDENTITY_NAME
 - Resource Group: $RESOURCE_GROUP
@@ -1027,6 +1058,78 @@ assign_storage_roles() {
     fi
     
     log_success "Storage permissions documentation completed"
+}
+
+
+# =============================================================================
+# Assign Key Vault Secrets Officer to the managed identity (RBAC permission model)
+# This is required in Landing Zones where Key Vault Access Policies are denied by policy.
+# Idempotent: does nothing if the assignment already exists.
+# =============================================================================
+assign_key_vault_secrets_officer_role() {
+    log_info "Ensuring managed identity has 'Key Vault Secrets Officer' role..."
+
+    local role_name="Key Vault Secrets Officer"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would ensure role '$role_name' is assigned to principal '$PRINCIPAL_ID' at subscription scope"
+        return 0
+    fi
+
+    local subscription_id
+    subscription_id=$(az account show --query "id" --output tsv 2>/dev/null || true)
+    if [[ -z "$subscription_id" ]]; then
+        log_warning "Unable to determine current subscription ID; skipping Key Vault role assignment."
+        return 0
+    fi
+
+    local scope="/subscriptions/${subscription_id}"
+
+    # Check if role assignment already exists (idempotent)
+    local existing_assignment_id=""
+    set +e
+    existing_assignment_id=$(az role assignment list \
+        --assignee-object-id "$PRINCIPAL_ID" \
+        --scope "$scope" \
+        --role "$role_name" \
+        --query "[0].id" \
+        --output tsv 2>/dev/null)
+    local list_rc=$?
+    set -e
+
+    if [[ $list_rc -ne 0 ]]; then
+        log_warning "Unable to query existing role assignments. Skipping Key Vault role assignment."
+        log_warning "If you need Key Vault secret access, assign '$role_name' to '$IDENTITY_NAME' at scope '$scope'."
+        return 0
+    fi
+
+    if [[ -n "$existing_assignment_id" ]]; then
+        log_success "Role '$role_name' is already assigned at subscription scope"
+        return 0
+    fi
+
+    # Create role assignment
+    log_info "Creating role assignment '$role_name' for principal '$PRINCIPAL_ID' at scope '$scope'..."
+    local create_output=""
+    set +e
+    create_output=$(az role assignment create \
+        --assignee-object-id "$PRINCIPAL_ID" \
+        --assignee-principal-type ServicePrincipal \
+        --role "$role_name" \
+        --scope "$scope" 2>&1)
+    local create_rc=$?
+    set -e
+
+    if [[ $create_rc -eq 0 ]] || echo "$create_output" | grep -qi "RoleAssignmentExists"; then
+        log_success "Assigned '$role_name' to managed identity '$IDENTITY_NAME' at subscription scope"
+        return 0
+    fi
+
+    log_warning "Failed to create role assignment '$role_name'."
+    log_warning "This typically requires Owner or User Access Administrator on the scope."
+    log_warning "Azure CLI output: $create_output"
+    log_warning "Manual action: assign '$role_name' to '$IDENTITY_NAME' (principal: $PRINCIPAL_ID) at scope '$scope'."
+    return 0
 }
 
 
@@ -1177,27 +1280,117 @@ EOF
 
     # Add secrets to the environment
     log_info "Adding secrets and variables to GitHub environment '$GITHUB_ENVIRONMENT'..."
+
+    # ---------------------------------------------------------------------
+    # Repo-level variable: SUBSCRIPTION_NAME (shared across environments)
+    # ---------------------------------------------------------------------
+    local subscription_display_name
+    subscription_display_name=$(az account show --query "name" --output tsv 2>/dev/null || true)
+    local subscription_name
+    subscription_name=$(derive_subscription_name_from_display_name "$subscription_display_name")
+    if [[ -n "$subscription_name" ]]; then
+        gh variable set SUBSCRIPTION_NAME \
+            --repo "$GITHUB_REPO" \
+            --body "$subscription_name"
+        log_success "Set repo variable SUBSCRIPTION_NAME='$subscription_name' (from subscription display name '$subscription_display_name')"
+        printf "SUBSCRIPTION_NAME=%s\n" "$subscription_name"
+    else
+        log_warning "Could not derive SUBSCRIPTION_NAME from subscription display name '$subscription_display_name'"
+    fi
+
     # Add environment-specific secrets
+    local azure_subscription_id
+    azure_subscription_id=$(az account show --query "id" --output tsv 2>/dev/null || echo "[SUBSCRIPTION-ID]")
+    local azure_tenant_id
+    azure_tenant_id=$(az account show --query "tenantId" --output tsv 2>/dev/null || echo "[TENANT-ID]")
+
     gh secret set AZURE_CLIENT_ID \
         --repo "$GITHUB_REPO" \
         --env "$GITHUB_ENVIRONMENT" \
         --body "$CLIENT_ID"
+    printf "✓ Set Actions secret AZURE_CLIENT_ID=%s\n" "$CLIENT_ID"
     gh secret set AZURE_SUBSCRIPTION_ID \
         --repo "$GITHUB_REPO" \
         --env "$GITHUB_ENVIRONMENT" \
-        --body "$(az account show --query "id" --output tsv 2>/dev/null || echo "[SUBSCRIPTION-ID]")"
+        --body "$azure_subscription_id"
+    printf "✓ Set Actions secret AZURE_SUBSCRIPTION_ID=%s\n" "$azure_subscription_id"
     gh secret set AZURE_TENANT_ID \
         --repo "$GITHUB_REPO" \
         --env "$GITHUB_ENVIRONMENT" \
-        --body "$(az account show --query "tenantId" --output tsv 2>/dev/null || echo "[TENANT-ID]")"
+        --body "$azure_tenant_id"
+    printf "✓ Set Actions secret AZURE_TENANT_ID=%s\n" "$azure_tenant_id"
+
+    local vnet_name
+    vnet_name=$(echo "$RESOURCE_GROUP" | sed 's/-networking/-vwan-spoke/')
     gh secret set VNET_NAME \
         --repo "$GITHUB_REPO" \
         --env "$GITHUB_ENVIRONMENT" \
-        --body "$(echo "$RESOURCE_GROUP" | sed 's/-networking/-vwan-spoke/')"
+        --body "$vnet_name"
+    printf "✓ Set Actions secret VNET_NAME=%s\n" "$vnet_name"
     gh secret set VNET_RESOURCE_GROUP_NAME \
         --repo "$GITHUB_REPO" \
         --env "$GITHUB_ENVIRONMENT" \
         --body "$RESOURCE_GROUP"
+    printf "✓ Set Actions secret VNET_RESOURCE_GROUP_NAME=%s\n" "$RESOURCE_GROUP"
+
+    # ---------------------------------------------------------------------
+    # VNet address spaces (for passing to Terraform)
+    # TARGET_VNET_ADDRESS_SPACES: JSON array string (env-specific)
+    # SOURCE_VNET_ADDRESS_SPACE: single CIDR (repo-level, set from tools)
+    # ---------------------------------------------------------------------
+    local target_vnet_address_spaces_json=""
+    local -a target_vnet_address_prefixes=()
+    while IFS= read -r line; do
+        # Skip empty lines (defensive)
+        [[ -n "$line" ]] && target_vnet_address_prefixes+=("$line")
+    done < <(
+        az network vnet show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$vnet_name" \
+            --query "addressSpace.addressPrefixes" \
+            --output tsv 2>/dev/null || true
+    )
+
+    if [[ ${#target_vnet_address_prefixes[@]} -gt 0 ]]; then
+        target_vnet_address_spaces_json="["
+        for ((i=0; i<${#target_vnet_address_prefixes[@]}; i++)); do
+            target_vnet_address_spaces_json+="\"${target_vnet_address_prefixes[$i]}\""
+            if [[ $i -lt $((${#target_vnet_address_prefixes[@]} - 1)) ]]; then
+                target_vnet_address_spaces_json+=","
+            fi
+        done
+        target_vnet_address_spaces_json+="]"
+    fi
+
+    if [[ -n "$target_vnet_address_spaces_json" ]]; then
+        gh secret set TARGET_VNET_ADDRESS_SPACES \
+            --repo "$GITHUB_REPO" \
+            --env "$GITHUB_ENVIRONMENT" \
+            --body "$target_vnet_address_spaces_json"
+        log_success "Set env secret TARGET_VNET_ADDRESS_SPACES for '$GITHUB_ENVIRONMENT'"
+        printf "✓ Set Actions secret TARGET_VNET_ADDRESS_SPACES=%s\n" "$target_vnet_address_spaces_json"
+    else
+        log_warning "Could not query VNet address spaces for '$vnet_name' in '$RESOURCE_GROUP'"
+    fi
+
+    if [[ "$GITHUB_ENVIRONMENT" == "tools" ]]; then
+        local source_vnet_address_space=""
+        source_vnet_address_space=$(az network vnet show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$vnet_name" \
+            --query "addressSpace.addressPrefixes[0]" \
+            --output tsv 2>/dev/null || true)
+
+        if [[ -n "$source_vnet_address_space" ]]; then
+            gh secret set SOURCE_VNET_ADDRESS_SPACE \
+                --repo "$GITHUB_REPO" \
+                --body "$source_vnet_address_space"
+            log_success "Set repo secret SOURCE_VNET_ADDRESS_SPACE (from tools VNet)"
+            printf "✓ Set Actions secret SOURCE_VNET_ADDRESS_SPACE=%s\n" "$source_vnet_address_space"
+        else
+            log_warning "Could not query SOURCE_VNET_ADDRESS_SPACE from tools VNet '$vnet_name'"
+        fi
+    fi
     
     gh variable set STORAGE_ACCOUNT_NAME \
         --repo "$GITHUB_REPO" \
@@ -1319,6 +1512,9 @@ main() {
 
     # Step 5: Add managed identity to the security group for deployment permissions
     add_to_security_group
+
+    # Step 5b: Grant Key Vault data-plane permissions via RBAC (Landing Zone policy compliant)
+    assign_key_vault_secrets_officer_role
     
     # Step 6: Create Terraform state storage if requested
     create_terraform_storage
