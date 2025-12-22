@@ -202,7 +202,7 @@ details.adr.pending[open] summary {
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
     </div>
     <div>
-        <strong>Policy Driver:</strong> BC Gov requires all Azure services to use private endpoints only. GitHub Actions runners on the public internet cannot reach private endpoints. This creates a fundamental problem: how do we run Terraform if GitHub can't talk to Azure resources?
+        <strong>Policy Driver:</strong> BC Gov requires all Azure services to use private endpoints only for data plane access. GitHub Actions runners on the public internet cannot reach private endpoints. This creates a fundamental problem: how do we run Terraform if GitHub can't talk to Azure resources?
     </div>
 </div>
 
@@ -213,12 +213,12 @@ details.adr.pending[open] summary {
     <p>When you run <code>terraform apply</code> from GitHub Actions, here's what happens:</p>
     <ol>
         <li>GitHub spins up a runner (a VM on Microsoft's public cloud)</li>
-        <li>Terraform tries to connect to Azure Storage (for state file)</li>
-        <li><strong style="color:#ef4444;">BLOCKED</strong> - Storage has no public endpoint</li>
+        <li>Terraform tries to connect to Azure PaaS services for data plane access for ec: key vault secrets</li>
+        <li><strong style="color:#ef4444;">BLOCKED</strong> - KV has no public endpoint</li>
         <li>Terraform tries to connect to Key Vault, databases, etc.</li>
-        <li><strong style="color:#ef4444;">BLOCKED</strong> - All services are private-only</li>
+        <li><strong style="color:#ef4444;">BLOCKED</strong> - All services data plane access are private-only within the vnet.</li>
     </ol>
-    <p style="margin-bottom:0;"><strong>Result:</strong> Terraform cannot run from the public internet because it can't reach any Azure resources.</p>
+    <p style="margin-bottom:0;"><strong>Result:</strong> Terraform can run from the public internet but limited to Storage account and control plane access of Azure resources.</p>
 </div>
 
 <h3>The Solution: Landing Zone Architecture</h3>
@@ -256,24 +256,24 @@ details.adr.pending[open] summary {
 <div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
 <pre style="background: var(--bc-blue-dark); margin: 0;">
 ┌─────────────────────────────────────────────────────────────────────────┐
-│                         DEPLOYMENT FLOW                                  │
+│                         DEPLOYMENT FLOW                                 │
 ├─────────────────────────────────────────────────────────────────────────┤
-│                                                                          │
+│                                                                         │
 │   GitHub Actions          │ Azure Landing Zone (Private Network)        │
-│   (Public Internet)       │                                              │
-│                           │                                              │
+│   (Public Internet)       │                                             │
+│                           │                                             │
 │   ┌──────────────┐        │    ┌──────────────┐    ┌─────────────────┐  │
 │   │ Workflow     │        │    │ Self-Hosted  │    │ Private         │  │
 │   │ Triggers     │───OIDC────▶│ Runner       │───▶│ Endpoints       │  │
-│   │              │  Token  │    │ (in VNet)    │    │ (Storage, KV)   │  │
+│   │              │  Token  │    │ (in VNet)   │    │ (Storage, KV)   │  │
 │   └──────────────┘        │    └──────────────┘    └─────────────────┘  │
-│                           │           │                                  │
-│                           │           ▼                                  │
+│                           │           │                                 │
+│                           │           ▼                                 │
 │                           │    ┌──────────────┐                         │
 │                           │    │ terraform    │                         │
 │                           │    │ plan/apply   │                         │
 │                           │    └──────────────┘                         │
-│                           │                                              │
+│                           │                                             │
 └─────────────────────────────────────────────────────────────────────────┘
 </pre>
 </div>
@@ -283,14 +283,15 @@ details.adr.pending[open] summary {
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #22c55e;">
         <h4 style="margin-top: 0;">Option A: Self-Hosted Runners</h4>
-        <p>GitHub Actions runners deployed inside the VNet. Workflows run directly on these VMs.</p>
+        <p>GitHub Actions runners deployed inside the VNet as Container App Jobs. Workflows run directly on these.</p>
         <ul>
             <li>Runner registers with GitHub</li>
             <li>Workflow triggers, runner picks it up</li>
             <li>Terraform runs inside VNet</li>
             <li>Full access to private endpoints</li>
+            <li>Vnet peering is enabled in spoke VNets for tools to deploy to dev/test/prod</li>
         </ul>
-        <p style="margin-bottom:0;color:#22c55e;"><strong>Recommended for CI/CD</strong></p>
+        <p style="margin-bottom:0;color:#22c55e;"><strong>Recommended and Used for CI/CD</strong></p>
     </div>
     <div class="card" style="border-left-color: #0ea5e9;">
         <h4 style="margin-top: 0;">Option B: Jumpbox + Bastion</h4>
@@ -419,38 +420,38 @@ details.adr.pending[open] summary {
     <h4 style="margin-top: 0;">Summary: Only ONE Public Endpoint</h4>
     <pre style="background: #1e1e1e; font-size: 11px; margin: 0.5rem 0; padding: 1rem;">
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           BC Gov Network                                      │
-│  ┌──────────────┐                                                            │
-│  │ Ministry     │                                                            │
-│  │ Applications │──┐                                                         │
-│  └──────────────┘  │                                                         │
-│                    │                                                         │
+│                           BC Gov Network                                    │
+│  ┌──────────────┐                                                           │
+│  │ Ministry     │                                                           │
+│  │ Applications │──┐                                                        │
+│  └──────────────┘  │                                                        │
+│                    │                                                        │
 │  ┌──────────────┐  │    ┌──────────────────────────────────────────────────┐│
 │  │ Ministry     │──┼────│         ExpressRoute (Private Circuit)           ││
 │  │ Users        │  │    │         NOT public internet!                     ││
 │  └──────────────┘  │    └──────────────────────────────────────────────────┘│
-└────────────────────┼─────────────────────────────────────────────────────────┘
+└────────────────────┼────────────────────────────────────────────────────────┘
                      │
                      ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                           Azure (Private VNet)                               │
-│                                                                              │
+│                           Azure (Private VNet)                              │
+│                                                                             │
 │  ┌────────────────┐    ┌────────────────┐    ┌────────────────────────────┐ │
-│  │  App Gateway   │───▶│     APIM       │───▶│   Private Endpoints        │ │
+│  │  App Gateway   │───▶│     APIM       │───▶│   Private Endpoints       │ │
 │  │  (Internal IP) │    │  (Internal IP) │    │   (Storage, OpenAI, etc.)  │ │
 │  └────────────────┘    └────────────────┘    └────────────────────────────┘ │
-│         ▲                                                                    │
-│         │                                                                    │
+│         ▲                                                                   │
+│         │                                                                   │
 │         │ All private IPs - reachable via ExpressRoute                      │
-│                                                                              │
+│                                                                             │
 │  ════════════════════════════════════════════════════════════════════════   │
-│                                                                              │
+│                                                                             │
 │  ┌────────────────┐    ┌────────────────┐                                   │
-│  │    BASTION     │───▶│   Jumpbox VM   │    ◀── Only Bastion has public IP │
+│  │    BASTION     │─▶ │   Jumpbox VM   │    ◀── Only Bastion has public IP │
 │  │  (PUBLIC IP)   │    │  (Private IP)  │        (for admin access)         │
 │  └────────────────┘    └────────────────┘                                   │
-│         ▲                                                                    │
-└─────────┼────────────────────────────────────────────────────────────────────┘
+│         ▲                                                                   │
+└─────────┼───────────────────────────────────────────────────────────────────┘
           │
           │ Admin accesses via Azure Portal (browser)
           │

@@ -180,6 +180,8 @@ resource "random_password" "secret_two" {
   special = true
 }
 
+# these resources  are for testing vnet peering and data plane access to the key vault
+# will be deleted in future.
 resource "azurerm_key_vault_secret" "secret_one" {
   name            = "example-secret-test-one"
   value           = random_password.secret_one.result
