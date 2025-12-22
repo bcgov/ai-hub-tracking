@@ -40,7 +40,6 @@ module "bastion" {
   bastion_subnet_id   = module.network.bastion_subnet_id
   bastion_sku         = "Basic"
 
-  depends_on = [module.network]
 }
 module "jumpbox" {
   source = "./modules/jumpbox"
