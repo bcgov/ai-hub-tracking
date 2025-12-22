@@ -28,6 +28,14 @@ This repo manages Azure infrastructure using:
 Infrastructure deploys to an **Azure Landing Zone** with strict networking policies.
 
 ---
+## External docs reference - CRITICAL
+
+Treat the Azure Landing Zone docs in the bcgov/public-cloud-techdocs repo as authoritative for networking and DNS behavior, IT IS CRITICAL to follow these guidelines when working within an Azure Landing Zone:
+- https://raw.githubusercontent.com/bcgov/public-cloud-techdocs/refs/heads/main/docs/azure/design-build-deploy/networking.md
+- https://raw.githubusercontent.com/bcgov/public-cloud-techdocs/refs/heads/main/docs/azure/design-build-deploy/next-steps.md
+- https://github.com/bcgov/public-cloud-techdocs/blob/main/docs/azure/design-build-deploy/user-management.md
+
+---
 
 ## Terraform Conventions
 
