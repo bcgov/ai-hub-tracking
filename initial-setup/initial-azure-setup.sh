@@ -397,17 +397,227 @@ generate_storage_account_name() {
 }
 
 # ================================================================================
+# Detect the operating system
+# ================================================================================
+detect_os() {
+    if [[ "$OSTYPE" == "linux-gnu"* ]]; then
+        echo "linux"
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        echo "macos"
+    else
+        echo "unknown"
+    fi
+}
+
+# ================================================================================
+# Check if a command exists
+# ================================================================================
+command_exists() {
+    command -v "$1" &> /dev/null
+}
+
+# ================================================================================
+# Install Azure CLI
+# ================================================================================
+install_azure_cli() {
+    log_info "Installing Azure CLI..."
+    
+    local os=$(detect_os)
+    
+    case "$os" in
+        linux)
+            # Check for package manager
+            if command_exists apt-get; then
+                log_info "Using apt package manager"
+                sudo apt-get update
+                sudo apt-get install -y azure-cli
+            elif command_exists yum; then
+                log_info "Using yum package manager"
+                sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+                sudo yum install -y azure-cli
+            elif command_exists pacman; then
+                log_info "Using pacman package manager"
+                sudo pacman -S azure-cli
+            else
+                log_error "No supported package manager found. Please install Azure CLI manually."
+                log_error "Visit: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
+                exit 1
+            fi
+            ;;
+        macos)
+            if command_exists brew; then
+                log_info "Using Homebrew"
+                brew install azure-cli
+            else
+                log_error "Homebrew not found. Please install Homebrew or Azure CLI manually."
+                log_error "Visit: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
+                exit 1
+            fi
+            ;;
+        *)
+            log_error "Unsupported operating system. Azure CLI installation is only supported on Linux and macOS."
+            log_error "Please install manually from: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
+            exit 1
+            ;;
+    esac
+    
+    log_success "Azure CLI installed successfully"
+}
+
+# ================================================================================
+# Install Terraform
+# ================================================================================
+install_terraform() {
+    log_info "Installing Terraform..."
+    
+    local os=$(detect_os)
+    
+    case "$os" in
+        linux)
+            if command_exists apt-get; then
+                log_info "Using apt package manager"
+                sudo apt-get update
+                sudo apt-get install -y gnupg software-properties-common curl
+                curl https://apt.releases.hashicorp.com/gpg | sudo apt-key add -
+                sudo apt-add-repository "deb [arch=amd64] https://apt.releases.hashicorp.com $(lsb_release -cs) main"
+                sudo apt-get update
+                sudo apt-get install -y terraform
+            elif command_exists yum; then
+                log_info "Using yum package manager"
+                sudo yum install -y yum-utils
+                sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/RHEL/hashicorp.repo
+                sudo yum -y install terraform
+            else
+                log_error "No supported package manager found. Please install Terraform manually."
+                log_error "Visit: https://www.terraform.io/downloads.html"
+                exit 1
+            fi
+            ;;
+        macos)
+            if command_exists brew; then
+                log_info "Using Homebrew"
+                brew tap hashicorp/tap
+                brew install hashicorp/tap/terraform
+            else
+                log_error "Homebrew not found. Please install Homebrew or Terraform manually."
+                log_error "Visit: https://www.terraform.io/downloads.html"
+                exit 1
+            fi
+            ;;
+        *)
+            log_error "Unsupported operating system. Terraform installation is only supported on Linux and macOS."
+            log_error "Visit: https://www.terraform.io/downloads.html"
+            exit 1
+            ;;
+    esac
+    
+    log_success "Terraform installed successfully"
+}
+
+# ================================================================================
+# Install GitHub CLI
+# ================================================================================
+install_github_cli() {
+    log_info "Installing GitHub CLI..."
+    
+    local os=$(detect_os)
+    
+    case "$os" in
+        linux)
+            if command_exists apt-get; then
+                log_info "Using apt package manager"
+                sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-key C99B11DEB97541F0
+                sudo apt-add-repository https://cli.github.com/packages
+                sudo apt update
+                sudo apt install -y gh
+            elif command_exists yum; then
+                log_info "Using yum package manager"
+                sudo dnf config-manager --add-repo https://cli.github.com/packages/rpm/gh-cli.repo
+                sudo dnf install -y gh
+            else
+                log_error "No supported package manager found. Please install GitHub CLI manually."
+                log_error "Visit: https://cli.github.com/"
+                exit 1
+            fi
+            ;;
+        macos)
+            if command_exists brew; then
+                log_info "Using Homebrew"
+                brew install gh
+            else
+                log_error "Homebrew not found. Please install Homebrew or GitHub CLI manually."
+                log_error "Visit: https://cli.github.com/"
+                exit 1
+            fi
+            ;;
+        *)
+            log_error "Unsupported operating system. GitHub CLI installation is only supported on Linux and macOS."
+            log_error "Visit: https://cli.github.com/ to install manually"
+            exit 1
+            ;;
+    esac
+    
+    log_success "GitHub CLI installed successfully"
+}
+
+# ================================================================================
+# Check and install required tools
+# ================================================================================
+check_and_install_tools() {
+    log_info "Checking for required tools..."
+    
+    # Check and install Azure CLI
+    if ! command_exists az; then
+        log_warning "Azure CLI not found. Would you like to install it? (yes/no)"
+        read -p "Install Azure CLI? " install_az
+        if [[ "$install_az" == "yes" ]]; then
+            install_azure_cli
+        else
+            log_error "Azure CLI is required. Please install manually from: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
+            exit 1
+        fi
+    else
+        log_success "Azure CLI found ($(az version --query '["azure-cli"].version' -o tsv 2>/dev/null || echo 'version unknown'))"
+    fi
+    
+    # Check and install Terraform
+    if ! command_exists terraform; then
+        log_warning "Terraform not found. Would you like to install it? (yes/no)"
+        read -p "Install Terraform? " install_tf
+        if [[ "$install_tf" == "yes" ]]; then
+            install_terraform
+        else
+            log_error "Terraform is required. Please install manually from: https://www.terraform.io/downloads.html"
+            exit 1
+        fi
+    else
+        log_success "Terraform found ($(terraform version -json 2>/dev/null | grep -o '"terraform_version":"[^"]*' | cut -d'"' -f4 || echo 'version unknown'))"
+    fi
+    
+    # Check and optionally install GitHub CLI
+    if ! command_exists gh; then
+        log_warning "GitHub CLI not found. It's optional but recommended for auto-secret creation."
+        read -p "Install GitHub CLI? (yes/no) " install_gh
+        if [[ "$install_gh" == "yes" ]]; then
+            install_github_cli
+        else
+            log_info "GitHub CLI is optional. You can install it later if needed: https://cli.github.com/"
+        fi
+    else
+        log_success "GitHub CLI found ($(gh version 2>/dev/null | head -1 || echo 'version unknown'))"
+    fi
+    
+    log_success "Tool check completed"
+}
+
+# ================================================================================
 # Verify that required tools are installed and user is authenticated
 # ================================================================================
 check_prerequisites() {
     log_info "Checking prerequisites..."
     
-    # Verify Azure CLI is installed
-    if ! command -v az &> /dev/null; then
-        log_error "Azure CLI is not installed!"
-        log_error "Please install from: https://docs.microsoft.com/en-us/cli/azure/install-azure-cli"
-        exit 1
-    fi
+    # First, check and install tools if needed
+    check_and_install_tools
     
     # Verify user is logged into Azure CLI
     if ! az account show &> /dev/null; then
@@ -523,6 +733,26 @@ extract_license_plate() {
     # Extract the first part before the first hyphen
     local license_plate=$(echo "$rg_name" | cut -d'-' -f1)
     echo "$license_plate"
+}
+
+# =============================================================================
+# Derive a stable subscription name token from the subscription display name.
+# Example: "da4cf6-dev" -> "da4cf6"
+# =============================================================================
+derive_subscription_name_from_display_name() {
+    local display_name="$1"
+
+    # Normalize: lowercase, trim, replace spaces/underscores with '-', remove other special chars
+    local normalized
+    normalized=$(echo "$display_name" | tr '[:upper:]' '[:lower:]' | xargs | tr ' _' '--' | sed 's/[^a-z0-9-]//g' | sed 's/--*/-/g' | sed 's/^-//; s/-$//')
+
+    # Strip trailing environment token if present
+    normalized=$(echo "$normalized" | sed -E 's/-(dev|test|prod|tools)$//')
+
+    # Keep only the first segment (repo convention: "da4cf6")
+    normalized=$(echo "$normalized" | cut -d'-' -f1 | sed 's/^-//; s/-$//')
+
+    echo "$normalized"
 }
 
 # ================================================================================
@@ -721,6 +951,17 @@ Repository Secrets:
 - AZURE_SUBSCRIPTION_ID: $(az account show --query "id" --output tsv 2>/dev/null || echo "[SUBSCRIPTION-ID]")
 - AZURE_TENANT_ID: $(az account show --query "tenantId" --output tsv 2>/dev/null || echo "[TENANT-ID]")
 
+Repository Variables:
+- SUBSCRIPTION_NAME: $(derive_subscription_name_from_display_name "$(az account show --query "name" --output tsv 2>/dev/null || echo "[SUBSCRIPTION-NAME]")")
+
+Repository Secrets:
+- SOURCE_VNET_ADDRESS_SPACE: (tools VNet addressSpace.addressPrefixes[0])
+
+Environment Secrets (per env: dev/test/prod/tools):
+- VNET_NAME: (derived from networking RG)
+- VNET_RESOURCE_GROUP_NAME: (networking RG)
+- TARGET_VNET_ADDRESS_SPACES: (JSON array) addressSpace.addressPrefixes from the env VNet
+
 Managed Identity Details:
 - Name: $IDENTITY_NAME
 - Resource Group: $RESOURCE_GROUP
@@ -817,6 +1058,78 @@ assign_storage_roles() {
     fi
     
     log_success "Storage permissions documentation completed"
+}
+
+
+# =============================================================================
+# Assign Key Vault Secrets Officer to the managed identity (RBAC permission model)
+# This is required in Landing Zones where Key Vault Access Policies are denied by policy.
+# Idempotent: does nothing if the assignment already exists.
+# =============================================================================
+assign_key_vault_secrets_officer_role() {
+    log_info "Ensuring managed identity has 'Key Vault Secrets Officer' role..."
+
+    local role_name="Key Vault Secrets Officer"
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would ensure role '$role_name' is assigned to principal '$PRINCIPAL_ID' at subscription scope"
+        return 0
+    fi
+
+    local subscription_id
+    subscription_id=$(az account show --query "id" --output tsv 2>/dev/null || true)
+    if [[ -z "$subscription_id" ]]; then
+        log_warning "Unable to determine current subscription ID; skipping Key Vault role assignment."
+        return 0
+    fi
+
+    local scope="/subscriptions/${subscription_id}"
+
+    # Check if role assignment already exists (idempotent)
+    local existing_assignment_id=""
+    set +e
+    existing_assignment_id=$(az role assignment list \
+        --assignee-object-id "$PRINCIPAL_ID" \
+        --scope "$scope" \
+        --role "$role_name" \
+        --query "[0].id" \
+        --output tsv 2>/dev/null)
+    local list_rc=$?
+    set -e
+
+    if [[ $list_rc -ne 0 ]]; then
+        log_warning "Unable to query existing role assignments. Skipping Key Vault role assignment."
+        log_warning "If you need Key Vault secret access, assign '$role_name' to '$IDENTITY_NAME' at scope '$scope'."
+        return 0
+    fi
+
+    if [[ -n "$existing_assignment_id" ]]; then
+        log_success "Role '$role_name' is already assigned at subscription scope"
+        return 0
+    fi
+
+    # Create role assignment
+    log_info "Creating role assignment '$role_name' for principal '$PRINCIPAL_ID' at scope '$scope'..."
+    local create_output=""
+    set +e
+    create_output=$(az role assignment create \
+        --assignee-object-id "$PRINCIPAL_ID" \
+        --assignee-principal-type ServicePrincipal \
+        --role "$role_name" \
+        --scope "$scope" 2>&1)
+    local create_rc=$?
+    set -e
+
+    if [[ $create_rc -eq 0 ]] || echo "$create_output" | grep -qi "RoleAssignmentExists"; then
+        log_success "Assigned '$role_name' to managed identity '$IDENTITY_NAME' at subscription scope"
+        return 0
+    fi
+
+    log_warning "Failed to create role assignment '$role_name'."
+    log_warning "This typically requires Owner or User Access Administrator on the scope."
+    log_warning "Azure CLI output: $create_output"
+    log_warning "Manual action: assign '$role_name' to '$IDENTITY_NAME' (principal: $PRINCIPAL_ID) at scope '$scope'."
+    return 0
 }
 
 
@@ -967,27 +1280,117 @@ EOF
 
     # Add secrets to the environment
     log_info "Adding secrets and variables to GitHub environment '$GITHUB_ENVIRONMENT'..."
+
+    # ---------------------------------------------------------------------
+    # Repo-level variable: SUBSCRIPTION_NAME (shared across environments)
+    # ---------------------------------------------------------------------
+    local subscription_display_name
+    subscription_display_name=$(az account show --query "name" --output tsv 2>/dev/null || true)
+    local subscription_name
+    subscription_name=$(derive_subscription_name_from_display_name "$subscription_display_name")
+    if [[ -n "$subscription_name" ]]; then
+        gh variable set SUBSCRIPTION_NAME \
+            --repo "$GITHUB_REPO" \
+            --body "$subscription_name"
+        log_success "Set repo variable SUBSCRIPTION_NAME='$subscription_name' (from subscription display name '$subscription_display_name')"
+        printf "SUBSCRIPTION_NAME=%s\n" "$subscription_name"
+    else
+        log_warning "Could not derive SUBSCRIPTION_NAME from subscription display name '$subscription_display_name'"
+    fi
+
     # Add environment-specific secrets
+    local azure_subscription_id
+    azure_subscription_id=$(az account show --query "id" --output tsv 2>/dev/null || echo "[SUBSCRIPTION-ID]")
+    local azure_tenant_id
+    azure_tenant_id=$(az account show --query "tenantId" --output tsv 2>/dev/null || echo "[TENANT-ID]")
+
     gh secret set AZURE_CLIENT_ID \
         --repo "$GITHUB_REPO" \
         --env "$GITHUB_ENVIRONMENT" \
         --body "$CLIENT_ID"
+    printf "✓ Set Actions secret AZURE_CLIENT_ID=%s\n" "$CLIENT_ID"
     gh secret set AZURE_SUBSCRIPTION_ID \
         --repo "$GITHUB_REPO" \
         --env "$GITHUB_ENVIRONMENT" \
-        --body "$(az account show --query "id" --output tsv 2>/dev/null || echo "[SUBSCRIPTION-ID]")"
+        --body "$azure_subscription_id"
+    printf "✓ Set Actions secret AZURE_SUBSCRIPTION_ID=%s\n" "$azure_subscription_id"
     gh secret set AZURE_TENANT_ID \
         --repo "$GITHUB_REPO" \
         --env "$GITHUB_ENVIRONMENT" \
-        --body "$(az account show --query "tenantId" --output tsv 2>/dev/null || echo "[TENANT-ID]")"
+        --body "$azure_tenant_id"
+    printf "✓ Set Actions secret AZURE_TENANT_ID=%s\n" "$azure_tenant_id"
+
+    local vnet_name
+    vnet_name=$(echo "$RESOURCE_GROUP" | sed 's/-networking/-vwan-spoke/')
     gh secret set VNET_NAME \
         --repo "$GITHUB_REPO" \
         --env "$GITHUB_ENVIRONMENT" \
-        --body "$(echo "$RESOURCE_GROUP" | sed 's/-networking/-vwan-spoke/')"
+        --body "$vnet_name"
+    printf "✓ Set Actions secret VNET_NAME=%s\n" "$vnet_name"
     gh secret set VNET_RESOURCE_GROUP_NAME \
         --repo "$GITHUB_REPO" \
         --env "$GITHUB_ENVIRONMENT" \
         --body "$RESOURCE_GROUP"
+    printf "✓ Set Actions secret VNET_RESOURCE_GROUP_NAME=%s\n" "$RESOURCE_GROUP"
+
+    # ---------------------------------------------------------------------
+    # VNet address spaces (for passing to Terraform)
+    # TARGET_VNET_ADDRESS_SPACES: JSON array string (env-specific)
+    # SOURCE_VNET_ADDRESS_SPACE: single CIDR (repo-level, set from tools)
+    # ---------------------------------------------------------------------
+    local target_vnet_address_spaces_json=""
+    local -a target_vnet_address_prefixes=()
+    while IFS= read -r line; do
+        # Skip empty lines (defensive)
+        [[ -n "$line" ]] && target_vnet_address_prefixes+=("$line")
+    done < <(
+        az network vnet show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$vnet_name" \
+            --query "addressSpace.addressPrefixes" \
+            --output tsv 2>/dev/null || true
+    )
+
+    if [[ ${#target_vnet_address_prefixes[@]} -gt 0 ]]; then
+        target_vnet_address_spaces_json="["
+        for ((i=0; i<${#target_vnet_address_prefixes[@]}; i++)); do
+            target_vnet_address_spaces_json+="\"${target_vnet_address_prefixes[$i]}\""
+            if [[ $i -lt $((${#target_vnet_address_prefixes[@]} - 1)) ]]; then
+                target_vnet_address_spaces_json+=","
+            fi
+        done
+        target_vnet_address_spaces_json+="]"
+    fi
+
+    if [[ -n "$target_vnet_address_spaces_json" ]]; then
+        gh secret set TARGET_VNET_ADDRESS_SPACES \
+            --repo "$GITHUB_REPO" \
+            --env "$GITHUB_ENVIRONMENT" \
+            --body "$target_vnet_address_spaces_json"
+        log_success "Set env secret TARGET_VNET_ADDRESS_SPACES for '$GITHUB_ENVIRONMENT'"
+        printf "✓ Set Actions secret TARGET_VNET_ADDRESS_SPACES=%s\n" "$target_vnet_address_spaces_json"
+    else
+        log_warning "Could not query VNet address spaces for '$vnet_name' in '$RESOURCE_GROUP'"
+    fi
+
+    if [[ "$GITHUB_ENVIRONMENT" == "tools" ]]; then
+        local source_vnet_address_space=""
+        source_vnet_address_space=$(az network vnet show \
+            --resource-group "$RESOURCE_GROUP" \
+            --name "$vnet_name" \
+            --query "addressSpace.addressPrefixes[0]" \
+            --output tsv 2>/dev/null || true)
+
+        if [[ -n "$source_vnet_address_space" ]]; then
+            gh secret set SOURCE_VNET_ADDRESS_SPACE \
+                --repo "$GITHUB_REPO" \
+                --body "$source_vnet_address_space"
+            log_success "Set repo secret SOURCE_VNET_ADDRESS_SPACE (from tools VNet)"
+            printf "✓ Set Actions secret SOURCE_VNET_ADDRESS_SPACE=%s\n" "$source_vnet_address_space"
+        else
+            log_warning "Could not query SOURCE_VNET_ADDRESS_SPACE from tools VNet '$vnet_name'"
+        fi
+    fi
     
     gh variable set STORAGE_ACCOUNT_NAME \
         --repo "$GITHUB_REPO" \
@@ -997,6 +1400,83 @@ EOF
     log_success "Secrets and variables added to GitHub environment '$GITHUB_ENVIRONMENT'."
     return 0
 
+}
+
+# ================================================================================
+# Deploy initial infrastructure using Terraform (for tools environment only)
+# This provisions the foundational resources needed before other environments
+# This is specific to this product ,as it follows vnet peering between tools and other envs
+# so that tools runs the github runner in ACA, and does the deployment to other environments
+# ================================================================================
+deploy_initial_infrastructure() {
+    # Only deploy infrastructure for the "tools" environment
+    if [[ "$GITHUB_ENVIRONMENT" != "tools" ]]; then
+        log_info "Skipping infrastructure deployment (only runs for 'tools' environment)"
+        return 0
+    fi
+
+    log_info "========================================"
+    log_info "Deploying Initial Infrastructure"
+    log_info "========================================"
+    log_info "Environment 'tools' detected - will provision foundational infrastructure"
+
+    # Path to the deploy script (relative to this script's location)
+    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    local deploy_script="${script_dir}/infra/deploy-terraform.sh"
+
+    # Check if deploy script exists
+    if [[ ! -f "$deploy_script" ]]; then
+        log_error "Deploy script not found: $deploy_script"
+        log_error "Please ensure the infra/ directory exists with deploy-terraform.sh"
+        return 1
+    fi
+
+    # Check if terraform.tfvars exists
+    local tfvars_file="${script_dir}/infra/terraform.tfvars"
+    if [[ ! -f "$tfvars_file" ]]; then
+        log_warning "terraform.tfvars not found at: $tfvars_file"
+        log_warning "You will need to provide configuration via environment variables or create terraform.tfvars"
+        log_info "Skipping automatic infrastructure deployment"
+        log_info "Run manually: cd initial-setup/infra && ./deploy-terraform.sh apply"
+        return 0
+    fi
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would execute Terraform deployment:"
+        echo "    cd ${script_dir}/infra"
+        echo "    ./deploy-terraform.sh init"
+        echo "    ./deploy-terraform.sh apply"
+        return 0
+    fi
+
+    # Ask for confirmation before deploying infrastructure
+    log_warning "This will deploy foundational infrastructure to Azure."
+    log_info "Resources to be created: Resource Group, Network (subnets/NSGs), and optionally Bastion/Jumpbox"
+    read -p "Do you want to proceed with infrastructure deployment, default is network and self hossted runner, if you want all , type all? (all/yes/no): " confirm
+    
+    # Check user confirmation for all or yes
+    if [[ "$confirm" != "all" && "$confirm" != "yes" ]]; then
+        log_info "Infrastructure deployment skipped"
+        log_info "Run manually when ready: cd initial-setup/infra && ./deploy-terraform.sh apply"
+        return 0
+    fi
+    # Make script executable
+    chmod +x "$deploy_script"
+
+    # Change to infra directory and run terraform
+    log_info "Initializing Terraform..."
+    (cd "${script_dir}/infra" && ./deploy-terraform.sh init)
+    
+    log_info "Applying Terraform configuration..."
+    # if all is selected, deploy all resources
+    if [[ "$confirm" == "all" ]]; then
+        (cd "${script_dir}/infra" && export CI=true && ./deploy-terraform.sh apply)
+    else
+        # else deploy only network and self hosted runner
+        (cd "${script_dir}/infra" && export CI=true &&  ./deploy-terraform.sh apply --target=module.network --target=module.github_runners_aca)
+    fi
+    
+    log_success "Infrastructure deployment completed!"
 }
 
 # ================================================================================
@@ -1032,6 +1512,9 @@ main() {
 
     # Step 5: Add managed identity to the security group for deployment permissions
     add_to_security_group
+
+    # Step 5b: Grant Key Vault data-plane permissions via RBAC (Landing Zone policy compliant)
+    assign_key_vault_secrets_officer_role
     
     # Step 6: Create Terraform state storage if requested
     create_terraform_storage
@@ -1053,6 +1536,9 @@ main() {
             display_terraform_backend_config
         fi
     fi
+
+    # Step 11: Deploy initial infrastructure for tools environment
+    deploy_initial_infrastructure
 
     # Final success message
     log_success "GitHub Actions OIDC setup completed successfully!"

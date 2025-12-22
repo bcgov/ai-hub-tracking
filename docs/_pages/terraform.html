@@ -40,7 +40,7 @@
 
 <h3>Usage</h3>
 
-<pre>./deploy-terraform.sh &lt;command&gt; [options]
+<pre>./initial-setup/infra/deploy-terraform.sh &lt;command&gt; [options]
 
 Commands:
   init     Initialize Terraform with backend configuration
@@ -54,18 +54,18 @@ Commands:
 <div class="grid grid-2">
     <div class="card">
         <h3>Full Deployment</h3>
-        <pre>./deploy-terraform.sh init
-./deploy-terraform.sh plan
-./deploy-terraform.sh apply</pre>
+        <pre>./initial-setup/infra/deploy-terraform.sh init
+./initial-setup/infra/deploy-terraform.sh plan
+./initial-setup/infra/deploy-terraform.sh apply</pre>
     </div>
     <div class="card">
         <h3>Target Specific Module</h3>
         <pre># Deploy only bastion
-./deploy-terraform.sh apply \
+./initial-setup/infra/deploy-terraform.sh apply \
   -target=module.bastion
 
 # Deploy only jumpbox
-./deploy-terraform.sh apply \
+./initial-setup/infra/deploy-terraform.sh apply \
   -target=module.jumpbox</pre>
     </div>
 </div>

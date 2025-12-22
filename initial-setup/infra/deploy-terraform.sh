@@ -1,10 +1,13 @@
 #!/bin/bash
 # =============================================================================
-# Terraform Deployment Script - Run it from local dev machine
+# Terraform Deployment Script - Run from initial-setup/infra/ or repo root
 # =============================================================================
 # Reusable script for Terraform operations (init, plan, apply, destroy, etc.)
 #
-# Usage:
+# Usage (from repo root):
+#   ./initial-setup/infra/deploy-terraform.sh <command> [options]
+#
+# Usage (from initial-setup/infra folder):
 #   ./deploy-terraform.sh <command> [options]
 #
 # Commands:
@@ -30,12 +33,12 @@
 #   ARM_USE_OIDC=true          - Use OIDC authentication
 #
 # Examples:
-#   ./deploy-terraform.sh init
-#   ./deploy-terraform.sh plan
-#   ./deploy-terraform.sh apply
-#   ./deploy-terraform.sh apply -target=module.jumpbox
-#   export CI=true && ./deploy-terraform.sh apply
-#   ./deploy-terraform.sh destroy
+#   ./initial-setup/infra/deploy-terraform.sh init
+#   ./initial-setup/infra/deploy-terraform.sh plan
+#   ./initial-setup/infra/deploy-terraform.sh apply
+#   ./initial-setup/infra/deploy-terraform.sh apply -target=module.jumpbox
+#   export CI=true && ./initial-setup/infra/deploy-terraform.sh apply
+#   ./initial-setup/infra/deploy-terraform.sh destroy
 # =============================================================================
 
 set -euo pipefail
@@ -44,7 +47,8 @@ set -euo pipefail
 # Configuration
 # =============================================================================
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INFRA_DIR="${SCRIPT_DIR}/infra"
+# Script is now inside infra/, so INFRA_DIR is the same as SCRIPT_DIR
+INFRA_DIR="${SCRIPT_DIR}"
 TFVARS_FILE="${INFRA_DIR}/terraform.tfvars"
 
 # Backend configuration (can be overridden by environment variables)
@@ -239,14 +243,14 @@ tf_init() {
     log_info "Initializing Terraform..."
     log_info "Backend: ${BACKEND_STORAGE_ACCOUNT}/${BACKEND_CONTAINER_NAME}/${BACKEND_STATE_KEY}"
     cd "$INFRA_DIR"
-    
-    # Remove stale lock file to avoid dependency conflicts
-    if [[ -f ".terraform.lock.hcl" ]]; then
-        log_info "Removing stale lock file..."
-        rm -f ".terraform.lock.hcl"
+
+    local init_args=()
+    # In CI we never want interactive prompts
+    if [[ "${CI:-false}" == "true" ]]; then
+        init_args+=("-input=false")
     fi
-    
-    terraform init -upgrade \
+
+    terraform init -upgrade "${init_args[@]}" \
         -backend-config="resource_group_name=${BACKEND_RESOURCE_GROUP}" \
         -backend-config="storage_account_name=${BACKEND_STORAGE_ACCOUNT}" \
         -backend-config="container_name=${BACKEND_CONTAINER_NAME}" \
@@ -264,6 +268,13 @@ ensure_initialized() {
     # Check if .terraform directory exists and lock file is valid
     if [[ ! -d ".terraform" ]] || [[ ! -f ".terraform.lock.hcl" ]]; then
         log_warning "Terraform not initialized. Running init..."
+        tf_init
+        return
+    fi
+
+    # Modules are installed under .terraform/modules; config changes can add new modules
+    if [[ ! -d ".terraform/modules" ]] || [[ -z "$(ls -A .terraform/modules 2>/dev/null)" ]]; then
+        log_warning "Terraform modules not installed. Running init..."
         tf_init
         return
     fi
@@ -310,7 +321,13 @@ tf_plan() {
 
 tf_apply() {
     log_info "Applying Terraform changes..."
-    ensure_initialized
+    # Apply should always ensure init has run because modules/providers may change.
+    # In CI we run init every time (idempotent) to avoid "Module not installed" errors.
+    if [[ "${CI:-false}" == "true" ]]; then
+        tf_init
+    else
+        ensure_initialized
+    fi
     cd "$INFRA_DIR"
     
     local apply_args=("${TFVARS_ARGS[@]}")

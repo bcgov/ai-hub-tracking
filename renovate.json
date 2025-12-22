@@ -1,0 +1,73 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "enabledManagers": ["terraform", "regex", "github-actions"],
+  "regexManagers": [
+    {
+      "fileMatch": [
+        "^initial-setup/infra/modules/self-hosted-runner-vm/variables\\.tf$"
+      ],
+      "matchStrings": [
+        "variable \\\"github_actions_runner_version\\\"[\\s\\S]*?default\\s*=\\s*\\\"(?<currentValue>[^\\\"]+)\\\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver",
+      "depNameTemplate": "actions/runner"
+    },
+    {
+      "fileMatch": [
+        "^initial-setup/infra/modules/self-hosted-runner-vm/variables\\.tf$"
+      ],
+      "matchStrings": [
+        "variable \\\"terraform_version\\\"[\\s\\S]*?default\\s*=\\s*\\\"(?<currentValue>[^\\\"]+)\\\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver",
+      "depNameTemplate": "hashicorp/terraform"
+    },
+    {
+      "fileMatch": [
+        "^initial-setup/infra/modules/self-hosted-runner-vm/variables\\.tf$"
+      ],
+      "matchStrings": [
+        "variable \\\"kubectl_version\\\"[\\s\\S]*?default\\s*=\\s*\\\"(?<currentValue>[^\\\"]+)\\\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver",
+      "depNameTemplate": "kubernetes/kubernetes"
+    },
+    {
+      "fileMatch": [
+        "^initial-setup/infra/modules/self-hosted-runner-vm/variables\\.tf$"
+      ],
+      "matchStrings": [
+        "variable \\\"helm_version\\\"[\\s\\S]*?default\\s*=\\s*\\\"(?<currentValue>[^\\\"]+)\\\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver",
+      "depNameTemplate": "helm/helm"
+    },
+    {
+      "fileMatch": [
+        "^initial-setup/infra/modules/self-hosted-runner-vm/variables\\.tf$"
+      ],
+      "matchStrings": [
+        "variable \\\"azure_cli_version\\\"[\\s\\S]*?default\\s*=\\s*\\\"(?<currentValue>[^\\\"]+)\\\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver",
+      "depNameTemplate": "Azure/azure-cli"
+    },
+    {
+      "fileMatch": [
+        "^initial-setup/infra/modules/self-hosted-runner-vm/variables\\.tf$"
+      ],
+      "matchStrings": [
+        "variable \\\"gh_cli_version\\\"[\\s\\S]*?default\\s*=\\s*\\\"(?<currentValue>[^\\\"]+)\\\""
+      ],
+      "datasourceTemplate": "github-releases",
+      "versioningTemplate": "semver",
+      "depNameTemplate": "cli/cli"
+    }
+  ]
+}
