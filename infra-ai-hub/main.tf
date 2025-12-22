@@ -181,7 +181,7 @@ resource "random_password" "secret_two" {
 }
 
 resource "azurerm_key_vault_secret" "secret_one" {
-  name            = "example-secret-one"
+  name            = "example-secret-test-one"
   value           = random_password.secret_one.result
   key_vault_id    = azurerm_key_vault.main.id
   expiration_date = "2025-12-31T23:59:59Z"
@@ -190,7 +190,7 @@ resource "azurerm_key_vault_secret" "secret_one" {
 }
 
 resource "azurerm_key_vault_secret" "secret_two" {
-  name            = "example-secret-two"
+  name            = "example-secret-test-two"
   value           = random_password.secret_two.result
   key_vault_id    = azurerm_key_vault.main.id
   expiration_date = "2025-12-31T23:59:59Z"
