@@ -439,6 +439,10 @@
             gap: 0.75rem;
         }
 
+        .alert > * {
+            min-width: 0;
+        }
+
         .alert-icon {
             font-size: 1.25rem;
             flex-shrink: 0;
@@ -707,7 +711,7 @@
                     </a>
                     <a href="terraform.html">
                         Terraform Modules
-                        <small>Network, Bastion, Jumpbox</small>
+                        <small>Network, Bastion, Jumpbox, GHA Runner</small>
                     </a>
                     <a href="workflows.html">
                         GitHub Workflows
@@ -727,8 +731,6 @@
         </nav>
     </header>
     <main>
-<!-- TITLE: Terraform Modules -->
-<!-- NAV: terraform -->
 
 <h1>Terraform Modules</h1>
 
@@ -759,6 +761,11 @@
             <td><strong>jumpbox</strong></td>
             <td>Development VM with CLI tools</td>
             <td>Linux VM, SSH Keys, Auto-shutdown</td>
+        </tr>
+        <tr>
+            <td><strong>github-runners-aca</strong></td>
+            <td>Self Hosted GitHub Actions Runners on Azure Container Apps</td>
+            <td>Container App Jobs with scale to zero, Log Analytics, ACR</td>
         </tr>
     </tbody>
 </table>
@@ -995,6 +1002,46 @@ Commands:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
+<h2>GHA Self Hosted Runner ACA Module</h2>
+
+<p>Creates a self-hosted GitHub Actions runner using Azure Container App Job with scale-to-zero capabilities.</p>
+
+<div class="card">
+    <h3>ACA Configuration</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Setting</th>
+                <th>Value</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Container Image</td>
+                <td>GitHub Actions runner image from ACR</td>
+            </tr>
+            <tr>
+                <td>CPU & Memory</td>
+                <td>1 vCPU, 2 GB RAM (configurable)</td>
+            </tr>
+            <tr>
+                <td>Scaling</td>
+                <td>Min 0, Max 2 instances</td>
+            </tr>
+            <tr>
+                <td>Environment Variables</td>
+                <td>GitHub repo/org, runner labels</td>
+            </tr>
+            <tr>
+                <td>Log Analytics</td>
+                <td>Enabled for monitoring</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 <h2>Backend Configuration</h2>
 
 <p>Terraform state is stored in Azure Blob Storage with Azure AD authentication.</p>
@@ -1086,5 +1133,65 @@ terraform {
             </div>
         </div>
     </footer>
+
+    <script>
+        (function () {
+            function scrollToWithHeaderOffset(el) {
+                if (!el) return;
+                const header = document.querySelector('.bc-header');
+                const offset = (header ? header.getBoundingClientRect().height : 0) + 16;
+
+                const top = el.getBoundingClientRect().top + window.scrollY - offset;
+                window.scrollTo({ top: Math.max(0, top) });
+            }
+
+            function openDetailsFromHash() {
+                const hash = window.location.hash;
+                if (!hash || hash.length < 2) return;
+
+                const id = hash.substring(1);
+                const el = document.getElementById(id);
+                if (el && el.tagName && el.tagName.toLowerCase() === 'details') {
+                    el.open = true;
+                    // Opening can change layout; adjust scroll after paint so the
+                    // sticky header doesn't cover the <summary> title.
+                    requestAnimationFrame(function () {
+                        requestAnimationFrame(function () {
+                            scrollToWithHeaderOffset(el);
+                        });
+                    });
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', function () {
+                openDetailsFromHash();
+            });
+
+            window.addEventListener('hashchange', function () {
+                openDetailsFromHash();
+            });
+
+            // If user clicks the same #hash twice, hashchange won't fire.
+            // This ensures ADR links always expand.
+            document.addEventListener('click', function (e) {
+                const link = e.target.closest && e.target.closest('a[href^="#"]');
+                if (!link) return;
+
+                const href = link.getAttribute('href');
+                if (!href || href.length < 2) return;
+
+                const id = href.substring(1);
+                const el = document.getElementById(id);
+                if (el && el.tagName && el.tagName.toLowerCase() === 'details') {
+                    el.open = true;
+                    requestAnimationFrame(function () {
+                        requestAnimationFrame(function () {
+                            scrollToWithHeaderOffset(el);
+                        });
+                    });
+                }
+            });
+        })();
+    </script>
 </body>
 </html>

@@ -439,6 +439,10 @@
             gap: 0.75rem;
         }
 
+        .alert > * {
+            min-width: 0;
+        }
+
         .alert-icon {
             font-size: 1.25rem;
             flex-shrink: 0;
@@ -727,8 +731,6 @@
         </nav>
     </header>
     <main>
-<!-- TITLE: FAQ -->
-<!-- NAV: faq -->
 
 <h1>Frequently Asked Questions</h1>
 
@@ -887,6 +889,7 @@
     <span class="badge badge-gold">Answered</span>
     <p>See <a href="decisions.html#adr-001">ADR-001: Shared Landing Zone</a> for the full explanation.</p>
     <p><strong>Short answer:</strong> BC Gov policy requires all Azure services to use private endpoints. GitHub-hosted runners are on the public internet and cannot reach private endpoints. Self-hosted runners inside the VNet are required.</p>
+    <p style="margin-bottom: 0;"><strong>Cost note:</strong> Runner compute is primarily usage-based (Container Apps job runtime) because the runners are configured to scale to zero when idle. See <a href="cost.html#cicd-runner-costs">Cost Tracking: CI/CD Runner Costs</a>.</p>
 </div>
 
 <div class="card">
@@ -1087,6 +1090,37 @@
                 <li>GitHub: Better integration with existing repos, but runner management overhead</li>
                 <li>Azure DevOps: Native Azure integration, but separate system to manage</li>
             </ul>
+            <div class="alert alert-info" style="margin-top: 1rem;">
+                <span class="alert-icon">💰</span>
+                <div>
+                    <strong>Cost drivers (GitHub self-hosted runners on Container Apps):</strong>
+                    <ul style="margin: 0.5rem 0 0;">
+                        <li><strong>Runner compute:</strong> billed on runtime (scale-to-zero when idle)</li>
+                        <li><strong>Sizing knobs:</strong> <code>container_cpu</code>, <code>container_memory</code>, and <code>max_runners</code> (concurrency cap)</li>
+                        <li><strong>Supporting costs:</strong> Log Analytics ingestion + ACR Premium base cost (fixed) + storage/transfer <em>(ACR private endpoints require Premium)</em></li>
+                    </ul>
+                    <p style="margin: 0.75rem 0 0;"><strong>Sample calculation (module defaults):</strong></p>
+                    <pre style="margin: 0.5rem 0 0;">Assumptions: 20 jobs/day, 10 min/job, avg concurrency = 1.5
+Monthly runner hours = 30 * 20 * (10/60) * 1.5 = 150 hours
+Total seconds = 150 * 3600 = 540,000 seconds
+
+Canada Central rates (Container Apps):
+vCPU-seconds: $0.0000480/sec
+GiB-seconds:  $0.0000057/sec
+Requests:     $0.565 per million
+
+vCPU cost = 540,000 * 1 vCPU * 0.0000480 = $25.92
+Memory cost = 540,000 * 2 GiB * 0.0000057 = $6.16
+Request cost (example 1M req/mo) = $0.57
+
+Estimated runner compute total ≈ $32.65/mo
+ACR Premium base cost = $2.351/day ≈ $70.53/mo (30-day month)
+Estimated compute + ACR base ≈ $103.18/mo (excludes Log Analytics)
+
+Assumes a single-region ACR Premium registry with no geo-replication and no connected registry</pre>
+                    <p style="margin: 0.75rem 0 0;">See <a href="cost.html#cicd-runner-costs">Cost Tracking: CI/CD Runner Costs</a> for the full breakdown.</p>
+                </div>
+            </div>
         </div>
     </details>
 
@@ -1334,5 +1368,65 @@
             </div>
         </div>
     </footer>
+
+    <script>
+        (function () {
+            function scrollToWithHeaderOffset(el) {
+                if (!el) return;
+                const header = document.querySelector('.bc-header');
+                const offset = (header ? header.getBoundingClientRect().height : 0) + 16;
+
+                const top = el.getBoundingClientRect().top + window.scrollY - offset;
+                window.scrollTo({ top: Math.max(0, top) });
+            }
+
+            function openDetailsFromHash() {
+                const hash = window.location.hash;
+                if (!hash || hash.length < 2) return;
+
+                const id = hash.substring(1);
+                const el = document.getElementById(id);
+                if (el && el.tagName && el.tagName.toLowerCase() === 'details') {
+                    el.open = true;
+                    // Opening can change layout; adjust scroll after paint so the
+                    // sticky header doesn't cover the <summary> title.
+                    requestAnimationFrame(function () {
+                        requestAnimationFrame(function () {
+                            scrollToWithHeaderOffset(el);
+                        });
+                    });
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', function () {
+                openDetailsFromHash();
+            });
+
+            window.addEventListener('hashchange', function () {
+                openDetailsFromHash();
+            });
+
+            // If user clicks the same #hash twice, hashchange won't fire.
+            // This ensures ADR links always expand.
+            document.addEventListener('click', function (e) {
+                const link = e.target.closest && e.target.closest('a[href^="#"]');
+                if (!link) return;
+
+                const href = link.getAttribute('href');
+                if (!href || href.length < 2) return;
+
+                const id = href.substring(1);
+                const el = document.getElementById(id);
+                if (el && el.tagName && el.tagName.toLowerCase() === 'details') {
+                    el.open = true;
+                    requestAnimationFrame(function () {
+                        requestAnimationFrame(function () {
+                            scrollToWithHeaderOffset(el);
+                        });
+                    });
+                }
+            });
+        })();
+    </script>
 </body>
 </html>

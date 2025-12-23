@@ -3,7 +3,7 @@
 
 <h1>Cost Tracking</h1>
 
-<p>How costs are tracked and allocated for each project in the AI Hub.</p>
+<p>⚠️ DRAFT ⚠️ How costs are tracked and allocated for each project in the AI Hub.</p>
 
 <h2>Architecture</h2>
 
@@ -58,6 +58,11 @@
         <td><strong>APIM, App Gateway, Firewall</strong></td>
         <td><span class="badge" style="background:#f59e0b;color:white;">Shared</span></td>
         <td>Entry point infrastructure</td>
+    </tr>
+    <tr>
+        <td><strong>CI/CD Runners (GitHub self-hosted)</strong></td>
+        <td><span class="badge" style="background:#f59e0b;color:white;">Shared</span></td>
+        <td>Runner platform in the VNet (Container Apps job + ACR + Log Analytics)</td>
     </tr>
 </table>
 
@@ -136,6 +141,44 @@ module "health_rag" {
         <p>APIM, Gateway, Firewall</p>
         <p style="font-size: 0.875rem; color: #64748b;">Split evenly across all projects (shared infrastructure).</p>
         <p><strong>~15% of total</strong></p>
+    </div>
+</div>
+
+<h2 id="cicd-runner-costs">CI/CD Runner Costs (Self-hosted GitHub runners)</h2>
+
+<p>Self-hosted runners run inside the VNet (required for private endpoints). This repo provisions runners as Azure Container Apps jobs (scale-to-zero) plus supporting services (ACR + Log Analytics).</p>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: #0ea5e9;">
+        <h3 style="margin-top: 0;">Cost Drivers</h3>
+        <ul style="margin-bottom: 0;">
+            <li><strong>Runner compute:</strong> Container Apps job runtime (primary driver; usage-based)</li>
+            <li><strong>Concurrency cap:</strong> <code>max_runners</code> (default 4)</li>
+            <li><strong>Sizing:</strong> <code>container_cpu</code> (default 1 vCPU) and <code>container_memory</code> (default 2Gi)</li>
+            <li><strong>Logs:</strong> Log Analytics ingestion (GB/month)</li>
+            <li><strong>Images:</strong> ACR Premium base cost (fixed) + storage/transfer <em>(Premium is required for Private Link / private endpoints)</em></li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: #22c55e;">
+        <h3 style="margin-top: 0;">Sample Calculation (module defaults)</h3>
+        <p style="margin-bottom: 0;">Assumptions: 20 jobs/day, 10 min/job, avg concurrency = 1.5</p>
+        <pre style="margin-top: 0.75rem;">Monthly runner hours = 30 * 20 * (10/60) * 1.5 = 150 hours
+    Total seconds = 150 * 3600 = 540,000 seconds
+
+    Canada Central rates (Container Apps):
+    vCPU-seconds: $0.0000480/sec
+    GiB-seconds:  $0.0000057/sec
+    Requests:     $0.565 per million
+
+    vCPU cost = 540,000 * 1 vCPU * 0.0000480 = $25.92
+    Memory cost = 540,000 * 2 GiB * 0.0000057 = $6.16
+    Request cost (example 1M req/mo) = $0.57
+
+    Estimated runner compute total ≈ $32.65/mo
+
+    ACR Premium base cost = $2.351/day ≈ $70.53/mo (30-day month)
+    Estimated compute + ACR base ≈ $103.18/mo</pre>
+        <p style="margin-bottom: 0;">Assumes a single-region ACR Premium registry with <strong>no geo-replication</strong> and <strong>no connected registry</strong>. Add Log Analytics ingestion (GB/month) and any ACR transfer/storage beyond the included 500 GB for a full estimate.</p>
     </div>
 </div>
 

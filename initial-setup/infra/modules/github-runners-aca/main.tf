@@ -7,7 +7,7 @@
 module "github_runners" {
   count   = var.enabled ? 1 : 0
   source  = "Azure/avm-ptn-cicd-agents-and-runners/azurerm"
-  version = "0.4.1"
+  version = "0.5.1"
 
   # Required inputs
   postfix                             = var.postfix
@@ -59,13 +59,13 @@ module "github_runners" {
   container_app_polling_interval_seconds = 10
   container_app_replica_timeout          = 3600 # 60 minutes max job time
 
-  log_analytics_workspace_creation_enabled = true
+  log_analytics_workspace_creation_enabled           = true
+  log_analytics_workspace_internet_ingestion_enabled = true
+  log_analytics_workspace_internet_query_enabled     = true
+  nat_gateway_creation_enabled                       = false
+  public_ip_creation_enabled                         = false
 
-  nat_gateway_creation_enabled = false
-  public_ip_creation_enabled   = false
-
-  # Disable telemetry
-  enable_telemetry = false
+  enable_telemetry = true
 
   tags = var.common_tags
 }

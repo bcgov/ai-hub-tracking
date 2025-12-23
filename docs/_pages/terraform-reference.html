@@ -4,7 +4,7 @@
 <h1>Terraform Reference</h1>
 
 <div class="alert alert-info">
-    <span class="alert-icon">ðŸ¤–</span>
+    <span class="alert-icon">🤖</span>
     <div>
         <strong>Auto-Generated Documentation</strong><br>
         This page is automatically generated from Terraform source files. Run <code>./docs/generate-tf-docs.sh</code> to update.
@@ -15,7 +15,7 @@
 
 <h2>Root Module</h2>
 <div class="card">
-<p>-------------</p>
+<p>-------------</p>
 <p><strong>Location:</strong> <code>infra/</code></p>
 <h4>Variables</h4>
 <table>
@@ -92,6 +92,78 @@
 <td><code>required</code></td>
 <td>Azure client ID for the service principal</td>
 </tr>
+<tr>
+<td><code>github_runners_aca_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable GitHub self-hosted runners on Azure Container Apps</td>
+</tr>
+<tr>
+<td><code>github_organization</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>GitHub organization name (e.g., 'bcgov')</td>
+</tr>
+<tr>
+<td><code>github_repository</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>GitHub repository name (e.g., 'ai-hub-tracking')</td>
+</tr>
+<tr>
+<td><code>github_runner_pat</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>GitHub Personal Access Token with Administration:write permission for runner registration</td>
+</tr>
+<tr>
+<td><code>github_runners_container_cpu</code></td>
+<td><code>string</code></td>
+<td><code>1</code></td>
+<td>CPU cores for each runner container</td>
+</tr>
+<tr>
+<td><code>github_runners_container_memory</code></td>
+<td><code>string</code></td>
+<td><code>2Gi</code></td>
+<td>Memory for each runner container (e.g., '4Gi')</td>
+</tr>
+<tr>
+<td><code>github_runners_max_count</code></td>
+<td><code>number</code></td>
+<td><code>4</code></td>
+<td>Maximum number of concurrent runners</td>
+</tr>
+<tr>
+<td><code>github_runners_log_analytics_workspace_creation_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Whether the GitHub runners module should create a Log Analytics workspace</td>
+</tr>
+<tr>
+<td><code>github_runners_log_analytics_workspace_id</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Existing Log Analytics workspace ID to use when workspace creation is disabled</td>
+</tr>
+<tr>
+<td><code>dev_address_spaces</code></td>
+<td><code>list(string)</code></td>
+<td><code>[]</code></td>
+<td>Address space for the dev environment of the vnet peering</td>
+</tr>
+<tr>
+<td><code>prod_address_spaces</code></td>
+<td><code>list(string)</code></td>
+<td><code>[]</code></td>
+<td>Address space for the prod environment of the vnet peering</td>
+</tr>
+<tr>
+<td><code>test_address_spaces</code></td>
+<td><code>list(string)</code></td>
+<td><code>[]</code></td>
+<td>Address space for the test environment of the vnet peering</td>
+</tr>
 </table>
 <h4>Outputs</h4>
 <table>
@@ -124,6 +196,22 @@
 <td><code>bastion_fqdn</code></td>
 <td>FQDN of the Bastion service</td>
 </tr>
+<tr>
+<td><code>github_runners_environment_name</code></td>
+<td>Name of the Container App Environment for GitHub runners</td>
+</tr>
+<tr>
+<td><code>github_runners_job_name</code></td>
+<td>Name of the Container App Job running the GitHub runner</td>
+</tr>
+<tr>
+<td><code>github_runners_label</code></td>
+<td>The label to use in workflow runs-on to target these runners</td>
+</tr>
+<tr>
+<td><code>github_runners_acr_name</code></td>
+<td>Name of the Azure Container Registry for runner images</td>
+</tr>
 </table>
 <h4>Resources Created</h4>
 <ul>
@@ -132,7 +220,7 @@
 </div>
 <h2 id="bastion">Module: bastion</h2>
 <div class="card" style="border-left-color: #8b5cf6;">
-<p>-----------------------------------------------------------------------------</p>
+<p>-----------------------------------------------------------------------------</p>
 <p><strong>Location:</strong> <code>initial-setup/infra/modules/bastion/</code></p>
 <details>
 <summary style="cursor: pointer; color: var(--bc-blue-light);">Module Files</summary>
@@ -205,9 +293,155 @@
 <li><code>azurerm_bastion_host (main)</code></li>
 </ul>
 </div>
+<h2 id="github-runners-aca">Module: github-runners-aca</h2>
+<div class="card" style="border-left-color: #8b5cf6;">
+<p>-----------------------------------------------------------------------------</p>
+<p><strong>Location:</strong> <code>initial-setup/infra/modules/github-runners-aca/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Module Files</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>providers.tf</code></li>
+<li><code>variables.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Enable or disable the GitHub runners module</td>
+</tr>
+<tr>
+<td><code>postfix</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>A postfix used to build default names for resources (e.g., 'ai-hub')</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region where resources will be deployed</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the existing resource group</td>
+</tr>
+<tr>
+<td><code>common_tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td>Common tags to apply to all resources</td>
+</tr>
+<tr>
+<td><code>github_organization</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>GitHub organization name (e.g., 'bcgov')</td>
+</tr>
+<tr>
+<td><code>github_repository</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>GitHub repository name (e.g., 'ai-hub-tracking')</td>
+</tr>
+<tr>
+<td><code>github_runner_pat</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>GitHub Personal Access Token with Administration:write permission for runner registration</td>
+</tr>
+<tr>
+<td><code>vnet_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>ID of the existing virtual network</td>
+</tr>
+<tr>
+<td><code>container_app_subnet_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>ID of the subnet for Container Apps (must be delegated to Microsoft.App/environments)</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>ID of the subnet for private endpoints (used for ACR)</td>
+</tr>
+<tr>
+<td><code>container_cpu</code></td>
+<td><code>string</code></td>
+<td><code>1</code></td>
+<td>CPU cores for each runner container (e.g., 1, 2, 4)</td>
+</tr>
+<tr>
+<td><code>container_memory</code></td>
+<td><code>string</code></td>
+<td><code>2Gi</code></td>
+<td>Memory for each runner container (e.g., '4Gi')</td>
+</tr>
+<tr>
+<td><code>max_runners</code></td>
+<td><code>number</code></td>
+<td><code>4</code></td>
+<td>Maximum number of concurrent runners</td>
+</tr>
+<tr>
+<td><code>log_analytics_workspace_creation_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Whether the AVM runner module should create a Log Analytics workspace</td>
+</tr>
+<tr>
+<td><code>log_analytics_workspace_id</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Existing Log Analytics workspace ID to use when creation is disabled</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>container_app_environment_name</code></td>
+<td>Name of the Container App Environment</td>
+</tr>
+<tr>
+<td><code>container_app_environment_id</code></td>
+<td>Resource ID of the Container App Environment</td>
+</tr>
+<tr>
+<td><code>container_app_job_name</code></td>
+<td>Name of the Container App Job running the GitHub runner</td>
+</tr>
+<tr>
+<td><code>container_app_job_id</code></td>
+<td>Resource ID of the Container App Job</td>
+</tr>
+<tr>
+<td><code>container_registry_name</code></td>
+<td>Name of the Azure Container Registry</td>
+</tr>
+<tr>
+<td><code>container_registry_login_server</code></td>
+<td>Login server URL of the Azure Container Registry</td>
+</tr>
+<tr>
+<td><code>runner_label</code></td>
+<td>The label to use in workflow runs-on to target these runners (use just 'self-hosted' for AVM-based runners)</td>
+</tr>
+</table>
+</div>
 <h2 id="jumpbox">Module: jumpbox</h2>
 <div class="card" style="border-left-color: #8b5cf6;">
-<p>-----------------------------------------------------------------------------</p>
+<p>-----------------------------------------------------------------------------</p>
 <p><strong>Location:</strong> <code>initial-setup/infra/modules/jumpbox/</code></p>
 <details>
 <summary style="cursor: pointer; color: var(--bc-blue-light);">Module Files</summary>
@@ -430,6 +664,24 @@
 <td><code>AzureBastionSubnet</code></td>
 <td>Name of the subnet for Azure Bastion (must be AzureBastionSubnet)</td>
 </tr>
+<tr>
+<td><code>dev_address_spaces</code></td>
+<td><code>list(string)</code></td>
+<td><code>[]</code></td>
+<td>Address space for the dev environment of the vnet peering</td>
+</tr>
+<tr>
+<td><code>prod_address_spaces</code></td>
+<td><code>list(string)</code></td>
+<td><code>[]</code></td>
+<td>Address space for the prod environment of the vnet peering</td>
+</tr>
+<tr>
+<td><code>test_address_spaces</code></td>
+<td><code>list(string)</code></td>
+<td><code>[]</code></td>
+<td>Address space for the test environment of the vnet peering</td>
+</tr>
 </table>
 <h4>Outputs</h4>
 <table>
@@ -534,7 +786,7 @@
 </ol>
 
 <div class="alert alert-warning">
-    <span class="alert-icon">ðŸ’¡</span>
+    <span class="alert-icon">💡</span>
     <div>
         <strong>Tip:</strong> The documentation generator runs automatically during the docs build process. Simply add your module and push to main.
     </div>

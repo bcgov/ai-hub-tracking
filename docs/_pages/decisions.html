@@ -147,9 +147,9 @@ details.adr.pending[open] summary {
     </tr>
     <tr>
         <td><a href="#adr-006">ADR-006</a></td>
-        <td>Multi-Tenant Isolation Model</td>
-        <td><span class="badge badge-blue">Policy</span></td>
-        <td><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></td>
+        <td>Terraform as Infrastructure as Code (IaC)</td>
+        <td><span class="badge" style="background:#22c55e;color:white;">Choice</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
     </tr>
     <tr>
         <td><a href="#adr-007">ADR-007</a></td>
@@ -167,6 +167,12 @@ details.adr.pending[open] summary {
         <td><a href="#adr-009">ADR-009</a></td>
         <td>Why AI Landing Zone vs Custom Solution</td>
         <td><span class="badge" style="background:#22c55e;color:white;">Choice</span></td>
+        <td><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></td>
+    </tr>
+    <tr>
+        <td><a href="#adr-010">ADR-010</a></td>
+        <td>Multi-Tenant Isolation Model</td>
+        <td><span class="badge badge-blue">Policy</span></td>
         <td><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></td>
     </tr>
 </table>
@@ -254,7 +260,7 @@ details.adr.pending[open] summary {
 <h3>How Terraform Actually Runs</h3>
 
 <div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
-<pre style="background: var(--bc-blue-dark); margin: 0;">
+<pre style="background: var(--bc-blue-dark); margin: 0; padding: 1rem; overflow-x: auto;">
 ┌─────────────────────────────────────────────────────────────────────────┐
 │                         DEPLOYMENT FLOW                                 │
 ├─────────────────────────────────────────────────────────────────────────┤
@@ -264,8 +270,8 @@ details.adr.pending[open] summary {
 │                           │                                             │
 │   ┌──────────────┐        │    ┌──────────────┐    ┌─────────────────┐  │
 │   │ Workflow     │        │    │ Self-Hosted  │    │ Private         │  │
-│   │ Triggers     │───OIDC────▶│ Runner       │───▶│ Endpoints       │  │
-│   │              │  Token  │    │ (in VNet)   │    │ (Storage, KV)   │  │
+│   │ Triggers     │OIDC ─▶│ Runner       │───▶│     | Endpoints       │  │
+│   │              │        │    │ (in VNet)    │    │ (Storage, KV)   │  │
 │   └──────────────┘        │    └──────────────┘    └─────────────────┘  │
 │                           │           │                                 │
 │                           │           ▼                                 │
@@ -291,6 +297,36 @@ details.adr.pending[open] summary {
             <li>Full access to private endpoints</li>
             <li>Vnet peering is enabled in spoke VNets for tools to deploy to dev/test/prod</li>
         </ul>
+        <div class="alert alert-info" style="margin-top: 1rem;">
+            <span class="alert-icon">💰</span>
+            <div>
+                <strong>Cost drivers (from the runner Terraform module):</strong>
+                <ul style="margin: 0.5rem 0 0;">
+                    <li><strong>Runner compute:</strong> Azure Container Apps job runtime (scales to zero when idle)</li>
+                    <li><strong>Sizing knobs:</strong> <code>container_cpu</code> (default 1 vCPU), <code>container_memory</code> (default 2Gi), concurrency capped by <code>max_runners</code> (default 4)</li>
+                    <li><strong>Supporting costs:</strong> Log Analytics ingestion + ACR Premium base cost (fixed) + storage/transfer <em>(ACR private endpoints require Premium)</em></li>
+                </ul>
+                <p style="margin: 0.75rem 0 0;"><strong>Sample usage calculation (units-first):</strong></p>
+                <pre style="margin: 0.5rem 0 0;">Assumptions: 20 jobs/day, 10 min/job, avg concurrency = 1.5
+Monthly runner hours = 30 * 20 * (10/60) * 1.5 = 150 hours
+Total seconds = 150 * 3600 = 540,000 seconds
+
+Canada Central rates (Container Apps):
+vCPU-seconds: $0.0000480/sec
+GiB-seconds:  $0.0000057/sec
+Requests:     $0.565 per million
+
+vCPU cost = 540,000 * 1 vCPU * 0.0000480 = $25.92
+Memory cost = 540,000 * 2 GiB * 0.0000057 = $6.16
+Request cost (example 1M req/mo) = $0.57
+
+Estimated runner compute total ≈ $32.65/mo
+ACR Premium base cost = $2.351/day ≈ $70.53/mo (30-day month)
+Estimated compute + ACR base ≈ $103.18/mo (excludes Log Analytics)
+
+Assumes a single-region ACR Premium registry with no geo-replication and no connected registry</pre>
+            </div>
+        </div>
         <p style="margin-bottom:0;color:#22c55e;"><strong>Recommended and Used for CI/CD</strong></p>
     </div>
     <div class="card" style="border-left-color: #0ea5e9;">
@@ -389,7 +425,7 @@ details.adr.pending[open] summary {
         <td><strong>GitHub Actions (CI/CD)</strong></td>
         <td>Self-hosted runners inside VNet → Private Endpoints</td>
         <td><span class="badge" style="background:#22c55e;color:white;">None</span></td>
-        <td>Runners are VMs inside our VNet. They access Azure resources via private IPs directly.</td>
+        <td>Self Hosted Runners are container jobs running inside Azure Container Apps inside our VNet. They access Azure resources via private endpoints directly.</td>
     </tr>
 </table>
 
@@ -405,13 +441,12 @@ details.adr.pending[open] summary {
         </ul>
     </div>
     <div class="card" style="border-left-color: #0078d4;">
-        <h4 style="margin-top: 0; color: #0078d4;">Why App Gateway + APIM are Internal</h4>
-        <p>App Gateway and APIM have <strong>private IPs only</strong>. They're reachable because:</p>
+        <h4 style="margin-top: 0; color: #0078d4;">Why APIM is Internal</h4>
+        <p>APIM  is internal only <strong> for security purposes.</strong> APIM is reachable via App gateway :</p>
         <ul style="margin-bottom: 0;">
             <li>ExpressRoute connects Gov Network → Azure VNet</li>
-            <li>App Gateway listens on internal VNet IP</li>
-            <li>Gov users can reach internal IPs via ExpressRoute</li>
-            <li>No public internet exposure needed</li>
+            <li>App Gateway acts as TCP layer 4 load balancer and proxy to APIM with strong WAF protection.</li>
+            <li>Gov users can reach internal IPs via ExpressRoute if needed with proper Firewall rules in place.</li>
         </ul>
     </div>
 </div>
@@ -431,14 +466,14 @@ details.adr.pending[open] summary {
 │  │ Users        │  │    │         NOT public internet!                     ││
 │  └──────────────┘  │    └──────────────────────────────────────────────────┘│
 └────────────────────┼────────────────────────────────────────────────────────┘
-                     │
+                     │ Firewall Rules (Allowed Traffic)
                      ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
 │                           Azure (Private VNet)                              │
 │                                                                             │
 │  ┌────────────────┐    ┌────────────────┐    ┌────────────────────────────┐ │
-│  │  App Gateway   │───▶│     APIM       │───▶│   Private Endpoints       │ │
-│  │  (Internal IP) │    │  (Internal IP) │    │   (Storage, OpenAI, etc.)  │ │
+│  │  App Gateway   │───▶│     APIM       │───▶│   Private Endpoints        │ │
+│  │  (Public IP)   │    │  (Internal IP) │    │   (Storage, OpenAI, etc.)  │ │
 │  └────────────────┘    └────────────────┘    └────────────────────────────┘ │
 │         ▲                                                                   │
 │         │                                                                   │
@@ -447,7 +482,7 @@ details.adr.pending[open] summary {
 │  ════════════════════════════════════════════════════════════════════════   │
 │                                                                             │
 │  ┌────────────────┐    ┌────────────────┐                                   │
-│  │    BASTION     │─▶ │   Jumpbox VM   │    ◀── Only Bastion has public IP │
+│  │    BASTION     │─▶ │   Jumpbox VM   │    ◀── Only Bastion has public IP  │
 │  │  (PUBLIC IP)   │    │  (Private IP)  │        (for admin access)         │
 │  └────────────────┘    └────────────────┘                                   │
 │         ▲                                                                   │
@@ -736,8 +771,8 @@ details.adr.pending[open] summary {
     </tr>
     <tr>
         <td>App Gateway</td>
-        <td><span class="badge" style="background:#22c55e;color:white;">No (internal)</span></td>
-        <td>Receives traffic from ExpressRoute (on-premises), not public internet. Internal listener only.</td>
+        <td><span class="badge" style="background:#22c55e;color:white;">Yes</span></td>
+        <td>Receives traffic from  public internet with WAF (Web Application Firewall).</td>
     </tr>
     <tr>
         <td>APIM</td>
@@ -878,7 +913,6 @@ details.adr.pending[open] summary {
     <h4 style="margin-top: 0;">What Policy Prohibits</h4>
     <ul style="margin-bottom: 0;">
         <li>Public endpoints on any Azure service</li>
-        <li>Storage accounts accessible from internet</li>
         <li>Key Vaults with public network access</li>
         <li>Databases with public connectivity</li>
         <li>Any service reachable without VNet integration</li>
@@ -910,11 +944,6 @@ details.adr.pending[open] summary {
         <th>Service</th>
         <th>Private Endpoint</th>
         <th>DNS Zone (Platform Services)</th>
-    </tr>
-    <tr>
-        <td>Storage Account (Terraform State)</td>
-        <td><code>privateEndpoint-blob</code></td>
-        <td><code>privatelink.blob.core.windows.net</code></td>
     </tr>
     <tr>
         <td>Key Vault (if used)</td>
@@ -1050,174 +1079,102 @@ details.adr.pending[open] summary {
 </details>
 
 <!-- ADR-006 -->
-<details class="adr pending" id="adr-006">
+<details class="adr" id="adr-006">
 <summary>
-    <span class="adr-title">ADR-006: Multi-Tenant Isolation Model</span>
-    <span class="adr-status"><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></span>
+    <span class="adr-title">ADR-006: Terraform as Infrastructure as Code (IaC)</span>
+    <span class="adr-status"><span class="badge badge-gold">Accepted</span></span>
 </summary>
 <div class="adr-content">
 
 <div class="grid grid-4" style="margin-bottom: 1rem;">
-    <div><strong>Status:</strong> <span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></div>
+    <div><strong>Status:</strong> Accepted</div>
     <div><strong>Date:</strong> 2025-12</div>
-    <div><strong>Driver:</strong> <span class="badge badge-blue">Policy Required</span></div>
-    <div><strong>Category:</strong> Architecture</div>
+    <div><strong>Driver:</strong> <span class="badge" style="background:#22c55e;color:white;">Choice</span></div>
+    <div><strong>Category:</strong> Infrastructure</div>
 </div>
 
 <h3>Context</h3>
 
-<div class="alert alert-warning">
-    <span class="alert-icon">🏛️</span>
-    <div>
-        <strong>Policy Driver:</strong> BC Gov requires strict data isolation between ministries. Each ministry's data must be logically separated, with access controls preventing cross-ministry data exposure. The AI Hub serves multiple ministries (Health, SDPR, Justice, etc.) from shared infrastructure.
-    </div>
-</div>
+<p>This repo needs a repeatable, auditable way to provision and update Azure infrastructure (networking, private endpoints, RBAC, diagnostics, and PaaS services) under BC Government policy constraints.</p>
 
-<p>The AI Hub Landing Zone is designed to serve multiple BC Government ministries from a single shared infrastructure deployment. This creates a multi-tenancy challenge: how do we provide cost-efficient shared services while ensuring strict data isolation between ministries?</p>
+<p>Given the Landing Zone design (private endpoints, limited portal use, and CI/CD execution from within the VNet), we need Infrastructure as Code that supports:</p>
+<ul>
+    <li>Idempotent, reviewable changes (pull requests as the change record)</li>
+    <li>Policy-driven patterns (private endpoints, NSGs, diagnostics settings)</li>
+    <li>Composable modules (prefer Azure Verified Modules where possible)</li>
+    <li>Automation via GitHub Actions using OIDC and self-hosted runners</li>
+</ul>
 
-<h3>The Problem: Shared Infrastructure, Isolated Data</h3>
+<h3>Options Considered</h3>
 
 <div class="grid grid-2">
-    <div class="card" style="border-left-color: #ef4444;">
-        <h4 style="margin-top: 0;">What We Cannot Do</h4>
+    <div class="card" style="border-left-color: #22c55e;">
+        <h4 style="margin-top: 0;">Terraform (selected)</h4>
         <ul style="margin-bottom: 0;">
-            <li>Allow Ministry A to access Ministry B's documents</li>
-            <li>Share AI search indexes across ministries</li>
-            <li>Use single storage accounts for all ministry data</li>
-            <li>Allow cross-ministry API access without authorization</li>
+            <li>Large ecosystem and Azure provider support</li>
+            <li>Strong module approach (including AVM for Terraform)</li>
+            <li>Works well in CI/CD and supports multi-environment workflows</li>
         </ul>
     </div>
-    <div class="card" style="border-left-color: #22c55e;">
-        <h4 style="margin-top: 0;">What We Can Share</h4>
+    <div class="card">
+        <h4 style="margin-top: 0;">Alternatives</h4>
         <ul style="margin-bottom: 0;">
-            <li>Network infrastructure (VNets, Bastion, NSGs)</li>
-            <li>Compute resources (AI Foundry, AKS clusters)</li>
-            <li>Ingress layer (App Gateway, APIM)</li>
-            <li>Monitoring and logging infrastructure</li>
+            <li>Bicep / ARM templates</li>
+            <li>Pulumi</li>
+            <li>Portal-based configuration (click-ops)</li>
         </ul>
     </div>
 </div>
 
 <h3>Decision</h3>
 
-<p><strong>We implement a four-layer isolation model:</strong></p>
+<p><strong>We use Terraform as the primary Infrastructure as Code (IaC) tool for this repo.</strong></p>
 
-<div class="grid grid-2">
-    <div class="card" style="border-left-color: var(--bc-gold);">
-        <h4 style="margin-top: 0;">1. Storage Isolation</h4>
-        <p><strong>Separate storage accounts per ministry</strong></p>
-        <ul style="margin-bottom: 0;">
-            <li>Each ministry gets dedicated blob containers</li>
-            <li>Azure RBAC restricts access to ministry principals</li>
-            <li>Private endpoints per storage account</li>
-            <li>Encryption keys can be ministry-specific (CMK)</li>
-        </ul>
-    </div>
-    <div class="card" style="border-left-color: var(--bc-gold);">
-        <h4 style="margin-top: 0;">2. AI Search Index Isolation</h4>
-        <p><strong>Separate search indexes per ministry</strong></p>
-        <ul style="margin-bottom: 0;">
-            <li>Each ministry's documents indexed separately</li>
-            <li>RAG queries scoped to ministry index only</li>
-            <li>No cross-index queries permitted</li>
-            <li>Index-level access control via Azure RBAC</li>
-        </ul>
-    </div>
-    <div class="card" style="border-left-color: var(--bc-blue);">
-        <h4 style="margin-top: 0;">3. API Isolation (APIM)</h4>
-        <p><strong>APIM subscriptions per ministry</strong></p>
-        <ul style="margin-bottom: 0;">
-            <li>Unique subscription keys per ministry</li>
-            <li>Rate limiting scoped to subscription</li>
-            <li>API policies enforce ministry context</li>
-            <li>Audit logging includes ministry identifier</li>
-        </ul>
-    </div>
-    <div class="card" style="border-left-color: var(--bc-blue);">
-        <h4 style="margin-top: 0;">4. Network Isolation (NSGs)</h4>
-        <p><strong>Network policies enforce boundaries</strong></p>
-        <ul style="margin-bottom: 0;">
-            <li>NSG rules restrict subnet-to-subnet traffic</li>
-            <li>Private endpoints isolated by ministry where needed</li>
-            <li>No direct cross-ministry network paths</li>
-            <li>All traffic routed through controlled ingress</li>
-        </ul>
-    </div>
-</div>
+<h3>Rationale</h3>
 
-<h3>Implementation Architecture</h3>
-
-<div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
-<pre style="background: var(--bc-blue-dark); margin: 0;">
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                      MULTI-TENANT ISOLATION MODEL                            │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                              │
-│   Ministry Health        Ministry SDPR         Ministry Justice             │
-│   ┌─────────────┐       ┌─────────────┐       ┌─────────────┐              │
-│   │ APIM Sub: H │       │ APIM Sub: S │       │ APIM Sub: J │              │
-│   └──────┬──────┘       └──────┬──────┘       └──────┬──────┘              │
-│          │                     │                     │                      │
-│          ▼                     ▼                     ▼                      │
-│   ┌─────────────────────────────────────────────────────────────┐          │
-│   │              Shared APIM (Policy Enforcement)                │          │
-│   │         (validates subscription → routes to ministry)        │          │
-│   └─────────────────────────────────────────────────────────────┘          │
-│          │                     │                     │                      │
-│          ▼                     ▼                     ▼                      │
-│   ┌─────────────┐       ┌─────────────┐       ┌─────────────┐              │
-│   │ Storage: H  │       │ Storage: S  │       │ Storage: J  │              │
-│   │ Index: H    │       │ Index: S    │       │ Index: J    │              │
-│   └─────────────┘       └─────────────┘       └─────────────┘              │
-│                                                                              │
-│   ════════════════════════════════════════════════════════════════          │
-│                    Shared Infrastructure Layer                               │
-│        (VNet, Bastion, AI Foundry Compute, Monitoring)                      │
-│   ════════════════════════════════════════════════════════════════          │
-│                                                                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-</pre>
-</div>
+<ul>
+    <li><strong>Fits Landing Zone operations:</strong> Terraform runs cleanly on self-hosted runners inside the VNet, allowing data-plane access to private endpoints when required.</li>
+    <li><strong>Standardization via modules:</strong> We can prefer Azure Verified Modules (AVM) for consistent, policy-aligned deployments.</li>
+    <li><strong>Auditable change control:</strong> Plans and applies can be gated by pull request review and CI checks.</li>
+    <li><strong>Multi-environment support:</strong> Variables and modules make it straightforward to deploy dev/test/prod consistently.</li>
+    <li><strong>Sustainability:</strong> Terraform's widespread adoption ensures long-term community and vendor support. Team members working across AWS, Azure, and OpenShift can use one IaC tool consistently across the stack</li>
+</ul>
 
 <h3>Consequences</h3>
 
 <h4>Positive</h4>
 <ul>
-    <li><strong>Strong data isolation</strong> - Ministry data never co-mingled</li>
-    <li><strong>Cost efficiency</strong> - Shared compute and network infrastructure</li>
-    <li><strong>Audit compliance</strong> - Clear ministry attribution in all logs</li>
-    <li><strong>Scalable onboarding</strong> - New ministries get isolated resources automatically</li>
-    <li><strong>Flexible isolation levels</strong> - Can increase isolation (dedicated compute) if needed</li>
+    <li><strong>Repeatable deployments</strong> - Same inputs produce the same infrastructure</li>
+    <li><strong>Versioned infrastructure</strong> - Git history becomes the change log</li>
+    <li><strong>Policy-aligned defaults</strong> - Modules can encode private endpoint and logging patterns</li>
 </ul>
 
 <h4>Negative</h4>
 <ul>
-    <li><strong>Resource multiplication</strong> - Each ministry needs separate storage/indexes</li>
-    <li><strong>Complexity</strong> - More resources to manage and monitor</li>
-    <li><strong>Cost per ministry</strong> - Base cost increases with each ministry onboarded</li>
+    <li><strong>Learning curve</strong> - Contributors must understand Terraform workflows</li>
+    <li><strong>State management</strong> - Requires careful backend configuration and access controls</li>
+    <li><strong>Upgrades</strong> - Provider/module version bumps require ongoing maintenance</li>
 </ul>
 
-<h3>Cost Tracking</h3>
-
-<p>Multi-tenant isolation also enables per-tenant cost tracking and chargeback. See the detailed cost allocation strategy:</p>
-
-<div class="img-container">
-    <a href="cost.html">
-        <img src="assets/cost-tracking-architecture.svg" alt="Multi-Tenant Cost Tracking Architecture" style="max-width: 100%; cursor: pointer;">
-    </a>
-    <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">Click diagram to view full Cost Tracking documentation</p>
-</div>
+<h4>Mitigations</h4>
+<ul>
+    <li>Use pinned module versions and keep provider versions explicit</li>
+    <li>Use CI to run <code>terraform fmt</code>, <code>terraform validate</code>, and plans</li>
+    <li>Prefer AVM modules over custom resources where feasible</li>
+</ul>
 
 <h3>References</h3>
 <ul>
-    <li><a href="cost.html">Cost Tracking Documentation</a> - Full cost allocation strategy</li>
-    <li><a href="diagrams.html#multi-tenant">Multi-Tenant Isolation Diagram</a></li>
-    <li><a href="https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/overview">Azure Multi-Tenant Architecture Guide</a></li>
-    <li><a href="diagrams.html#data-flow">AI Request Data Flow Diagram</a></li>
+    <li><a href="terraform.html">Terraform Guide</a> - How this repo uses Terraform</li>
+    <li><a href="terraform-reference.html">Terraform Reference</a> - Conventions and examples</li>
+    <li><a href="https://developer.hashicorp.com/terraform">Terraform Documentation</a></li>
+    <li><a href="https://azure.github.io/Azure-Verified-Modules/indexes/terraform/">Azure Verified Modules (Terraform index)</a></li>
 </ul>
 
 </div>
 </details>
+
+
 
 <!-- ADR-007 -->
 <details class="adr pending" id="adr-007">
@@ -1397,7 +1354,7 @@ details.adr.pending[open] summary {
 <h4>Mitigations</h4>
 <ul>
     <li>Latency is typically &lt;10ms additional per hop</li>
-    <li>Costs are shared across all ministries (per <a href="#adr-006">ADR-006</a>)</li>
+    <li>Costs are shared across all ministries (per <a href="#adr-010">ADR-010</a>)</li>
     <li>Infrastructure-as-code manages complexity</li>
 </ul>
 
@@ -1996,13 +1953,181 @@ module "storage" {
 
 </div>
 </details>
+<!-- ADR-010 -->
+<details class="adr pending" id="adr-010">
+<summary>
+    <span class="adr-title">ADR-010: Multi-Tenant Isolation Model</span>
+    <span class="adr-status"><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></span>
+</summary>
+<div class="adr-content">
 
+<div class="grid grid-4" style="margin-bottom: 1rem;">
+    <div><strong>Status:</strong> <span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></div>
+    <div><strong>Date:</strong> 2025-12</div>
+    <div><strong>Driver:</strong> <span class="badge badge-blue">Policy Required</span></div>
+    <div><strong>Category:</strong> Architecture</div>
+</div>
+
+<h3>Context</h3>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">🏛️</span>
+    <div>
+        <strong>Policy Driver:</strong> BC Gov requires strict data isolation between ministries. Each ministry's data must be logically separated, with access controls preventing cross-ministry data exposure. The AI Hub serves multiple ministries (Health, SDPR, Justice, etc.) from shared infrastructure.
+    </div>
+</div>
+
+<p>The AI Hub Landing Zone is designed to serve multiple BC Government ministries from a single shared infrastructure deployment. This creates a multi-tenancy challenge: how do we provide cost-efficient shared services while ensuring strict data isolation between ministries?</p>
+
+<h3>The Problem: Shared Infrastructure, Isolated Data</h3>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: #ef4444;">
+        <h4 style="margin-top: 0;">What We Cannot Do</h4>
+        <ul style="margin-bottom: 0;">
+            <li>Allow Ministry A to access Ministry B's documents</li>
+            <li>Share AI search indexes across ministries</li>
+            <li>Use single storage accounts for all ministry data</li>
+            <li>Allow cross-ministry API access without authorization</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: #22c55e;">
+        <h4 style="margin-top: 0;">What We Can Share</h4>
+        <ul style="margin-bottom: 0;">
+            <li>Network infrastructure (VNets, Bastion, NSGs)</li>
+            <li>Compute resources (AI Foundry, AKS clusters)</li>
+            <li>Ingress layer (App Gateway, APIM)</li>
+            <li>Monitoring and logging infrastructure</li>
+        </ul>
+    </div>
+</div>
+
+<h3>Decision</h3>
+
+<p><strong>We implement a four-layer isolation model:</strong></p>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: var(--bc-gold);">
+        <h4 style="margin-top: 0;">1. Storage Isolation</h4>
+        <p><strong>Separate storage accounts per ministry</strong></p>
+        <ul style="margin-bottom: 0;">
+            <li>Each ministry gets dedicated blob containers</li>
+            <li>Azure RBAC restricts access to ministry principals</li>
+            <li>Private endpoints per storage account</li>
+            <li>Encryption keys can be ministry-specific (CMK)</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: var(--bc-gold);">
+        <h4 style="margin-top: 0;">2. AI Search Index Isolation</h4>
+        <p><strong>Separate search indexes per ministry</strong></p>
+        <ul style="margin-bottom: 0;">
+            <li>Each ministry's documents indexed separately</li>
+            <li>RAG queries scoped to ministry index only</li>
+            <li>No cross-index queries permitted</li>
+            <li>Index-level access control via Azure RBAC</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: var(--bc-blue);">
+        <h4 style="margin-top: 0;">3. API Isolation (APIM)</h4>
+        <p><strong>APIM subscriptions per ministry</strong></p>
+        <ul style="margin-bottom: 0;">
+            <li>Unique subscription keys per ministry</li>
+            <li>Rate limiting scoped to subscription</li>
+            <li>API policies enforce ministry context</li>
+            <li>Audit logging includes ministry identifier</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: var(--bc-blue);">
+        <h4 style="margin-top: 0;">4. Network Isolation (NSGs)</h4>
+        <p><strong>Network policies enforce boundaries</strong></p>
+        <ul style="margin-bottom: 0;">
+            <li>NSG rules restrict subnet-to-subnet traffic</li>
+            <li>Private endpoints isolated by ministry where needed</li>
+            <li>No direct cross-ministry network paths</li>
+            <li>All traffic routed through controlled ingress</li>
+        </ul>
+    </div>
+</div>
+
+<h3>Implementation Architecture</h3>
+
+<div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
+<pre style="background: var(--bc-blue-dark); margin: 0;">
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                      MULTI-TENANT ISOLATION MODEL                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   Ministry Health        Ministry SDPR         Ministry Justice             │
+│   ┌─────────────┐       ┌─────────────┐       ┌─────────────┐              │
+│   │ APIM Sub: H │       │ APIM Sub: S │       │ APIM Sub: J │              │
+│   └──────┬──────┘       └──────┬──────┘       └──────┬──────┘              │
+│          │                     │                     │                      │
+│          ▼                     ▼                     ▼                      │
+│   ┌─────────────────────────────────────────────────────────────┐          │
+│   │              Shared APIM (Policy Enforcement)                │          │
+│   │         (validates subscription → routes to ministry)        │          │
+│   └─────────────────────────────────────────────────────────────┘          │
+│          │                     │                     │                      │
+│          ▼                     ▼                     ▼                      │
+│   ┌─────────────┐       ┌─────────────┐       ┌─────────────┐              │
+│   │ Storage: H  │       │ Storage: S  │       │ Storage: J  │              │
+│   │ Index: H    │       │ Index: S    │       │ Index: J    │              │
+│   └─────────────┘       └─────────────┘       └─────────────┘              │
+│                                                                              │
+│   ════════════════════════════════════════════════════════════════          │
+│                    Shared Infrastructure Layer                               │
+│        (VNet, Bastion, AI Foundry Compute, Monitoring)                      │
+│   ════════════════════════════════════════════════════════════════          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<h3>Consequences</h3>
+
+<h4>Positive</h4>
+<ul>
+    <li><strong>Strong data isolation</strong> - Ministry data never co-mingled</li>
+    <li><strong>Cost efficiency</strong> - Shared compute and network infrastructure</li>
+    <li><strong>Audit compliance</strong> - Clear ministry attribution in all logs</li>
+    <li><strong>Scalable onboarding</strong> - New ministries get isolated resources automatically</li>
+    <li><strong>Flexible isolation levels</strong> - Can increase isolation (dedicated compute) if needed</li>
+</ul>
+
+<h4>Negative</h4>
+<ul>
+    <li><strong>Resource multiplication</strong> - Each ministry needs separate storage/indexes</li>
+    <li><strong>Complexity</strong> - More resources to manage and monitor</li>
+    <li><strong>Cost per ministry</strong> - Base cost increases with each ministry onboarded</li>
+</ul>
+
+<h3>Cost Tracking</h3>
+
+<p>Multi-tenant isolation also enables per-tenant cost tracking and chargeback. See the detailed cost allocation strategy:</p>
+
+<div class="img-container">
+    <a href="cost.html">
+        <img src="assets/cost-tracking-architecture.svg" alt="Multi-Tenant Cost Tracking Architecture" style="max-width: 100%; cursor: pointer;">
+    </a>
+    <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">Click diagram to view full Cost Tracking documentation</p>
+</div>
+
+<h3>References</h3>
+<ul>
+    <li><a href="cost.html">Cost Tracking Documentation</a> - Full cost allocation strategy</li>
+    <li><a href="diagrams.html#multi-tenant">Multi-Tenant Isolation Diagram</a></li>
+    <li><a href="https://learn.microsoft.com/en-us/azure/architecture/guide/multitenant/overview">Azure Multi-Tenant Architecture Guide</a></li>
+    <li><a href="diagrams.html#data-flow">AI Request Data Flow Diagram</a></li>
+</ul>
+
+</div>
+</details>
 <h2>ADR Template</h2>
 
 <p>Use this template when adding new ADRs:</p>
 
 <div class="card" style="background: var(--bg-light);">
-<pre style="background: transparent; box-shadow: none; margin: 0;">## ADR-XXX: [Title]
+<pre style="background: transparent; box-shadow: none; margin: 0; color: var(--text-primary);">## ADR-XXX: [Title]
 
 **Status:** [Proposed | Accepted | Deprecated | Superseded]
 **Date:** YYYY-MM
