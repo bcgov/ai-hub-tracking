@@ -200,3 +200,4 @@ Never hardcode storage account names or keys.
 3. **Add descriptions** - Every variable needs a description
 4. **Test locally** - Run `./initial-setup/infra/deploy-terraform.sh plan` before pushing
 5. **Format code** - Run `terraform fmt` and check shell scripts with shellcheck
+6. **Document changes** - Update README.md or docs as needed. MAKE SURE THE referencec docs in the docs folder at the root of the repo are updated if there are any changes to infra or networking.

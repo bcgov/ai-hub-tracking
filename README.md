@@ -102,10 +102,10 @@ ai-hub-tracking/
 Bootstrap directory for one-time environment setup. Contains the main setup automation script and foundational Terraform infrastructure.
 
 - **initial-azure-setup.sh**: Orchestrates Azure infrastructure setup
-  - Creates user-assigned managed identity
+  - Creates user-assigned managed identity with vault access for data plane requests
   - Configures OIDC federated credentials
-  - Establishes Terraform state storage
-  - Optionally deploys initial infrastructure via Terraform
+  - Establishes Terraform state storage on azure blob.
+  - Optionally deploys initial infrastructure via Terraform after user consent.
   
 - **infra/**: Terraform configurations for foundational resources
   - **network**: VNet subnets, NSGs, security boundaries
