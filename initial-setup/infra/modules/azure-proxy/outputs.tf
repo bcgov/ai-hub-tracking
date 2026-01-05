@@ -1,6 +1,6 @@
 output "proxy_url" {
   description = "The URL of the Azure Proxy App Service"
-  value       = azurerm_linux_web_app.azure_proxy.default_hostname
+  value       = "https://${azurerm_linux_web_app.azure_proxy.default_hostname}"
 }
 
 output "proxy_auth" {

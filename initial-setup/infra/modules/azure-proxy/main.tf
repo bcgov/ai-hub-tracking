@@ -18,9 +18,14 @@ resource "random_password" "proxy_chisel_password" {
   length  = 32
   special = false
 }
+resource "random_string" "proxy_dns_suffix" {
+  length  = 24
+  special = false
+  upper   = false
+}
 
 resource "azurerm_linux_web_app" "azure_proxy" {
-  name                      = "${var.app_name}-azure-proxy"
+  name                      = "${var.app_name}-${var.app_env}-azure-proxy-${random_string.proxy_dns_suffix.result}"
   resource_group_name       = var.resource_group_name
   location                  = var.location
   service_plan_id           = azurerm_service_plan.azure_proxy_asp.id

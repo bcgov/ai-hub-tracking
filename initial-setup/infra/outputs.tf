@@ -66,6 +66,7 @@ output "github_runners_acr_name" {
 output "proxy_url" {
   description = "URL of the Azure Proxy service"
   value       = var.enable_azure_proxy ? module.azure_proxy[0].proxy_url : null
+  sensitive   = true
 }
 output "proxy_auth" {
   description = "Authentication info for the Azure Proxy service"
