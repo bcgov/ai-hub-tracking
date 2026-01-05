@@ -67,5 +67,11 @@ jobs:
           TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           TF_VAR_azure_proxy_image: ghcr.io/${{ github.repository }}/azure-proxy/chisel:latest
+          TF_VAR_prod_address_spaces: ${{ secrets.PROD_ADDRESS_SPACES }}
+          TF_VAR_test_address_spaces: ${{ secrets.TEST_ADDRESS_SPACES }}
+          TF_VAR_dev_address_spaces: ${{ secrets.DEV_ADDRESS_SPACES }}
+          TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
+          TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
         run: |
           ./deploy-terraform.sh "${{ inputs.command }}" -target="${{ inputs.target_module }}"
