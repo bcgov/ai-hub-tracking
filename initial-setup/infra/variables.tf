@@ -140,3 +140,46 @@ variable "test_address_spaces" {
   nullable    = true
   default     = []
 }
+
+### -----------------------------------------------------------------------------
+### Azure Proxy Module Variables
+### -----------------------------------------------------------------------------
+variable "azure_proxy_image" {
+  description = "The image for the Azure Proxy container"
+  type        = string
+}
+variable "app_service_sku_name_azure_proxy" {
+  description = "The SKU name for the azure proxy App Service plan."
+  type        = string
+  default     = "B1"
+}
+variable "enable_azure_proxy" {
+  description = "Enable deployment of the Azure Proxy App Service"
+  type        = bool
+  default     = false
+}
+
+variable "enable_bastion" {
+  description = "Enable deployment of the Azure Bastion host"
+  type        = bool
+  default     = false
+}
+variable "enable_jumpbox" {
+  description = "Enable deployment of the Azure Jumpbox VM"
+  type        = bool
+  default     = false
+}
+### -----------------------------------------------------------------------------
+### Log Analytics Variables
+### -----------------------------------------------------------------------------
+variable "log_analytics_retention_days" {
+  description = "Number of days to retain data in Log Analytics Workspace"
+  type        = number
+  default     = 30
+}
+
+variable "log_analytics_sku" {
+  description = "SKU for Log Analytics Workspace"
+  type        = string
+  default     = "PerGB2018"
+}

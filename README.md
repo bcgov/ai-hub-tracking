@@ -40,7 +40,9 @@ ai-hub-tracking/
 │           ├── network/                # Virtual Network, subnets, NSGs
 │           ├── bastion/                # Azure Bastion for secure access
 │           ├── jumpbox/                # Development VM with CLI tools
-│           └── github-runners-aca/     # Self-hosted GitHub runners on Container Apps
+│           ├── github-runners-aca/     # Self-hosted GitHub runners on Container Apps
+│           ├── azure-proxy/            # Secure tunnel (chisel) deployment used for proxying
+│           └── monitoring/             # Log Analytics & Application Insights for observability
 │
 ├── infra-ai-hub/                       # Separate infrastructure for AI Hub project
 │   ├── main.tf
@@ -53,7 +55,6 @@ ai-hub-tracking/
 ├── .github/                            # GitHub Actions workflows and configuration
 │   ├── workflows/                      # CI/CD automation
 │   │   ├── .deployer.yml               # Reusable Terraform deployment workflow
-│   │   ├── deploy-using-self-hosted.yml # Deploy using self-hosted runners
 │   │   ├── bastion-add-or-remove.yml   # Manual Bastion lifecycle management
 │   │   ├── pages.yml                   # Documentation deployment to GitHub Pages
 │   │   └── schedule.yml                # Scheduled cleanup tasks
@@ -109,9 +110,11 @@ Bootstrap directory for one-time environment setup. Contains the main setup auto
   
 - **infra/**: Terraform configurations for foundational resources
   - **network**: VNet subnets, NSGs, security boundaries
-  - **bastion**: Azure Bastion host for secure access
-  - **jumpbox**: Development VM with Azure/Kubernetes CLI tools
-  - **github-runners-aca**: Self-hosted GitHub runners on Container Apps
+  - **bastion**: Azure Bastion host for secure access (optional via `enable_bastion`)
+  - **jumpbox**: Development VM with Azure/Kubernetes CLI tools (optional via `enable_jumpbox`)
+  - **github-runners-aca**: Self-hosted GitHub runners on Container Apps (optional via `github_runners_aca_enabled`)
+  - **azure-proxy**: Secure tunnel (chisel) deployment used for proxying (optional via `enable_azure_proxy`)
+  - **monitoring**: Log Analytics and Application Insights for observability
 
 ### `.github/`
 GitHub Actions automation and contribution guidelines.
@@ -135,4 +138,6 @@ Static HTML documentation generated from templates and scripts.
 
 ### `infra-ai-hub/`
 Separate Terraform workspace for AI Hub project infrastructure (independent from initial-setup).
+
+**Notable changes on this branch:** Added `azure-proxy` and `monitoring` modules; several modules can now be toggled via `enable_*` variables (`enable_azure_proxy`, `enable_bastion`, `enable_jumpbox`, `github_runners_aca_enabled`). The deployment tooling (`deploy-terraform.sh`) gained automatic import-on-conflict and retry behavior, and `.github/workflows/deploy-using-self-hosted.yml` was removed in favour of the generic `.deployer.yml` workflow which now supports the new modules.
 

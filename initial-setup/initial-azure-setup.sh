@@ -1403,83 +1403,6 @@ EOF
 }
 
 # ================================================================================
-# Deploy initial infrastructure using Terraform (for tools environment only)
-# This provisions the foundational resources needed before other environments
-# This is specific to this product ,as it follows vnet peering between tools and other envs
-# so that tools runs the github runner in ACA, and does the deployment to other environments
-# ================================================================================
-deploy_initial_infrastructure() {
-    # Only deploy infrastructure for the "tools" environment
-    if [[ "$GITHUB_ENVIRONMENT" != "tools" ]]; then
-        log_info "Skipping infrastructure deployment (only runs for 'tools' environment)"
-        return 0
-    fi
-
-    log_info "========================================"
-    log_info "Deploying Initial Infrastructure"
-    log_info "========================================"
-    log_info "Environment 'tools' detected - will provision foundational infrastructure"
-
-    # Path to the deploy script (relative to this script's location)
-    local script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    local deploy_script="${script_dir}/infra/deploy-terraform.sh"
-
-    # Check if deploy script exists
-    if [[ ! -f "$deploy_script" ]]; then
-        log_error "Deploy script not found: $deploy_script"
-        log_error "Please ensure the infra/ directory exists with deploy-terraform.sh"
-        return 1
-    fi
-
-    # Check if terraform.tfvars exists
-    local tfvars_file="${script_dir}/infra/terraform.tfvars"
-    if [[ ! -f "$tfvars_file" ]]; then
-        log_warning "terraform.tfvars not found at: $tfvars_file"
-        log_warning "You will need to provide configuration via environment variables or create terraform.tfvars"
-        log_info "Skipping automatic infrastructure deployment"
-        log_info "Run manually: cd initial-setup/infra && ./deploy-terraform.sh apply"
-        return 0
-    fi
-
-    if [[ "$DRY_RUN" == "true" ]]; then
-        log_info "[DRY-RUN] Would execute Terraform deployment:"
-        echo "    cd ${script_dir}/infra"
-        echo "    ./deploy-terraform.sh init"
-        echo "    ./deploy-terraform.sh apply"
-        return 0
-    fi
-
-    # Ask for confirmation before deploying infrastructure
-    log_warning "This will deploy foundational infrastructure to Azure."
-    log_info "Resources to be created: Resource Group, Network (subnets/NSGs), and optionally Bastion/Jumpbox"
-    read -p "Do you want to proceed with infrastructure deployment, default is network and self hossted runner, if you want all , type all? (all/yes/no): " confirm
-    
-    # Check user confirmation for all or yes
-    if [[ "$confirm" != "all" && "$confirm" != "yes" ]]; then
-        log_info "Infrastructure deployment skipped"
-        log_info "Run manually when ready: cd initial-setup/infra && ./deploy-terraform.sh apply"
-        return 0
-    fi
-    # Make script executable
-    chmod +x "$deploy_script"
-
-    # Change to infra directory and run terraform
-    log_info "Initializing Terraform..."
-    (cd "${script_dir}/infra" && ./deploy-terraform.sh init)
-    
-    log_info "Applying Terraform configuration..."
-    # if all is selected, deploy all resources
-    if [[ "$confirm" == "all" ]]; then
-        (cd "${script_dir}/infra" && export CI=true && ./deploy-terraform.sh apply)
-    else
-        # else deploy only network and self hosted runner
-        (cd "${script_dir}/infra" && export CI=true &&  ./deploy-terraform.sh apply --target=module.network --target=module.github_runners_aca)
-    fi
-    
-    log_success "Infrastructure deployment completed!"
-}
-
-# ================================================================================
 # Main function that orchestrates the entire setup process
 # ================================================================================
 main() {
@@ -1536,9 +1459,6 @@ main() {
             display_terraform_backend_config
         fi
     fi
-
-    # Step 11: Deploy initial infrastructure for tools environment
-    deploy_initial_infrastructure
 
     # Final success message
     log_success "GitHub Actions OIDC setup completed successfully!"

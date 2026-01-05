@@ -213,6 +213,101 @@ resource "azurerm_network_security_group" "app_service" {
     source_port_range          = "*"
     destination_port_ranges    = ["80", "443", "3000-9000"]
   }
+  ####
+  # ---------------------------------------------------------------------------------------------------------------------
+  # security rules for vnet peered environment if present (dev,test,prod) since the proxy will be deployed to app service
+  # ---------------------------------------------------------------------------------------------------------------------
+  ####
+
+  # Allow inbound/outbound from/to dev vnet address space
+  dynamic "security_rule" {
+    for_each = var.dev_address_spaces
+    content {
+      name                       = "AllowInboundFromPeeredDevVNet-${index(var.dev_address_spaces, security_rule.value)}"
+      priority                   = 200 + index(var.dev_address_spaces, security_rule.value)
+      direction                  = "Inbound"
+      access                     = "Allow"
+      protocol                   = "*"
+      source_address_prefix      = security_rule.value
+      destination_address_prefix = local.app_service_subnet_cidr
+      source_port_range          = "*"
+      destination_port_range     = "*"
+    }
+  }
+  dynamic "security_rule" {
+    for_each = var.dev_address_spaces
+    content {
+      name                       = "AllowOutboundFromPeeredDevVNet-${index(var.dev_address_spaces, security_rule.value)}"
+      priority                   = 300 + index(var.dev_address_spaces, security_rule.value)
+      direction                  = "Outbound"
+      access                     = "Allow"
+      protocol                   = "*"
+      source_address_prefix      = local.app_service_subnet_cidr
+      destination_address_prefix = security_rule.value
+      source_port_range          = "*"
+      destination_port_range     = "*"
+    }
+  }
+
+  # Allow inbound/outbound from/to test vnet address space
+  dynamic "security_rule" {
+    for_each = var.test_address_spaces
+    content {
+      name                       = "AllowInboundFromPeeredTestVNet-${index(var.test_address_spaces, security_rule.value)}"
+      priority                   = 400 + index(var.test_address_spaces, security_rule.value)
+      direction                  = "Inbound"
+      access                     = "Allow"
+      protocol                   = "*"
+      source_address_prefix      = security_rule.value
+      destination_address_prefix = local.app_service_subnet_cidr
+      source_port_range          = "*"
+      destination_port_range     = "*"
+    }
+  }
+  dynamic "security_rule" {
+    for_each = var.test_address_spaces
+    content {
+      name                       = "AllowOutboundFromPeeredTestVNet-${index(var.test_address_spaces, security_rule.value)}"
+      priority                   = 500 + index(var.test_address_spaces, security_rule.value)
+      direction                  = "Outbound"
+      access                     = "Allow"
+      protocol                   = "*"
+      source_address_prefix      = local.app_service_subnet_cidr
+      destination_address_prefix = security_rule.value
+      source_port_range          = "*"
+      destination_port_range     = "*"
+    }
+  }
+
+  # Allow inbound/outbound from/to prod vnet address space
+  dynamic "security_rule" {
+    for_each = var.prod_address_spaces
+    content {
+      name                       = "AllowInboundFromPeeredProdVNet-${index(var.prod_address_spaces, security_rule.value)}"
+      priority                   = 600 + index(var.prod_address_spaces, security_rule.value)
+      direction                  = "Inbound"
+      access                     = "Allow"
+      protocol                   = "*"
+      source_address_prefix      = security_rule.value
+      destination_address_prefix = local.app_service_subnet_cidr
+      source_port_range          = "*"
+      destination_port_range     = "*"
+    }
+  }
+  dynamic "security_rule" {
+    for_each = var.prod_address_spaces
+    content {
+      name                       = "AllowOutboundFromPeeredProdVNet-${index(var.prod_address_spaces, security_rule.value)}"
+      priority                   = 700 + index(var.prod_address_spaces, security_rule.value)
+      direction                  = "Outbound"
+      access                     = "Allow"
+      protocol                   = "*"
+      source_address_prefix      = local.app_service_subnet_cidr
+      destination_address_prefix = security_rule.value
+      source_port_range          = "*"
+      destination_port_range     = "*"
+    }
+  }
 
   tags = var.common_tags
   lifecycle {

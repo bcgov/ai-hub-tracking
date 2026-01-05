@@ -1,0 +1,33 @@
+name: PR # Build Containers on PR Open
+on:
+  pull_request:
+
+  workflow_dispatch:
+
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: write # This is required for actions/checkout
+  packages: write
+  pull-requests: write
+
+jobs:
+  builds:
+    concurrency:
+      # Cancel in progress for PR open and close
+      group: builds-${{ github.event.number || 'latest' }}
+      cancel-in-progress: true
+    uses: ./.github/workflows/.builds.yml
+    with:
+      tags: |
+        ${{ github.event.number || 'manual' }}
+        manual-${{ github.run_number }}
+        latest
+  deploy:
+    name: Deploy to 'tools' Environment
+    needs: builds
+    uses: ./.github/workflows/.deployer.yml
+    with:
+      environment_name: tools
+      command: apply
+      target_module: azure_proxy
+    secrets: inherit

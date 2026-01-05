@@ -2,7 +2,7 @@
 
 This directory contains scripts and Terraform configurations for the one-time setup of Azure infrastructure and GitHub Actions OIDC authentication.
 
-## ⚠️⚠️⚠️ Important: Run from Dev Machine Only ⚠️⚠️⚠️
+## ⚠️⚠️⚠️ Important: Run from Dev Machine Only If target module includes `jumpbox`⚠️⚠️⚠️
 
 **This setup MUST be run from a local development machine, NOT from GitHub Actions.**
 **Remember to login using incognito mode in browser with device code to avoid token expired weird issues**
@@ -33,15 +33,6 @@ initial-azure-setup.sh
         ├── 3. Add Identity to Security Group
         ├── 4. Create Terraform State Storage Account
         ├── 5. Create GitHub Environment & Secrets (optional)
-        │
-        └── 6. Deploy Infrastructure (tools environment only)
-                │
-                └── Calls: infra/deploy-terraform.sh apply
-                        ├── Network (subnets, NSGs)
-                        ├── Bastion (optional)
-                        ├── Jumpbox (optional)
-                        └── GitHub Runners ACA (optional)
-```
 
 ---
 
@@ -68,18 +59,8 @@ This will:
 1. Create the managed identity and OIDC credentials
 2. Set up the Terraform state storage account
 3. Create GitHub environment and secrets
-4. **Prompt to deploy infrastructure** (since environment is "tools")
 
 ---
-
-## What Gets Deployed
-
-| Module | Description | Purpose |
-|--------|-------------|---------|
-| **network** | VNet subnets and NSGs | Foundation networking within the existing Landing Zone VNet |
-| **bastion** | Azure Bastion host | Secure SSH/RDP access to VMs without public IPs |
-| **jumpbox** | Linux VM with CLI tools | Development and administrative access |
-| **github-runners-aca** | Self-hosted GitHub runners | CI/CD runners on Azure Container Apps |
 
 ## Prerequisites
 
@@ -87,7 +68,6 @@ This will:
 2. **Access to Azure Landing Zone** - VNet must exist
 3. **Security Group Ownership** - Must be owner of `DO_PuC_Azure_Live_{LicensePlate}_Contributor`
 4. **terraform.tfvars** - Configuration file with your values (in `infra/` folder)
-5. **GitHub PAT** - Until the platform team and devhub team work together to have vnet injected runners, the self hosted runner setup needs a PAT(Personal access token), not the best way but currently it is best in the context as it will avoid every deployment to go from a dev machine.
 
 ### Required Tools (Auto-Installed)
 
@@ -217,6 +197,7 @@ initial-setup/infra/
     ├── bastion/            # Azure Bastion host
     ├── github-runners-aca/ # Self-hosted GitHub runners
     ├── jumpbox/            # Development VM
+    ├── azure-proxy/            # The Secure tunnel deployment using chisel
     └── network/            # Subnets and NSGs
 ```
 
