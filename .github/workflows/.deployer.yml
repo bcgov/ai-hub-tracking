@@ -75,4 +75,4 @@ jobs:
           TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
           TF_VAR_enable_azure_proxy: true
         run: |
-          ./deploy-terraform.sh "${{ inputs.command }}" -target="${{ inputs.target_module }}"
+          ./deploy-terraform.sh "${{ inputs.command }}" -target=module."${{ inputs.target_module }}"
