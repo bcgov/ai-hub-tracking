@@ -64,6 +64,7 @@ jobs:
             {"environment":"${{ inputs.environment_name }}","app_env":"${{ inputs.environment_name }}","repo_name":"${{ github.event.repository.name }}"}
           # Sensitive variables from secrets
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           TF_VAR_azure_proxy_image: ghcr.io/${{ github.repository }}/azure-proxy/chisel:latest
         run: |
