@@ -9,23 +9,16 @@ resource "azurerm_service_plan" "azure_proxy_asp" {
     ignore_changes = [tags]
   }
 }
-resource "random_password" "proxy_chisel_username" {
-  length  = 32
-  special = false
+resource "random_uuid" "proxy_chisel_username" {
 }
 
 resource "random_password" "proxy_chisel_password" {
   length  = 32
   special = false
 }
-resource "random_string" "proxy_dns_suffix" {
-  length  = 24
-  special = false
-  upper   = false
-}
 
 resource "azurerm_linux_web_app" "azure_proxy" {
-  name                      = "${var.app_name}-${var.app_env}-azure-proxy-${random_string.proxy_dns_suffix.result}"
+  name                      = "${var.app_name}-${var.app_env}-azure-proxy-"
   resource_group_name       = var.resource_group_name
   location                  = var.location
   service_plan_id           = azurerm_service_plan.azure_proxy_asp.id
