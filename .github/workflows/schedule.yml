@@ -51,9 +51,11 @@ jobs:
     if: needs.check-and-destroy-bastion.outputs.bastion_exists == 'true'
     uses: ./.github/workflows/.deployer.yml
     with:
+      mode: initial-setup
       environment_name: tools
       command: destroy
       target_module: bastion
+      enable_azure_proxy: false
     secrets: inherit
 
   notification:

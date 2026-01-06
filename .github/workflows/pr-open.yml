@@ -27,7 +27,20 @@ jobs:
     needs: builds
     uses: ./.github/workflows/.deployer.yml
     with:
+      mode: initial-setup
       environment_name: tools
       command: apply
       target_module: azure_proxy
+    secrets: inherit
+  deploy-dev:
+    name: Deploy to 'dev' Environment
+    needs: deploy
+    uses: ./.github/workflows/.deployer.yml
+    with:
+      mode: infra-ai-hub
+      environment_name: dev
+      command: apply
+      use_secure_tunnel: true
+      proxy_url: ${{ needs.deploy.outputs.proxy_url }}
+      proxy_auth: ${{ needs.deploy.outputs.proxy_auth }}
     secrets: inherit

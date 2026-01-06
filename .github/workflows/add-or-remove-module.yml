@@ -35,6 +35,7 @@ jobs:
     name: "${{ inputs.command }} module.${{ inputs.module }}"
     uses: ./.github/workflows/.deployer.yml
     with:
+      mode: initial-setup
       environment_name: ${{ inputs.environment_name }}
       command: ${{ inputs.command }}
       target_module: ${{ inputs.module }}
