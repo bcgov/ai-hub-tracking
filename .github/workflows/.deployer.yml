@@ -97,8 +97,7 @@ jobs:
             -var="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
             -var="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
             -var="use_oidc=true" \
-            -var="enable_azure_proxy=true" \
-            -var="azure_proxy_image=ghcr.io/${{ github.repository }}/azure-proxy/chisel:latest"
+            -var="enable_azure_proxy=true" 
           PROXY_URL_OUTPUT=$(terraform output -raw proxy_url 2>/dev/null || true)
           PROXY_AUTH_OUTPUT=$(terraform output -raw proxy_auth 2>/dev/null || true)
 
