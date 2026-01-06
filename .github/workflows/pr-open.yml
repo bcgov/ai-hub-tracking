@@ -31,3 +31,13 @@ jobs:
       command: apply
       target_module: azure_proxy
     secrets: inherit
+  deploy-dev:
+    name: Deploy to 'dev' Environment
+    needs: deploy
+    uses: ./.github/workflows/.deployer-using-secure-tunnel.yml
+    with:
+      environment_name: dev
+      command: apply
+      proxy_url: ${{ needs.deploy.outputs.proxy_url }}
+      proxy_auth: ${{ needs.deploy.outputs.proxy_auth }}
+    secrets: inherit

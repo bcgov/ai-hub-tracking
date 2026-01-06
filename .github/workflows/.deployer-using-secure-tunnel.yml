@@ -1,0 +1,130 @@
+name: .Terraform Deployer
+
+on:
+  workflow_call:
+    inputs:
+      environment_name:
+        description: "The name of the environment to deploy to"
+        required: true
+        default: "tools"
+        type: string
+      command:
+        description: "The Terraform command to run (init, plan, apply, destroy)"
+        required: true
+        default: "apply"
+        type: string
+      proxy_url:
+        description: "The proxy URL to use for the secure tunnel"
+        required: true
+        type: string
+      proxy_auth:
+        description: "The proxy authentication token for the secure tunnel"
+        required: true
+        type: string
+
+env:
+  TF_VERSION: 1.12.2
+  TF_LOG: ERROR
+  CHISEL_IMAGE_VERSION: 1.11
+  CHISEL_IMAGE: jpillora/chisel
+permissions:
+  id-token: write # Required for OIDC authentication
+  contents: read
+
+jobs:
+  validate_env:
+    name: Validate Environment Name
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Check Environment Name
+        run: |
+          VALID_ENVS=("dev" "test" "prod")
+          if [[ ! " ${VALID_ENVS[@]} " =~ " ${INPUTS_ENVIRONMENT_NAME} " ]]; then
+            echo "Error: Invalid environment name '${INPUTS_ENVIRONMENT_NAME}'. Valid options are: ${VALID_ENVS[*]}"
+            exit 1
+          fi
+  terraform:
+    environment: ${{ inputs.environment_name }}
+    name: Terraform ${{ inputs.command }}
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure CLI Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+      - name: Run proxy client
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${{ inputs.proxy_url }}" || -z "${{ inputs.proxy_auth }}" ]]; then
+            echo "proxy_url and proxy_auth are required when use_secure_tunnel=true" >&2
+            exit 1
+          fi
+
+          docker network create proxy-net >/dev/null 2>&1 || true
+          docker run -d --name chisel-client --network proxy-net ${CHISEL_IMAGE}:${CHISEL_IMAGE_VERSION} client --auth "$PROXY_AUTH" "$PROXY_URL" 0.0.0.0:1080:socks
+          docker run -d --name privoxy --network proxy-net -p 127.0.0.1:8118:8118 -e SOCKS_HOST=chisel-client -e SOCKS_PORT=1080 ghcr.io/${{ github.repository }}/azure-proxy/privoxy:latest
+      - name: Execute Deployment
+        shell: bash
+        working-directory: ./infra-ai-hub
+        env:
+          ARM_USE_OIDC: "true"
+          CI: "true" # Common Terraform variables
+          TF_VAR_app_name: "ai-services-hub"
+          TF_VAR_app_env: ${{ inputs.environment_name }}
+          TF_VAR_location: "Canada Central"
+          TF_VAR_resource_group_name: ${{ format('{0}-{1}', 'ai-services-hub', inputs.environment_name) }}
+          TF_VAR_common_tags: >-
+            {"environment":"${{ inputs.environment_name }}","app_env":"${{ inputs.environment_name }}","repo_name":"${{ github.event.repository.name }}"}
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_client_id:
+            ${{ secrets.AZURE_CLIENT_ID }}
+            # Network-related variables (used by different modes)
+          TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
+          TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
+          TF_VAR_dev_address_spaces: ${{ secrets.DEV_ADDRESS_SPACES }}
+          TF_VAR_test_address_spaces: ${{ secrets.TEST_ADDRESS_SPACES }}
+          TF_VAR_prod_address_spaces: ${{ secrets.PROD_ADDRESS_SPACES }}
+          TF_VAR_target_vnet_address_spaces: ${{ secrets.TARGET_VNET_ADDRESS_SPACES }}
+          TF_VAR_source_vnet_address_space:
+            ${{ secrets.SOURCE_VNET_ADDRESS_SPACE }}
+
+            # Only used by infra-ai-hub, harmless if unset/unused
+          TF_VAR_key_vault_name: ${{ format('{0}-{1}-{2}-kv', 'ai-services-hub', inputs.environment_name, vars.SUBSCRIPTION_NAME) }}
+          HTTP_PROXY: ${{ 'http://127.0.0.1:8118' }}
+          HTTPS_PROXY: ${{ 'http://127.0.0.1:8118' }}
+        run: |
+          terraform init -upgrade -reconfigure \
+            -backend-config="resource_group_name=${{ secrets.VNET_RESOURCE_GROUP_NAME }}" \
+            -backend-config="storage_account_name=${{ vars.STORAGE_ACCOUNT_NAME }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=ai-services-hub/${{ inputs.environment_name }}/terraform.tfstate" \
+            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -backend-config="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
+            -backend-config="use_oidc=true"
+
+          case "${{ inputs.command }}" in
+            apply|destroy)
+              terraform "${{ inputs.command }}" -auto-approve -input=false
+              ;;
+            plan)
+              terraform plan -input=false
+              ;;
+            *)
+              terraform "${{ inputs.command }}" -input=false
+              ;;
+          esac

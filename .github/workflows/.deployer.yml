@@ -17,7 +17,13 @@ on:
         required: true
         type: string
         description: "The module to target (e.g., bastion, network, azure_proxy). Mandatory and should not be jumpbox."
-
+    outputs:
+      proxy_url:
+        description: "The proxy URL output from Terraform"
+        value: ${{ jobs.terraform.outputs.proxy_url }}
+      proxy_auth:
+        description: "The proxy authentication token output from Terraform"
+        value: ${{ jobs.terraform.outputs.proxy_auth }}
 env:
   TF_VERSION: 1.12.2
   TF_LOG: ERROR
@@ -32,6 +38,9 @@ jobs:
     environment: ${{ inputs.environment_name }}
     name: Terraform ${{ inputs.command }} ${{ inputs.target_module && format('({0})', inputs.target_module) || '' }}
     runs-on: ubuntu-24.04
+    outputs:
+      proxy_url: ${{ steps.deploy.outputs.proxy_url }}
+      proxy_auth: ${{ steps.deploy.outputs.proxy_auth }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,6 +60,7 @@ jobs:
         shell: bash
         run: chmod +x ./initial-setup/infra/deploy-terraform.sh
       - name: Deploy Azure proxy
+        id: deploy
         shell: bash
         working-directory: ./initial-setup/infra
         env:
@@ -88,4 +98,13 @@ jobs:
             echo "Proxy Auth: ****${PROXY_AUTH_OUTPUT: -4}"
           else
             echo "Proxy Auth output is empty."
+          fi
+          # add masking to outputs to avoid being exposed in logs
+          if [[ -n "$PROXY_URL_OUTPUT" ]]; then
+            echo "::add-mask::$PROXY_URL_OUTPUT"
+            echo "proxy_url=$PROXY_URL_OUTPUT" >> $GITHUB_OUTPUT
+          fi
+          if [[ -n "$PROXY_AUTH_OUTPUT" ]]; then
+            echo "::add-mask::$PROXY_AUTH_OUTPUT"
+            echo "proxy_auth=$PROXY_AUTH_OUTPUT" >> $GITHUB_OUTPUT
           fi
