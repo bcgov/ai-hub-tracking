@@ -102,11 +102,14 @@ jobs:
           docker network create proxy-net >/dev/null 2>&1 || true
           docker run -d --name chisel-client --network proxy-net ${CHISEL_IMAGE}:${CHISEL_IMAGE_VERSION} client --auth "$PROXY_AUTH" "$PROXY_URL" 0.0.0.0:1080:socks
           docker run -d --name privoxy --network proxy-net -p 127.0.0.1:8118:8118 -e SOCKS_HOST=chisel-client -e SOCKS_PORT=1080 ghcr.io/${{ github.repository }}/azure-proxy/privoxy:latest
+          docker logs chisel-client
+          docker logs privoxy
       - name: Execute Deployment
         shell: bash
         working-directory: ./infra-ai-hub
         env:
           ARM_USE_OIDC: "true"
+          CHECKPOINT_DISABLE: "1"
           CI: "true" # Common Terraform variables
           TF_VAR_app_name: "ai-services-hub"
           TF_VAR_app_env: ${{ inputs.environment_name }}
@@ -116,9 +119,9 @@ jobs:
             {"environment":"${{ inputs.environment_name }}","app_env":"${{ inputs.environment_name }}","repo_name":"${{ github.event.repository.name }}"}
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          TF_VAR_client_id:
-            ${{ secrets.AZURE_CLIENT_ID }}
-            # Network-related variables (used by different modes)
+          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+
+          # Network-related variables (used by different modes)
           TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
           TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
           TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
@@ -131,8 +134,8 @@ jobs:
 
             # Only used by infra-ai-hub, harmless if unset/unused
           TF_VAR_key_vault_name: ${{ format('{0}-{1}-{2}-kv', 'ai-services-hub', inputs.environment_name, vars.SUBSCRIPTION_NAME) }}
-          HTTP_PROXY: ${{ 'http://127.0.0.1:8118' }}
-          HTTPS_PROXY: ${{ 'http://127.0.0.1:8118' }}
+          HTTP_PROXY: "http://127.0.0.1:8118"
+          HTTPS_PROXY: "http://127.0.0.1:8118"
         run: |
           terraform init -upgrade -reconfigure \
             -backend-config="resource_group_name=${{ secrets.VNET_RESOURCE_GROUP_NAME }}" \
