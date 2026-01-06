@@ -160,11 +160,6 @@ jobs:
 
       # Only used by infra-ai-hub, harmless if unset/unused
       TF_VAR_key_vault_name: ${{ format('{0}-{1}-{2}-kv', inputs.app_name, inputs.environment_name, vars.SUBSCRIPTION_NAME) }}
-
-      # Secure tunnel proxy support
-      HTTP_PROXY: ${{ inputs.use_secure_tunnel && 'http://127.0.0.1:8118' || '' }}
-      HTTPS_PROXY: ${{ inputs.use_secure_tunnel && 'http://127.0.0.1:8118' || '' }}
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -237,6 +232,9 @@ jobs:
         if: inputs.mode == 'infra-ai-hub'
         shell: bash
         working-directory: ${{ inputs.working_directory }}
+        env:
+          HTTP_PROXY: ${{ inputs.use_secure_tunnel && 'http://127.0.0.1:8118' || '' }}
+          HTTPS_PROXY: ${{ inputs.use_secure_tunnel && 'http://127.0.0.1:8118' || '' }}
         run: |
           set -euo pipefail
 
