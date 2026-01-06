@@ -52,7 +52,7 @@ resource "azurerm_linux_web_app" "azure_proxy" {
     DOCKER_ENABLE_CI                      = "true"
     APPLICATIONINSIGHTS_CONNECTION_STRING = var.appinsights_connection_string
     APPINSIGHTS_INSTRUMENTATIONKEY        = var.appinsights_instrumentation_key
-    CHISEL_AUTH                           = "${random_password.proxy_chisel_username.result}:${random_password.proxy_chisel_password.result}"
+    CHISEL_AUTH                           = "${random_uuid.proxy_chisel_username.result}:${random_password.proxy_chisel_password.result}"
   }
   logs {
     detailed_error_messages = true
