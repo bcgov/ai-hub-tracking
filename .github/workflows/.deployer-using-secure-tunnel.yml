@@ -32,20 +32,27 @@ permissions:
   contents: read
 
 jobs:
-  validate_env:
-    name: Validate Environment Name
+  validate:
+    name: Validate
     runs-on: ubuntu-24.04
     steps:
       - name: Check Environment Name
         run: |
           VALID_ENVS=("dev" "test" "prod")
-          if [[ ! " ${VALID_ENVS[@]} " =~ " ${INPUTS_ENVIRONMENT_NAME} " ]]; then
-            echo "Error: Invalid environment name '${INPUTS_ENVIRONMENT_NAME}'. Valid options are: ${VALID_ENVS[*]}"
+          if [[ ! " ${VALID_ENVS[@]} " =~ " ${{ inputs.environment_name }} " ]]; then
+            echo "Error: Invalid environment name '${{ inputs.environment_name }}'. Valid options are: ${VALID_ENVS[*]}"
             exit 1
           fi
+          # check that proxy_url and proxy_auth are non-empty
+          if [[ -z "${{ inputs.proxy_url }}" || -z "${{ inputs.proxy_auth }}" ]]; then
+            echo "Error: proxy_url and proxy_auth are required inputs."
+            exit 1
+          fi
+
   terraform:
     environment: ${{ inputs.environment_name }}
-    name: Terraform ${{ inputs.command }}
+    name: Terraform ${{ inputs.command }} via Secure Tunnel
+    needs: validate
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
