@@ -99,12 +99,9 @@ jobs:
           else
             echo "Proxy Auth output is empty."
           fi
-          # add masking to outputs to avoid being exposed in logs
-          if [[ -n "$PROXY_URL_OUTPUT" ]]; then
-            echo "::add-mask::$PROXY_URL_OUTPUT"
-            echo "proxy_url=$PROXY_URL_OUTPUT" >> $GITHUB_OUTPUT
-          fi
-          if [[ -n "$PROXY_AUTH_OUTPUT" ]]; then
-            echo "::add-mask::$PROXY_AUTH_OUTPUT"
-            echo "proxy_auth=$PROXY_AUTH_OUTPUT" >> $GITHUB_OUTPUT
-          fi
+          # add gpg enccryption and base 64 encoding
+          KEY=${{secrets.GPG_PASSPHRASE}}
+          ENCODED_PROXY_URL=$(echo -n "$PROXY_URL_OUTPUT" | gpg --batch --passphrase "$KEY" --symmetric --cipher-algo AES256 | base64)
+          ENCODED_PROXY_AUTH=$(echo -n "$PROXY_AUTH_OUTPUT" | gpg --batch --passphrase "$KEY" --symmetric --cipher-algo AES256 | base64)
+          echo "::set-output name=proxy_url::$ENCODED_PROXY_URL"
+          echo "::set-output name=proxy_auth::$ENCODED_PROXY_AUTH"
