@@ -21,6 +21,7 @@ jobs:
       tags: |
         ${{ github.event.number || 'manual' }}
         manual-${{ github.run_number }}
+        ${{github.event.number}}-${{ github.event.number}}
         latest
   deploy:
     name: Deploy to 'tools' Environment
@@ -30,6 +31,7 @@ jobs:
       environment_name: tools
       command: apply
       target_module: azure_proxy
+      tag: ${{github.event.number}}-${{ github.event.number}}
     secrets: inherit
   deploy-dev:
     name: Deploy to 'dev' Environment
@@ -40,4 +42,5 @@ jobs:
       command: apply
       proxy_url: ${{ needs.deploy.outputs.proxy_url }}
       proxy_auth: ${{ needs.deploy.outputs.proxy_auth }}
+      tag: ${{github.event.number}}-${{ github.event.number}}
     secrets: inherit

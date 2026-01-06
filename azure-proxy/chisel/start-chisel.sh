@@ -60,7 +60,7 @@ while [ "$attempt" -le "$MAX_RETRIES" ] && [ "$stop" -eq 0 ]; do
   esac
 
   # shellcheck disable=SC2086
-  "$CHISEL_BIN" server --host "$CHISEL_HOST" --port "$CHISEL_PORT" --backend "$CHISEL_BACKEND" $socks_args $auth_args $CHISEL_EXTRA_ARGS || true
+  "$CHISEL_BIN" server --host "$CHISEL_HOST" --port "$CHISEL_PORT" --backend "$CHISEL_BACKEND" $socks_args $auth_args $CHISEL_EXTRA_ARGS -v || true
   status=$?
 
   if kill -0 "$httpd_pid" >/dev/null 2>&1; then

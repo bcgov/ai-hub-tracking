@@ -17,6 +17,10 @@ on:
         required: true
         type: string
         description: "The module to target (e.g., bastion, network, azure_proxy). Mandatory and should not be jumpbox."
+      tag:
+        description: "The container tag to use for deployment"
+        required: false
+        type: string
     outputs:
       proxy_url:
         description: "The proxy URL output from Terraform"
@@ -76,7 +80,7 @@ jobs:
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          TF_VAR_azure_proxy_image: ghcr.io/${{ github.repository }}/azure-proxy/chisel:latest
+          TF_VAR_azure_proxy_image: ghcr.io/${{ github.repository }}/azure-proxy/chisel:${{inputs.tag || 'latest'}}
           TF_VAR_prod_address_spaces: ${{ secrets.PROD_ADDRESS_SPACES }}
           TF_VAR_test_address_spaces: ${{ secrets.TEST_ADDRESS_SPACES }}
           TF_VAR_dev_address_spaces: ${{ secrets.DEV_ADDRESS_SPACES }}
