@@ -31,6 +31,7 @@ jobs:
       environment_name: tools
       command: apply
       target_module: azure_proxy
+      azure_proxy_image: ghcr.io/${{ github.repository }}/azure-proxy/chisel:latest
     secrets: inherit
   deploy-dev:
     name: Deploy to 'dev' Environment
