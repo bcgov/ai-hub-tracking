@@ -85,9 +85,23 @@ jobs:
           TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
           TF_VAR_enable_azure_proxy: true
         run: |
-          ./deploy-terraform.sh "${{ inputs.command }}" -target=module."${{ inputs.target_module }}"
-          PROXY_URL_OUTPUT=$(terraform output -raw proxy_url || echo "")
-          PROXY_AUTH_OUTPUT=$(terraform output -raw proxy_auth || echo "")
+          set -euo pipefail
+
+          ./deploy-terraform.sh "${{ inputs.command }}" \
+            -target=module."${{ inputs.target_module }}" \
+            -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
+            -var="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
+            -var="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
+            -var="use_oidc=true" \
+            -var="enable_azure_proxy=true" \
+            -var="azure_proxy_image=ghcr.io/${{ github.repository }}/azure-proxy/chisel:latest"
+          PROXY_URL_OUTPUT=$(terraform output -raw proxy_url 2>/dev/null || true)
+          PROXY_AUTH_OUTPUT=$(terraform output -raw proxy_auth 2>/dev/null || true)
+
+          if [[ "${{ inputs.target_module }}" == "azure_proxy" ]] && ([[ -z "$PROXY_URL_OUTPUT" ]] || [[ -z "$PROXY_AUTH_OUTPUT" ]]); then
+            echo "proxy_url/proxy_auth outputs are empty after apply; azure_proxy may not have deployed." >&2
+            exit 1
+          fi
           #print only last 4 char url and auth to validate
           if [[ -n "$PROXY_URL_OUTPUT" ]]; then
             echo "Proxy URL: ****${PROXY_URL_OUTPUT: -4}"
@@ -99,9 +113,30 @@ jobs:
           else
             echo "Proxy Auth output is empty."
           fi
-          # add gpg enccryption and base 64 encoding
-          KEY=${{secrets.GPG_PASSPHRASE}}
-          ENCODED_PROXY_URL=$(echo -n "$PROXY_URL_OUTPUT" | gpg --batch --passphrase "$KEY" --symmetric --cipher-algo AES256 | base64)
-          ENCODED_PROXY_AUTH=$(echo -n "$PROXY_AUTH_OUTPUT" | gpg --batch --passphrase "$KEY" --symmetric --cipher-algo AES256 | base64)
-          echo "::set-output name=proxy_url::$ENCODED_PROXY_URL"
-          echo "::set-output name=proxy_auth::$ENCODED_PROXY_AUTH"
+
+          # Encrypt + base64 encode for passing as workflow outputs.
+          KEY='${{ secrets.GPG_PASSPHRASE }}'
+          if [[ -z "$KEY" ]]; then
+            echo "GPG_PASSPHRASE secret is empty/missing" >&2
+            exit 1
+          fi
+
+          b64() {
+            if base64 --help 2>/dev/null | grep -q -- '-w'; then
+              base64 -w0
+            else
+              base64 | tr -d '\n'
+            fi
+          }
+
+          ENCODED_PROXY_URL=""
+          ENCODED_PROXY_AUTH=""
+          if [[ -n "$PROXY_URL_OUTPUT" ]]; then
+            ENCODED_PROXY_URL=$(printf '%s' "$PROXY_URL_OUTPUT" | gpg --batch --yes --pinentry-mode loopback --passphrase "$KEY" --symmetric --cipher-algo AES256 | b64)
+          fi
+          if [[ -n "$PROXY_AUTH_OUTPUT" ]]; then
+            ENCODED_PROXY_AUTH=$(printf '%s' "$PROXY_AUTH_OUTPUT" | gpg --batch --yes --pinentry-mode loopback --passphrase "$KEY" --symmetric --cipher-algo AES256 | b64)
+          fi
+
+          echo "proxy_url=$ENCODED_PROXY_URL" >> "$GITHUB_OUTPUT"
+          echo "proxy_auth=$ENCODED_PROXY_AUTH" >> "$GITHUB_OUTPUT"
