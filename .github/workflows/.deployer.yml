@@ -76,3 +76,16 @@ jobs:
           TF_VAR_enable_azure_proxy: true
         run: |
           ./deploy-terraform.sh "${{ inputs.command }}" -target=module."${{ inputs.target_module }}"
+          PROXY_URL_OUTPUT=$(terraform output -raw proxy_url || echo "")
+          PROXY_AUTH_OUTPUT=$(terraform output -raw proxy_auth || echo "")
+          #print only last 4 char url and auth to validate
+          if [[ -n "$PROXY_URL_OUTPUT" ]]; then
+            echo "Proxy URL: ****${PROXY_URL_OUTPUT: -4}"
+          else
+            echo "Proxy URL output is empty."
+          fi
+          if [[ -n "$PROXY_AUTH_OUTPUT" ]]; then
+            echo "Proxy Auth: ****${PROXY_AUTH_OUTPUT: -4}"
+          else
+            echo "Proxy Auth output is empty."
+          fi
