@@ -14,9 +14,9 @@ on:
         default: "apply"
         type: string
       target_module:
-        required: false
+        required: true
         type: string
-        description: "The module to target (e.g., jumpbox, bastion, network). Leave empty for all."
+        description: "The module to target (e.g., bastion, network, azure_proxy). Mandatory and should not be jumpbox."
 
 env:
   TF_VERSION: 1.12.2
@@ -28,6 +28,7 @@ permissions:
 
 jobs:
   terraform:
+    if: inputs.target_module != 'jumpbox'
     environment: ${{ inputs.environment_name }}
     name: Terraform ${{ inputs.command }} ${{ inputs.target_module && format('({0})', inputs.target_module) || '' }}
     runs-on: ubuntu-24.04
@@ -46,32 +47,32 @@ jobs:
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
-
-      - name: Run Terraform for bastion
-        if: inputs.target_module == 'bastion'
+      - name: Make deploy script executable
         shell: bash
+        run: chmod +x ./initial-setup/infra/deploy-terraform.sh
+      - name: Deploy Azure proxy
+        shell: bash
+        working-directory: ./initial-setup/infra
         env:
           CI: "true"
           ARM_USE_OIDC: "true"
-          TF_VAR_app_name: "ai-hub-deploy-utils"
-          TF_VAR_app_env: "${{ inputs.environment_name }}"
+          TF_VAR_app_name: "ai-hub"
+          TF_VAR_app_env: ${{ inputs.environment_name }}
           TF_VAR_location: "Canada Central"
-          TF_VAR_resource_group_name: "ai-hub-deploy-utils-${{ inputs.environment_name }}"
+          TF_VAR_resource_group_name: "ai-hub-${{ inputs.environment_name }}"
           TF_VAR_common_tags: >-
             {"environment":"${{ inputs.environment_name }}","app_env":"${{ inputs.environment_name }}","repo_name":"${{ github.event.repository.name }}"}
           # Sensitive variables from secrets
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
-          TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_azure_proxy_image: ghcr.io/${{ github.repository }}/azure-proxy/chisel:latest
+          TF_VAR_prod_address_spaces: ${{ secrets.PROD_ADDRESS_SPACES }}
+          TF_VAR_test_address_spaces: ${{ secrets.TEST_ADDRESS_SPACES }}
+          TF_VAR_dev_address_spaces: ${{ secrets.DEV_ADDRESS_SPACES }}
           TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
+          TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
           TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
+          TF_VAR_enable_azure_proxy: true
         run: |
-          chmod +x ./initial-setup/infra/deploy-terraform.sh
-
-          # Build command with optional target
-          if [[ -n "${{ inputs.target_module }}" ]]; then
-            ./initial-setup/infra/deploy-terraform.sh ${{ inputs.command }} -target=module.${{ inputs.target_module }}
-          else
-            ./initial-setup/infra/deploy-terraform.sh ${{ inputs.command }}
-          fi
+          ./deploy-terraform.sh "${{ inputs.command }}" -target=module."${{ inputs.target_module }}"

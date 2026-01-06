@@ -29,9 +29,21 @@ module "network" {
   prod_address_spaces      = var.prod_address_spaces
   depends_on               = [azurerm_resource_group.main]
 }
+module "monitoring" {
+  source = "./modules/monitoring"
 
+  app_name                     = var.app_name
+  common_tags                  = var.common_tags
+  location                     = var.location
+  log_analytics_retention_days = var.log_analytics_retention_days
+  log_analytics_sku            = var.log_analytics_sku
+  resource_group_name          = azurerm_resource_group.main.name
+
+  depends_on = [azurerm_resource_group.main, module.network]
+}
 module "bastion" {
   source = "./modules/bastion"
+  count  = var.enable_bastion ? 1 : 0
 
   app_name            = var.app_name
   common_tags         = var.common_tags
@@ -43,6 +55,7 @@ module "bastion" {
 }
 module "jumpbox" {
   source = "./modules/jumpbox"
+  count  = var.enable_jumpbox ? 1 : 0
 
   app_name            = var.app_name
   common_tags         = var.common_tags
@@ -56,6 +69,7 @@ module "jumpbox" {
 # These runners auto-scale from 0 based on queued jobs
 module "github_runners_aca" {
   source = "./modules/github-runners-aca"
+  count  = var.github_runners_aca_enabled ? 1 : 0
 
   enabled             = var.github_runners_aca_enabled
   postfix             = var.app_name
@@ -80,6 +94,26 @@ module "github_runners_aca" {
 
   log_analytics_workspace_creation_enabled = var.github_runners_log_analytics_workspace_creation_enabled
   log_analytics_workspace_id               = var.github_runners_log_analytics_workspace_id
+
+  depends_on = [module.network]
+}
+
+module "azure_proxy" {
+  source = "./modules/azure-proxy"
+  count  = var.enable_azure_proxy ? 1 : 0
+
+  app_name                         = var.app_name
+  repo_name                        = var.github_repository
+  app_env                          = var.app_env
+  resource_group_name              = azurerm_resource_group.main.name
+  location                         = var.location
+  app_service_subnet_id            = module.network.app_service_subnet_id
+  azure_proxy_image                = var.azure_proxy_image
+  common_tags                      = var.common_tags
+  app_service_sku_name_azure_proxy = var.app_service_sku_name_azure_proxy
+  log_analytics_workspace_id       = module.monitoring.log_analytics_workspace_id
+  appinsights_connection_string    = module.monitoring.appinsights_connection_string
+  appinsights_instrumentation_key  = module.monitoring.appinsights_instrumentation_key
 
   depends_on = [module.network]
 }

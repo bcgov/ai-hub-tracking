@@ -17,14 +17,24 @@
     </thead>
     <tbody>
         <tr>
-            <td><strong>.deployer.yml</strong></td>
+            <td><strong>.builds.yml</strong></td>
             <td>Called by other workflows</td>
-            <td>Reusable Terraform deployment workflow</td>
+            <td>Reusable container build workflow for azure-proxy images</td>
         </tr>
         <tr>
-            <td><strong>bastion-add-or-remove.yml</strong></td>
+            <td><strong>.deployer.yml</strong></td>
+            <td>Called by other workflows</td>
+            <td>Reusable Terraform deployment workflow (supports all modules)</td>
+        </tr>
+        <tr>
+            <td><strong>add-or-remove-module.yml</strong></td>
             <td>Manual (workflow_dispatch)</td>
-            <td>Deploy or destroy Bastion on demand</td>
+            <td>Deploy or destroy infrastructure modules on demand</td>
+        </tr>
+        <tr>
+            <td><strong>pr-open.yml</strong></td>
+            <td>Pull request opened</td>
+            <td>Automated PR checks and validations</td>
         </tr>
         <tr>
             <td><strong>schedule.yml</strong></td>
@@ -69,7 +79,7 @@
             <tr>
                 <td><code>target_module</code></td>
                 <td>string</td>
-                <td>Optional module to target (jumpbox, bastion, network)</td>
+                <td>Optional module to target (jumpbox, bastion, network, azure_proxy, github_runners_aca, etc.)</td>
             </tr>
         </tbody>
     </table>
@@ -80,7 +90,8 @@
     <ul>
         <li><strong>OIDC Authentication</strong>: Uses <code>azure/login@v2</code> with federated credentials</li>
         <li><strong>Environment Isolation</strong>: Each environment has separate secrets and identity</li>
-        <li><strong>Module Targeting</strong>: Deploy specific modules with <code>-target=module.name</code></li>
+        <li><strong>Module Targeting</strong>: Deploy specific modules with <code>-target=module.name</code> (supports all modules including azure-proxy)</li>
+        <li><strong>Optional Modules</strong>: Deploy only what you need—all modules except <code>network</code> and <code>monitoring</code> can be toggled on/off</li>
         <li><strong>ARM_USE_OIDC</strong>: Enabled for Terraform Azure provider</li>
     </ul>
 </div>
@@ -97,16 +108,30 @@
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>bastion-add-or-remove.yml</h2>
+<h2>.builds.yml (Container Build Workflow)</h2>
 
-<p>Manual workflow for deploying or destroying Azure Bastion on demand.</p>
+<p>Reusable workflow for building and pushing container images to GitHub Container Registry (GHCR). Supports matrix builds for multiple packages including the azure-proxy services.</p>
+
+<div class="card">
+    <h3>Built Packages</h3>
+    <ul>
+        <li><strong>azure-proxy/chisel</strong> - Chisel-based secure tunnel server for private network access</li>
+        <li><strong>azure-proxy/privoxy</strong> - Privoxy HTTP/SOCKS proxy server</li>
+    </ul>
+</div>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>add-or-remove-module.yml</h2>
+
+<p>Manual workflow for deploying or destroying infrastructure modules on demand. Evolved from the earlier bastion-only workflow to support all optional modules (bastion, jumpbox, azure_proxy, github_runners_aca).</p>
 
 <div class="grid grid-2">
     <div class="card">
         <h3>When to Use</h3>
         <ul>
-            <li><strong>Deploy Bastion</strong>: When you need SSH/RDP access to VMs</li>
-            <li><strong>Destroy Bastion</strong>: When done working, to save costs</li>
+            <li><strong>Deploy Module</strong>: When you need to provision a specific infrastructure module</li>
+            <li><strong>Destroy Module</strong>: When done, to save costs or clean up resources</li>
         </ul>
     </div>
     <div class="card">
@@ -115,7 +140,7 @@
             <li>Go to Actions tab in GitHub</li>
             <li>Select "Deploy or Remove Bastion Host"</li>
             <li>Click "Run workflow"</li>
-            <li>Choose environment and command</li>
+            <li>Choose environment, module, and command</li>
         </ol>
     </div>
 </div>
@@ -133,13 +158,13 @@
     <tbody>
         <tr>
             <td><code>environment_name</code></td>
-            <td>tools</td>
+            <td>tools, dev, prod</td>
             <td>Target environment</td>
         </tr>
         <tr>
             <td><code>module</code></td>
-            <td>bastion</td>
-            <td>Module to manage</td>
+            <td>bastion, jumpbox, azure_proxy, github_runners_aca</td>
+            <td>Module to deploy or destroy</td>
         </tr>
         <tr>
             <td><code>command</code></td>
@@ -151,6 +176,26 @@
 
 <div class="alert alert-info">
     <strong>Cost Optimization:</strong> Azure Bastion has hourly charges (~$0.19/hour for Basic SKU). Deploy only when needed and destroy when done.
+</div>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>pr-open.yml (Pull Request Checks)</h2>
+
+<p>Automatically runs validation checks when a pull request is opened. Helps catch issues early in the development process before code review.</p>
+
+<div class="card card-gold">
+    <h3>Automated Checks</h3>
+    <ul>
+        <li><strong>Terraform Validation</strong>: Syntax validation and format compliance</li>
+        <li><strong>Code Quality</strong>: Linting and best practices checks</li>
+        <li><strong>Documentation</strong>: Verifies docs are complete and up-to-date</li>
+        <li><strong>Security Scanning</strong>: Detects potential security issues</li>
+    </ul>
+</div>
+
+<div class="alert alert-info">
+    <strong>Note:</strong> The pr-open workflow must pass before a PR can be merged. Address any failures shown in the PR checks.
 </div>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">

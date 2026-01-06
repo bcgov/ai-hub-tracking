@@ -1,0 +1,29 @@
+name: Build Containers
+
+on:
+  workflow_call:
+    inputs:
+      tags:
+        description: "Tags to apply to the built containers multiline, separated by newlines"
+        required: true
+        type: string
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: write # This is required for actions/checkout
+  packages: write
+  pull-requests: write
+jobs:
+  builds:
+    name: Builds
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        package: [azure-proxy/chisel, azure-proxy/privoxy]
+    timeout-minutes: 10
+    steps:
+      - uses: bcgov/action-builder-ghcr@v4.2.1
+        with:
+          package: ${{ matrix.package }}
+          tags: ${{ inputs.tags }}
+          triggers: ('${{ matrix.package }}/' '.github/workflows/.builds.yml')
+          tag_fallback: latest

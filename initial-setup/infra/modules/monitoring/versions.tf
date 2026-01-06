@@ -1,9 +1,9 @@
-# Required providers for the Bastion module
 terraform {
+  required_version = ">= 1.12.0"
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "4.56.0"
+      version = ">= 4.57.0, < 5.0.0"
     }
   }
 }

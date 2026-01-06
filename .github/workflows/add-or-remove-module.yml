@@ -15,6 +15,9 @@ on:
         type: choice
         options:
           - bastion
+          - azure_proxy
+          - jumpbox
+          - github_runners_aca
       command:
         description: "Terraform command"
         required: true

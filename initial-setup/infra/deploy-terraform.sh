@@ -318,7 +318,58 @@ tf_plan() {
     
     log_success "Plan created"
 }
+extract_import_target_from_tf_output() {
+    # Wrapper around the external script for extracting import targets.
+    # See scripts/extract-import-target.sh for implementation and
+    # scripts/extract-import-target.test.sh for test cases.
+    local tf_output_file="$1"
+    local script_path="${INFRA_DIR}/scripts/extract-import-target.sh"
 
+    if [[ -x "$script_path" ]]; then
+        "$script_path" "$tf_output_file"
+    else
+        # Fallback: source the script and call the function directly
+        # shellcheck source=scripts/extract-import-target.sh
+        source "$script_path"
+        extract_import_target "$tf_output_file"
+    fi
+}
+tf_import_existing_resource_if_needed() {
+    # If the last Terraform command failed due to an "already exists" error,
+    # automatically import the resource into state.
+    # Returns:
+    #   0 if an import was performed
+    #   1 if no importable error was found
+    #   2 if an importable error was found but import failed
+    local tf_output_file="$1"
+
+    local import_line
+    if ! import_line="$(extract_import_target_from_tf_output "$tf_output_file")"; then
+        return 1
+    fi
+
+    local import_addr
+    local import_id
+    import_addr="${import_line%%$'\t'*}"
+    import_id="${import_line#*$'\t'}"
+
+    if [[ -z "$import_addr" || -z "$import_id" || "$import_addr" == "$import_id" ]]; then
+        return 1
+    fi
+
+    log_warning "Detected existing Azure resource; importing into Terraform state"
+    log_info "Import address: $import_addr"
+    log_info "Import ID: $import_id"
+
+    # Import requires the same variables context as apply/plan.
+    if terraform import "${TFVARS_ARGS[@]}" "$import_addr" "$import_id"; then
+        log_success "Import succeeded: $import_addr"
+        return 0
+    fi
+
+    log_error "Import failed for: $import_addr"
+    return 2
+}
 tf_apply() {
     log_info "Applying Terraform changes..."
     # Apply should always ensure init has run because modules/providers may change.
@@ -340,7 +391,40 @@ tf_apply() {
     # Add any additional arguments passed
     apply_args+=("$@")
     
-    terraform apply "${apply_args[@]}"
+    local max_retries=3
+    local attempt=1
+
+    while true; do
+        local tf_output_file
+        tf_output_file="$(mktemp -t terraform-apply.XXXXXX.log)"
+
+        log_info "Running terraform apply (attempt ${attempt}/${max_retries})"
+
+        set +e
+        terraform apply "${apply_args[@]}" 2>&1 | tee "$tf_output_file"
+        local tf_exit=${PIPESTATUS[0]}
+        set -e
+
+        if [[ $tf_exit -eq 0 ]]; then
+            rm -f "$tf_output_file"
+            break
+        fi
+
+        # Try to auto-import existing resources, then retry.
+        if tf_import_existing_resource_if_needed "$tf_output_file"; then
+            rm -f "$tf_output_file"
+            attempt=$((attempt + 1))
+            if [[ $attempt -gt $max_retries ]]; then
+                log_error "Exceeded maximum retries (${max_retries}) for auto-import/retry"
+                exit $tf_exit
+            fi
+            continue
+        fi
+
+        rm -f "$tf_output_file"
+        log_error "Terraform apply failed (non-importable error)."
+        exit $tf_exit
+    done
     
     log_success "Apply complete"
     

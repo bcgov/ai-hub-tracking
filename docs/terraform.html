@@ -711,7 +711,7 @@
                     </a>
                     <a href="terraform.html">
                         Terraform Modules
-                        <small>Network, Bastion, Jumpbox, GHA Runner</small>
+                        <small>Network, Bastion, Jumpbox</small>
                     </a>
                     <a href="workflows.html">
                         GitHub Workflows
@@ -744,6 +744,7 @@
             <th>Module</th>
             <th>Purpose</th>
             <th>Key Resources</th>
+            <th>Optional?</th>
         </tr>
     </thead>
     <tbody>
@@ -751,39 +752,70 @@
             <td><strong>network</strong></td>
             <td>VNet subnets and NSG configuration</td>
             <td>Subnets, Network Security Groups</td>
+            <td><strong>No</strong></td>
+        </tr>
+        <tr>
+            <td><strong>monitoring</strong></td>
+            <td>Observability with Log Analytics & Application Insights</td>
+            <td>Log Analytics Workspace, App Insights</td>
+            <td>No</td>
         </tr>
         <tr>
             <td><strong>bastion</strong></td>
             <td>Secure VM access without public IPs</td>
             <td>Azure Bastion Host, Public IP</td>
+            <td>Yes (<code>enable_bastion</code>)</td>
         </tr>
         <tr>
             <td><strong>jumpbox</strong></td>
             <td>Development VM with CLI tools</td>
             <td>Linux VM, SSH Keys, Auto-shutdown</td>
+            <td>Yes (<code>enable_jumpbox</code>)</td>
         </tr>
         <tr>
             <td><strong>github-runners-aca</strong></td>
-            <td>Self Hosted GitHub Actions Runners on Azure Container Apps</td>
-            <td>Container App Jobs with scale to zero, Log Analytics, ACR</td>
+            <td>Self-hosted GitHub runners on Container Apps</td>
+            <td>Container Apps Environment, Container Job, ACR</td>
+            <td>Yes (<code>github_runners_aca_enabled</code>)</td>
+        </tr>
+        <tr>
+            <td><strong>azure-proxy</strong></td>
+            <td>Secure tunnel (chisel) for proxying to peered networks</td>
+            <td>App Service, Container Image</td>
+            <td>Yes (<code>enable_azure_proxy</code>)</td>
         </tr>
     </tbody>
 </table>
 
+<div class="alert alert-info">
+    <strong>Optional Modules:</strong> Modules marked as optional can be toggled on/off using their respective variables. Set them in <code>terraform.tfvars</code> or as environment variables.
+</div>
+
 <h2>Deployment Script: deploy-terraform.sh</h2>
 
-<p>A wrapper script that simplifies Terraform operations with proper Azure authentication.</p>
+<p>A wrapper script that simplifies Terraform operations with proper Azure authentication. Features auto-import of conflicting resources and intelligent retry logic.</p>
 
 <h3>Usage</h3>
 
-<pre>./initial-setup/infra/deploy-terraform.sh &lt;command&gt; [options]
+<pre>./initial-setup/infra/deploy-terraform.sh <command> [options]
 
 Commands:
   init     Initialize Terraform with backend configuration
   plan     Preview infrastructure changes
-  apply    Apply infrastructure changes
+  apply    Apply infrastructure changes (with auto-import & retry)
   destroy  Destroy all infrastructure
   output   Display Terraform outputs</pre>
+
+<div class="card card-gold">
+    <h3>Smart Apply Logic</h3>
+    <p>The <code>apply</code> command now includes:</p>
+    <ul>
+        <li><strong>Auto-detection</strong>: Detects "already exists" errors from Azure</li>
+        <li><strong>Automatic import</strong>: Imports conflicting resources into Terraform state</li>
+        <li><strong>Retry on success</strong>: Reruns apply after successful import (max 3 attempts)</li>
+        <li><strong>Clear failure messages</strong>: Shows which resource was imported or why the apply failed</li>
+    </ul>
+</div>
 
 <h3>Examples</h3>
 
@@ -804,6 +836,45 @@ Commands:
 ./initial-setup/infra/deploy-terraform.sh apply \
   -target=module.jumpbox</pre>
     </div>
+</div>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>Monitoring Module</h2>
+
+<p>Provides centralized observability across all deployed resources using Azure Monitor services.</p>
+
+<div class="card">
+    <h3>Resources Created</h3>
+    <ul>
+        <li><strong>Log Analytics Workspace</strong>: Central logs and metrics repository (default retention: 30 days, configurable)</li>
+        <li><strong>Application Insights</strong>: APM for applications, connected to Log Analytics workspace</li>
+    </ul>
+</div>
+
+<div class="card card-gold">
+    <h3>Key Variables</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Variable</th>
+                <th>Default</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>log_analytics_sku</code></td>
+                <td>PerGB2018</td>
+                <td>Log Analytics pricing tier</td>
+            </tr>
+            <tr>
+                <td><code>log_analytics_retention_days</code></td>
+                <td>30</td>
+                <td>Data retention period in days</td>
+            </tr>
+        </tbody>
+    </table>
 </div>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
@@ -1002,46 +1073,51 @@ Commands:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>GHA Self Hosted Runner ACA Module</h2>
+<h2>Azure Proxy Module</h2>
 
-<p>Creates a self-hosted GitHub Actions runner using Azure Container App Job with scale-to-zero capabilities.</p>
+<p>Deploys a secure tunnel (chisel) service for proxying traffic to peered networks and backend services.</p>
 
 <div class="card">
-    <h3>ACA Configuration</h3>
+    <h3>Resources Created</h3>
+    <ul>
+        <li><strong>App Service Plan</strong>: Hosts the proxy service (configurable SKU, default: B1)</li>
+        <li><strong>App Service</strong>: Runs the chisel proxy container image</li>
+        <li><strong>Application Insights</strong>: Integrated monitoring (uses monitoring module outputs)</li>
+    </ul>
+</div>
+
+<div class="card card-gold">
+    <h3>Key Variables</h3>
     <table>
         <thead>
             <tr>
-                <th>Setting</th>
-                <th>Value</th>
+                <th>Variable</th>
+                <th>Description</th>
             </tr>
         </thead>
         <tbody>
             <tr>
-                <td>Container Image</td>
-                <td>GitHub Actions runner image from ACR</td>
+                <td><code>enable_azure_proxy</code></td>
+                <td>Enable/disable deployment (default: false)</td>
             </tr>
             <tr>
-                <td>CPU & Memory</td>
-                <td>1 vCPU, 2 GB RAM (configurable)</td>
+                <td><code>azure_proxy_image</code></td>
+                <td>Container image URI (e.g., <code>ghcr.io/org/repo/azure-proxy/chisel:latest</code>)</td>
             </tr>
             <tr>
-                <td>Scaling</td>
-                <td>Min 0, Max 2 instances</td>
-            </tr>
-            <tr>
-                <td>Environment Variables</td>
-                <td>GitHub repo/org, runner labels</td>
-            </tr>
-            <tr>
-                <td>Log Analytics</td>
-                <td>Enabled for monitoring</td>
+                <td><code>app_service_sku_name_azure_proxy</code></td>
+                <td>App Service plan SKU (default: B1)</td>
             </tr>
         </tbody>
     </table>
 </div>
 
+<div class="alert alert-info">
+    <strong>Note:</strong> Peered VNet security rules are configured automatically in the Network module when deploying the proxy.
+</div>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
 <h2>Backend Configuration</h2>
 
 <p>Terraform state is stored in Azure Blob Storage with Azure AD authentication.</p>
@@ -1128,7 +1204,7 @@ terraform {
                 </ul>
             </div>
             <div class="footer-copyright">
-                <p>&copy; 2025 Province of British Columbia</p>
+                <p>&copy; 2026 Province of British Columbia</p>
                 <p class="footer-meta">Built with zero dependencies</p>
             </div>
         </div>
