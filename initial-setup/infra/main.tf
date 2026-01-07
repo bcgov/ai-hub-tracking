@@ -114,7 +114,5 @@ module "azure_proxy" {
   log_analytics_workspace_id       = module.monitoring.log_analytics_workspace_id
   appinsights_connection_string    = module.monitoring.appinsights_connection_string
   appinsights_instrumentation_key  = module.monitoring.appinsights_instrumentation_key
-  ip_allow_list_github_actions     = var.ip_allow_list_github_actions
-  ip_allow_list_gov                = var.ip_allow_list_gov
   depends_on                       = [module.network]
 }

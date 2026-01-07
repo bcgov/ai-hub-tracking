@@ -63,19 +63,6 @@ jobs:
       - name: Make deploy script executable
         shell: bash
         run: chmod +x ./initial-setup/infra/deploy-terraform.sh
-      - name: Github Actions IPs
-        id: github-ips
-        shell: bash
-        run: |
-          GITHUB_IPS_JSON=$(curl -s https://api.github.com/meta | jq -r '.actions')
-          GITHUB_IPS_ARRAY=($(echo $GITHUB_IPS_JSON | jq -r '.[]'))
-          # separate by commas and then wrap each item with double quotes and finally wrap as array so value is terraform compatible
-
-          GITHUB_IPS_CSV=$(printf '"%s",' "${GITHUB_IPS_ARRAY[@]}")
-          GITHUB_IPS_CSV="[${GITHUB_IPS_CSV%,}]"  # remove trailing comma and wrap as array
-
-
-          echo "github_ips=$GITHUB_IPS_CSV" >> "$GITHUB_OUTPUT"
       - name: Deploy Azure proxy
         id: deploy
         shell: bash
@@ -101,8 +88,6 @@ jobs:
           TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
           TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
           TF_VAR_enable_azure_proxy: true
-          TF_VAR_ip_allow_list_github_actions: ${{ steps.github-ips.outputs.github_ips }}
-          TF_VAR_ip_allow_list_gov: ${{ secrets.IP_ALLOW_LIST_GOV }}
         run: |
           set -euo pipefail
 
