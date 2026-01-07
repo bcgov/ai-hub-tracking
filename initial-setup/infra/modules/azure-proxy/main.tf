@@ -43,7 +43,27 @@ resource "azurerm_linux_web_app" "azure_proxy" {
       allowed_origins     = ["*"]
       support_credentials = false
     }
-    ip_restriction_default_action = "Allow"
+    ip_restriction_default_action = "Deny"
+    dynamic "ip_restriction" {
+      for_each = var.ip_allow_list_gov
+      content {
+        ip_address  = ip_restriction.value
+        action      = "Allow"
+        priority    = 1 + index(var.ip_allow_list_gov, ip_restriction.value)
+        name        = "Allow-Gov-${index(var.ip_allow_list_gov, ip_restriction.value)}"
+        description = "Allow access from BC Gov IP ${ip_restriction.value}"
+      }
+    }
+    dynamic "ip_restriction" {
+      for_each = var.ip_allow_list_github_actions
+      content {
+        ip_address  = ip_restriction.value
+        action      = "Allow"
+        priority    = 100000 + index(var.ip_allow_list_github_actions, ip_restriction.value)
+        name        = "Allow-GitHubActions-${index(var.ip_allow_list_github_actions, ip_restriction.value)}"
+        description = "Allow access from GitHub Actions IP ${ip_restriction.value}"
+      }
+    }
   }
   app_settings = {
     PORT                                  = "80"
@@ -64,6 +84,7 @@ resource "azurerm_linux_web_app" "azure_proxy" {
       }
     }
   }
+
   tags = var.common_tags
   lifecycle {
     ignore_changes = [tags]

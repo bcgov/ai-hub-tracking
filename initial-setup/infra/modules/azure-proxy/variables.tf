@@ -76,4 +76,14 @@ variable "app_service_sku_name_azure_proxy" {
   type        = string
   nullable    = false
 }
+variable "ip_allow_list_gov" {
+  description = "List of IP addresses allowed to access the Azure Proxy for bcgov"
+  type        = list(string)
+  default     = []
+}
+variable "ip_allow_list_github_actions" {
+  description = "List of IP addresses allowed to access the Azure Proxy from GitHub Actions runners"
+  type        = list(string)
+  default     = []
+}
 
