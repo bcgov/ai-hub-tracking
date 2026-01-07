@@ -72,28 +72,8 @@ jobs:
         uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
-
-      - name: Decrypt proxy URL
-        id: decrypt_proxy_url
-        uses: ./.github/actions/encrypt-decrypt
-        with:
-          mode: decrypt
-          gpg_passphrase: ${{ secrets.GPG_PASSPHRASE }}
-          value: ${{ inputs.proxy_url }}
-
-      - name: Decrypt proxy auth
-        id: decrypt_proxy_auth
-        uses: ./.github/actions/encrypt-decrypt
-        with:
-          mode: decrypt
-          gpg_passphrase: ${{ secrets.GPG_PASSPHRASE }}
-          value: ${{ inputs.proxy_auth }}
-
       - name: Run proxy client
         shell: bash
-        env:
-          PROXY_URL: ${{ steps.decrypt_proxy_url.outputs.result }}
-          PROXY_AUTH: ${{ steps.decrypt_proxy_auth.outputs.result }}
         run: |
           set -euo pipefail
 
@@ -102,15 +82,26 @@ jobs:
             exit 1
           fi
 
-          if [[ -z "${PROXY_URL:-}" || -z "${PROXY_AUTH:-}" ]]; then
-            echo "Decrypted proxy_url/proxy_auth are empty" >&2
+          # Decode the proxy_url and proxy_auth.
+          # Use loopback pinentry to avoid hangs; force stdout output to avoid "handle plaintext failed".
+          KEY='${{ secrets.GPG_PASSPHRASE }}'
+          if [[ -z "$KEY" ]]; then
+            echo "GPG_PASSPHRASE secret is empty/missing" >&2
             exit 1
           fi
+
+          decrypt_b64_gpg() {
+            local encoded="$1"
+            printf '%s' "$encoded" \
+              | tr -d '\r\n' \
+              | base64 --decode \
+              | gpg --batch --yes --pinentry-mode loopback --passphrase "$KEY" --decrypt --output -
+          }
+
+          PROXY_URL="$(decrypt_b64_gpg '${{ inputs.proxy_url }}')"
+          PROXY_AUTH="$(decrypt_b64_gpg '${{ inputs.proxy_auth }}')"
           echo "Proxy URL: ****${PROXY_URL: -4}"
           echo "Proxy Auth: ****${PROXY_AUTH: -4}"
-          echo "::add-mask::$PROXY_URL"
-          echo "::add-mask::$PROXY_AUTH"
-
           docker network create proxy-net >/dev/null 2>&1 || true
           docker run -d --name chisel-client --network proxy-net ${CHISEL_IMAGE}:${CHISEL_IMAGE_VERSION} client --auth "$PROXY_AUTH" "$PROXY_URL" 0.0.0.0:1080:socks
           docker run -d --name privoxy --network proxy-net -p 127.0.0.1:8118:8118 -e SOCKS_HOST=chisel-client -e SOCKS_PORT=1080 ghcr.io/${{ github.repository }}/azure-proxy/privoxy:${{inputs.tag || 'latest'}}
