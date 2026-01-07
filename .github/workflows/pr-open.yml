@@ -44,3 +44,25 @@ jobs:
       proxy_auth: ${{ needs.deploy.outputs.proxy_auth }}
       tag: ${{github.event.number}}-${{ github.run_number }}
     secrets: inherit
+  deploy-test: # testing purpose only
+    name: Deploy to 'test' Environment
+    needs: deploy
+    uses: ./.github/workflows/.deployer-using-secure-tunnel.yml
+    with:
+      environment_name: test
+      command: apply
+      proxy_url: ${{ needs.deploy.outputs.proxy_url }}
+      proxy_auth: ${{ needs.deploy.outputs.proxy_auth }}
+      tag: ${{github.event.number}}-${{ github.run_number }}
+    secrets: inherit
+  deploy-prod: # testing purpose only
+    name: Deploy to 'prod' Environment
+    needs: deploy
+    uses: ./.github/workflows/.deployer-using-secure-tunnel.yml
+    with:
+      environment_name: prod
+      command: apply
+      proxy_url: ${{ needs.deploy.outputs.proxy_url }}
+      proxy_auth: ${{ needs.deploy.outputs.proxy_auth }}
+      tag: ${{github.event.number}}-${{ github.run_number }}
+    secrets: inherit
