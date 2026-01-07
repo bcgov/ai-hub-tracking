@@ -114,6 +114,5 @@ module "azure_proxy" {
   log_analytics_workspace_id       = module.monitoring.log_analytics_workspace_id
   appinsights_connection_string    = module.monitoring.appinsights_connection_string
   appinsights_instrumentation_key  = module.monitoring.appinsights_instrumentation_key
-
-  depends_on = [module.network]
+  depends_on                       = [module.network]
 }
