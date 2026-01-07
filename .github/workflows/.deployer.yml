@@ -69,7 +69,12 @@ jobs:
         run: |
           GITHUB_IPS_JSON=$(curl -s https://api.github.com/meta | jq -r '.actions')
           GITHUB_IPS_ARRAY=($(echo $GITHUB_IPS_JSON | jq -r '.[]'))
-          GITHUB_IPS_CSV=$(IFS=, ; echo "${GITHUB_IPS_ARRAY[*]}")
+          # separate by commas and then wrap each item with double quotes and finally wrap as array so value is terraform compatible
+
+          GITHUB_IPS_CSV=$(printf '"%s",' "${GITHUB_IPS_ARRAY[@]}")
+          GITHUB_IPS_CSV="[${GITHUB_IPS_CSV%,}]"  # remove trailing comma and wrap as array
+
+
           echo "github_ips=$GITHUB_IPS_CSV" >> "$GITHUB_OUTPUT"
       - name: Deploy Azure proxy
         id: deploy
