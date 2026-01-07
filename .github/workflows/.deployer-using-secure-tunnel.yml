@@ -135,7 +135,7 @@ jobs:
           TF_VAR_source_vnet_address_space: ${{ secrets.SOURCE_VNET_ADDRESS_SPACE }}
 
           # Only used by infra-ai-hub, harmless if unset/unused
-          TF_VAR_key_vault_name: ${{ format('{0}-{1}-{2}-kv', 'ai-services-hub', inputs.environment_name, vars.SUBSCRIPTION_NAME) }}
+          TF_VAR_key_vault_name: ${{ format('{0}{1}{2}kv', 'aihub', inputs.environment_name, vars.SUBSCRIPTION_NAME) }}
 
           HTTP_PROXY: "http://127.0.0.1:8118"
           HTTPS_PROXY: "http://127.0.0.1:8118"
