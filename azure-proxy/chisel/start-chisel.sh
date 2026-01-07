@@ -32,6 +32,19 @@ if [ ! -f /var/www/healthz ]; then
   echo '{"status":"healthy"}' > /var/www/healthz
 fi
 
+# Also respond on the root path (/). busybox httpd serves index.html for directory requests.
+if [ ! -f /var/www/index.html ]; then
+  echo '{"status":"healthy"}' > /var/www/index.html
+fi
+
+# Keep automated crawlers out (harmless for an internal health endpoint).
+if [ ! -f /var/www/robots.txt ]; then
+  cat > /var/www/robots.txt <<'EOF'
+User-agent: *
+Disallow: /
+EOF
+fi
+
 stop=0
 status=1
 
