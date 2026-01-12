@@ -1,0 +1,256 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 900" width="1100" height="900">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#003366"/>
+      <stop offset="100%" style="stop-color:#1a5a96"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#22c55e"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1100" height="900" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1100" height="60" fill="url(#headerGrad)"/>
+  <text x="550" y="38" font-family="Segoe UI, Arial" font-size="22" font-weight="bold" fill="white" text-anchor="middle">Three Steps to Secure Azure Access</text>
+  <text x="550" y="55" font-family="Segoe UI, Arial" font-size="12" fill="#e2e8f0" text-anchor="middle">Evolution from Bastion to Chisel + App Services</text>
+
+  <!-- Step 1: Bastion Era -->
+  <rect x="20" y="80" width="350" height="360" rx="12" fill="white" stroke="#8b5cf6" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="20" y="80" width="350" height="55" rx="12" fill="#8b5cf6"/>
+  <text x="195" y="108" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="white" text-anchor="middle">STEP 1: Bastion + Jumpbox</text>
+  <text x="195" y="125" font-family="Segoe UI, Arial" font-size="11" fill="#c4b5fd" text-anchor="middle">(Early Approach)</text>
+
+  <!-- Bastion architecture -->
+  <rect x="40" y="145" width="150" height="100" rx="8" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="115" y="168" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">Your Laptop</text>
+  <text x="115" y="185" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">Azure Portal</text>
+  <text x="115" y="200" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">Web-based SSH/RDP</text>
+  <text x="115" y="215" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">TLS encrypted</text>
+
+  <rect x="210" y="145" width="150" height="100" rx="8" fill="#e0e7ff" stroke="#6366f1"/>
+  <text x="285" y="168" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#3730a3" text-anchor="middle">Azure Bastion</text>
+  <text x="285" y="185" font-family="Segoe UI, Arial" font-size="9" fill="#4338ca" text-anchor="middle">Public IP</text>
+  <text x="285" y="200" font-family="Segoe UI, Arial" font-size="9" fill="#4338ca" text-anchor="middle">Bastion Service</text>
+  <text x="285" y="215" font-family="Segoe UI, Arial" font-size="9" fill="#4338ca" text-anchor="middle">Basic SKU</text>
+
+  <rect x="100" y="265" width="150" height="100" rx="8" fill="#f3e8ff" stroke="#8b5cf6"/>
+  <text x="175" y="288" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#5b21b6" text-anchor="middle">Jumpbox VM</text>
+  <text x="175" y="305" font-family="Segoe UI, Arial" font-size="9" fill="#6b21a8" text-anchor="middle">Ubuntu 24.04</text>
+  <text x="175" y="320" font-family="Segoe UI, Arial" font-size="9" fill="#6b21a8" text-anchor="middle">No Public IP</text>
+  <text x="175" y="335" font-family="Segoe UI, Arial" font-size="9" fill="#6b21a8" text-anchor="middle">CLI Tools</text>
+  <text x="175" y="350" font-family="Segoe UI, Arial" font-size="9" fill="#6b21a8" text-anchor="middle">Auto shutdown</text>
+
+  <!-- Arrows for Step 1 -->
+  <path d="M 190 195 L 210 195" stroke="#8b5cf6" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M 285 245 L 175 265" stroke="#8b5cf6" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M 115 245 L 115 265" stroke="#8b5cf6" stroke-width="1.5" stroke-dasharray="3,3" fill="none"/>
+
+  <!-- Step 1 details -->
+  <rect x="40" y="380" width="310" height="40" rx="6" fill="#fef9c3"/>
+  <text x="195" y="405" font-family="Segoe UI, Arial" font-size="10" fill="#713f12" text-anchor="middle">Cost: $140/month (Bastion) + VM compute</text>
+
+  <!-- Step 2: Container Apps Era -->
+  <rect x="375" y="80" width="350" height="360" rx="12" fill="white" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="375" y="80" width="350" height="55" rx="12" fill="#22c55e"/>
+  <text x="550" y="108" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="white" text-anchor="middle">STEP 2: Self-Hosted Runners</text>
+  <text x="550" y="125" font-family="Segoe UI, Arial" font-size="11" fill="#bbf7d0" text-anchor="middle">(Container Apps in VNet)</text>
+
+  <!-- GitHub Actions -->
+  <rect x="395" y="145" width="150" height="80" rx="8" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="470" y="168" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">GitHub Actions</text>
+  <text x="470" y="185" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">Workflow Triggered</text>
+  <text x="470" y="200" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">Self-Hosted Runner</text>
+  <text x="470" y="215" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">PAT Registration</text>
+
+  <!-- VNet -->
+  <rect x="395" y="240" width="310" height="150" rx="8" fill="#dcfce7" stroke="#22c55e" stroke-width="1.5" stroke-dasharray="5,3"/>
+  <text x="550" y="260" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Virtual Network (VNet)</text>
+
+  <!-- Container Apps -->
+  <rect x="410" y="275" width="140" height="50" rx="6" fill="#86efac" stroke="#16a34a"/>
+  <text x="480" y="295" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#15803d" text-anchor="middle">Container Apps</text>
+  <text x="480" y="310" font-family="Segoe UI, Arial" font-size="8" fill="#16a34a" text-anchor="middle">GitHub Runner</text>
+  <text x="480" y="322" font-family="Segoe UI, Arial" font-size="8" fill="#16a34a" text-anchor="middle">KEDA Auto-scale</text>
+
+  <!-- Private Endpoints -->
+  <rect x="565" y="275" width="125" height="50" rx="6" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="627" y="295" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#92400e" text-anchor="middle">Private</text>
+  <text x="627" y="310" font-family="Segoe UI, Arial" font-size="8" fill="#b45309" text-anchor="middle">Key Vault</text>
+  <text x="627" y="322" font-family="Segoe UI, Arial" font-size="8" fill="#b45309" text-anchor="middle">Storage, DBs</text>
+
+  <!-- Scale to zero -->
+  <rect x="410" y="340" width="280" height="35" rx="6" fill="#dbeafe"/>
+  <text x="550" y="363" font-family="Segoe UI, Arial" font-size="10" fill="#1e40af" text-anchor="middle">Scales to 0 when idle - cost savings!</text>
+
+  <!-- Arrow from GitHub to VNet -->
+  <path d="M 470 225 L 470 240" stroke="#22c55e" stroke-width="2" marker-end="url(#arrowGreen)"/>
+
+  <!-- Step 2 details -->
+  <rect x="395" y="405" width="310" height="20" rx="6" fill="#dcfce7"/>
+  <text x="550" y="420" font-family="Segoe UI, Arial" font-size="10" fill="#166534" text-anchor="middle">Cost: ~$103/month (ACR + compute on-demand)</text>
+
+  <!-- Step 3: Chisel Era -->
+  <rect x="730" y="80" width="350" height="360" rx="12" fill="white" stroke="#0ea5e9" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="730" y="80" width="350" height="55" rx="12" fill="#0ea5e9"/>
+  <text x="905" y="108" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="white" text-anchor="middle">STEP 3: Chisel + App Services</text>
+  <text x="905" y="125" font-family="Segoe UI, Arial" font-size="11" fill="#bae6fd" text-anchor="middle">(Latest - Cost Optimized)</text>
+
+  <!-- Your Laptop -->
+  <rect x="750" y="145" width="150" height="100" rx="8" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="825" y="168" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">Your Laptop</text>
+  <text x="825" y="185" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">Docker Chisel Client</text>
+  <text x="825" y="200" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">Local port 5432</text>
+  <text x="825" y="215" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">HTTPS Tunnel</text>
+
+  <!-- App Service -->
+  <rect x="750" y="260" width="150" height="70" rx="8" fill="#cffafe" stroke="#06b6d4"/>
+  <text x="825" y="283" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#0e7490" text-anchor="middle">App Service</text>
+  <text x="825" y="300" font-family="Segoe UI, Arial" font-size="9" fill="#155e75" text-anchor="middle">Chisel Server</text>
+  <text x="825" y="315" font-family="Segoe UI, Arial" font-size="9" fill="#155e75" text-anchor="middle">VNet Integration</text>
+
+  <!-- Private Endpoints -->
+  <rect x="915" y="260" width="150" height="70" rx="8" fill="#fef3c7" stroke="#f59e0b"/>
+  <text x="990" y="283" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">Private</text>
+  <text x="990" y="300" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">Key Vault, Storage</text>
+  <text x="990" y="315" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">Databases</text>
+
+  <!-- GitHub Public Runner -->
+  <rect x="750" y="345" width="315" height="50" rx="8" fill="#f3f4f6" stroke="#9ca3af"/>
+  <text x="908" y="368" font-family="Segoe UI, Arial" font-size="10" fill="#374151" text-anchor="middle">GitHub Public Runner (ubuntu-24.04) - Control Plane Only</text>
+  <text x="908" y="383" font-family="Segoe UI, Arial" font-size="9" fill="#6b7280" text-anchor="middle">Deploy infrastructure, manage resources</text>
+
+  <!-- Arrows Step 3 -->
+  <path d="M 825 245 L 825 260" stroke="#0ea5e9" stroke-width="2" marker-end="url(#arrow)"/>
+  <path d="M 900 295 L 915 295" stroke="#0ea5e9" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- Step 3 details -->
+  <rect x="750" y="405" width="310" height="20" rx="6" fill="#cffafe"/>
+  <text x="905" y="420" font-family="Segoe UI, Arial" font-size="10" fill="#0e7490" text-anchor="middle">Cost: ~$15/month (App Service B1 only when active)</text>
+
+  <!-- Bottom Comparison Table -->
+  <rect x="20" y="460" width="1060" height="420" rx="12" fill="white" stroke="#94a3b8" stroke-width="1" filter="url(#shadow)"/>
+  <text x="550" y="490" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="#334155" text-anchor="middle">Detailed Comparison</text>
+
+  <!-- Table headers -->
+  <rect x="50" y="510" width="180" height="35" rx="6" fill="#f1f5f9"/>
+  <text x="140" y="533" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#475569" text-anchor="middle">Aspect</text>
+
+  <rect x="250" y="510" width="280" height="35" rx="6" fill="#f5f3ff"/>
+  <text x="390" y="533" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#5b21b6" text-anchor="middle">Step 1: Bastion + Jumpbox</text>
+
+  <rect x="550" y="510" width="280" height="35" rx="6" fill="#f0fdf4"/>
+  <text x="690" y="533" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Step 2: Container Apps Runners</text>
+
+  <rect x="850" y="510" width="200" height="35" rx="6" fill="#f0f9ff"/>
+  <text x="950" y="533" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#0369a1" text-anchor="middle">Step 3: Chisel + App Service</text>
+
+  <!-- Row 1: Access Pattern -->
+  <rect x="50" y="555" width="180" height="45" rx="4" fill="#f8fafc"/>
+  <text x="140" y="582" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#475569" text-anchor="middle">Access Pattern</text>
+
+  <rect x="250" y="555" width="280" height="45" rx="4" fill="white"/>
+  <text x="390" y="573" font-family="Segoe UI, Arial" font-size="9" fill="#5b21b6" text-anchor="middle">Web portal → SSH/RDP</text>
+  <text x="390" y="587" font-family="Segoe UI, Arial" font-size="9" fill="#6b21a8" text-anchor="middle">Jumpbox VM with tools</text>
+  <text x="390" y="597" font-family="Segoe UI, Arial" font-size="8" fill="#6b21a8" text-anchor="middle">Always-on compute</text>
+
+  <rect x="550" y="555" width="280" height="45" rx="4" fill="white"/>
+  <text x="690" y="573" font-family="Segoe UI, Arial" font-size="9" fill="#166534" text-anchor="middle">GitHub Actions trigger</text>
+  <text x="690" y="587" font-family="Segoe UI, Arial" font-size="9" fill="#15803d" text-anchor="middle">Runner in VNet</text>
+  <text x="690" y="597" font-family="Segoe UI, Arial" font-size="8" fill="#15803d" text-anchor="middle">Scales to zero</text>
+
+  <rect x="850" y="555" width="200" height="45" rx="4" fill="white"/>
+  <text x="950" y="573" font-family="Segoe UI, Arial" font-size="9" fill="#0369a1" text-anchor="middle">Direct laptop access</text>
+  <text x="950" y="587" font-family="Segoe UI, Arial" font-size="9" fill="#0284c7" text-anchor="middle">HTTPS tunnel</text>
+  <text x="950" y="597" font-family="Segoe UI, Arial" font-size="8" fill="#0284c7" text-anchor="middle">Serverless</text>
+
+  <!-- Row 2: Data Plane -->
+  <rect x="50" y="610" width="180" height="45" rx="4" fill="#f8fafc"/>
+  <text x="140" y="637" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#475569" text-anchor="middle">Data Plane Access</text>
+
+  <rect x="250" y="610" width="280" height="45" rx="4" fill="white"/>
+  <text x="390" y="628" font-family="Segoe UI, Arial" font-size="9" fill="#5b21b6" text-anchor="middle">✓ Yes - Full VM access</text>
+  <text x="390" y="642" font-family="Segoe UI, Arial" font-size="9" fill="#6b21a8" text-anchor="middle">Can read secrets, query DBs</text>
+  <text x="390" y="652" font-family="Segoe UI, Arial" font-size="8" fill="#6b21a8" text-anchor="middle">From jumpbox VM only</text>
+
+  <rect x="550" y="610" width="280" height="45" rx="4" fill="white"/>
+  <text x="690" y="628" font-family="Segoe UI, Arial" font-size="9" fill="#166534" text-anchor="middle">✓ Yes - Inside VNet</text>
+  <text x="690" y="642" font-family="Segoe UI, Arial" font-size="9" fill="#15803d" text-anchor="middle">CI/CD with secrets/state</text>
+  <text x="690" y="652" font-family="Segoe UI, Arial" font-size="8" fill="#15803d" text-anchor="middle">Auto-scales per job</text>
+
+  <rect x="850" y="610" width="200" height="45" rx="4" fill="white"/>
+  <text x="950" y="628" font-family="Segoe UI, Arial" font-size="9" fill="#0369a1" text-anchor="middle">✓ Yes - Via tunnel</text>
+  <text x="950" y="642" font-family="Segoe UI, Arial" font-size="9" fill="#0284c7" text-anchor="middle">Port forwarding</text>
+  <text x="950" y="652" font-family="Segoe UI, Arial" font-size="8" fill="#0284c7" text-anchor="middle">Any service</text>
+
+  <!-- Row 3: Control Plane -->
+  <rect x="50" y="665" width="180" height="45" rx="4" fill="#f8fafc"/>
+  <text x="140" y="692" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#475569" text-anchor="middle">Control Plane Access</text>
+
+  <rect x="250" y="665" width="280" height="45" rx="4" fill="white"/>
+  <text x="390" y="683" font-family="Segoe UI, Arial" font-size="9" fill="#5b21b6" text-anchor="middle">✓ Yes - From portal</text>
+  <text x="390" y="697" font-family="Segoe UI, Arial" font-size="9" fill="#6b21a8" text-anchor="middle">Manual operations</text>
+  <text x="390" y="707" font-family="Segoe UI, Arial" font-size="8" fill="#6b21a8" text-anchor="middle">Human-triggered</text>
+
+  <rect x="550" y="665" width="280" height="45" rx="4" fill="white"/>
+  <text x="690" y="683" font-family="Segoe UI, Arial" font-size="9" fill="#166534" text-anchor="middle">✓ Yes - OIDC works</text>
+  <text x="690" y="697" font-family="Segoe UI, Arial" font-size="9" fill="#15803d" text-anchor="middle">Automated CI/CD</text>
+  <text x="690" y="707" font-family="Segoe UI, Arial" font-size="8" fill="#15803d" text-anchor="middle">GitHub-hosted too</text>
+
+  <rect x="850" y="665" width="200" height="45" rx="4" fill="white"/>
+  <text x="950" y="683" font-family="Segoe UI, Arial" font-size="9" fill="#0369a1" text-anchor="middle">✓ Yes - All methods</text>
+  <text x="950" y="697" font-family="Segoe UI, Arial" font-size="9" fill="#0284c7" text-anchor="middle">Public runners OK</text>
+  <text x="950" y="707" font-family="Segoe UI, Arial" font-size="8" fill="#0284c7" text-anchor="middle">For infra deploys</text>
+
+  <!-- Row 4: Best For -->
+  <rect x="50" y="720" width="180" height="45" rx="4" fill="#f8fafc"/>
+  <text x="140" y="747" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#475569" text-anchor="middle">Best Use Case</text>
+
+  <rect x="250" y="720" width="280" height="45" rx="4" fill="white"/>
+  <text x="390" y="738" font-family="Segoe UI, Arial" font-size="9" fill="#5b21b6" text-anchor="middle">Dev/admin access</text>
+  <text x="390" y="752" font-family="Segoe UI, Arial" font-size="9" fill="#6b21a8" text-anchor="middle">Manual debugging</text>
+  <text x="390" y="762" font-family="Segoe UI, Arial" font-size="8" fill="#6b21a8" text-anchor="middle">24/7 admin tools</text>
+
+  <rect x="550" y="720" width="280" height="45" rx="4" fill="white"/>
+  <text x="690" y="738" font-family="Segoe UI, Arial" font-size="9" fill="#166534" text-anchor="middle">CI/CD with data plane</text>
+  <text x="690" y="752" font-family="Segoe UI, Arial" font-size="9" fill="#15803d" text-anchor="middle">Secrets in pipelines</text>
+  <text x="690" y="762" font-family="Segoe UI, Arial" font-size="8" fill="#15803d" text-anchor="middle">Automated deploys</text>
+
+  <rect x="850" y="720" width="200" height="45" rx="4" fill="white"/>
+  <text x="950" y="738" font-family="Segoe UI, Arial" font-size="9" fill="#0369a1" text-anchor="middle">Local development</text>
+  <text x="950" y="752" font-family="Segoe UI, Arial" font-size="9" fill="#0284c7" text-anchor="middle">Cheap, flexible</text>
+  <text x="950" y="762" font-family="Segoe UI, Arial" font-size="8" fill="#0284c7" text-anchor="middle">On-demand only</text>
+
+  <!-- Row 5: Cost -->
+  <rect x="50" y="775" width="180" height="45" rx="4" fill="#f8fafc"/>
+  <text x="140" y="802" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#475569" text-anchor="middle">Monthly Cost</text>
+
+  <rect x="250" y="775" width="280" height="45" rx="4" fill="white"/>
+  <text x="390" y="793" font-family="Segoe UI, Arial" font-size="9" fill="#5b21b6" text-anchor="middle">$140 + VM compute</text>
+  <text x="390" y="807" font-family="Segoe UI, Arial" font-size="9" fill="#6b21a8" text-anchor="middle">~$200-300/month</text>
+  <text x="390" y="817" font-family="Segoe UI, Arial" font-size="8" fill="#6b21a8" text-anchor="middle">Always running</text>
+
+  <rect x="550" y="775" width="280" height="45" rx="4" fill="white"/>
+  <text x="690" y="793" font-family="Segoe UI, Arial" font-size="9" fill="#166534" text-anchor="middle">~$100/month</text>
+  <text x="690" y="807" font-family="Segoe UI, Arial" font-size="9" fill="#15803d" text-anchor="middle">ACR + on-demand compute</text>
+  <text x="690" y="817" font-family="Segoe UI, Arial" font-size="8" fill="#15803d" text-anchor="middle">Scales to zero</text>
+
+  <rect x="850" y="775" width="200" height="45" rx="4" fill="white"/>
+  <text x="950" y="793" font-family="Segoe UI, Arial" font-size="9" fill="#0369a1" text-anchor="middle">~$15/month</text>
+  <text x="950" y="807" font-family="Segoe UI, Arial" font-size="9" fill="#0284c7" text-anchor="middle">App Service B1 only</text>
+  <text x="950" y="817" font-family="Segoe UI, Arial" font-size="8" fill="#0284c7" text-anchor="middle">When tunnel active</text>
+
+  <!-- Footer note -->
+  <rect x="20" y="840" width="1060" height="40" rx="8" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+  <text x="550" y="863" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">💡 Key Insight: Chisel is the most cost-effective solution for local development while maintaining full security</text>
+
+</svg>

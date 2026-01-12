@@ -78,6 +78,16 @@
             <div class="card-arrow">View Playbook →</div>
         </div>
     </a>
+    <a href="#chisel-tunnel" class="card-link">
+        <div class="card" style="border-left-color: #8b5cf6;">
+            <div class="feature-icon purple">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
+            </div>
+            <h3 style="margin-top: 0;">Chisel Tunnel Setup</h3>
+            <p>Local access to private Azure resources</p>
+            <div class="card-arrow">View Playbook →</div>
+        </div>
+    </a>
 </div>
 
 <!-- ============================================================================
@@ -426,6 +436,178 @@ gh run view &lt;RUN_ID&gt; --log</pre>
 
 <h4>5. GitHub Status</h4>
 <p>Check <a href="https://www.githubstatus.com/" target="_blank">GitHub Status Page</a> for platform issues.</p>
+
+<!-- ============================================================================
+     PLAYBOOK: CHISEL TUNNEL SETUP
+     ============================================================================ -->
+
+<h2 id="chisel-tunnel">Playbook: Chisel Tunnel for Local Development</h2>
+
+<div class="alert alert-info">
+    <span class="alert-icon">🔧</span>
+    <div>
+        <strong>Platform Maintainers Only:</strong> This playbook is for the platform team to access private Azure resources (databases, Key Vault, etc.) from their local machines. Tenant developers should use the APIM/App Gateway endpoints instead.
+    </div>
+</div>
+
+<div class="card" style="border-left-color: #8b5cf6;">
+    <h3 style="margin-top: 0;">When to Use</h3>
+    <ul>
+        <li>You need to connect to a private PostgreSQL/CosmosDB database from your laptop</li>
+        <li>You need to debug private endpoints locally</li>
+        <li>You need to test API calls to private Azure services</li>
+        <li>Bastion/Jumpbox is overkill for quick data plane access</li>
+    </ul>
+</div>
+
+<h3>Prerequisites</h3>
+
+<ul>
+    <li><strong>Docker</strong> installed on your local machine</li>
+    <li><strong>Chisel credentials</strong> from Terraform output (contact platform team)</li>
+    <li><strong>Azure Proxy deployed</strong> (<code>enable_azure_proxy = true</code> in Terraform)</li>
+</ul>
+
+<h3>Step 1: Get Chisel Credentials</h3>
+
+<p>The Chisel server credentials are stored in Terraform outputs. Contact the platform team or retrieve them yourself:</p>
+
+<pre># From a machine with Terraform access (e.g., Jumpbox)
+cd initial-setup/infra
+terraform output azure_proxy_chisel_auth
+
+# Output format: tunnel:XXXXXXXX</pre>
+
+<p>You'll also need the App Service URL:</p>
+
+<pre>terraform output azure_proxy_url
+
+# Output: https://&lt;app-name&gt;.azurewebsites.net</pre>
+
+<h3>Step 2: Connect to a Private Database</h3>
+
+<p>Example: Connecting to a private PostgreSQL database on port 5432:</p>
+
+<pre># Run Chisel client in Docker
+docker run --rm -it \
+  -p 5432:5432 \
+  jpillora/chisel:latest client \
+  --auth "tunnel:XXXXXXXX" \
+  https://&lt;app-name&gt;.azurewebsites.net \
+  0.0.0.0:5432:&lt;postgres-server&gt;.postgres.database.azure.com:5432
+
+# Now connect locally
+psql -h localhost -p 5432 -U &lt;username&gt; -d &lt;database&gt;</pre>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">⚠️</span>
+    <div>
+        <strong>Port Conflicts:</strong> If port 5432 is already in use locally, map to a different port:
+        <pre style="margin: 0.5rem 0 0;">-p 5462:5432</pre>
+        Then connect with <code>psql -h localhost -p 5462 ...</code>
+    </div>
+</div>
+
+<h3>Step 3: Connect to Multiple Services (SOCKS5 Proxy)</h3>
+
+<p>For accessing multiple private services or browsing private endpoints:</p>
+
+<pre># Run Chisel as SOCKS5 proxy
+docker run --rm -it \
+  -p 1080:1080 \
+  jpillora/chisel:latest client \
+  --auth "tunnel:XXXXXXXX" \
+  https://&lt;app-name&gt;.azurewebsites.net \
+  socks</pre>
+
+<h4>Configure Firefox with SmartProxy Extension</h4>
+
+<ol>
+    <li>Install <a href="https://addons.mozilla.org/en-US/firefox/addon/smartproxy/" target="_blank">SmartProxy extension</a></li>
+    <li>Add a proxy server:
+        <ul>
+            <li>Type: SOCKS5</li>
+            <li>Address: localhost</li>
+            <li>Port: 1080</li>
+        </ul>
+    </li>
+    <li>Add rules for Azure private endpoints:
+        <ul>
+            <li><code>*.vault.azure.net</code></li>
+            <li><code>*.postgres.database.azure.com</code></li>
+            <li><code>*.blob.core.windows.net</code></li>
+        </ul>
+    </li>
+</ol>
+
+<h3>Step 4: Connect to Key Vault</h3>
+
+<pre># Tunnel to Key Vault (port 443)
+docker run --rm -it \
+  -p 8443:443 \
+  jpillora/chisel:latest client \
+  --auth "tunnel:XXXXXXXX" \
+  https://&lt;app-name&gt;.azurewebsites.net \
+  0.0.0.0:443:&lt;keyvault-name&gt;.vault.azure.net:443
+
+# Use Azure CLI with HTTPS_PROXY (alternative method)
+HTTPS_PROXY=socks5://localhost:1080 az keyvault secret list --vault-name &lt;keyvault-name&gt;</pre>
+
+<h3>Troubleshooting</h3>
+
+<table>
+    <tr>
+        <th>Issue</th>
+        <th>Cause</th>
+        <th>Solution</th>
+    </tr>
+    <tr>
+        <td>Connection refused</td>
+        <td>Chisel server not running or wrong URL</td>
+        <td>Verify App Service is running, check URL</td>
+    </tr>
+    <tr>
+        <td>Authentication failed</td>
+        <td>Wrong credentials</td>
+        <td>Get fresh credentials from Terraform output</td>
+    </tr>
+    <tr>
+        <td>Timeout connecting to target</td>
+        <td>Target hostname wrong or not in VNet</td>
+        <td>Verify private endpoint hostname, check VNet peering</td>
+    </tr>
+    <tr>
+        <td>Port already in use</td>
+        <td>Local service using the port</td>
+        <td>Use different local port: <code>-p 5462:5432</code></td>
+    </tr>
+    <tr>
+        <td>DNS resolution failed</td>
+        <td>Private DNS not linked</td>
+        <td>Use IP address instead, or check Private DNS Zone</td>
+    </tr>
+</table>
+
+<h3>Security Notes</h3>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">🔒</span>
+    <div>
+        <ul style="margin: 0;">
+            <li><strong>Credentials:</strong> Chisel auth is randomly generated and stored in App Service settings (encrypted by Azure)</li>
+            <li><strong>Access logging:</strong> All connections are logged in Application Insights</li>
+            <li><strong>Scope:</strong> Chisel can only reach resources within the VNet or peered VNets</li>
+            <li><strong>Not for tenants:</strong> This is platform team tooling, not for ministry developers</li>
+        </ul>
+    </div>
+</div>
+
+<h3>Related Resources</h3>
+<ul>
+    <li><a href="decisions.html#adr-011">ADR-011: Control Plane vs Data Plane Access & Chisel Tunnel</a></li>
+    <li><a href="terraform.html">Terraform Module: azure-proxy</a></li>
+    <li><a href="https://github.com/jpillora/chisel" target="_blank">Chisel GitHub Repository</a></li>
+</ul>
 
 <h2>Emergency Contacts</h2>
 

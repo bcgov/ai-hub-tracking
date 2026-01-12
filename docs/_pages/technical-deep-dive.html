@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Technical Deep Dive: Control vs Data Plane & Chisel Architecture</title>
+</head>
+<body>
+<h1>Technical Deep Dive: Control vs Data Plane & Chisel Architecture</h1>
+
+<p>This document provides an in-depth technical explanation of why we need Key Vault access, when terraform operations fail, and how Chisel provides a solution.</p>
+
+<h2>Table of Contents</h2>
+<ol>
+    <li><a href="#control-vs-data-plane">Control Plane vs Data Plane: The Fundamental Divide</a></li>
+    <li><a href="#keyvault-operations">Key Vault Operations: What Requires Data Plane Access</a></li>
+    <li><a href="#terraform-keyvault">Terraform + Key Vault: When Operations Fail</a></li>
+    <li><a href="#chisel-solution">Chisel: How the Tunnel Works</a></li>
+    <li><a href="#deployment-scenarios">Deployment Scenarios: Who Needs What</a></li>
+</ol>
+
+<h2 id="control-vs-data-plane">1. Control Plane vs Data Plane: The Fundamental Divide</h2>
+
+<h3>What is Control Plane?</h3>
+<p>The <strong>control plane</strong> is Azure's management layer that handles:</p>
+<ul>
+    <li>Creating, updating, deleting resources</li>
+    <li>Reading metadata and configuration</li>
+    <li>Managing RBAC and policies</li>
+</ul>
+
+<p><strong>Endpoint:</strong> <code>management.azure.com</code></p>
+<p><strong>Authentication:</strong> OIDC (OpenID Connect) works perfectly</p>
+
+<h3>What is Data Plane?</h3>
+<p>The <strong>data plane</strong> is where actual data operations happen:</p>
+<ul>
+    <li>Reading/writing secrets from Key Vault</li>
+    <li>Accessing storage blobs</li>
+    <li>Querying databases</li>
+    <li>Any operation that touches actual data</li>
+</ul>
+
+<p><strong>Endpoint:</strong> Service-specific (e.g., <code>*.vault.azure.net</code>, <code>*.blob.core.windows.net</code>)</p>
+<p><strong>Authentication:</strong> OIDC often fails when private endpoints exist</p>
+
+<h3>Why the Divide?</h3>
+<p>Azure separates these for security and architectural reasons:</p>
+<ul>
+    <li><strong>Control plane</strong> can use service principals and managed identities with OIDC</li>
+    <li><strong>Data plane</strong> requires direct network access to the service endpoint</li>
+    <li><strong>Private endpoints</strong> block public access to data plane endpoints</li>
+</ul>
+
+<div class="alert alert-warning">
+    <strong>Critical Insight:</strong> When you enable private endpoints, you're blocking public access to data plane endpoints. This means tools that worked via OIDC before may suddenly fail.
+</div>
+
+<h2 id="keyvault-operations">2. Key Vault Operations: What Requires Data Plane Access</h2>
+
+<h3>Key Vault Endpoints</h3>
+<ul>
+    <li><strong>Control Plane:</strong> <code>management.azure.com</code> (create KV, set policies, read metadata)</li>
+    <li><strong>Data Plane:</strong> <code>*.vault.azure.net</code> (read/write secrets, keys, certificates)</li>
+</ul>
+
+<h3>Operations That Require Data Plane Access</h3>
+
+<h4>Reading Secrets</h4>
+<pre><code>// This REQUIRES data plane access
+data "azurerm_key_vault_secret" "example" {
+  name     = "my-secret"
+  vault_id = "/subscriptions/.../keyvaults/myvault"
+}
+
+// When private endpoints are enabled:
+// ✗ FAILS: Cannot reach myvault.vault.azure.net from GitHub runner
+// ✓ WORKS: Can reach myvault.vault.azure.net from within VNet or via Chisel
+</code></pre>
+
+<h4>Writing Secrets</h4>
+<pre><code>// This REQUIRES data plane access
+resource "azurerm_key_vault_secret" "example" {
+  name         = "my-secret"
+  value        = "secret-value"
+  key_vault_id = azurerm_key_vault.main.id
+
+  // Terraform must connect to: myvault.vault.azure.net
+  // When private endpoints are enabled:
+  // ✗ FAILS: GitHub runner cannot reach myvault.vault.azure.net
+  // ✓ WORKS: Chisel tunnel provides access to myvault.vault.azure.net
+}</code></pre>
+
+<h3>Why These Fail with OIDC + Private Endpoints</h3>
+
+<pre><code>GitHub Runner (OIDC Authentication)
+        ↓
+Azure AD (Token: aud=management.azure.com)
+        ↓
+Azure ARM API (management.azure.com) ✓ WORKS
+        ↓
+Terraform creates resource
+        ↓
+Terraform tries to write secret
+        ↓
+needs to access: myvault.vault.azure.net ✗ BLOCKED
+                ↑
+        Private endpoint blocks public access
+        GitHub runner has no route to VNet
+</code></pre>
+
+<h2 id="terraform-keyvault">3. Terraform + Key Vault: When Operations Fail</h2>
+
+<p>Looking at our actual terraform code in <code>infra-ai-hub/main.tf</code>:</p>
+
+<h3>Line 33: Creating Key Vault (Control Plane - Works)</h3>
+<pre><code>resource "azurerm_key_vault" "main" {
+  name                = var.key_vault_name
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+}
+
+// ✓ WORKS with OIDC
+// Uses: management.azure.com
+// No private endpoint yet, so no blocking
+</code></pre>
+
+<h3>Line 68: Creating Private Endpoint (Control Plane - Works)</h3>
+<pre><code>resource "azurerm_private_endpoint" "key_vault_pe" {
+  name                = "${var.app_name}-kv-pe"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+  subnet_id           = module.network.private_endpoint_subnet_id
+
+  private_service_connection {
+    name                           = "${var.app_name}-kv-psc"
+    private_connection_resource_id = azurerm_key_vault.main.id
+    is_manual_connection           = false
+    subresource_names              = ["vault"]
+  }
+}
+
+// ✓ WORKS with OIDC
+// Uses: management.azure.com
+// This BLOCKS public access to *.vault.azure.net
+</code></pre>
+
+<h3>Line 93-171: Waiting for DNS (Necessary Workaround)</h3>
+<pre><code>resource "null_resource" "wait_for_key_vault_private_dns" {
+  triggers = {
+    private_endpoint_id = azurerm_private_endpoint.key_vault_pe.id
+    // ... other values
+  }
+
+  provisioner "local-exec" {
+    command = &lt;&lt;EOT
+      # Wait for DNS to be ready before trying data plane operations
+      # Azure creates private DNS records asynchronously
+      # We poll until the private endpoint can resolve its DNS name
+    EOT
+  }
+
+  depends_on = [azurerm_private_endpoint.key_vault_pe]
+}
+
+// Why necessary?
+// After private endpoint creation, Azure asynchronously:
+// 1. Creates private DNS zone: privatelink.vaultcore.azure.net
+// 2. Links it to the VNet
+// 3. Creates A records for the private endpoint
+// 4. This can take 30-120 seconds
+//
+// If we try to create secrets immediately:
+// ✗ FAILS: Cannot resolve myvault.vault.azure.net
+// ✓ WORKS: After DNS is ready, myvault.vault.azure.net resolves to private IP
+</code></pre>
+
+<h3>Line 185-201: Creating Secrets (Data Plane - FAILS without Chisel)</h3>
+<pre><code>resource "azurerm_key_vault_secret" "secret_one" {
+  name            = "example-secret-test-one"
+  value           = random_password.secret_one.result
+  key_vault_id    = azurerm_key_vault.main.id
+  expiration_date = "2025-12-31T23:59:59Z"
+
+  depends_on = [null_resource.wait_for_key_vault_private_dns]
+}
+
+resource "azurerm_key_vault_secret" "secret_two" {
+  name            = "example-secret-test-two"
+  value           = random_password.secret_two.result
+  key_vault_id    = azurerm_key_vault.main.id
+  expiration_date = "2025-12-31T23:59:59Z"
+
+  depends_on = [null_resource.wait_for_key_vault_private_dns]
+}
+
+// ✗ FAILS with OIDC + Private Endpoints
+// Terraform tries to connect to: myvault.vault.azure.net
+// GitHub runner has no route to the private IP
+//
+// ✓ WORKS with:
+//   1. Self-hosted runner inside VNet
+//   2. Bastion + Jumpbox (VPN to VNet)
+//   3. Chisel tunnel (App Service → VNet → *.vault.azure.net)
+</code></pre>
+
+<h2 id="chisel-solution">4. Chisel: How the Tunnel Works</h2>
+
+<h3>The Problem Chisel Solves</h3>
+<pre><code>BEFORE Chisel:
+┌──────────────┐         ┌──────────────┐
+│ GitHub Runner │ ──OIDC──&gt; │ Azure ARM API │
+│ (Public)      │          │ mgmt.azure.com│
+└──────────────┘          └──────┬───────┘
+                                │
+                                │ Creates resources
+                                ↓
+┌──────────────┐         ┌──────▼───────┐
+│ GitHub Runner │         │ Private      │
+│ ✗ No route   │         │ Endpoint     │
+│ to VNet      │         │ *.vault.azure.net │
+└──────────────┘         │ BLOCKED      │
+                          └──────────────┘
+</code></pre>
+
+<pre><code>AFTER Chisel:
+┌──────────────┐         ┌──────────────┐
+│ GitHub Runner │ ──OIDC──&gt; │ Azure ARM API │
+│ (Public)      │          │ mgmt.azure.com│
+└──────┬───────┘          └──────┬───────┘
+       │                          │
+       │ Creates                  │
+       ↓                          │
+┌──────▼──────────┐         ┌─────▼──────┐
+│ App Service     │         │ Private    │
+│ (Chisel Server) │────────&gt; │ Endpoint   │
+│ VNet Integrated │         │ *.vault.azure.net │
+└──────┬──────────┘         │ ACCESSIBLE │
+       │                          │
+       │ Chisel tunnel            │
+       ↓ (HTTPS/WebSocket)        │
+┌──────▼──────────┐              │
+│ Local Machine   │ ←────────────┘
+│ (Chisel Client) │
+└─────────────────┘
+</code></pre>
+
+<h3>How Chisel Works (Technical Deep Dive)</h3>
+
+<h4>Step 1: App Service Deployment (Control Plane - Works with OIDC)</h4>
+<p>From <code>initial-setup/infra/modules/azure-proxy/main.tf</code>:</p>
+<pre><code>resource "azurerm_linux_web_app" "azure_proxy" {
+  name                      = "${var.app_name}-${var.app_env}-azure-proxy-${random_string.proxy_dns_suffix.result}"
+  resource_group_name       = var.resource_group_name
+  location                  = var.location
+  service_plan_id           = azurerm_service_plan.azure_proxy_asp.id
+
+  // ✓ KEY: VNet Integration
+  virtual_network_subnet_id = var.app_service_subnet_id
+
+  // ✓ KEY: Managed Identity for Docker pulls
+  identity {
+    type = "SystemAssigned"
+  }
+
+  site_config {
+    application_stack {
+      docker_image_name   = var.azure_proxy_image
+      docker_registry_url = var.container_registry_url
+    }
+  }
+
+  app_settings = {
+    // ✓ KEY: Chisel authentication
+    CHISEL_AUTH = "${random_password.proxy_chisel_username.result}:${random_password.proxy_chisel_password.result}"
+  }
+}
+
+// ✓ This WORKS with OIDC because:
+// 1. Creates App Service (management.azure.com) ✓
+// 2. Pulls Docker image (docker.io) ✓
+// 3. Deploys to App Service (management.azure.com) ✓
+// 4. Integrates with VNet (management.azure.com) ✓
+</code></pre>
+
+<h4>Step 2: Chisel Server Runs in App Service</h4>
+<p>From <code>azure-proxy/chisel/start-chisel.sh</code>:</p>
+<pre><code>#!/bin/sh
+set -e
+
+# Chisel runs as a server inside the App Service
+# Listens on port 80 (configured by PORT env var)
+
+chisel server \
+  --port $PORT \
+  --auth $CHISEL_AUTH \
+  --socks5 \
+  --reverse
+
+# What this does:
+# --port 80: Listen on HTTP (App Service handles HTTPS termination)
+# --auth: Require authentication (prevents unauthorized access)
+# --socks5: Enable SOCKS5 proxy (for general traffic)
+# --reverse: Enable reverse tunneling (clients can expose local ports)
+</code></pre>
+
+<h4>Step 3: Local Machine Connects</h4>
+<p>From <code>azure-proxy/chisel/README.md</code>:</p>
+<pre><code># Developer runs this on their laptop:
+
+docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
+  --auth "tunnel:XXXXXXX" \
+  https://${azure-proxy-app-service-url} \
+  0.0.0.0:5432:${postgres_hostname}$:5432
+
+# What happens:
+# 1. Chisel client on laptop connects to Chisel server in App Service
+# 2. Connection goes: laptop → Internet → App Service (public)
+# 3. App Service is VNet-integrated
+# 4. Chisel forwards: laptop:5432 → App Service → VNet → postgres:5432
+</code></pre>
+
+<h4>Step 4: Traffic Flow with Private Endpoints</h4>
+<pre><code>┌──────────────┐
+│ Laptop       │
+│ Chisel Client│
+│ Port 5432    │
+└──────┬───────┘
+       │
+       │ 1. Connect to App Service
+       │ HTTPS / WebSocket
+       ↓
+┌──────▼──────────┐
+│ App Service     │
+│ (Chisel Server) │
+│ Public endpoint │
+│ VNet integrated │
+└──────┬──────────┘
+       │
+       │ 2. Inside VNet
+       │ Private IPs
+       ↓
+┌──────▼──────────────────┐
+│ Private Endpoint        │
+│ Subnet                  │
+│ Routes to:              │
+│ myvault.vault.azure.net │
+└──────┬──────────────────┘
+       │
+       │ 3. Data plane access
+       │ *.vault.azure.net
+       ↓
+┌──────▼──────────┐
+│ Key Vault       │
+│ Data operations │
+│ - Get secrets   │
+│ - Set secrets   │
+│ - List secrets  │
+└────────────────┘
+
+✓ SUCCESS: Terraform can read/write secrets!
+</code></pre>
+
+<h3>Why Chisel vs Alternatives?</h3>
+
+<table>
+    <tr>
+        <th>Method</th>
+        <th>Cost</th>
+        <th>Setup</th>
+        <th>Use Case</th>
+        <th>Limitations</th>
+    </tr>
+    <tr>
+        <td><strong>Bastion + Jumpbox</strong></td>
+        <td>$200-300/mo</td>
+        <td>High</td>
+        <td>Admin access, full VM</td>
+        <td>Expensive, overkill for single developer</td>
+    </tr>
+    <tr>
+        <td><strong>Self-hosted Runner</strong></td>
+        <td>$100/mo</td>
+        <td>Medium</td>
+        <td>CI/CD with secrets</td>
+        <td>Always running, needs management</td>
+    </tr>
+    <tr>
+        <td><strong>Chisel + App Service</strong></td>
+        <td>$15/mo</td>
+        <td>Low</td>
+        <td>Local dev, on-demand access</td>
+        <td>Manual connection needed</td>
+    </tr>
+</table>
+
+<h2 id="deployment-scenarios">5. Deployment Scenarios: Who Needs What</h2>
+
+<h3>Scenario 1: Platform Team (Deploys Landing Zone)</h3>
+<p><strong>Who:</strong> Platform Services Team, Infrastructure Admins</p>
+<p><strong>What they deploy:</strong></p>
+<ul>
+    <li>✓ Network (VNets, subnets, NSGs)</li>
+    <li>✓ Key Vault + Private Endpoints</li>
+    <li>✓ App Service Plans + Azure Proxy (Chisel)</li>
+    <li>✓ Bastion + Jumpbox (optional)</li>
+    <li>✓ Self-hosted runners (optional)</li>
+    <li>✓ API Management, App Gateway</li>
+    <li>✓ Azure AI Foundry</li>
+</ul>
+
+<p><strong>When they need data plane access:</strong></p>
+<ul>
+    <li>Creating Key Vault secrets (initial setup)</li>
+    <li>Testing private endpoints</li>
+    <li>Debugging network connectivity</li>
+    <li>Manual secret rotation</li>
+</ul>
+
+<p><strong>Recommended access method:</strong></p>
+<ul>
+    <li><strong>Option 1:</strong> Chisel tunnel ($15/mo) - for most developers</li>
+    <li><strong>Option 2:</strong> Bastion + Jumpbox ($200-300/mo) - for admins who need full VM</li>
+    <li><strong>Option 3:</strong> Public GitHub runners + Self-hosted for CI/CD</li>
+</ul>
+
+<h3>Scenario 2: Project Teams (Deploy Applications)</h3>
+<p><strong>Who:</strong> Ministry Application Teams</p>
+<p><strong>What they deploy:</strong></p>
+<ul>
+    <li>✓ App Service Plans (their apps)</li>
+    <li>✓ Container Apps (their workloads)</li>
+    <li>✓ Storage Accounts (their data)</li>
+    <li>✓ Application Code</li>
+</ul>
+
+<p><strong>What they DON'T deploy:</strong></p>
+<ul>
+    <li>✗ Network infrastructure (provided by platform)</li>
+    <li>✗ Bastion/Jumpbox (platform team maintains)</li>
+    <li>✗ Chisel (platform team provides endpoint)</li>
+    <li>✗ Key Vault (may use shared or create their own)</li>
+    <li>✗ Private endpoints (configured by platform)</li>
+</ul>
+
+<p><strong>When they need data plane access:</strong></p>
+<ul>
+    <li>Reading secrets from Key Vault (their app needs secrets)</li>
+    <li>Writing secrets during deployment</li>
+    <li>Testing their apps against private endpoints</li>
+</ul>
+
+<p><strong>Recommended access method:</strong></p>
+<ul>
+    <li><strong>Use platform's Chisel endpoint</strong> - provided by platform team</li>
+    <li><strong>Public GitHub runners</strong> - for control plane operations</li>
+    <li><strong>No self-hosted needed</strong> - platform provides infrastructure</li>
+</ul>
+
+<h3>Scenario 3: Solo Developer</h3>
+<p><strong>Who:</strong> Single developer, proof-of-concept work</p>
+<p><strong>What they deploy:</strong></p>
+<ul>
+    <li>✓ Their application code</li>
+    <li>✓ Minimal infrastructure if needed</li>
+</ul>
+
+<p><strong>Recommended setup:</strong></p>
+<ul>
+    <li><strong>Chisel tunnel only ($15/mo)</strong> - connect laptop to VNet</li>
+    <li><strong>Public GitHub runners (free)</strong> - for infrastructure deploys</li>
+</ul>
+
+<p><strong>Skip:</strong></p>
+<ul>
+    <li>✗ Bastion + Jumpbox ($200-300/mo) - too expensive</li>
+    <li>✗ Self-hosted runners ($100/mo) - not needed for solo work</li>
+</ul>
+
+<h2>Summary</h2>
+
+<h3>Why We Need Key Vault Access</h3>
+<ol>
+    <li><strong>Security:</strong> Private endpoints prevent public access to secrets</li>
+    <li><strong>Compliance:</strong> BC Gov requires zero-trust, no public data plane access</li>
+    <li><strong>Operations:</strong> Applications need to read secrets at runtime</li>
+    <li><strong>Automation:</strong> Terraform needs to write secrets during deployment</li>
+</ol>
+
+<h3>Why OIDC Alone Isn't Enough</h3>
+<ol>
+    <li>OIDC provides access to <code>management.azure.com</code> (control plane)</li>
+    <li>Private endpoints block <code>*.vault.azure.net</code> (data plane)</li>
+    <li>GitHub runners have no route to VNet private IPs</li>
+    <li>Even with valid tokens, network access is required</li>
+</ol>
+
+<h3>How Chisel Solves This</h3>
+<ol>
+    <li>App Service runs in VNet (via VNet integration)</li>
+    <li>Chisel server in App Service bridges public → private</li>
+    <li>Developer connects laptop to App Service via HTTPS</li>
+    <li>Traffic flows: laptop → App Service → VNet → private endpoints</li>
+    <li>Result: Data plane access without exposing services publicly</li>
+</ol>
+
+<h3>When to Use Each Method</h3>
+<ul>
+    <li><strong>Platform Team:</strong> Deploy all, use Chisel or Bastion for access</li>
+    <li><strong>Project Teams:</strong> Deploy apps only, use platform's Chisel</li>
+    <li><strong>Solo Dev:</strong> Deploy minimal, use Chisel only</li>
+    <li><strong>CI/CD with secrets:</strong> Use self-hosted runners in VNet</li>
+    <li><strong>Admin work:</strong> Use Bastion + Jumpbox</li>
+</ul>
+</body>
+</html>
