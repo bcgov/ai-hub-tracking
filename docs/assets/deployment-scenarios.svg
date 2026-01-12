@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 980" width="1100" height="980">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#003366"/>
+      <stop offset="100%" style="stop-color:#1a5a96"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1100" height="980" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1100" height="65" fill="url(#headerGrad)"/>
+  <text x="550" y="40" font-family="Segoe UI, Arial" font-size="22" font-weight="bold" fill="white" text-anchor="middle">Deployment Scenarios: What Do You Need?</text>
+  <text x="550" y="58" font-family="Segoe UI, Arial" font-size="12" fill="#e2e8f0" text-anchor="middle">Choose Your Scenario</text>
+
+  <!-- Scenario 1: Minimal -->
+  <rect x="50" y="90" width="1000" height="220" rx="12" fill="white" stroke="#22c55e" stroke-width="3" filter="url(#shadow)"/>
+  <rect x="50" y="90" width="1000" height="45" rx="12" fill="#22c55e"/>
+  <text x="550" y="122" font-family="Segoe UI, Arial" font-size="18" font-weight="bold" fill="white" text-anchor="middle">Scenario 1: I'm a Project Team - I Just Want to Deploy My App</text>
+
+  <text x="70" y="165" font-family="Segoe UI, Arial" font-size="13" font-weight="bold" fill="#166534">YOU DEPLOY:</text>
+  <text x="70" y="188" font-family="Segoe UI, Arial" font-size="11" fill="#15803d">• Your application code (App Service, Container Apps)</text>
+  <text x="70" y="208" font-family="Segoe UI, Arial" font-size="11" fill="#15803d">• Your storage accounts</text>
+  <text x="70" y="228" font-family="Segoe UI, Arial" font-size="11" fill="#15803d">• Your databases</text>
+
+  <text x="70" y="258" font-family="Segoe UI, Arial" font-size="13" font-weight="bold" fill="#991b1b">YOU DON'T DEPLOY:</text>
+  <text x="70" y="281" font-family="Segoe UI, Arial" font-size="11" fill="#b91c1c">✗ Network infrastructure (VNet, subnets)</text>
+  <text x="90" y="298" font-family="Segoe UI, Arial" font-size="10" fill="#7f1d1d">  └─ Provided by platform</text>
+  <text x="70" y="318" font-family="Segoe UI, Arial" font-size="11" fill="#b91c1c">✗ Private endpoints</text>
+  <text x="90" y="335" font-family="Segoe UI, Arial" font-size="10" fill="#7f1d1d">  └─ Already configured</text>
+
+  <rect x="800" y="160" width="230" height="120" rx="8" fill="#dcfce7" stroke="#22c55e"/>
+  <text x="915" y="185" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#166534" text-anchor="middle">Access Method:</text>
+  <text x="915" y="205" font-family="Segoe UI, Arial" font-size="11" fill="#15803d">API Management Gateway</text>
+  <text x="915" y="225" font-family="Segoe UI, Arial" font-size="11" fill="#15803d">App Gateway Load Balancer</text>
+  <text x="915" y="245" font-family="Segoe UI, Arial" font-size="11" fill="#15803d">Public endpoints</text>
+  <text x="915" y="265" font-family="Segoe UI, Arial" font-size="10" fill="#64748b">Provided by platform</text>
+
+  <!-- Scenario 2: Platform Admin -->
+  <rect x="50" y="340" width="1000" height="220" rx="12" fill="white" stroke="#8b5cf6" stroke-width="3" filter="url(#shadow)"/>
+  <rect x="50" y="340" width="1000" height="45" rx="12" fill="#8b5cf6"/>
+  <text x="550" y="372" font-family="Segoe UI, Arial" font-size="18" font-weight="bold" fill="white" text-anchor="middle">Scenario 2: I'm Platform Admin - I Need to Set Up the Landing Zone</text>
+
+  <text x="70" y="415" font-family="Segoe UI, Arial" font-size="13" font-weight="bold" fill="#5b21b6">YOU DEPLOY:</text>
+  <text x="70" y="438" font-family="Segoe UI, Arial" font-size="11" fill="#6b21a8">• Network (VNets, subnets, NSGs) ✓ REQUIRED</text>
+  <text x="70" y="458" font-family="Segoe UI, Arial" font-size="11" fill="#6b21a8">• Bastion + Jumpbox (optional, for admin access)</text>
+  <text x="70" y="478" font-family="Segoe UI, Arial" font-size="11" fill="#6b21a8">• Chisel tunnel (optional, for local dev)</text>
+  <text x="70" y="498" font-family="Segoe UI, Arial" font-size="11" fill="#6b21a8">• Self-hosted runners (optional, for CI/CD with secrets)</text>
+
+  <text x="550" y="438" font-family="Segoe UI, Arial" font-size="13" font-weight="bold" fill="#5b21b6">ACCESS METHODS:</text>
+  <text x="550" y="461" font-family="Segoe UI, Arial" font-size="11" fill="#6b21a8">✓ GitHub public runners (control plane)</text>
+  <text x="550" y="481" font-family="Segoe UI, Arial" font-size="11" fill="#6b21a8">✓ Bastion + Jumpbox (admin tasks)</text>
+  <text x="550" y="501" font-family="Segoe UI, Arial" font-size="11" fill="#6b21a8">✓ Chisel (local development)</text>
+
+  <rect x="800" y="410" width="230" height="120" rx="8" fill="#f3e8ff" stroke="#8b5cf6"/>
+  <text x="915" y="435" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#5b21b6" text-anchor="middle">Cost:</text>
+  <text x="915" y="455" font-family="Segoe UI, Arial" font-size="11" fill="#6b21a8">$15-300/month</text>
+  <text x="915" y="475" font-family="Segoe UI, Arial" font-size="10" fill="#64748b">Depends on options</text>
+  <text x="915" y="498" font-family="Segoe UI, Arial" font-size="10" fill="#64748b">See cost comparison</text>
+
+  <!-- Scenario 3: Solo Dev -->
+  <rect x="50" y="590" width="1000" height="220" rx="12" fill="white" stroke="#0ea5e9" stroke-width="3" filter="url(#shadow)"/>
+  <rect x="50" y="590" width="1000" height="45" rx="12" fill="#0ea5e9"/>
+  <text x="550" y="622" font-family="Segoe UI, Arial" font-size="18" font-weight="bold" fill="white" text-anchor="middle">Scenario 3: I'm a Solo Developer - I Need Cheap Local Access</text>
+
+  <text x="70" y="665" font-family="Segoe UI, Arial" font-size="13" font-weight="bold" fill="#0369a1">RECOMMENDED SETUP:</text>
+  <text x="70" y="688" font-family="Segoe UI, Arial" font-size="11" fill="#0284c7">✓ Chisel tunnel only ($15/month)</text>
+  <text x="90" y="705" font-family="Segoe UI, Arial" font-size="10" fill="#0369a1">  └─ Access from your laptop</text>
+  <text x="70" y="725" font-family="Segoe UI, Arial" font-size="11" fill="#0284c7">✓ Public GitHub runners (free)</text>
+  <text x="90" y="742" font-family="Segoe UI, Arial" font-size="10" fill="#0369a1">  └─ For infrastructure deploys</text>
+
+  <text x="70" y="765" font-family="Segoe UI, Arial" font-size="13" font-weight="bold" fill="#991b1b">SKIP:</text>
+  <text x="70" y="788" font-family="Segoe UI, Arial" font-size="11" fill="#b91c1c">✗ Bastion + Jumpbox ($200-300/month)</text>
+  <text x="70" y="808" font-family="Segoe UI, Arial" font-size="11" fill="#b91c1c">✗ Self-hosted runners ($100/month)</text>
+
+  <rect x="800" y="660" width="230" height="120" rx="8" fill="#cffafe" stroke="#0ea5e9"/>
+  <text x="915" y="685" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#0e7490" text-anchor="middle">Monthly Cost:</text>
+  <text x="915" y="705" font-family="Segoe UI, Arial" font-size="20" font-weight="bold" fill="#0284c7">~$15</text>
+  <text x="915" y="725" font-family="Segoe UI, Arial" font-size="10" fill="#0369a1">App Service B1 only</text>
+  <text x="915" y="748" font-family="Segoe UI, Arial" font-size="10" fill="#0369a1">When tunnel active</text>
+  <text x="915" y="763" font-family="Segoe UI, Arial" font-size="9" fill="#64748b">+ GitHub free tier</text>
+
+  <!-- Bottom Decision Guide -->
+  <rect x="50" y="840" width="1000" height="120" rx="12" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="2" filter="url(#shadow)"/>
+  <text x="550" y="870" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="#0369a1" text-anchor="middle">Quick Decision Guide</text>
+
+  <text x="70" y="895" font-family="Segoe UI, Arial" font-size="11" fill="#0284c7">If you're a project team deploying apps → Use Scenario 1</text>
+  <text x="70" y="915" font-family="Segoe UI, Arial" font-size="11" fill="#0284c7">If you're setting up the platform → Use Scenario 2</text>
+  <text x="70" y="935" font-family="Segoe UI, Arial" font-size="11" fill="#0284c7">If you're a solo dev → Use Scenario 3 (Chisel only)</text>
+
+</svg>

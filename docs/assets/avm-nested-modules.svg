@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 650" width="900" height="650">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#1e3a5f"/>
+      <stop offset="100%" style="stop-color:#2d5a87"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="2" flood-opacity="0.12"/>
+    </filter>
+    <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#64748b"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#22c55e"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="650" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="900" height="50" fill="url(#headerGrad)"/>
+  <text x="450" y="32" font-family="Segoe UI, Arial" font-size="18" font-weight="bold" fill="white" text-anchor="middle">AVM Nested Module Pattern</text>
+
+  <!-- ==================== PHASE 1: PLATFORM ==================== -->
+  <rect x="30" y="70" width="840" height="200" rx="10" fill="#fef3c7" stroke="#f59e0b" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="30" y="70" width="840" height="35" rx="10" fill="#f59e0b"/>
+  <text x="450" y="93" font-family="Segoe UI, Arial" font-size="14" font-weight="bold" fill="white" text-anchor="middle">PHASE 1: Platform Module (Deploy Once)</text>
+  <rect x="780" y="75" width="80" height="22" rx="3" fill="#92400e"/>
+  <text x="820" y="90" font-family="Segoe UI, Arial" font-size="9" font-weight="bold" fill="white" text-anchor="middle">SHARED</text>
+
+  <!-- Platform module box -->
+  <rect x="50" y="120" width="200" height="130" rx="8" fill="white" stroke="#fbbf24" stroke-width="2"/>
+  <text x="150" y="145" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#92400e" text-anchor="middle">module "platform"</text>
+  <text x="150" y="165" font-family="Segoe UI, Arial" font-size="10" fill="#b45309" text-anchor="middle">source = "./modules/platform"</text>
+  <line x1="60" y1="175" x2="240" y2="175" stroke="#fcd34d" stroke-width="1"/>
+  <text x="150" y="195" font-family="Segoe UI, Arial" font-size="9" fill="#78350f" text-anchor="middle">Deploys shared infra</text>
+  <text x="150" y="210" font-family="Segoe UI, Arial" font-size="9" fill="#78350f" text-anchor="middle">Outputs resource IDs</text>
+  <text x="150" y="225" font-family="Segoe UI, Arial" font-size="9" fill="#78350f" text-anchor="middle">Run once per environment</text>
+
+  <!-- Arrow to AVM modules -->
+  <line x1="250" y1="185" x2="290" y2="185" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="270" y="175" font-family="Segoe UI, Arial" font-size="9" fill="#64748b" text-anchor="middle">uses</text>
+
+  <!-- AVM modules used by platform -->
+  <rect x="300" y="115" width="250" height="140" rx="6" fill="#f0fdf4" stroke="#22c55e" stroke-width="1"/>
+  <text x="425" y="135" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#166534" text-anchor="middle">AVM Modules (Platform)</text>
+
+  <rect x="310" y="145" width="230" height="20" rx="3" fill="#dcfce7"/>
+  <text x="425" y="159" font-family="Courier New" font-size="8" fill="#166534" text-anchor="middle">avm-res-machinelearningservices-workspace</text>
+
+  <rect x="310" y="170" width="230" height="20" rx="3" fill="#dcfce7"/>
+  <text x="425" y="184" font-family="Courier New" font-size="8" fill="#166534" text-anchor="middle">avm-res-apimanagement-service</text>
+
+  <rect x="310" y="195" width="230" height="20" rx="3" fill="#dcfce7"/>
+  <text x="425" y="209" font-family="Courier New" font-size="8" fill="#166534" text-anchor="middle">avm-res-network-virtualnetwork</text>
+
+  <rect x="310" y="220" width="230" height="20" rx="3" fill="#dcfce7"/>
+  <text x="425" y="234" font-family="Courier New" font-size="8" fill="#166534" text-anchor="middle">avm-res-network-applicationgateway</text>
+
+  <!-- Outputs box -->
+  <rect x="580" y="120" width="270" height="130" rx="6" fill="#e0f2fe" stroke="#0ea5e9" stroke-width="1"/>
+  <text x="715" y="140" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#0369a1" text-anchor="middle">Outputs</text>
+
+  <text x="595" y="160" font-family="Courier New" font-size="9" fill="#0284c7">ai_hub_id</text>
+  <text x="730" y="160" font-family="Segoe UI, Arial" font-size="9" fill="#64748b">= azurerm_ml_workspace.hub.id</text>
+
+  <text x="595" y="180" font-family="Courier New" font-size="9" fill="#0284c7">apim_id</text>
+  <text x="730" y="180" font-family="Segoe UI, Arial" font-size="9" fill="#64748b">= azurerm_api_management.main.id</text>
+
+  <text x="595" y="200" font-family="Courier New" font-size="9" fill="#0284c7">vnet_id</text>
+  <text x="730" y="200" font-family="Segoe UI, Arial" font-size="9" fill="#64748b">= azurerm_virtual_network.main.id</text>
+
+  <text x="595" y="220" font-family="Courier New" font-size="9" fill="#0284c7">subnet_id</text>
+  <text x="730" y="220" font-family="Segoe UI, Arial" font-size="9" fill="#64748b">= azurerm_subnet.projects.id</text>
+
+  <!-- Arrow down -->
+  <line x1="715" y1="250" x2="715" y2="290" stroke="#22c55e" stroke-width="3" marker-end="url(#arrowGreen)"/>
+  <text x="750" y="275" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#22c55e">pass IDs</text>
+
+  <!-- ==================== PHASE 2: PROJECT ==================== -->
+  <rect x="30" y="300" width="840" height="220" rx="10" fill="#dbeafe" stroke="#3b82f6" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="30" y="300" width="840" height="35" rx="10" fill="#2563eb"/>
+  <text x="450" y="323" font-family="Segoe UI, Arial" font-size="14" font-weight="bold" fill="white" text-anchor="middle">PHASE 2: Project Module (Deploy Per Project)</text>
+  <rect x="760" y="305" width="100" height="22" rx="3" fill="#1e40af"/>
+  <text x="810" y="320" font-family="Segoe UI, Arial" font-size="9" font-weight="bold" fill="white" text-anchor="middle">DEDICATED</text>
+
+  <!-- Project module box -->
+  <rect x="50" y="350" width="200" height="150" rx="8" fill="white" stroke="#60a5fa" stroke-width="2"/>
+  <text x="150" y="375" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#1e40af" text-anchor="middle">module "health_rag"</text>
+  <text x="150" y="395" font-family="Segoe UI, Arial" font-size="10" fill="#3b82f6" text-anchor="middle">source = "./modules/project"</text>
+  <line x1="60" y1="405" x2="240" y2="405" stroke="#93c5fd" stroke-width="1"/>
+  <text x="60" y="425" font-family="Courier New" font-size="8" fill="#1e40af">project_name = "health-rag"</text>
+  <text x="60" y="440" font-family="Courier New" font-size="8" fill="#0369a1">ai_hub_id    = module.platform.ai_hub_id</text>
+  <text x="60" y="455" font-family="Courier New" font-size="8" fill="#0369a1">apim_id      = module.platform.apim_id</text>
+  <text x="60" y="470" font-family="Courier New" font-size="8" fill="#0369a1">subnet_id    = module.platform.subnet_id</text>
+  <text x="60" y="485" font-family="Courier New" font-size="8" fill="#1e40af">tags         = local.tags</text>
+
+  <!-- Arrow to AVM modules -->
+  <line x1="250" y1="420" x2="290" y2="420" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+  <text x="270" y="410" font-family="Segoe UI, Arial" font-size="9" fill="#64748b" text-anchor="middle">uses</text>
+
+  <!-- AVM modules used by project -->
+  <rect x="300" y="345" width="250" height="165" rx="6" fill="#f0fdf4" stroke="#22c55e" stroke-width="1"/>
+  <text x="425" y="365" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#166534" text-anchor="middle">AVM Modules (Project)</text>
+
+  <rect x="310" y="375" width="230" height="20" rx="3" fill="#dcfce7"/>
+  <text x="425" y="389" font-family="Courier New" font-size="8" fill="#166534" text-anchor="middle">avm-res-resources-resourcegroup</text>
+
+  <rect x="310" y="400" width="230" height="20" rx="3" fill="#dcfce7"/>
+  <text x="425" y="414" font-family="Courier New" font-size="8" fill="#166534" text-anchor="middle">avm-res-storage-storageaccount</text>
+
+  <rect x="310" y="425" width="230" height="20" rx="3" fill="#dcfce7"/>
+  <text x="425" y="439" font-family="Courier New" font-size="8" fill="#166534" text-anchor="middle">avm-res-search-searchservice</text>
+
+  <rect x="310" y="450" width="230" height="20" rx="3" fill="#dcfce7"/>
+  <text x="425" y="464" font-family="Courier New" font-size="8" fill="#166534" text-anchor="middle">avm-res-keyvault-vault</text>
+
+  <rect x="310" y="475" width="230" height="20" rx="3" fill="#dcfce7"/>
+  <text x="425" y="489" font-family="Courier New" font-size="8" fill="#166534" text-anchor="middle">avm-res-machinelearningservices-workspace</text>
+
+  <!-- Creates box -->
+  <rect x="580" y="350" width="270" height="160" rx="6" fill="#fce7f3" stroke="#ec4899" stroke-width="1"/>
+  <text x="715" y="370" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#be185d" text-anchor="middle">Creates (Dedicated)</text>
+
+  <text x="595" y="395" font-family="Segoe UI, Arial" font-size="9" fill="#9d174d">• Resource Group: rg-health-rag-prod</text>
+  <text x="595" y="415" font-family="Segoe UI, Arial" font-size="9" fill="#9d174d">• Storage Account (project docs)</text>
+  <text x="595" y="435" font-family="Segoe UI, Arial" font-size="9" fill="#9d174d">• Search Service (project indexes)</text>
+  <text x="595" y="455" font-family="Segoe UI, Arial" font-size="9" fill="#9d174d">• Key Vault (project secrets)</text>
+  <text x="595" y="475" font-family="Segoe UI, Arial" font-size="9" fill="#9d174d">• AI Foundry Project (in shared Hub)</text>
+  <text x="595" y="495" font-family="Segoe UI, Arial" font-size="9" fill="#9d174d">• APIM Subscription (API key)</text>
+
+  <!-- ==================== KEY POINTS ==================== -->
+  <rect x="30" y="540" width="840" height="90" rx="8" fill="#f1f5f9" stroke="#94a3b8" stroke-width="1"/>
+  <text x="450" y="565" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#334155" text-anchor="middle">How It Works</text>
+
+  <circle cx="60" cy="590" r="12" fill="#f59e0b"/>
+  <text x="60" y="594" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="white" text-anchor="middle">1</text>
+  <text x="80" y="594" font-family="Segoe UI, Arial" font-size="10" fill="#475569">Platform deploys shared infra, outputs IDs</text>
+
+  <circle cx="340" cy="590" r="12" fill="#3b82f6"/>
+  <text x="340" y="594" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="white" text-anchor="middle">2</text>
+  <text x="360" y="594" font-family="Segoe UI, Arial" font-size="10" fill="#475569">Project modules receive IDs as inputs</text>
+
+  <circle cx="620" cy="590" r="12" fill="#22c55e"/>
+  <text x="620" y="594" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="white" text-anchor="middle">3</text>
+  <text x="640" y="594" font-family="Segoe UI, Arial" font-size="10" fill="#475569">AVM modules create resources connected to hub</text>
+
+  <text x="450" y="618" font-family="Segoe UI, Arial" font-size="10" fill="#64748b" text-anchor="middle">Result: Each project gets dedicated resources that connect to shared platform infrastructure</text>
+
+</svg>

@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 750" width="1000" height="750">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#003366"/>
+      <stop offset="100%" style="stop-color:#1a5a96"/>
+    </linearGradient>
+    <linearGradient id="vnetGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#dbeafe"/>
+      <stop offset="100%" style="stop-color:#bfdbfe"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+    <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#22c55e"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#3b82f6"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1000" height="750" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1000" height="55" fill="url(#headerGrad)"/>
+  <text x="500" y="35" font-family="Segoe UI, Arial" font-size="20" font-weight="bold" fill="white" text-anchor="middle">Platform Access Methods - Choose Your Path</text>
+
+  <!-- Subtitle -->
+  <text x="500" y="80" font-family="Segoe UI, Arial" font-size="12" fill="#64748b" text-anchor="middle">All methods are optional and interchangeable via Terraform toggles. Enable only what you need.</text>
+
+  <!-- ==================== LEFT SIDE: ACCESS SOURCES ==================== -->
+
+  <!-- GitHub Actions (Public) -->
+  <rect x="30" y="110" width="200" height="100" rx="10" fill="white" stroke="#f59e0b" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="30" y="110" width="200" height="28" rx="10" fill="#f59e0b"/>
+  <text x="130" y="130" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="white" text-anchor="middle">GitHub Actions (Public)</text>
+  <text x="50" y="155" font-family="Segoe UI, Arial" font-size="9" fill="#78350f">ubuntu-24.04 runner</text>
+  <text x="50" y="170" font-family="Segoe UI, Arial" font-size="9" fill="#78350f">OIDC authentication</text>
+  <rect x="50" y="180" width="80" height="18" rx="3" fill="#dcfce7"/>
+  <text x="90" y="192" font-family="Segoe UI, Arial" font-size="8" fill="#166534" text-anchor="middle">Control: &#10003;</text>
+  <rect x="135" y="180" width="80" height="18" rx="3" fill="#fee2e2"/>
+  <text x="175" y="192" font-family="Segoe UI, Arial" font-size="8" fill="#991b1b" text-anchor="middle">Data: &#10007;</text>
+
+  <!-- Self-Hosted Runners -->
+  <rect x="30" y="230" width="200" height="100" rx="10" fill="white" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="30" y="230" width="200" height="28" rx="10" fill="#22c55e"/>
+  <text x="130" y="250" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="white" text-anchor="middle">Self-Hosted Runners</text>
+  <text x="50" y="275" font-family="Segoe UI, Arial" font-size="9" fill="#166534">Container Apps in VNet</text>
+  <text x="50" y="290" font-family="Segoe UI, Arial" font-size="9" fill="#166534">Auto-scales 0-4 replicas</text>
+  <rect x="50" y="300" width="80" height="18" rx="3" fill="#dcfce7"/>
+  <text x="90" y="312" font-family="Segoe UI, Arial" font-size="8" fill="#166534" text-anchor="middle">Control: &#10003;</text>
+  <rect x="135" y="300" width="80" height="18" rx="3" fill="#dcfce7"/>
+  <text x="175" y="312" font-family="Segoe UI, Arial" font-size="8" fill="#166534" text-anchor="middle">Data: &#10003;</text>
+
+  <!-- Bastion + Jumpbox -->
+  <rect x="30" y="350" width="200" height="100" rx="10" fill="white" stroke="#8b5cf6" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="30" y="350" width="200" height="28" rx="10" fill="#8b5cf6"/>
+  <text x="130" y="370" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="white" text-anchor="middle">Bastion + Jumpbox</text>
+  <text x="50" y="395" font-family="Segoe UI, Arial" font-size="9" fill="#5b21b6">Web-based SSH access</text>
+  <text x="50" y="410" font-family="Segoe UI, Arial" font-size="9" fill="#5b21b6">Full CLI tools pre-installed</text>
+  <rect x="50" y="420" width="80" height="18" rx="3" fill="#dcfce7"/>
+  <text x="90" y="432" font-family="Segoe UI, Arial" font-size="8" fill="#166534" text-anchor="middle">Control: &#10003;</text>
+  <rect x="135" y="420" width="80" height="18" rx="3" fill="#dcfce7"/>
+  <text x="175" y="432" font-family="Segoe UI, Arial" font-size="8" fill="#166534" text-anchor="middle">Data: &#10003;</text>
+
+  <!-- Chisel Tunnel -->
+  <rect x="30" y="470" width="200" height="100" rx="10" fill="white" stroke="#0ea5e9" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="30" y="470" width="200" height="28" rx="10" fill="#0ea5e9"/>
+  <text x="130" y="490" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="white" text-anchor="middle">Chisel Tunnel</text>
+  <text x="50" y="515" font-family="Segoe UI, Arial" font-size="9" fill="#0369a1">HTTPS tunnel from laptop</text>
+  <text x="50" y="530" font-family="Segoe UI, Arial" font-size="9" fill="#0369a1">App Service proxy in VNet</text>
+  <rect x="50" y="540" width="80" height="18" rx="3" fill="#dcfce7"/>
+  <text x="90" y="552" font-family="Segoe UI, Arial" font-size="8" fill="#166534" text-anchor="middle">Control: &#10003;</text>
+  <rect x="135" y="540" width="80" height="18" rx="3" fill="#dcfce7"/>
+  <text x="175" y="552" font-family="Segoe UI, Arial" font-size="8" fill="#166534" text-anchor="middle">Data: &#10003;</text>
+
+  <!-- ==================== MIDDLE: AZURE CONTROL PLANE ==================== -->
+
+  <rect x="280" y="110" width="160" height="460" rx="10" fill="#f0fdf4" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="280" y="110" width="160" height="35" rx="10" fill="#22c55e"/>
+  <text x="360" y="133" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="white" text-anchor="middle">Control Plane</text>
+  <text x="360" y="165" font-family="Segoe UI, Arial" font-size="10" fill="#166534" text-anchor="middle">management.azure.com</text>
+  <text x="360" y="180" font-family="Segoe UI, Arial" font-size="9" fill="#15803d" text-anchor="middle">(Always Public)</text>
+
+  <!-- Azure resources (control plane) -->
+  <rect x="295" y="200" width="130" height="25" rx="4" fill="white" stroke="#22c55e"/>
+  <text x="360" y="217" font-family="Segoe UI, Arial" font-size="9" fill="#166534" text-anchor="middle">Create Resources</text>
+
+  <rect x="295" y="235" width="130" height="25" rx="4" fill="white" stroke="#22c55e"/>
+  <text x="360" y="252" font-family="Segoe UI, Arial" font-size="9" fill="#166534" text-anchor="middle">Configure Settings</text>
+
+  <rect x="295" y="270" width="130" height="25" rx="4" fill="white" stroke="#22c55e"/>
+  <text x="360" y="287" font-family="Segoe UI, Arial" font-size="9" fill="#166534" text-anchor="middle">RBAC Assignments</text>
+
+  <rect x="295" y="305" width="130" height="25" rx="4" fill="white" stroke="#22c55e"/>
+  <text x="360" y="322" font-family="Segoe UI, Arial" font-size="9" fill="#166534" text-anchor="middle">Deploy Terraform</text>
+
+  <rect x="295" y="340" width="130" height="25" rx="4" fill="white" stroke="#22c55e"/>
+  <text x="360" y="357" font-family="Segoe UI, Arial" font-size="9" fill="#166534" text-anchor="middle">Portal UI (view only)</text>
+
+  <!-- Arrows from sources to control plane -->
+  <line x1="230" y1="160" x2="275" y2="160" stroke="#f59e0b" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="230" y1="280" x2="275" y2="280" stroke="#22c55e" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="230" y1="400" x2="275" y2="400" stroke="#8b5cf6" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="230" y1="520" x2="275" y2="520" stroke="#0ea5e9" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ==================== RIGHT SIDE: VNET & DATA PLANE ==================== -->
+
+  <rect x="490" y="110" width="480" height="460" rx="12" fill="url(#vnetGrad)" stroke="#3b82f6" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="490" y="110" width="480" height="35" rx="12" fill="#3b82f6"/>
+  <text x="730" y="133" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="white" text-anchor="middle">Virtual Network (VNet) - Data Plane Access</text>
+
+  <!-- Self-hosted runners subnet -->
+  <rect x="510" y="160" width="200" height="80" rx="8" fill="white" stroke="#22c55e" stroke-width="1"/>
+  <text x="610" y="180" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#166534" text-anchor="middle">Container Apps Subnet</text>
+  <text x="610" y="200" font-family="Segoe UI, Arial" font-size="9" fill="#15803d" text-anchor="middle">Self-hosted GitHub Runners</text>
+  <text x="610" y="220" font-family="Segoe UI, Arial" font-size="8" fill="#64748b" text-anchor="middle">github_runners_aca_enabled = true</text>
+
+  <!-- Jumpbox subnet -->
+  <rect x="510" y="260" width="200" height="80" rx="8" fill="white" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="610" y="280" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#5b21b6" text-anchor="middle">Jumpbox Subnet</text>
+  <text x="610" y="300" font-family="Segoe UI, Arial" font-size="9" fill="#7c3aed" text-anchor="middle">Ubuntu VM + Bastion Access</text>
+  <text x="610" y="320" font-family="Segoe UI, Arial" font-size="8" fill="#64748b" text-anchor="middle">enable_bastion/jumpbox = true</text>
+
+  <!-- App Service subnet (Chisel) -->
+  <rect x="510" y="360" width="200" height="80" rx="8" fill="white" stroke="#0ea5e9" stroke-width="1"/>
+  <text x="610" y="380" font-family="Segoe UI, Arial" font-size="10" font-weight="bold" fill="#0369a1" text-anchor="middle">App Service Subnet</text>
+  <text x="610" y="400" font-family="Segoe UI, Arial" font-size="9" fill="#0284c7" text-anchor="middle">Chisel Tunnel Server</text>
+  <text x="610" y="420" font-family="Segoe UI, Arial" font-size="8" fill="#64748b" text-anchor="middle">enable_azure_proxy = true</text>
+
+  <!-- Private Endpoints Subnet -->
+  <rect x="740" y="160" width="210" height="280" rx="8" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
+  <text x="845" y="185" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">Private Endpoints</text>
+  <text x="845" y="202" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">(Data Plane Access)</text>
+
+  <!-- Private endpoint resources -->
+  <rect x="760" y="220" width="170" height="35" rx="4" fill="white" stroke="#f59e0b"/>
+  <text x="845" y="242" font-family="Segoe UI, Arial" font-size="10" fill="#92400e" text-anchor="middle">Key Vault Secrets</text>
+
+  <rect x="760" y="265" width="170" height="35" rx="4" fill="white" stroke="#f59e0b"/>
+  <text x="845" y="287" font-family="Segoe UI, Arial" font-size="10" fill="#92400e" text-anchor="middle">Storage Blobs</text>
+
+  <rect x="760" y="310" width="170" height="35" rx="4" fill="white" stroke="#f59e0b"/>
+  <text x="845" y="332" font-family="Segoe UI, Arial" font-size="10" fill="#92400e" text-anchor="middle">PostgreSQL / CosmosDB</text>
+
+  <rect x="760" y="355" width="170" height="35" rx="4" fill="white" stroke="#f59e0b"/>
+  <text x="845" y="377" font-family="Segoe UI, Arial" font-size="10" fill="#92400e" text-anchor="middle">Azure OpenAI</text>
+
+  <rect x="760" y="400" width="170" height="35" rx="4" fill="white" stroke="#f59e0b"/>
+  <text x="845" y="422" font-family="Segoe UI, Arial" font-size="10" fill="#92400e" text-anchor="middle">Container Registry</text>
+
+  <!-- Arrows from VNet subnets to private endpoints -->
+  <line x1="710" y1="200" x2="755" y2="237" stroke="#22c55e" stroke-width="2" marker-end="url(#arrowGreen)"/>
+  <line x1="710" y1="300" x2="755" y2="300" stroke="#8b5cf6" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="710" y1="400" x2="755" y2="350" stroke="#0ea5e9" stroke-width="2" marker-end="url(#arrowBlue)"/>
+
+  <!-- External connections -->
+  <!-- GitHub public runners -> only control plane (X to data) -->
+  <line x1="230" y1="180" x2="260" y2="180" stroke="#f59e0b" stroke-width="1" stroke-dasharray="5,3"/>
+  <text x="242" y="195" font-family="Segoe UI, Arial" font-size="7" fill="#f59e0b">&#10007;</text>
+
+  <!-- Self-hosted runners direct to VNet -->
+  <path d="M 230 290 Q 370 290 510 200" fill="none" stroke="#22c55e" stroke-width="2" marker-end="url(#arrowGreen)"/>
+
+  <!-- Chisel tunnel through app service -->
+  <path d="M 230 530 Q 400 530 510 400" fill="none" stroke="#0ea5e9" stroke-width="2" marker-end="url(#arrowBlue)"/>
+
+  <!-- Bastion to jumpbox -->
+  <path d="M 230 410 Q 370 380 510 300" fill="none" stroke="#8b5cf6" stroke-width="2" marker-end="url(#arrow)"/>
+
+  <!-- ==================== BOTTOM: TERRAFORM TOGGLES ==================== -->
+
+  <rect x="30" y="590" width="940" height="140" rx="10" fill="white" stroke="#94a3b8" stroke-width="1" filter="url(#shadow)"/>
+  <text x="500" y="615" font-family="Segoe UI, Arial" font-size="13" font-weight="bold" fill="#334155" text-anchor="middle">Terraform Toggle Variables - Enable What You Need</text>
+
+  <!-- Toggle cards -->
+  <rect x="50" y="635" width="210" height="80" rx="6" fill="#f0fdf4" stroke="#22c55e" stroke-width="1"/>
+  <text x="155" y="655" font-family="Courier New" font-size="9" fill="#166534" text-anchor="middle">github_runners_aca_enabled</text>
+  <text x="155" y="675" font-family="Segoe UI, Arial" font-size="10" fill="#15803d" text-anchor="middle">Self-hosted runners on</text>
+  <text x="155" y="690" font-family="Segoe UI, Arial" font-size="10" fill="#15803d" text-anchor="middle">Container Apps</text>
+  <text x="155" y="705" font-family="Segoe UI, Arial" font-size="8" fill="#64748b" text-anchor="middle">Best for: CI/CD with data plane</text>
+
+  <rect x="280" y="635" width="210" height="80" rx="6" fill="#f5f3ff" stroke="#8b5cf6" stroke-width="1"/>
+  <text x="385" y="655" font-family="Courier New" font-size="9" fill="#5b21b6" text-anchor="middle">enable_bastion + enable_jumpbox</text>
+  <text x="385" y="675" font-family="Segoe UI, Arial" font-size="10" fill="#7c3aed" text-anchor="middle">Azure Bastion + Ubuntu VM</text>
+  <text x="385" y="690" font-family="Segoe UI, Arial" font-size="10" fill="#7c3aed" text-anchor="middle">with pre-installed CLI tools</text>
+  <text x="385" y="705" font-family="Segoe UI, Arial" font-size="8" fill="#64748b" text-anchor="middle">Best for: Admin access, debugging</text>
+
+  <rect x="510" y="635" width="210" height="80" rx="6" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1"/>
+  <text x="615" y="655" font-family="Courier New" font-size="9" fill="#0369a1" text-anchor="middle">enable_azure_proxy</text>
+  <text x="615" y="675" font-family="Segoe UI, Arial" font-size="10" fill="#0284c7" text-anchor="middle">Chisel tunnel via</text>
+  <text x="615" y="690" font-family="Segoe UI, Arial" font-size="10" fill="#0284c7" text-anchor="middle">App Service</text>
+  <text x="615" y="705" font-family="Segoe UI, Arial" font-size="8" fill="#64748b" text-anchor="middle">Best for: Local dev access</text>
+
+  <rect x="740" y="635" width="210" height="80" rx="6" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
+  <text x="845" y="655" font-family="Courier New" font-size="9" fill="#92400e" text-anchor="middle">(default - no toggle)</text>
+  <text x="845" y="675" font-family="Segoe UI, Arial" font-size="10" fill="#b45309" text-anchor="middle">Public GitHub Runners</text>
+  <text x="845" y="690" font-family="Segoe UI, Arial" font-size="10" fill="#b45309" text-anchor="middle">Control plane only</text>
+  <text x="845" y="705" font-family="Segoe UI, Arial" font-size="8" fill="#64748b" text-anchor="middle">Best for: Resource-only deploys</text>
+
+</svg>

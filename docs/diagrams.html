@@ -711,7 +711,7 @@
                     </a>
                     <a href="terraform.html">
                         Terraform Modules
-                        <small>Network, Bastion, Jumpbox</small>
+                        <small>Network, Bastion, Runners, Proxy</small>
                     </a>
                     <a href="workflows.html">
                         GitHub Workflows
@@ -1049,6 +1049,42 @@
             <p>Complete request path from user through App Gateway, APIM to AI response</p>
         </div>
     </div>
+    <div class="diagram-card" onclick="loadDiagram('avm-nested', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/avm-nested-modules.svg" alt="AVM Nested Modules Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>AVM Nested Module Pattern</h4>
+            <p>Platform deploys once, projects consume outputs - two-phase deployment</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('three-steps-evolution', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/three-steps-access-evolution.svg" alt="Three Steps Evolution Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>3-Step Access Evolution</h4>
+            <p>Bastion → Container Apps → Chisel+App Services cost comparison</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('chisel-detail', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/chisel-tunnel-detail.svg" alt="Chisel Tunnel Detail Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>Chisel Tunnel Detail</h4>
+            <p>How HTTPS tunnel from laptop reaches private endpoints via App Service</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('terraform-keyvault', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/when-terraform-needs-keyvault.svg" alt="When Terraform Needs KeyVault Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>When Terraform Needs Key Vault</h4>
+            <p>Data plane vs control plane operations with real examples</p>
+        </div>
+    </div>
 </div>
 
 <h3 style="color: #ef4444; margin-top: 1.5rem;">Stakeholder Infographics (Share These!)</h3>
@@ -1118,6 +1154,46 @@
         <div class="diagram-card-info">
             <h4>Network Architecture</h4>
             <p>VNet topology, subnets, NSGs, and Bastion connectivity</p>
+        </div>
+    </div>
+</div>
+
+<h3 style="color: #8b5cf6; margin-top: 1.5rem;">Platform Access & Security</h3>
+<div class="diagram-gallery">
+    <div class="diagram-card" onclick="loadDiagram('control-data-plane', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/control-vs-data-plane.svg" alt="Control vs Data Plane Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>Control vs Data Plane</h4>
+            <p>Why OIDC works for some operations but not others with private endpoints</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('access-methods', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/access-methods-architecture.svg" alt="Access Methods Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>Access Methods Architecture</h4>
+            <p>Four interchangeable paths: GitHub runners, self-hosted, Bastion, Chisel</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('who-deploys-what', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/who-deploys-what.svg" alt="Who Deploys What Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>Who Deploys What</h4>
+            <p>Platform Team vs Project Teams: Who owns what infrastructure</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('deployment-scenarios', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/deployment-scenarios.svg" alt="Deployment Scenarios Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>Deployment Scenarios</h4>
+            <p>Three paths: Project team, Platform admin, Solo dev with costs</p>
         </div>
     </div>
 </div>
@@ -1406,6 +1482,39 @@ const diagrams = {
     'data-flow': {
         title: 'AI Request Data Flow',
         src: 'assets/data-flow.svg'
+    },
+    'avm-nested': {
+        title: 'AVM Nested Module Pattern',
+        src: 'assets/avm-nested-modules.svg'
+    },
+    // Platform Access & Security
+    'control-data-plane': {
+        title: 'Control Plane vs Data Plane',
+        src: 'assets/control-vs-data-plane.svg'
+    },
+    'access-methods': {
+        title: 'Access Methods Architecture',
+        src: 'assets/access-methods-architecture.svg'
+    },
+    'who-deploys-what': {
+        title: 'Who Deploys What',
+        src: 'assets/who-deploys-what.svg'
+    },
+    'deployment-scenarios': {
+        title: 'Deployment Scenarios',
+        src: 'assets/deployment-scenarios.svg'
+    },
+    'three-steps-evolution': {
+        title: '3-Step Access Evolution',
+        src: 'assets/three-steps-access-evolution.svg'
+    },
+    'chisel-detail': {
+        title: 'Chisel Tunnel Detail',
+        src: 'assets/chisel-tunnel-detail.svg'
+    },
+    'terraform-keyvault': {
+        title: 'When Terraform Needs Key Vault',
+        src: 'assets/when-terraform-needs-keyvault.svg'
     },
     // CI/CD
     'deployment-pipeline': {
