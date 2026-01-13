@@ -181,6 +181,12 @@ details.adr.pending[open] summary {
         <td><span class="badge badge-blue">Policy</span></td>
         <td><span class="badge badge-gold">Accepted</span></td>
     </tr>
+    <tr>
+        <td><a href="#adr-012">ADR-012</a></td>
+        <td>Usage Monitoring, Cost Allocation and Chargeback Metrics</td>
+        <td><span class="badge badge-blue">Operations</span></td>
+        <td><span class="badge badge-blue">Proposed</span></td>
+    </tr>
 </table>
 
 <!-- ADR-001 -->
@@ -2487,6 +2493,70 @@ module "storage" {
 
 </div>
 </details>
+
+<!-- ADR-012 -->
+<details class="adr" id="adr-012">
+<summary>
+    <span class="adr-title">ADR-012: Hybrid Cost Allocation & Usage Monitoring Strategy</span>
+    <span class="adr-status"><span class="badge badge-blue">Proposed</span></span>
+</summary>
+<div class="adr-content">
+
+    <div class="grid grid-4" style="margin-bottom: 1rem;">
+        <div><strong>Status:</strong> Proposed</div>
+        <div><strong>Date:</strong> 2026-01</div>
+        <div><strong>Deciders:</strong> Platform Team</div>
+        <div><strong>Category:</strong> <span class="badge badge-blue">Observability</span></div>
+    </div>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Context</h3>
+    <p>The AI Services Hub operates as a multi-tenant platform serving multiple ministries. This shared infrastructure creates a financial governance challenge: we must accurately allocate costs to specific tenants to ensure accountability and cost recovery.</p>
+    <p>The architecture includes two types of resources:</p>
+    <ul>
+        <li><strong>Tenant-Dedicated:</strong> Resources used exclusively by one tenant (e.g., Azure OpenAI instances, Document Intelligence, Cosmos DB).</li>
+        <li><strong>Shared Infrastructure:</strong> Resources serving all tenants simultaneously (e.g., APIM, App Gateway, Application Insights).</li>
+    </ul>
+    <p>We need a standardized strategy to track consumption and generate accurate chargeback invoices that account for both resource types across our dual-region deployment (Canada Central & East).</p>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Decision</h3>
+    <p>We will adopt a <strong>Hybrid Cost Allocation Model</strong> that combines native Azure billing with custom usage tracking:</p>
+    <ol>
+        <li><strong>Direct Attribution (90% of costs):</strong> We will isolate high-cost resources (AI Foundry Projects, Document Intelligence) into tenant-specific resource groups. These will be billed directly to tenants using Azure Cost Management tags (<code>tenant-id</code>), requiring no manual calculation.</li>
+        <li><strong>Proportional Allocation (10% of costs):</strong> We will split the cost of shared infrastructure (APIM, App Gateway) based on actual usage metrics.
+            <ul>
+                <li>APIM & Gateway costs split by <strong>API Request Volume</strong>.</li>
+                <li>Monitoring costs split by <strong>Log Ingestion Volume</strong>.</li>
+            </ul>
+        </li>
+        <li><strong>Centralized Tracking via APIM:</strong> Azure API Management will serve as the single source of truth for usage metrics. All traffic must flow through APIM to ensure consistent tenant identification and logging.</li>
+        <li><strong>Custom Egress Calculation:</strong> We will implement a custom calculation pipeline using App Gateway logs to track and charge for cross-region network egress (between Canada Central and Canada East).</li>
+    </ol>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
+    <ul>
+        <li><strong>Minimizes Operational Overhead:</strong> By using Direct Attribution for the most expensive resources (OpenAI tokens, Search), we rely on Azure's native billing engine for the vast majority of chargebacks. We only maintain custom logic for the shared platform components.</li>
+        <li><strong>Fairness:</strong> A flat fee for shared infrastructure would be unfair to smaller tenants. Proportional allocation based on request volume ensures ministries only pay for the platform capacity they actually consume.</li>
+        <li><strong>Granular Visibility:</strong> Using APIM as the central logging point allows us to capture operational metrics (latency, errors, token usage) alongside billing data without adding sidecar proxies to every service.</li>
+    </ul>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Consequences</h3>
+    
+    <h4>Positive</h4>
+    <ul>
+        <li><strong>Transparency:</strong> Tenants can verify their direct Azure costs in the portal using their tenant tag.</li>
+        <li><strong>Scalability:</strong> New tenants can be onboarded simply by adding tags; the cost model adjusts automatically.</li>
+        <li><strong>Cost Recovery:</strong> Ensures the Platform Team fully recovers infrastructure costs rather than absorbing the overhead of shared services.</li>
+    </ul>
+
+    <h4>Negative</h4>
+    <ul>
+        <li><strong>Complexity of Egress:</strong> Cross-region data transfer is billed at the subscription level and is difficult to attribute. We accept the tradeoff of maintaining a custom Kusto query to calculate this specific cost.</li>
+        <li><strong>Maintenance:</strong> The logic for splitting shared costs (Python functions/Kusto queries) is custom code that must be maintained and verified monthly against Azure invoices.</li>
+    </ul>
+
+</div>
+</details>
+
 
 <h2>ADR Template</h2>
 
