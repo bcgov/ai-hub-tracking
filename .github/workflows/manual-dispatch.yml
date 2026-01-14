@@ -1,0 +1,50 @@
+name: Deploy to Environments (Manual Dispatch)
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select the environment to deploy to"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - test
+          - prod
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: write # This is required for actions/checkout
+concurrency:
+  group: manual-deploy-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  deploy-tools:
+    name: Deploy to 'tools' Environment
+    uses: ./.github/workflows/.deployer.yml
+    with:
+      environment_name: tools
+      command: apply
+      target_module: azure_proxy
+      tag: latest
+    secrets: inherit
+  deploy-to-environment:
+    name: Deploy to ${{ inputs.environment }} Environment
+    needs: deploy-tools
+    uses: ./.github/workflows/.deployer-using-secure-tunnel.yml
+    with:
+      environment_name: ${{ inputs.environment }}
+      command: apply
+      proxy_url: ${{ needs.deploy-tools.outputs.proxy_url }}
+      proxy_auth: ${{ needs.deploy-tools.outputs.proxy_auth }}
+      tag: latest
+    secrets: inherit
+  destroy-proxy-in-tools-environment:
+    name: Destroy Proxy in 'tools' Environment
+    needs: deploy-to-environment
+    uses: ./.github/workflows/.deployer.yml
+    with:
+      environment_name: tools
+      command: destroy
+      target_module: azure_proxy
+      tag: latest
+    secrets: inherit

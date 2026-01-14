@@ -143,3 +143,25 @@ jobs:
 
           echo "proxy_url=$ENCODED_PROXY_URL" >> "$GITHUB_OUTPUT"
           echo "proxy_auth=$ENCODED_PROXY_AUTH" >> "$GITHUB_OUTPUT"
+          #wait for healthz endpoint to be available in a loop
+          if [[ "${{ inputs.command }}" == "apply" && "${{ inputs.target_module }}" == "azure_proxy" ]]; then
+            echo "Waiting for azure proxy healthz endpoint to be available..."
+            MAX_RETRIES=12
+            RETRY_COUNT=0
+            SLEEP_INTERVAL=10
+            while true; do
+              HTTP_STATUS=$(curl -s -o /dev/null -w '%{http_code}' "${PROXY_URL_OUTPUT}/healthz" || true)
+              if [[ "$HTTP_STATUS" == "200" ]]; then
+                echo "Azure proxy is healthy."
+                break
+              else
+                ((RETRY_COUNT++))
+                if [[ $RETRY_COUNT -ge $MAX_RETRIES ]]; then
+                  echo "Azure proxy healthz endpoint did not become available after $((MAX_RETRIES * SLEEP_INTERVAL)) seconds." >&2
+                  exit 1
+                fi
+                echo "Healthz endpoint not available yet (status: $HTTP_STATUS). Retrying in $SLEEP_INTERVAL seconds..."
+                sleep $SLEEP_INTERVAL
+              fi
+            done
+          fi
