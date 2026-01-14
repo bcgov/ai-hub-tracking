@@ -84,6 +84,56 @@
     </div>
 </div>
 
+<h2>Flexible Access Methods</h2>
+
+<p>Private endpoints block data plane access from the public internet. We provide <strong>four interchangeable access methods</strong> - enable only what you need.</p>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: #22c55e;">
+        <h3 style="margin-top: 0; color: #166534;">Control Plane (Always Works)</h3>
+        <p>Creating/configuring resources via ARM API (<code>management.azure.com</code>). OIDC authentication works from anywhere.</p>
+        <p style="margin-bottom: 0; font-size: 0.9rem;"><strong>Examples:</strong> Create Key Vault, deploy VMs, assign RBAC roles</p>
+    </div>
+    <div class="card" style="border-left-color: #ef4444;">
+        <h3 style="margin-top: 0; color: #991b1b;">Data Plane (Requires VNet Access)</h3>
+        <p>Accessing data <em>inside</em> resources (blocked by private endpoints). Needs network path into VNet.</p>
+        <p style="margin-bottom: 0; font-size: 0.9rem;"><strong>Examples:</strong> Read Key Vault secrets, write Storage blobs, query databases</p>
+    </div>
+</div>
+
+<div class="grid grid-4" style="margin-top: 1rem;">
+    <div class="card" style="text-align: center;">
+        <div class="feature-icon gold" style="margin: 0 auto 0.5rem;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+        </div>
+        <strong>GitHub Runners</strong>
+        <p style="font-size: 0.8rem; margin: 0.5rem 0 0;">Control plane only</p>
+    </div>
+    <div class="card" style="text-align: center;">
+        <div class="feature-icon green" style="margin: 0 auto 0.5rem;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></svg>
+        </div>
+        <strong>Self-Hosted</strong>
+        <p style="font-size: 0.8rem; margin: 0.5rem 0 0;">Full access (in VNet)</p>
+    </div>
+    <div class="card" style="text-align: center;">
+        <div class="feature-icon purple" style="margin: 0 auto 0.5rem;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
+        </div>
+        <strong>Bastion + Jumpbox</strong>
+        <p style="font-size: 0.8rem; margin: 0.5rem 0 0;">Admin access</p>
+    </div>
+    <div class="card" style="text-align: center;">
+        <div class="feature-icon blue" style="margin: 0 auto 0.5rem;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z"/></svg>
+        </div>
+        <strong>Chisel Tunnel</strong>
+        <p style="font-size: 0.8rem; margin: 0.5rem 0 0;">Local dev access</p>
+    </div>
+</div>
+
+<p style="text-align: center; margin-top: 1rem;"><a href="decisions.html#adr-011">ADR-011: Control vs Data Plane</a> | <a href="terraform.html#choosing-your-access-method">Choose Your Method</a> | <a href="diagrams.html#access-methods">Architecture Diagram</a></p>
+
 <div class="card card-gold">
     <h3 style="margin-top: 0;">What Can You Run Here?</h3>
     <p>This landing zone is optimized for modern AI/ML workloads that require secure compute and private data access.</p>

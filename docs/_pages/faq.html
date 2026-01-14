@@ -107,6 +107,93 @@
     </div>
 </div>
 
+<h2>Control Plane vs Data Plane</h2>
+
+<div class="card">
+    <h3 style="margin-top:0;">What's the difference between control plane and data plane?</h3>
+    <span class="badge badge-gold">Answered</span>
+    <p>Azure has two distinct access paths:</p>
+    <table style="margin-top: 1rem;">
+        <tr>
+            <th>Aspect</th>
+            <th>Control Plane</th>
+            <th>Data Plane</th>
+        </tr>
+        <tr>
+            <td><strong>What</strong></td>
+            <td>Managing resources (create, configure, delete)</td>
+            <td>Accessing data inside resources</td>
+        </tr>
+        <tr>
+            <td><strong>Endpoint</strong></td>
+            <td><code>management.azure.com</code></td>
+            <td><code>*.vault.azure.net</code>, <code>*.blob.core.windows.net</code></td>
+        </tr>
+        <tr>
+            <td><strong>OIDC Works?</strong></td>
+            <td style="color: #22c55e;">Yes - always</td>
+            <td style="color: #ef4444;">No - blocked by private endpoints</td>
+        </tr>
+        <tr>
+            <td><strong>Examples</strong></td>
+            <td>Create Key Vault, assign RBAC roles</td>
+            <td>Read secrets, write blobs, query databases</td>
+        </tr>
+    </table>
+    <p style="margin-top: 1rem;">See <a href="decisions.html#adr-011">ADR-011</a> and <a href="diagrams.html#control-data-plane">Control vs Data Plane Diagram</a> for details.</p>
+</div>
+
+<div class="card">
+    <h3 style="margin-top:0;">Why can't I see Key Vault secrets in the Azure Portal?</h3>
+    <span class="badge badge-gold">Answered</span>
+    <p>The Azure Portal is a <strong>control plane UI</strong>. When you browse to a Key Vault:</p>
+    <ul>
+        <li><strong>&#10003; You can see</strong> the vault exists (control plane: list resources)</li>
+        <li><strong>&#10003; You can see</strong> its configuration (control plane: read properties)</li>
+        <li><strong>&#10007; You CANNOT click</strong> "Show Secret Value" (data plane: blocked by private endpoint)</li>
+    </ul>
+    <p style="margin-bottom: 0;">To view secrets, use <a href="playbooks.html#chisel-tunnel">Chisel tunnel</a> or connect through the <a href="playbooks.html#bastion-access">Jumpbox via Bastion</a>.</p>
+</div>
+
+<div class="card">
+    <h3 style="margin-top:0;">Do tenant developers get Chisel access?</h3>
+    <span class="badge badge-gold">Answered</span>
+    <p><strong>No.</strong> Chisel is for <strong>platform maintainers only</strong>. Tenant/project developers access AI services through the designed public entry points:</p>
+    <ul>
+        <li><strong>App Gateway + APIM</strong>: Public-facing API endpoints</li>
+        <li><strong>Their own applications</strong>: Which call APIM endpoints</li>
+    </ul>
+    <p style="margin-bottom: 0;">This separation ensures proper isolation and metering. Tenants don't need (or get) direct access to private endpoints.</p>
+</div>
+
+<div class="card">
+    <h3 style="margin-top:0;">Which access method should I use?</h3>
+    <span class="badge badge-gold">Answered</span>
+    <table style="margin-top: 1rem;">
+        <tr>
+            <th>If you need...</th>
+            <th>Use this</th>
+        </tr>
+        <tr>
+            <td>CI/CD with data plane (secrets, state)</td>
+            <td>Self-hosted runners (<code>github_runners_aca_enabled</code>)</td>
+        </tr>
+        <tr>
+            <td>Admin access, debugging, CLI tools</td>
+            <td>Bastion + Jumpbox</td>
+        </tr>
+        <tr>
+            <td>Local dev access to private databases</td>
+            <td>Chisel tunnel (<code>enable_azure_proxy</code>)</td>
+        </tr>
+        <tr>
+            <td>Resource-only deployments</td>
+            <td>Public GitHub runners (default)</td>
+        </tr>
+    </table>
+    <p style="margin-top: 1rem;">See <a href="terraform.html#choosing-your-access-method">Choosing Your Access Method</a> and <a href="diagrams.html#access-methods">Access Methods Diagram</a>.</p>
+</div>
+
 <h2>Onboarding & Access</h2>
 
 <div class="card">

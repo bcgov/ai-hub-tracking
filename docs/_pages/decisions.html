@@ -175,6 +175,18 @@ details.adr.pending[open] summary {
         <td><span class="badge badge-blue">Policy</span></td>
         <td><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></td>
     </tr>
+    <tr>
+        <td><a href="#adr-011">ADR-011</a></td>
+        <td>Control Plane vs Data Plane Access & Chisel Tunnel</td>
+        <td><span class="badge badge-blue">Policy</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
+    </tr>
+    <tr>
+        <td><a href="#adr-012">ADR-012</a></td>
+        <td>Usage Monitoring, Cost Allocation and Chargeback Metrics</td>
+        <td><span class="badge badge-blue">Operations</span></td>
+        <td><span class="badge badge-blue">Proposed</span></td>
+    </tr>
 </table>
 
 <!-- ADR-001 -->
@@ -2122,6 +2134,430 @@ module "storage" {
 
 </div>
 </details>
+
+<!-- ADR-011 -->
+<details class="adr" id="adr-011">
+<summary>
+    <span class="adr-title">ADR-011: Control Plane vs Data Plane Access & Chisel Tunnel</span>
+    <span class="adr-status"><span class="badge badge-blue">Pending</span></span>
+</summary>
+<div class="adr-content">
+
+<div class="grid grid-4" style="margin-bottom: 1rem;">
+    <div><strong>Status:</strong> Pending</div>
+    <div><strong>Date:</strong> 2026-01</div>
+    <div><strong>Driver:</strong> <span class="badge badge-blue">Policy Required</span></div>
+    <div><strong>Category:</strong> Architecture</div>
+</div>
+
+<div class="alert alert-success">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+    </div>
+    <div>
+        <strong>This ADR explains a fundamental Azure concept</strong> that drives many architecture decisions: the difference between Control Plane and Data Plane access, why OIDC works for one but not the other, and how Chisel provides data plane access for platform maintainers.
+    </div>
+</div>
+
+<h3>Context</h3>
+
+<p>Azure services have <strong>two distinct access paths</strong> that are often confused:</p>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: #22c55e;">
+        <h4 style="margin-top: 0; color: #22c55e;">Control Plane (ARM APIs)</h4>
+        <p><strong>What:</strong> Managing Azure resources - create, update, delete, configure</p>
+        <p><strong>Endpoint:</strong> <code>management.azure.com</code> (always public)</p>
+        <p><strong>Authentication:</strong> OIDC tokens, Service Principals, Managed Identity</p>
+        <p><strong>Examples:</strong></p>
+        <ul style="margin-bottom: 0;">
+            <li>Creating a Key Vault</li>
+            <li>Configuring a Storage Account</li>
+            <li>Setting up Private Endpoints</li>
+            <li>RBAC role assignments</li>
+            <li>Azure Portal UI (viewing resources)</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: #ef4444;">
+        <h4 style="margin-top: 0; color: #ef4444;">Data Plane (Service-specific APIs)</h4>
+        <p><strong>What:</strong> Accessing data <em>inside</em> resources</p>
+        <p><strong>Endpoint:</strong> <code>*.vault.azure.net</code>, <code>*.blob.core.windows.net</code>, etc.</p>
+        <p><strong>Authentication:</strong> Same tokens, BUT requires network access</p>
+        <p><strong>Examples:</strong></p>
+        <ul style="margin-bottom: 0;">
+            <li>Reading/writing Key Vault secrets</li>
+            <li>Reading/writing Storage blobs</li>
+            <li>Querying databases (PostgreSQL, CosmosDB)</li>
+            <li>Calling Azure OpenAI APIs</li>
+            <li>Terraform state file read/write</li>
+        </ul>
+    </div>
+</div>
+
+<h3>The Problem: Private Endpoints Block Data Plane</h3>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">🔒</span>
+    <div>
+        <strong>BC Gov Policy:</strong> All Azure services must use private endpoints. This blocks data plane access from the public internet - even with valid OIDC credentials!
+    </div>
+</div>
+
+<div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
+<pre style="background: var(--bc-blue-dark); margin: 0; padding: 1rem; overflow-x: auto; font-size: 11px;">
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                    WHAT WORKS vs WHAT'S BLOCKED                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   From Public Internet (GitHub Actions, Azure Portal, Your Laptop):          │
+│                                                                              │
+│   ✅ CONTROL PLANE (management.azure.com)                                    │
+│      • Create Key Vault                    → ARM API → Works                 │
+│      • Create Storage Account              → ARM API → Works                 │
+│      • View resource properties in Portal  → ARM API → Works                 │
+│      • OIDC authentication                 → Azure AD → Works                │
+│                                                                              │
+│   ❌ DATA PLANE (*.vault.azure.net, *.blob.core.windows.net)                 │
+│      • Read Key Vault secret               → Private Endpoint → BLOCKED      │
+│      • Write Storage blob                  → Private Endpoint → BLOCKED      │
+│      • "View Secret Value" in Portal       → Private Endpoint → BLOCKED      │
+│      • Terraform state read/write          → Private Endpoint → BLOCKED      │
+│                                                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   From Inside VNet (Self-hosted Runners, Jumpbox, Chisel Tunnel):            │
+│                                                                              │
+│   ✅ CONTROL PLANE → Still works (ARM is public)                             │
+│   ✅ DATA PLANE    → Works via Private Endpoints (network path exists)       │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<h3>Why Azure Portal Shows Resources But Not Data</h3>
+
+<p>The <strong>Azure Portal is a Control Plane UI</strong>. When you browse to a Key Vault in the portal:</p>
+
+<ul>
+    <li>✅ You can see the vault exists (control plane: list resources)</li>
+    <li>✅ You can see its configuration (control plane: read properties)</li>
+    <li>❌ You CANNOT click "Show Secret Value" (data plane: blocked by private endpoint)</li>
+</ul>
+
+<p>This is why <a href="#adr-008">ADR-008</a> states "No Azure Portal or Foundry Studio UI Access" for data operations - the portal physically cannot reach private data plane endpoints from your browser.</p>
+
+<h3>Why OIDC Is Used for Control Plane</h3>
+
+<p>OIDC (OpenID Connect) federation provides <strong>passwordless authentication</strong> from GitHub Actions to Azure:</p>
+
+<div class="card" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
+<pre style="background: var(--bc-blue-dark); margin: 0; padding: 1rem; overflow-x: auto; font-size: 11px;">
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        OIDC AUTHENTICATION FLOW                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   1. GitHub Actions workflow starts                                          │
+│           ↓                                                                  │
+│   2. GitHub OIDC Provider issues JWT token                                   │
+│      (claims: repo, branch, environment, workflow)                           │
+│           ↓                                                                  │
+│   3. Token sent to Azure AD                                                  │
+│           ↓                                                                  │
+│   4. Azure AD validates against Federated Credential                         │
+│      (checks: issuer=GitHub, subject=repo:bcgov/ai-hub-tracking:...)        │
+│           ↓                                                                  │
+│   5. Azure AD issues Access Token (valid ~1 hour)                            │
+│           ↓                                                                  │
+│   6. Access Token used for ARM API calls (Control Plane)                     │
+│           ↓                                                                  │
+│   ✅ terraform plan/apply (resource management)                              │
+│   ✅ az cli commands (control plane operations)                              │
+│   ✅ No secrets stored in GitHub!                                            │
+│                                                                              │
+│   BUT: OIDC gives credentials, NOT network access.                           │
+│        Data plane still blocked without VNet connectivity.                   │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<h3>Decision: Multiple Access Methods for Different Needs</h3>
+
+<p>We provide <strong>four toggleable access mechanisms</strong> via Terraform, each serving a different use case:</p>
+
+<table>
+    <tr>
+        <th>Access Method</th>
+        <th>Terraform Toggle</th>
+        <th>Who Uses It</th>
+        <th>Use Case</th>
+        <th>Plane Access</th>
+    </tr>
+    <tr>
+        <td><strong>Self-Hosted Runners</strong></td>
+        <td><code>github_runners_aca_enabled</code></td>
+        <td>CI/CD Automation</td>
+        <td>Terraform deployments that need data plane (state, secrets)</td>
+        <td>Control + Data</td>
+    </tr>
+    <tr>
+        <td><strong>Bastion + Jumpbox</strong></td>
+        <td><code>enable_bastion</code>, <code>enable_jumpbox</code></td>
+        <td>Platform Maintainers</td>
+        <td>Emergency debugging, manual admin tasks</td>
+        <td>Control + Data</td>
+    </tr>
+    <tr>
+        <td><strong>Chisel Tunnel</strong></td>
+        <td><code>enable_azure_proxy</code></td>
+        <td>Platform Maintainers</td>
+        <td>Local dev access to private databases/APIs</td>
+        <td>Control + Data</td>
+    </tr>
+    <tr>
+        <td><strong>Public GitHub Runners</strong></td>
+        <td>(default)</td>
+        <td>CI/CD (limited)</td>
+        <td>Control plane only operations</td>
+        <td>Control only</td>
+    </tr>
+</table>
+
+<h3>Chisel Tunnel: Data Plane Access for Platform Maintainers</h3>
+
+<div class="alert alert-info">
+    <span class="alert-icon">🔧</span>
+    <div>
+        <strong>Chisel is for Platform Maintainers ONLY</strong> - not for tenant/project developers. Tenants access AI services through APIM/App Gateway (the designed public entry point).
+    </div>
+</div>
+
+<p><strong>What is Chisel?</strong> A fast TCP/UDP tunnel over HTTP that creates a secure reverse proxy from your local machine into the Azure VNet.</p>
+
+<div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
+<pre style="background: var(--bc-blue-dark); margin: 0; padding: 1rem; overflow-x: auto; font-size: 11px;">
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        CHISEL TUNNEL ARCHITECTURE                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   Platform Maintainer's Laptop                                               │
+│   ┌─────────────────────────────┐                                            │
+│   │  Chisel Client (Docker)     │                                            │
+│   │  Listens on localhost:5432  │                                            │
+│   └──────────────┬──────────────┘                                            │
+│                  │ HTTPS (encrypted)                                         │
+│                  ▼                                                            │
+│   ┌─────────────────────────────────────────────────────────────────────┐    │
+│   │                    Azure App Service (Chisel Server)                │    │
+│   │                    Inside VNet (app-service-subnet)                 │    │
+│   │                    Random auth: tunnel:XXXXXXXX                     │    │
+│   └──────────────┬──────────────────────────────────────────────────────┘    │
+│                  │ VNet Integration (Private Network)                        │
+│                  ▼                                                            │
+│   ┌─────────────────────────────────────────────────────────────────────┐    │
+│   │                    Private Endpoints                                │    │
+│   │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐              │    │
+│   │  │  PostgreSQL  │  │   Key Vault  │  │   CosmosDB   │              │    │
+│   │  │  :5432       │  │   :443       │  │   :443       │              │    │
+│   │  └──────────────┘  └──────────────┘  └──────────────┘              │    │
+│   └─────────────────────────────────────────────────────────────────────┘    │
+│                                                                              │
+│   Result: psql -h localhost -p 5432 → tunnels to private PostgreSQL          │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<h3>What Terraform Operations Need Data Plane?</h3>
+
+<p>Most Terraform operations are control plane only. <strong>Data plane is only needed when:</strong></p>
+
+<table>
+    <tr>
+        <th>Resource/Operation</th>
+        <th>Plane</th>
+        <th>Works from Public?</th>
+        <th>Example</th>
+    </tr>
+    <tr>
+        <td><code>azurerm_key_vault</code> (create)</td>
+        <td>Control</td>
+        <td>✅ Yes</td>
+        <td>Creating the vault itself</td>
+    </tr>
+    <tr>
+        <td><code>azurerm_key_vault_secret</code> (write)</td>
+        <td><strong>Data</strong></td>
+        <td>❌ No</td>
+        <td>Writing secrets INTO the vault</td>
+    </tr>
+    <tr>
+        <td><code>data "azurerm_key_vault_secret"</code></td>
+        <td><strong>Data</strong></td>
+        <td>❌ No</td>
+        <td>Reading secrets FROM the vault</td>
+    </tr>
+    <tr>
+        <td>Terraform state backend (Storage)</td>
+        <td><strong>Data</strong></td>
+        <td>❌ No</td>
+        <td>Reading/writing .tfstate blob</td>
+    </tr>
+    <tr>
+        <td><code>azurerm_storage_account</code> (create)</td>
+        <td>Control</td>
+        <td>✅ Yes</td>
+        <td>Creating the account</td>
+    </tr>
+    <tr>
+        <td><code>azurerm_storage_blob</code> (upload)</td>
+        <td><strong>Data</strong></td>
+        <td>❌ No</td>
+        <td>Uploading files to storage</td>
+    </tr>
+    <tr>
+        <td><code>azurerm_private_endpoint</code></td>
+        <td>Control</td>
+        <td>✅ Yes</td>
+        <td>Creating the private endpoint</td>
+    </tr>
+    <tr>
+        <td>RBAC role assignments</td>
+        <td>Control</td>
+        <td>✅ Yes</td>
+        <td>Granting permissions</td>
+    </tr>
+</table>
+
+<h3>Access Model Summary</h3>
+
+<div class="card" style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);">
+<pre style="background: var(--bc-blue-dark); margin: 0; padding: 1rem; overflow-x: auto; font-size: 11px;">
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                        COMPLETE ACCESS MODEL                                 │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  TENANT DEVELOPERS (Ministry Teams)                                          │
+│  ┌─────────────┐      ┌──────────────┐      ┌─────────────────┐             │
+│  │ Their Apps  │─────▶│ App Gateway  │─────▶│ APIM (rate      │─────▶ AI    │
+│  │             │      │ + WAF        │      │ limited, metered)│      APIs   │
+│  └─────────────┘      └──────────────┘      └─────────────────┘             │
+│                              ▲                                               │
+│                              │ Public endpoint (by design)                   │
+│                              │ No direct private endpoint access             │
+│                                                                              │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│  PLATFORM MAINTAINERS (This Team)                                            │
+│                                                                              │
+│  ┌────────────────────────────────────────────────────────────────────────┐ │
+│  │ Method              │ Toggle Variable              │ Use Case          │ │
+│  ├────────────────────────────────────────────────────────────────────────┤ │
+│  │ Self-hosted Runners │ github_runners_aca_enabled   │ CI/CD automation  │ │
+│  │ Bastion + Jumpbox   │ enable_bastion/jumpbox       │ Admin access      │ │
+│  │ Chisel Tunnel       │ enable_azure_proxy           │ Local dev access  │ │
+│  └────────────────────────────────────────────────────────────────────────┘ │
+│                                                                              │
+│  All three provide: Control Plane + Data Plane access                        │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<h3>Consequences</h3>
+
+<h4>Positive</h4>
+<ul>
+    <li><strong>Clear mental model</strong> - Understanding control vs data plane explains "why" behind many decisions</li>
+    <li><strong>Flexible access</strong> - Enable only what you need (cost optimization)</li>
+    <li><strong>Policy compliant</strong> - No public data plane endpoints ever</li>
+    <li><strong>Secure tenant isolation</strong> - Tenants use APIM, never touch private endpoints directly</li>
+</ul>
+
+<h4>Negative</h4>
+<ul>
+    <li><strong>Complexity</strong> - Must understand two planes, not just "Azure access"</li>
+    <li><strong>Runner dependency</strong> - Most Terraform needs self-hosted runners (state is data plane)</li>
+    <li><strong>Portal limitations</strong> - Can't "see" data in Portal even with permissions</li>
+</ul>
+
+<h3>References</h3>
+<ul>
+    <li><a href="playbooks.html#chisel-tunnel">Playbook: Using Chisel Tunnel for Local Development</a></li>
+    <li><a href="terraform.html">Terraform Module: azure-proxy (Chisel)</a></li>
+    <li><a href="#adr-001">ADR-001: Shared Landing Zone</a></li>
+    <li><a href="#adr-002">ADR-002: OIDC Authentication</a></li>
+    <li><a href="#adr-008">ADR-008: No Azure Portal UI Access</a></li>
+    <li><a href="https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/control-plane-and-data-plane">Microsoft Docs: Control Plane and Data Plane</a></li>
+</ul>
+
+</div>
+</details>
+
+<!-- ADR-012 -->
+<details class="adr" id="adr-012">
+<summary>
+    <span class="adr-title">ADR-012: Hybrid Cost Allocation & Usage Monitoring Strategy</span>
+    <span class="adr-status"><span class="badge badge-blue">Proposed</span></span>
+</summary>
+<div class="adr-content">
+
+    <div class="grid grid-4" style="margin-bottom: 1rem;">
+        <div><strong>Status:</strong> Proposed</div>
+        <div><strong>Date:</strong> 2026-01</div>
+        <div><strong>Deciders:</strong> Platform Team</div>
+        <div><strong>Category:</strong> <span class="badge badge-blue">Observability</span></div>
+    </div>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Context</h3>
+    <p>The AI Services Hub operates as a multi-tenant platform serving multiple ministries. This shared infrastructure creates a financial governance challenge: we must accurately allocate costs to specific tenants to ensure accountability and cost recovery.</p>
+    <p>The architecture includes two types of resources:</p>
+    <ul>
+        <li><strong>Tenant-Dedicated:</strong> Resources used exclusively by one tenant (e.g., Azure OpenAI instances, Document Intelligence, Cosmos DB).</li>
+        <li><strong>Shared Infrastructure:</strong> Resources serving all tenants simultaneously (e.g., APIM, App Gateway, Application Insights).</li>
+    </ul>
+    <p>We need a standardized strategy to track consumption and generate accurate chargeback invoices that account for both resource types across our dual-region deployment (Canada Central & East).</p>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Decision</h3>
+    <p>We will adopt a <strong>Hybrid Cost Allocation Model</strong> that combines native Azure billing with custom usage tracking:</p>
+    <ol>
+        <li><strong>Direct Attribution (90% of costs):</strong> We will isolate high-cost resources (AI Foundry Projects, Document Intelligence) into tenant-specific resource groups. These will be billed directly to tenants using Azure Cost Management tags (<code>tenant-id</code>), requiring no manual calculation.</li>
+        <li><strong>Proportional Allocation (10% of costs):</strong> We will split the cost of shared infrastructure (APIM, App Gateway) based on actual usage metrics.
+            <ul>
+                <li>APIM & Gateway costs split by <strong>API Request Volume</strong>.</li>
+                <li>Monitoring costs split by <strong>Log Ingestion Volume</strong>.</li>
+            </ul>
+        </li>
+        <li><strong>Centralized Tracking via APIM:</strong> Azure API Management will serve as the single source of truth for usage metrics. All traffic must flow through APIM to ensure consistent tenant identification and logging.</li>
+        <li><strong>Custom Egress Calculation:</strong> We will implement a custom calculation pipeline using App Gateway logs to track and charge for cross-region network egress (between Canada Central and Canada East).</li>
+    </ol>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
+    <ul>
+        <li><strong>Minimizes Operational Overhead:</strong> By using Direct Attribution for the most expensive resources (OpenAI tokens, Search), we rely on Azure's native billing engine for the vast majority of chargebacks. We only maintain custom logic for the shared platform components.</li>
+        <li><strong>Fairness:</strong> A flat fee for shared infrastructure would be unfair to smaller tenants. Proportional allocation based on request volume ensures ministries only pay for the platform capacity they actually consume.</li>
+        <li><strong>Granular Visibility:</strong> Using APIM as the central logging point allows us to capture operational metrics (latency, errors, token usage) alongside billing data without adding sidecar proxies to every service.</li>
+    </ul>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Consequences</h3>
+    
+    <h4>Positive</h4>
+    <ul>
+        <li><strong>Transparency:</strong> Tenants can verify their direct Azure costs in the portal using their tenant tag.</li>
+        <li><strong>Scalability:</strong> New tenants can be onboarded simply by adding tags; the cost model adjusts automatically.</li>
+        <li><strong>Cost Recovery:</strong> Ensures the Platform Team fully recovers infrastructure costs rather than absorbing the overhead of shared services.</li>
+    </ul>
+
+    <h4>Negative</h4>
+    <ul>
+        <li><strong>Complexity of Egress:</strong> Cross-region data transfer is billed at the subscription level and is difficult to attribute. We accept the tradeoff of maintaining a custom Kusto query to calculate this specific cost.</li>
+        <li><strong>Maintenance:</strong> The logic for splitting shared costs (Python functions/Kusto queries) is custom code that must be maintained and verified monthly against Azure invoices.</li>
+    </ul>
+
+</div>
+</details>
+
+
 <h2>ADR Template</h2>
 
 <p>Use this template when adding new ADRs:</p>

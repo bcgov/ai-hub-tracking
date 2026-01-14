@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 900" width="1100" height="900">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#003366"/>
+      <stop offset="100%" style="stop-color:#1a5a96"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1100" height="900" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="1100" height="65" fill="url(#headerGrad)"/>
+  <text x="550" y="40" font-family="Segoe UI, Arial" font-size="22" font-weight="bold" fill="white" text-anchor="middle">Who Deploys What?</text>
+  <text x="550" y="58" font-family="Segoe UI, Arial" font-size="12" fill="#e2e8f0" text-anchor="middle">Understanding Roles and Responsibilities</text>
+
+  <!-- Central Question -->
+  <rect x="50" y="85" width="1000" height="80" rx="10" fill="#fef3c7" stroke="#f59e0b" stroke-width="2" filter="url(#shadow)"/>
+  <text x="550" y="115" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="#92400e" text-anchor="middle">Do ALL teams need to deploy Bastion, Jumpbox, Chisel, and Container Apps?</text>
+  <text x="550" y="140" font-family="Segoe UI, Arial" font-size="14" fill="#b45309" text-anchor="middle">NO! It depends on your role...</text>
+
+  <!-- Platform Team Box -->
+  <rect x="50" y="190" width="480" height="640" rx="12" fill="white" stroke="#8b5cf6" stroke-width="3" filter="url(#shadow)"/>
+  <rect x="50" y="190" width="480" height="50" rx="12" fill="#8b5cf6"/>
+  <text x="290" y="225" font-family="Segoe UI, Arial" font-size="18" font-weight="bold" fill="white" text-anchor="middle">Platform Team</text>
+  <text x="290" y="245" font-family="Segoe UI, Arial" font-size="11" fill="#c4b5fd" text-anchor="middle">(Infrastructure Admins)</text>
+
+  <!-- Platform Team Deploys -->
+  <text x="70" y="275" font-family="Segoe UI, Arial" font-size="13" font-weight="bold" fill="#5b21b6">WHO: Platform Services Team</text>
+  <text x="70" y="295" font-family="Segoe UI, Arial" font-size="11" fill="#6b21a8">DO: Deploy and maintain the shared landing zone</text>
+
+  <rect x="70" y="310" width="440" height="35" rx="6" fill="#f5f3ff" stroke="#8b5cf6"/>
+  <text x="290" y="333" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#5b21b6" text-anchor="middle">Platform Team DEPLOYS:</text>
+
+  <rect x="70" y="355" width="440" height="450" rx="8" fill="#faf5ff" stroke="#8b5cf6"/>
+
+  <!-- List items with icons -->
+  <text x="90" y="385" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ Network module (VNets, subnets, NSGs)</text>
+  <text x="110" y="405" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ Creates the foundation</text>
+
+  <text x="90" y="430" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ Bastion + Jumpbox (optional)</text>
+  <text x="110" y="450" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ For admin access to platform</text>
+
+  <text x="90" y="475" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ Chisel tunnel (optional)</text>
+  <text x="110" y="495" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ For platform team local dev</text>
+
+  <text x="90" y="520" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ Self-hosted runners (optional)</text>
+  <text x="110" y="540" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ For CI/CD needing data plane</text>
+
+  <text x="90" y="565" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ Monitoring (Log Analytics)</text>
+  <text x="110" y="585" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ Centralized logging</text>
+
+  <text x="90" y="610" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ API Management + App Gateway</text>
+  <text x="110" y="630" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ Public entry points for tenants</text>
+
+  <text x="90" y="655" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ Azure AI Foundry</text>
+  <text x="110" y="675" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ Shared AI services</text>
+
+  <text x="90" y="700" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ Private Endpoints</text>
+  <text x="110" y="720" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ Key Vault, Storage, databases</text>
+
+  <text x="90" y="745" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ Project Resource Templates</text>
+  <text x="110" y="765" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ For project teams to consume</text>
+
+  <text x="90" y="790" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">OUTPUT: Terraform outputs for project teams</text>
+
+  <!-- Project Teams Box -->
+  <rect x="570" y="190" width="480" height="640" rx="12" fill="white" stroke="#22c55e" stroke-width="3" filter="url(#shadow)"/>
+  <rect x="570" y="190" width="480" height="50" rx="12" fill="#22c55e"/>
+  <text x="810" y="225" font-family="Segoe UI, Arial" font-size="18" font-weight="bold" fill="white" text-anchor="middle">Project Teams</text>
+  <text x="810" y="245" font-family="Segoe UI, Arial" font-size="11" fill="#bbf7d0" text-anchor="middle">(Ministry Application Teams)</text>
+
+  <!-- Project Teams Deploy -->
+  <text x="590" y="275" font-family="Segoe UI, Arial" font-size="13" font-weight="bold" fill="#166534">WHO: Individual Ministry Teams</text>
+  <text x="590" y="295" font-family="Segoe UI, Arial" font-size="11" fill="#15803d">DO: Deploy their own applications using platform outputs</text>
+
+  <rect x="590" y="310" width="440" height="35" rx="6" fill="#f0fdf4" stroke="#22c55e"/>
+  <text x="810" y="333" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#166534" text-anchor="middle">Project Teams DEPLOY:</text>
+
+  <rect x="590" y="355" width="440" height="450" rx="8" fill="#f0fdf4" stroke="#22c55e"/>
+
+  <text x="610" y="385" font-family="Segoe UI, Arial" font-size="12" fill="#166534">✗ NO: Bastion/Jumpbox/Chisel</text>
+  <text x="630" y="405" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">  └─ Platform team maintains these</text>
+
+  <text x="610" y="430" font-family="Segoe UI, Arial" font-size="12" fill="#166534">✗ NO: Network infrastructure</text>
+  <text x="630" y="450" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">  └─ Provided by platform</text>
+
+  <text x="610" y="475" font-family="Segoe UI, Arial" font-size="12" fill="#166534">✗ NO: Private endpoints</text>
+  <text x="630" y="495" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">  └─ Already configured by platform</text>
+
+  <text x="610" y="520" font-family="Segoe UI, Arial" font-size="12" fill="#166534">✗ NO: AI services setup</text>
+  <text x="630" y="540" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">  └─ Use shared AI Foundry</text>
+
+  <text x="610" y="565" font-family="Segoe UI, Arial" font-size="12" fill="#166534">✓ YES: App Service Plans</text>
+  <text x="630" y="585" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">  └─ For their applications</text>
+
+  <text x="610" y="610" font-family="Segoe UI, Arial" font-size="12" fill="#166534">✓ YES: Container Apps</text>
+  <text x="630" y="630" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">  └─ For their workloads</text>
+
+  <text x="610" y="655" font-family="Segoe UI, Arial" font-size="12" fill="#166534">✓ YES: Storage Accounts</text>
+  <text x="630" y="675" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">  └─ For their data</text>
+
+  <text x="610" y="700" font-family="Segoe UI, Arial" font-size="12" fill="#166534">✓ YES: Application Code</text>
+  <text x="630" y="720" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">  └─ The actual AI applications</text>
+
+  <text x="610" y="745" font-family="Segoe UI, Arial" font-size="12" fill="#166534">INPUT: Use platform's Terraform outputs</text>
+
+  <!-- How Project Teams Access -->
+  <rect x="590" y="820" width="440" height="90" rx="8" fill="#dcfce7" stroke="#22c55e"/>
+  <text x="810" y="843" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#166534" text-anchor="middle">HOW Project Teams ACCESS Services:</text>
+  <text x="610" y="868" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">→ Public endpoints via API Management</text>
+  <text x="610" y="885" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">→ App Gateway load balancers</text>
+  <text x="610" y="902" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">→ NO direct access to private resources</text>
+
+  <!-- Bottom Summary -->
+  <rect x="50" y="850" width="1000" height="40" rx="8" fill="#e0f2fe" stroke="#0284c7" stroke-width="1"/>
+  <text x="550" y="875" font-family="Segoe UI, Arial" font-size="13" font-weight="bold" fill="#0369a1" text-anchor="middle">💡 Key Insight: Platform team deploys infrastructure ONCE. Project teams consume it many times.</text>
+  <text x="550" y="893" font-family="Segoe UI, Arial" font-size="11" fill="#0284c7" text-anchor="middle">Most teams only need to deploy their application code, not the infrastructure!</text>
+
+</svg>

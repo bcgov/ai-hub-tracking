@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 700" width="900" height="700">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#003366"/>
+      <stop offset="100%" style="stop-color:#1a5a96"/>
+    </linearGradient>
+    <linearGradient id="controlGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#dcfce7"/>
+      <stop offset="100%" style="stop-color:#bbf7d0"/>
+    </linearGradient>
+    <linearGradient id="dataGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fee2e2"/>
+      <stop offset="100%" style="stop-color:#fecaca"/>
+    </linearGradient>
+    <filter id="shadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="2" dy="2" stdDeviation="3" flood-opacity="0.15"/>
+    </filter>
+    <marker id="arrowGreen" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#22c55e"/>
+    </marker>
+    <marker id="arrowRed" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+      <polygon points="0 0, 10 3.5, 0 7" fill="#ef4444"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="900" height="700" fill="#f8fafc"/>
+
+  <!-- Header -->
+  <rect x="0" y="0" width="900" height="55" fill="url(#headerGrad)"/>
+  <text x="450" y="35" font-family="Segoe UI, Arial" font-size="20" font-weight="bold" fill="white" text-anchor="middle">Control Plane vs Data Plane in Azure</text>
+
+  <!-- Subtitle -->
+  <rect x="20" y="70" width="860" height="40" rx="8" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1"/>
+  <text x="450" y="95" font-family="Segoe UI, Arial" font-size="13" fill="#0369a1" text-anchor="middle">Understanding why OIDC works for some operations but not others when private endpoints are enabled</text>
+
+  <!-- Left Side: Control Plane -->
+  <rect x="30" y="130" width="410" height="280" rx="12" fill="url(#controlGrad)" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="30" y="130" width="410" height="40" rx="12" fill="#22c55e"/>
+  <text x="235" y="156" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="white" text-anchor="middle">CONTROL PLANE</text>
+  <circle cx="60" cy="150" r="12" fill="white"/>
+  <text x="60" y="155" font-family="Segoe UI, Arial" font-size="14" fill="#22c55e" text-anchor="middle">&#10003;</text>
+
+  <!-- Control Plane Content -->
+  <text x="50" y="195" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#166534">Endpoint: management.azure.com</text>
+  <text x="50" y="215" font-family="Segoe UI, Arial" font-size="11" fill="#166534">Always public, globally accessible</text>
+
+  <rect x="50" y="230" width="370" height="30" rx="4" fill="white" stroke="#22c55e" stroke-width="1"/>
+  <text x="235" y="250" font-family="Segoe UI, Arial" font-size="11" fill="#166534" text-anchor="middle">Azure Resource Manager (ARM) API</text>
+
+  <text x="50" y="280" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534">What you can do:</text>
+  <text x="60" y="300" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">&#8226; Create/delete resources (VMs, Key Vaults, Storage)</text>
+  <text x="60" y="318" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">&#8226; Configure settings and policies</text>
+  <text x="60" y="336" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">&#8226; Assign RBAC roles and permissions</text>
+  <text x="60" y="354" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">&#8226; View resource properties in Azure Portal</text>
+  <text x="60" y="372" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">&#8226; Terraform: azurerm_key_vault, azurerm_storage_account</text>
+  <text x="60" y="390" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">&#8226; Deploy private endpoints themselves</text>
+
+  <!-- Right Side: Data Plane -->
+  <rect x="460" y="130" width="410" height="280" rx="12" fill="url(#dataGrad)" stroke="#ef4444" stroke-width="2" filter="url(#shadow)"/>
+  <rect x="460" y="130" width="410" height="40" rx="12" fill="#ef4444"/>
+  <text x="665" y="156" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="white" text-anchor="middle">DATA PLANE</text>
+  <circle cx="490" cy="150" r="12" fill="white"/>
+  <text x="490" y="155" font-family="Segoe UI, Arial" font-size="16" fill="#ef4444" text-anchor="middle">&#10007;</text>
+
+  <!-- Data Plane Content -->
+  <text x="480" y="195" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#991b1b">Endpoints: *.vault.azure.net, *.blob.core.windows.net</text>
+  <text x="480" y="215" font-family="Segoe UI, Arial" font-size="11" fill="#991b1b">Blocked by private endpoints (BC Gov policy)</text>
+
+  <rect x="480" y="230" width="370" height="30" rx="4" fill="white" stroke="#ef4444" stroke-width="1"/>
+  <text x="665" y="250" font-family="Segoe UI, Arial" font-size="11" fill="#991b1b" text-anchor="middle">Service-specific APIs (per resource type)</text>
+
+  <text x="480" y="280" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#991b1b">What requires VNet access:</text>
+  <text x="490" y="300" font-family="Segoe UI, Arial" font-size="10" fill="#b91c1c">&#10007; Read/write Key Vault secrets</text>
+  <text x="490" y="318" font-family="Segoe UI, Arial" font-size="10" fill="#b91c1c">&#10007; Upload/download Storage blobs</text>
+  <text x="490" y="336" font-family="Segoe UI, Arial" font-size="10" fill="#b91c1c">&#10007; Query databases (PostgreSQL, CosmosDB)</text>
+  <text x="490" y="354" font-family="Segoe UI, Arial" font-size="10" fill="#b91c1c">&#10007; "Show Secret Value" in Azure Portal</text>
+  <text x="490" y="372" font-family="Segoe UI, Arial" font-size="10" fill="#b91c1c">&#10007; Terraform: azurerm_key_vault_secret</text>
+  <text x="490" y="390" font-family="Segoe UI, Arial" font-size="10" fill="#b91c1c">&#10007; Terraform state backend (if private)</text>
+
+  <!-- Middle Section: Access Sources -->
+  <rect x="30" y="430" width="840" height="250" rx="12" fill="white" stroke="#94a3b8" stroke-width="1" filter="url(#shadow)"/>
+  <text x="450" y="460" font-family="Segoe UI, Arial" font-size="14" font-weight="bold" fill="#334155" text-anchor="middle">Access from Different Sources</text>
+
+  <!-- Row headers -->
+  <rect x="50" y="480" width="180" height="30" rx="4" fill="#f1f5f9"/>
+  <text x="140" y="500" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#475569" text-anchor="middle">Access Source</text>
+
+  <rect x="250" y="480" width="180" height="30" rx="4" fill="#dcfce7"/>
+  <text x="340" y="500" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Control Plane</text>
+
+  <rect x="450" y="480" width="180" height="30" rx="4" fill="#fee2e2"/>
+  <text x="540" y="500" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#991b1b" text-anchor="middle">Data Plane</text>
+
+  <rect x="650" y="480" width="200" height="30" rx="4" fill="#f1f5f9"/>
+  <text x="750" y="500" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#475569" text-anchor="middle">Solution</text>
+
+  <!-- Row 1: GitHub Actions (Public) -->
+  <text x="140" y="535" font-family="Segoe UI, Arial" font-size="10" fill="#475569" text-anchor="middle">GitHub Actions (Public)</text>
+  <rect x="310" y="522" width="60" height="22" rx="4" fill="#22c55e"/>
+  <text x="340" y="537" font-family="Segoe UI, Arial" font-size="10" fill="white" text-anchor="middle">&#10003; Works</text>
+  <rect x="510" y="522" width="60" height="22" rx="4" fill="#ef4444"/>
+  <text x="540" y="537" font-family="Segoe UI, Arial" font-size="10" fill="white" text-anchor="middle">&#10007; Blocked</text>
+  <text x="750" y="535" font-family="Segoe UI, Arial" font-size="9" fill="#64748b" text-anchor="middle">Use Self-hosted Runners</text>
+
+  <!-- Row 2: Self-hosted Runners -->
+  <text x="140" y="565" font-family="Segoe UI, Arial" font-size="10" fill="#475569" text-anchor="middle">Self-hosted Runners (VNet)</text>
+  <rect x="310" y="552" width="60" height="22" rx="4" fill="#22c55e"/>
+  <text x="340" y="567" font-family="Segoe UI, Arial" font-size="10" fill="white" text-anchor="middle">&#10003; Works</text>
+  <rect x="510" y="552" width="60" height="22" rx="4" fill="#22c55e"/>
+  <text x="540" y="567" font-family="Segoe UI, Arial" font-size="10" fill="white" text-anchor="middle">&#10003; Works</text>
+  <text x="750" y="565" font-family="Segoe UI, Arial" font-size="9" fill="#64748b" text-anchor="middle">Inside VNet = full access</text>
+
+  <!-- Row 3: Bastion + Jumpbox -->
+  <text x="140" y="595" font-family="Segoe UI, Arial" font-size="10" fill="#475569" text-anchor="middle">Bastion + Jumpbox</text>
+  <rect x="310" y="582" width="60" height="22" rx="4" fill="#22c55e"/>
+  <text x="340" y="597" font-family="Segoe UI, Arial" font-size="10" fill="white" text-anchor="middle">&#10003; Works</text>
+  <rect x="510" y="582" width="60" height="22" rx="4" fill="#22c55e"/>
+  <text x="540" y="597" font-family="Segoe UI, Arial" font-size="10" fill="white" text-anchor="middle">&#10003; Works</text>
+  <text x="750" y="595" font-family="Segoe UI, Arial" font-size="9" fill="#64748b" text-anchor="middle">VM inside VNet</text>
+
+  <!-- Row 4: Chisel Tunnel -->
+  <text x="140" y="625" font-family="Segoe UI, Arial" font-size="10" fill="#475569" text-anchor="middle">Chisel Tunnel (Laptop)</text>
+  <rect x="310" y="612" width="60" height="22" rx="4" fill="#22c55e"/>
+  <text x="340" y="627" font-family="Segoe UI, Arial" font-size="10" fill="white" text-anchor="middle">&#10003; Works</text>
+  <rect x="510" y="612" width="60" height="22" rx="4" fill="#22c55e"/>
+  <text x="540" y="627" font-family="Segoe UI, Arial" font-size="10" fill="white" text-anchor="middle">&#10003; Works</text>
+  <text x="750" y="625" font-family="Segoe UI, Arial" font-size="9" fill="#64748b" text-anchor="middle">Tunnels via App Service</text>
+
+  <!-- Row 5: Your Laptop (Direct) -->
+  <text x="140" y="655" font-family="Segoe UI, Arial" font-size="10" fill="#475569" text-anchor="middle">Your Laptop (Direct)</text>
+  <rect x="310" y="642" width="60" height="22" rx="4" fill="#22c55e"/>
+  <text x="340" y="657" font-family="Segoe UI, Arial" font-size="10" fill="white" text-anchor="middle">&#10003; Works</text>
+  <rect x="510" y="642" width="60" height="22" rx="4" fill="#ef4444"/>
+  <text x="540" y="657" font-family="Segoe UI, Arial" font-size="10" fill="white" text-anchor="middle">&#10007; Blocked</text>
+  <text x="750" y="655" font-family="Segoe UI, Arial" font-size="9" fill="#64748b" text-anchor="middle">Use Chisel or Bastion</text>
+
+  <!-- Footer note -->
+  <text x="450" y="690" font-family="Segoe UI, Arial" font-size="10" fill="#64748b" text-anchor="middle">OIDC provides authentication credentials, but credentials alone don't grant network access to private endpoints</text>
+
+</svg>

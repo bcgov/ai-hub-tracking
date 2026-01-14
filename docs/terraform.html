@@ -711,7 +711,7 @@
                     </a>
                     <a href="terraform.html">
                         Terraform Modules
-                        <small>Network, Bastion, Jumpbox</small>
+                        <small>Network, Bastion, Runners, Proxy</small>
                     </a>
                     <a href="workflows.html">
                         GitHub Workflows
@@ -1073,48 +1073,183 @@ Commands:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>Azure Proxy Module</h2>
+<h2>Azure Proxy Module (Chisel Tunnel)</h2>
 
-<p>Deploys a secure tunnel (chisel) service for proxying traffic to peered networks and backend services.</p>
+<p>Deploys a <strong>Chisel</strong> secure tunnel server for accessing private Azure resources (data plane) from your local machine. This solves the problem of accessing private endpoints when you're outside the VNet.</p>
 
-<div class="card">
-    <h3>Resources Created</h3>
-    <ul>
-        <li><strong>App Service Plan</strong>: Hosts the proxy service (configurable SKU, default: B1)</li>
-        <li><strong>App Service</strong>: Runs the chisel proxy container image</li>
-        <li><strong>Application Insights</strong>: Integrated monitoring (uses monitoring module outputs)</li>
-    </ul>
+<div class="alert alert-info">
+    <strong>Why Chisel?</strong> Private endpoints block data plane access from the public internet. Chisel creates an HTTPS tunnel through an App Service (which has VNet integration) to reach Key Vault secrets, databases, and other private resources from your laptop.
 </div>
 
-<div class="card card-gold">
+<div class="grid grid-2">
+    <div class="card">
+        <h3>Resources Created</h3>
+        <ul>
+            <li><strong>App Service Plan</strong>: Linux plan hosting the tunnel (configurable SKU)</li>
+            <li><strong>Web App</strong>: Runs containerized Chisel server with VNet integration</li>
+            <li><strong>Random Credentials</strong>: Auto-generated username/password for tunnel auth</li>
+            <li><strong>Application Insights</strong>: Connection logging and monitoring</li>
+        </ul>
+    </div>
+    <div class="card card-gold">
+        <h3>Security Features</h3>
+        <ul>
+            <li><strong>HTTPS Only</strong>: TLS 1.3 minimum</li>
+            <li><strong>Mandatory Auth</strong>: Random credentials stored in App Settings</li>
+            <li><strong>Health Checks</strong>: Automatic restart on failure</li>
+            <li><strong>Logging</strong>: All connections logged to App Insights</li>
+        </ul>
+    </div>
+</div>
+
+<div class="card">
     <h3>Key Variables</h3>
     <table>
         <thead>
             <tr>
                 <th>Variable</th>
+                <th>Default</th>
                 <th>Description</th>
             </tr>
         </thead>
         <tbody>
             <tr>
                 <td><code>enable_azure_proxy</code></td>
-                <td>Enable/disable deployment (default: false)</td>
+                <td>false</td>
+                <td>Enable/disable Chisel deployment</td>
             </tr>
             <tr>
                 <td><code>azure_proxy_image</code></td>
-                <td>Container image URI (e.g., <code>ghcr.io/org/repo/azure-proxy/chisel:latest</code>)</td>
+                <td>-</td>
+                <td>Container image URI (built by pr-open workflow)</td>
             </tr>
             <tr>
                 <td><code>app_service_sku_name_azure_proxy</code></td>
-                <td>App Service plan SKU (default: B1)</td>
+                <td>B1</td>
+                <td>App Service plan SKU</td>
             </tr>
         </tbody>
     </table>
 </div>
 
-<div class="alert alert-info">
-    <strong>Note:</strong> Peered VNet security rules are configured automatically in the Network module when deploying the proxy.
+<div class="card" style="border-left-color: #8b5cf6;">
+    <h3>Usage Example</h3>
+    <p>After deployment, connect from your laptop:</p>
+    <pre># Get credentials from Terraform output
+terraform output azure_proxy_chisel_auth
+terraform output azure_proxy_url
+
+# Connect to private PostgreSQL database
+docker run --rm -it -p 5432:5432 jpillora/chisel:latest client \
+  --auth "tunnel:XXXXXXXX" \
+  https://your-app.azurewebsites.net \
+  0.0.0.0:5432:private-postgres.postgres.database.azure.com:5432
+
+# Now connect locally
+psql -h localhost -p 5432 -U admin -d mydb</pre>
+    <p>See <a href="playbooks.html#chisel-tunnel">Chisel Tunnel Playbook</a> for detailed instructions.</p>
 </div>
+
+<div class="alert alert-warning">
+    <strong>Platform Maintainers Only:</strong> Chisel is for the platform team to access private resources. Tenant developers should use APIM/App Gateway endpoints designed for their applications.
+</div>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>Choosing Your Access Method</h2>
+
+<p>The infrastructure provides <strong>four interchangeable access methods</strong> for reaching Azure resources. Enable only what you need - all are optional and controlled via Terraform variables.</p>
+
+<div class="alert alert-success">
+    <strong>Understanding Control vs Data Plane:</strong> OIDC authentication works for <em>control plane</em> (creating resources) but <em>not</em> data plane (accessing secrets, blobs, databases) when private endpoints are enabled. See <a href="decisions.html#adr-011">ADR-011</a> for details.
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Access Method</th>
+            <th>Toggle Variable</th>
+            <th>Control Plane</th>
+            <th>Data Plane</th>
+            <th>Best For</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>Public GitHub Runners</strong></td>
+            <td><em>(default, no toggle)</em></td>
+            <td style="color: #22c55e;">&#10003; Yes</td>
+            <td style="color: #ef4444;">&#10007; No</td>
+            <td>Resource deployments only</td>
+        </tr>
+        <tr>
+            <td><strong>Self-Hosted Runners</strong></td>
+            <td><code>github_runners_aca_enabled</code></td>
+            <td style="color: #22c55e;">&#10003; Yes</td>
+            <td style="color: #22c55e;">&#10003; Yes</td>
+            <td>CI/CD needing secrets/state</td>
+        </tr>
+        <tr>
+            <td><strong>Bastion + Jumpbox</strong></td>
+            <td><code>enable_bastion</code> + <code>enable_jumpbox</code></td>
+            <td style="color: #22c55e;">&#10003; Yes</td>
+            <td style="color: #22c55e;">&#10003; Yes</td>
+            <td>Admin access, debugging</td>
+        </tr>
+        <tr>
+            <td><strong>Chisel Tunnel</strong></td>
+            <td><code>enable_azure_proxy</code></td>
+            <td style="color: #22c55e;">&#10003; Yes</td>
+            <td style="color: #22c55e;">&#10003; Yes</td>
+            <td>Local dev access from laptop</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="grid grid-2">
+    <div class="card">
+        <h3>Example: Minimal (Control Plane Only)</h3>
+        <pre># terraform.tfvars
+enable_bastion              = false
+enable_jumpbox              = false
+enable_azure_proxy          = false
+github_runners_aca_enabled  = false
+
+# Uses public GitHub runners
+# Good for: Resource-only Terraform</pre>
+    </div>
+    <div class="card card-gold">
+        <h3>Example: Full Access</h3>
+        <pre># terraform.tfvars
+enable_bastion              = true
+enable_jumpbox              = true
+enable_azure_proxy          = true
+github_runners_aca_enabled  = true
+
+# All access methods available
+# Good for: Platform maintainers</pre>
+    </div>
+</div>
+
+<div class="card" style="border-left-color: #0ea5e9;">
+    <h3>Recommended Setup by Role</h3>
+    <table>
+        <tr>
+            <td><strong>Platform Maintainers</strong></td>
+            <td>Enable all: Bastion + Jumpbox for admin, Chisel for local dev, Self-hosted for CI/CD</td>
+        </tr>
+        <tr>
+            <td><strong>Project Developers</strong></td>
+            <td>No direct access needed - use APIM/App Gateway endpoints provided by platform</td>
+        </tr>
+        <tr>
+            <td><strong>Cost-Conscious</strong></td>
+            <td>Chisel only (<code>enable_azure_proxy</code>) - cheapest option with data plane access</td>
+        </tr>
+    </table>
+</div>
+
+<p>See <a href="diagrams.html#access-methods">Access Methods Architecture Diagram</a> for a visual overview.</p>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 

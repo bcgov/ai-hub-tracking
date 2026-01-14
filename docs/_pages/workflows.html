@@ -51,6 +51,90 @@
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
+<h2>When Do I Need Self-Hosted Runners?</h2>
+
+<p>GitHub-hosted runners (ubuntu-24.04) work for <strong>most operations</strong> because they only need control plane access. Self-hosted runners are only required when your Terraform code needs <strong>data plane access</strong> to private endpoints.</p>
+
+<div class="alert alert-info">
+    <strong>Understanding the Difference:</strong> See <a href="decisions.html#adr-011">ADR-011: Control Plane vs Data Plane</a> for a detailed explanation of why OIDC works for some operations but not others.
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th>Operation</th>
+            <th>Plane</th>
+            <th>Public Runner?</th>
+            <th>Example</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Create resources (VMs, VNets, Key Vault)</td>
+            <td style="color: #22c55e;">Control</td>
+            <td style="color: #22c55e;">&#10003; Yes</td>
+            <td><code>azurerm_key_vault</code></td>
+        </tr>
+        <tr>
+            <td>Configure settings, RBAC roles</td>
+            <td style="color: #22c55e;">Control</td>
+            <td style="color: #22c55e;">&#10003; Yes</td>
+            <td><code>azurerm_role_assignment</code></td>
+        </tr>
+        <tr>
+            <td>Deploy private endpoints</td>
+            <td style="color: #22c55e;">Control</td>
+            <td style="color: #22c55e;">&#10003; Yes</td>
+            <td><code>azurerm_private_endpoint</code></td>
+        </tr>
+        <tr>
+            <td><strong>Read/write Key Vault secrets</strong></td>
+            <td style="color: #ef4444;">Data</td>
+            <td style="color: #ef4444;">&#10007; No</td>
+            <td><code>azurerm_key_vault_secret</code></td>
+        </tr>
+        <tr>
+            <td><strong>Read/write Storage blobs</strong></td>
+            <td style="color: #ef4444;">Data</td>
+            <td style="color: #ef4444;">&#10007; No</td>
+            <td><code>azurerm_storage_blob</code></td>
+        </tr>
+        <tr>
+            <td><strong>Terraform state (if private)</strong></td>
+            <td style="color: #ef4444;">Data</td>
+            <td style="color: #ef4444;">&#10007; No</td>
+            <td>Backend storage account</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: #22c55e;">
+        <h3 style="margin-top: 0;">Public Runners Work For</h3>
+        <ul style="margin-bottom: 0;">
+            <li>Deploying all infrastructure modules</li>
+            <li>Network, Bastion, Jumpbox, Proxy</li>
+            <li>Any resource that doesn't read secrets</li>
+            <li>Documentation builds (pages.yml)</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: #ef4444;">
+        <h3 style="margin-top: 0;">Self-Hosted Required For</h3>
+        <ul style="margin-bottom: 0;">
+            <li>Terraform using <code>azurerm_key_vault_secret</code></li>
+            <li>Private state backend (blocked by PE)</li>
+            <li>Any code that reads secrets at plan time</li>
+            <li>Database migrations, blob uploads</li>
+        </ul>
+    </div>
+</div>
+
+<div class="alert alert-warning">
+    <strong>Cost Tip:</strong> If your Terraform doesn't need data plane access, stick with public runners. Self-hosted runners on Container Apps add cost. Only enable <code>github_runners_aca_enabled</code> if you actually need data plane access in CI/CD.
+</div>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
 <h2>.deployer.yml (Reusable Workflow)</h2>
 
 <p>The core Terraform deployment workflow, called by other workflows using <code>workflow_call</code>.</p>

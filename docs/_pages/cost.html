@@ -237,26 +237,453 @@ module "health_rag" {
     </div>
 </div>
 
-<h2>Budget Alerts</h2>
+<h2>Usage Monitoring, Cost Allocation, and Chargeback Metrics</h2>
+<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Introduction</h3>
+<p>This document defines the approach for implementing <strong>Usage Monitoring</strong>, <strong>Cost Allocation</strong>, and <strong>Chargeback Metrics</strong> for the BC Government AI Services Hub multi-tenant platform. These three interconnected capabilities are essential for operating a shared AI infrastructure that serves multiple ministries while maintaining cost transparency and accountability.</p>
 
-<table>
-    <tr>
-        <th>Threshold</th>
-        <th>Action</th>
-    </tr>
-    <tr>
-        <td>50% of budget</td>
-        <td>Email to project team</td>
-    </tr>
-    <tr>
-        <td>80% of budget</td>
-        <td>Email + Teams alert</td>
-    </tr>
-    <tr>
-        <td>100% of budget</td>
-        <td>Consider rate limiting via APIM</td>
-    </tr>
+<h4>Key Concepts</h4>
+<p><strong>Usage Monitoring</strong> tracks resource consumption at the tenant level to support both cost allocation and operational insights. For the AI Services Hub, monitoring serves two purposes: capturing metrics for shared infrastructure allocation (APIM, App Gateway) and providing operational visibility into service usage patterns.</p>
+<p><strong>Cost Allocation</strong> combines Azure's native cost tracking with custom calculations for shared resources. The hub architecture uses two allocation models: <em>direct attribution</em> for tenant-dedicated resources (AI Foundry projects with their own Azure OpenAI, Cosmos DB, and AI Search; dedicated Document Intelligence instances), and <em>proportional allocation</em> for shared infrastructure (APIM, App Gateway, monitoring services) where costs are split based on actual usage percentages.</p>
+<p><strong>Chargeback Metrics</strong> aggregate all cost components—direct resource costs from Azure billing and allocated shared infrastructure costs—into consolidated monthly invoices per tenant.</p>
+
+<h4>Document Scope</h4>
+<p>This document covers:</p>
+<ol>
+    <li><strong>Tagging strategies</strong> for both dedicated and shared resources across the dual-region deployment (Canada Central/East)</li>
+    <li><strong>Usage tracking pipelines</strong> using APIM, Event Hubs, and Azure Functions to capture metrics for shared infrastructure allocation</li>
+    <li><strong>Cost calculation methods</strong> combining Azure Cost Management (for direct attribution) with custom allocation logic (for shared infrastructure)</li>
+    <li><strong>Implementation patterns</strong> with code examples for usage tracking, cost allocation functions, and Kusto queries for chargeback reporting</li>
+    <li><strong>Network egress tracking</strong> to handle cross-region costs between Canada Central (APIM/App Gateway) and Canada East (AI Foundry)</li>
+</ol>
+
+<p>The approach leverages APIM as the central governance point where all AI requests flow—regardless of whether backend services are inside the Foundry landing zone (OpenAI, AI Search) or outside it (Document Intelligence). APIM routing policies direct each tenant to their appropriate backend resources, enabling consistent tenant identification for shared infrastructure cost allocation.</p>
+
+<hr style="margin: 2rem 0;">
+
+<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Usage Monitoring Metrics</h3>
+<p>Azure API Management (APIM) provides centralized monitoring as all AI requests flow through the gateway. Monitoring serves two distinct purposes: tracking metrics for shared infrastructure allocation and providing operational insights.</p>
+
+<h4>Metrics for Shared Infrastructure Allocation</h4>
+<p>These metrics are used to proportionally split shared infrastructure costs (APIM, App Gateway, networking):</p>
+<ul>
+    <li><strong>API call volume</strong>: Request count per tenant—used to allocate APIM and App Gateway costs</li>
+    <li><strong>Network egress bytes</strong>: Response payload size per tenant—used to allocate cross-region data transfer costs</li>
+    <li><strong>Log ingestion (GB)</strong>: Application Insights data volume per tenant—used to allocate monitoring costs</li>
+</ul>
+
+<h4>Operational Metrics (Not for Chargeback)</h4>
+<p>These metrics support capacity planning, SLA monitoring, and performance optimization:</p>
+<ul>
+    <li><strong>Token consumption breakdown</strong>: Which models each tenant uses and token volume (for capacity planning)</li>
+    <li><strong>Document Intelligence pages</strong>: Pages processed per tenant (for capacity planning)</li>
+    <li><strong>Query latency</strong>: Response times per service/tenant</li>
+    <li><strong>Error rates</strong>: Failed requests for support escalation</li>
+    <li><strong>Concurrent connections</strong>: Active sessions per tenant</li>
+</ul>
+
+<h4>Monitoring Architecture</h4>
+<ol>
+    <li><strong>APIM logs requests/responses</strong> with tenant-id to Azure Event Hubs</li>
+    <li><strong>Azure Functions process Event Hub messages</strong> to:
+        <ul>
+            <li>Count API calls per tenant (for APIM/Gateway allocation)</li>
+            <li>Sum network egress bytes per tenant (for data transfer allocation)</li>
+            <li>Extract operational metrics (tokens, pages, latency)</li>
+        </ul>
+    </li>
+    <li><strong>Results stored in Log Analytics</strong>:
+        <ul>
+            <li>Allocation metrics used in monthly shared cost calculations</li>
+            <li>Operational metrics used for dashboards and SLA reporting</li>
+        </ul>
+    </li>
+</ol>
+
+<hr style="margin: 2rem 0;">
+
+<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Resource Tagging and Cost Allocation</h3>
+
+<h4>AI Foundry Projects (Direct Attribution)</h4>
+<p>Each tenant receives a dedicated Foundry project with isolated resources. Azure automatically bills all consumption (Azure OpenAI tokens, Cosmos DB, AI Search) to the project.</p>
+<p><strong>Tagging strategy</strong>:</p>
+<pre class="language-yaml">Project: "tenant-wlrs-water-permits"
+Tags:
+- tenant-id: "wlrs"
+- cost-center: "CC-NRM-WLRS"
+- department: "Natural-Resources"
+- environment: "production"
+- service-tier: "standard"</pre>
+
+<p><strong>Cost allocation</strong>: Direct attribution via Azure Cost Management tag filtering. Query <code>Tags["tenant-id"] == "wlrs"</code> shows all Foundry project costs including:</p>
+<ul>
+    <li>Azure OpenAI token consumption (all models, prompt/completion/safety tokens)</li>
+    <li>Cosmos DB storage and operations</li>
+    <li>AI Search queries and indexing</li>
+    <li>Foundry artifact storage</li>
+</ul>
+<p><strong>No manual calculation needed</strong>—Azure bills these resources directly to each project.</p>
+
+<h4>Document Intelligence (Direct Attribution)</h4>
+<p><strong>Architectural Decision</strong>: Deploy one dedicated Document Intelligence resource per tenant</p>
+<p><strong>Rationale</strong>:</p>
+<ol>
+    <li><strong>Simplified cost allocation</strong>: Direct attribution via tags, no proportional calculation needed</li>
+    <li><strong>Performance isolation</strong>: No "noisy neighbor" concerns with dedicated resources</li>
+    <li><strong>Compliance</strong>: Easier to meet ministry-specific data residency requirements</li>
+    <li><strong>Scaling</strong>: Each tenant can independently scale their DI instance</li>
+</ol>
+<p><strong>Resources</strong>:</p>
+<ul>
+    <li><code>docint-wlrs</code> (Canada Central)</li>
+    <li><code>docint-sdpr</code> (Canada Central)</li>
+</ul>
+<p><strong>Tags</strong> (on each DI resource):</p>
+<pre class="language-yaml">Tags:
+- tenant-id: "wlrs" OR "sdpr"
+- shared-service: "no"
+- resource-type: "document-intelligence"
+- managed-by: "ai-services-hub"</pre>
+
+<p><strong>Cost allocation</strong>: Direct attribution via Azure Cost Management tag filtering. Azure Cost Management query: <code>Tags["tenant-id"] == "wlrs"</code> shows WLRS's DI costs (page processing charges) directly.</p>
+<p><strong>Usage tracking</strong> (for operational metrics only):</p>
+<ul>
+    <li>APIM logs pages processed per tenant to Event Hubs</li>
+    <li>Used for: capacity planning, SLA monitoring, usage trends</li>
+    <li>NOT used for cost allocation (costs already directly attributed via tags)</li>
+</ul>
+<p><strong>Implementation</strong>:</p>
+<ul>
+    <li>Deploy DI resources in same subscription as AI Services Hub</li>
+    <li>Configure APIM backends pointing to each DI instance</li>
+    <li>Use APIM <code>set-backend-service</code> policy for tenant routing</li>
+</ul>
+
+<hr style="margin: 2rem 0;">
+
+<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Infrastructure and Platform Costs (Proportional Allocation)</h3>
+<p>These shared resources serve all tenants and require proportional cost allocation based on usage metrics.</p>
+
+<h4>App Gateway/WAF</h4>
+<p><strong>Tags</strong>:</p>
+<pre class="language-yaml">Tags:
+- shared-service: "yes"
+- resource-type: "app-gateway-waf-v2"
+- allocation-method: "request-count-proportional"</pre>
+
+<p><strong>Cost structure</strong>:</p>
+<ul>
+    <li>Fixed: ~$323/month (split equally across active tenants)</li>
+    <li>Variable: Allocated by capacity units consumed</li>
+</ul>
+<p><strong>Allocation method</strong>: Proportional based on request count from App Gateway access logs</p>
+
+<h4>APIM V2</h4>
+<p><strong>Tags</strong>:</p>
+<pre class="language-yaml">Tags:
+- shared-service: "yes"
+- allocation-method: "api-call-proportional"</pre>
+
+<p><strong>Cost structure</strong>: $1,000-2,000/month depending on tier</p>
+<p><strong>Allocation method</strong>: Based on API call volume per tenant from Event Hubs</p>
+
+<h4>AI Foundry Hub Dependencies</h4>
+<p><strong>Storage Account</strong> (Foundry hub-level):</p>
+<ul>
+    <li>Shared storage account for Foundry hub artifacts, flows, evaluations</li>
+    <li><strong>Tags</strong>:
+        <ul>
+            <li><code>foundry-dependency: "hub-storage"</code></li>
+            <li><code>allocated-to: "all-projects"</code></li>
+        </ul>
+    </li>
+    <li><strong>Allocation method</strong>: Split equally across active projects OR by storage consumption if measurable</li>
+    <li><strong>Note</strong>: Individual project storage is billed directly to each project (direct attribution)</li>
+</ul>
+
+<p><strong>Application Insights/Log Analytics</strong>:</p>
+<ul>
+    <li>Required for Foundry monitoring</li>
+    <li>Cost based on data ingestion volume (GB)</li>
+    <li><strong>Tags</strong>:
+        <ul>
+            <li><code>monitoring-service: "foundry"</code></li>
+            <li><code>allocation-method: "proportional"</code></li>
+        </ul>
+    </li>
+    <li><strong>Allocation method</strong>: By log volume per project (if tenant-id in logs)</li>
+</ul>
+
+<p><strong>Key Vault</strong>:</p>
+<ul>
+    <li>Stores connection strings for each project</li>
+    <li>Transaction-based pricing (~$0.03/10k transactions)</li>
+    <li><strong>Tags</strong>:
+        <ul>
+            <li><code>foundry-dependency: "secrets"</code></li>
+            <li><code>shared-service: "yes"</code></li>
+        </ul>
+    </li>
+    <li><strong>Allocation method</strong>: By transaction count per project (minimal cost impact)</li>
+</ul>
+
+<h4>Network Egress</h4>
+<p><strong>Cost structure</strong>:</p>
+<ul>
+    <li>First 100 GB/month free per region</li>
+    <li>Then tiered pricing: $0.087/GB (next 10 TB), $0.067/GB (next 40 TB), etc.</li>
+</ul>
+<p><strong>Risk in dual-region setup</strong>: Cross-region traffic between Canada East (Foundry) and Canada Central (APIM) incurs egress charges</p>
+<p><strong>Tags</strong>:</p>
+<pre class="language-yaml">Tags:
+- traffic-source: "canada-east-foundry"
+- traffic-destination: "canada-central-apim"
+- allocation-method: "tenant-response-bytes"</pre>
+
+<p><strong>Tracking mechanism</strong>: App Gateway diagnostic logs (not Azure Cost Management tags)</p>
+<p><strong>Note</strong>: Egress is billed at subscription level, requires custom calculation from logs (see implementation section below)</p>
+
+<h4>Regional Cost Tracking</h4>
+<p>The dual-region deployment (Canada Central for APIM/App Gateway, Canada East for Foundry) requires regional cost tracking.</p>
+<p><strong>All resources must include</strong>:</p>
+<pre class="language-yaml">Tags:
+- deployment-region: "canada-central" OR "canada-east"
+- primary-region: "canada-central"</pre>
+<p><strong>Why this matters</strong>:</p>
+<ol>
+    <li><strong>Pricing variations</strong>: Some Azure services have different pricing between Canada Central and Canada East</li>
+    <li><strong>Cross-region attribution</strong>: When WLRS uses Foundry in Canada East but APIM in Canada Central, costs must be attributed correctly</li>
+    <li><strong>Egress tracking</strong>: Cross-region traffic needs regional source/destination tags</li>
+</ol>
+
+<hr style="margin: 2rem 0;">
+
+<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Chargeback Metrics Summary</h3>
+<p>Monthly tenant invoices combine two cost categories:</p>
+
+<h4>Direct Costs (Azure-Billed, No Calculation Needed)</h4>
+<p>Retrieved via Azure Cost Management tag filtering (<code>tenant-id</code>):</p>
+<ul>
+    <li><strong>AI Foundry project costs</strong>: All Azure OpenAI consumption (tokens), Cosmos DB, AI Search, project storage</li>
+    <li><strong>Document Intelligence costs</strong>: Page processing charges for dedicated DI instance</li>
+    <li><strong>Foundry compute costs</strong>: Any custom agent execution resources (if applicable)</li>
+</ul>
+
+<h4>Allocated Costs (Calculated from Usage Metrics)</h4>
+<p>Proportionally split based on tenant usage:</p>
+<ul>
+    <li><strong>APIM costs</strong>: Split by API call volume per tenant</li>
+    <li><strong>App Gateway costs</strong>: Split by request count per tenant</li>
+    <li><strong>Network egress costs</strong>: Split by response bytes per tenant</li>
+    <li><strong>Application Insights costs</strong>: Split by log ingestion volume per tenant</li>
+    <li><strong>Shared storage costs</strong>: Split equally or by consumption across Foundry projects</li>
+</ul>
+
+<hr style="margin: 2rem 0;">
+
+<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Implementation: Cost Calculation Methods</h3>
+
+<h4>Method 1: Azure Cost Management (Built-in, No Code)</h4>
+<p>Azure Cost Management handles all direct attribution automatically. No custom code needed for tenant-dedicated resources.</p>
+
+<h5>Step 1: Enable Tag Inheritance</h5>
+<pre>Azure Portal → Cost Management → Settings → Configuration
+→ Enable "Automatically apply subscription and resource group tags to new data"</pre>
+<p>This propagates tags from subscriptions/resource groups down to individual usage records.</p>
+
+<h5>Step 2: View Direct Attribution Costs</h5>
+<pre>Cost Analysis → Add Filter → Tag
+→ Select "tenant-id" → Choose "wlrs"</pre>
+<p>This shows all costs where <code>tenant-id = wlrs</code>, including:</p>
+<ul>
+    <li>Foundry project (Azure OpenAI tokens, Cosmos DB, AI Search, storage)</li>
+    <li>Document Intelligence (page processing)</li>
+    <li>Any other dedicated resources</li>
+</ul>
+<p><strong>This is direct attribution</strong>—Azure calculates it automatically based on actual consumption.</p>
+
+<h5>Step 3: Create Cost Allocation Rules for Shared Resources</h5>
+<p>This is where shared infrastructure costs (APIM, App Gateway) get split:</p>
+<pre>Cost Management → Cost Allocation Rules → Add Rule
+
+SOURCE (what to split):
+- Resource Group: "rg-ai-hub-shared-infra"
+- Tag filter: shared-service = "yes"
+
+TARGETS (who receives the split):
+- Tag: tenant-id = "wlrs"
+- Tag: tenant-id = "sdpr"
+- Tag: tenant-id = "other-ministry"
+
+ALLOCATION METHOD:
+Option A: "Distribute evenly" → Each tenant gets 33.33%
+Option B: "Total cost proportional" → Split based on each tenant's existing costs
+Option C: "Custom percentage" → Manually set: WLRS 45%, SDPR 30%, Others 25%</pre>
+<p><strong>Limitation</strong>: The "proportional" options only work based on <strong>existing Azure costs</strong>, not custom metrics like "API call count". For usage-based allocation, use Method 2 below.</p>
+<p><strong>Result</strong>: Monthly report showing allocated costs per tenant:</p>
+<ul>
+    <li>WLRS: $5,230 (includes $675 allocated from shared APIM)</li>
+    <li>SDPR: $3,100 (includes $450 allocated from shared APIM)</li>
+</ul>
+
+<hr style="margin: 2rem 0;">
+
+<h4>Method 2: Custom Calculation (Usage-Based Allocation)</h4>
+<p>For <strong>proportional allocation based on usage metrics</strong> (API calls, egress bytes), custom code is required.</p>
+
+<h5>Architecture</h5>
+<pre>Event Hubs (usage data)
+→ Azure Function (calculate percentages)
+→ Log Analytics (store allocation data)
+→ Power BI/Cost Dashboard (reporting)</pre>
+
+<h5>Step 1: Calculate Tenant Usage Percentages</h5>
+<p>Azure Function runs monthly (triggered by timer):</p>
+<pre class="language-python"># Pseudo-code for monthly allocation calculation
+import kusto_client
+
+# Query Event Hub processed data for API call counts
+query = """
+customEvents
+| where timestamp >= startofmonth(now()) and timestamp < startofmonth(now(), 1)
+| where name == "APIM-Request-Log"
+| summarize RequestCount = count() by TenantId
+"""
+
+results = kusto_client.execute(query)
+# Results: {"wlrs": 45000, "sdpr": 30000, "others": 25000}
+
+total_requests = sum(results.values())  # 100,000
+
+# Calculate percentages for shared infrastructure allocation
+allocations = {
+tenant: (count / total_requests) * 100
+for tenant, count in results.items()
+}
+# Result: {"wlrs": 45%, "sdpr": 30%, "others": 25%}</pre>
+
+<h5>Step 2: Query Azure Cost Management API for Shared Resource Costs</h5>
+<pre class="language-python">from azure.mgmt.costmanagement import CostManagementClient
+
+# Get actual costs for shared resources
+cost_query = {
+"type": "ActualCost",
+"timeframe": "MonthToDate",
+"filter": {
+    "tags": {
+        "name": "shared-service",
+        "operator": "In",
+        "values": ["yes"]
+    }
+}
+}
+
+shared_costs = cost_client.query(scope, cost_query)
+# Result: APIM = $1,500, App Gateway = $400, Total = $1,900</pre>
+
+<h5>Step 3: Apply Allocation Percentages</h5>
+<pre class="language-python"># Calculate each tenant's share of shared infrastructure
+apim_cost = 1500
+app_gateway_cost = 400
+
+tenant_allocations = {
+"wlrs": {
+    "apim": apim_cost * 0.45,           # $675
+    "gateway": app_gateway_cost * 0.45, # $180
+    "total_shared": 855
+},
+"sdpr": {
+    "apim": apim_cost * 0.30,           # $450
+    "gateway": app_gateway_cost * 0.30, # $120
+    "total_shared": 570
+},
+"others": {
+    "apim": apim_cost * 0.25,           # $375
+    "gateway": app_gateway_cost * 0.25, # $100
+    "total_shared": 475
+}
+}</pre>
+
+<h5>Step 4: Write Allocation Results to Log Analytics</h5>
+<pre class="language-python"># Store calculated allocations for reporting
+log_analytics_client.post(
+workspace_id,
+log_type="SharedCostAllocation",
+json=[
+    {
+        "Month": "2026-01",
+        "TenantId": "wlrs",
+        "APIManagement": 675,
+        "AppGateway": 180,
+        "NetworkEgress": 0,  # Calculated separately in Step 5
+        "TotalSharedCost": 855,
+        "AllocationMethod": "api-call-proportional"
+    },
+    # ... repeat for other tenants
+]
+)</pre>
+
+<h5>Step 5: Calculate Network Egress Costs</h5>
+<p>Network egress is billed at the subscription level and requires custom calculation from diagnostic logs.</p>
+<p><strong>Enable Network Diagnostics</strong>:</p>
+<pre>App Gateway → Diagnostic Settings → Send to Log Analytics
+→ Enable "Access Logs" (contains bytes sent per request)</pre>
+
+<p><strong>Query Logs to Calculate Per-Tenant Egress</strong>:</p>
+<pre class="language-kusto">AzureDiagnostics
+| where ResourceType == "APPLICATIONGATEWAYS"
+| where Category == "ApplicationGatewayAccessLog"
+| extend TenantId = extract("tenant=([^&]+)", 1, requestUri_s) // Parse from URL
+| summarize TotalEgressGB = sum(sentBytes_d) / 1073741824 by TenantId
+| extend EgressCost = case(
+TotalEgressGB <= 100, 0,  # First 100 GB free
+TotalEgressGB <= 10240, (TotalEgressGB - 100) * 0.087,  # $0.087/GB
+TotalEgressGB > 10240, (10140 * 0.087) + ((TotalEgressGB - 10240) * 0.067)  # Tiered
+)</pre>
+<p>Write these egress costs to the `SharedCostAllocation` table alongside other shared infrastructure costs.</p>
+
+<h5>Step 6: Combine All Costs in Final Chargeback Report</h5>
+<p>Monthly Kusto query for chargeback:</p>
+<pre class="language-kusto">// Direct costs from Azure Cost Management (Foundry projects, DI instances)
+let DirectCosts = AzureCosts
+| where Tags["tenant-id"] != ""
+| summarize DirectCost = sum(Cost) by TenantId = Tags["tenant-id"];
+
+// Allocated shared infrastructure costs from custom calculation
+let AllocatedCosts = SharedCostAllocation_CL
+| where Month == startofmonth(now())
+| summarize AllocatedCost = sum(TotalSharedCost) by TenantId;
+
+// Final chargeback report
+DirectCosts
+| join kind=leftouter AllocatedCosts on TenantId
+| extend TotalChargeback = DirectCost + AllocatedCost
+| project TenantId, DirectCost, AllocatedCost, TotalChargeback</pre>
+
+<p><strong>Output</strong>:</p>
+<table class="table table-bordered">
+    <thead>
+        <tr><th>TenantId</th><th>DirectCost</th><th>AllocatedCost</th><th>TotalChargeback</th></tr>
+    </thead>
+    <tbody>
+        <tr><td>wlrs</td><td>$4,200</td><td>$855</td><td>$5,055</td></tr>
+        <tr><td>sdpr</td><td>$2,400</td><td>$570</td><td>$2,970</td></tr>
+    </tbody>
 </table>
+
+<p><strong>Note</strong>: <code>DirectCost</code> includes all Azure OpenAI token consumption, Document Intelligence page processing, Cosmos DB, AI Search, and storage—automatically calculated by Azure based on actual usage.</p>
+
+<hr style="margin: 2rem 0;">
+
+<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Summary</h3>
+<p>This document establishes a comprehensive cost tracking framework for the AI Services Hub using:</p>
+<ol>
+    <li><strong>Direct attribution</strong> for tenant-dedicated resources (Foundry projects with Azure OpenAI/Cosmos/AI Search, Document Intelligence instances)—Azure automatically bills these based on actual consumption</li>
+    <li><strong>Proportional allocation</strong> for shared infrastructure (APIM, App Gateway, monitoring)—custom calculations split costs based on API call volume and network usage</li>
+    <li><strong>Minimal custom tracking</strong> via Event Hubs and Azure Functions—only needed for shared infrastructure allocation, not for AI service consumption</li>
+    <li><strong>Dual calculation methods</strong>: Azure Cost Management for tag-based direct attribution (90% of costs), and custom code for usage-based shared infrastructure allocation (10% of costs)</li>
+</ol>
+<p>The implementation provides full cost transparency while minimizing operational overhead—most costs are automatically tracked by Azure, with custom calculations only for shared platform services.</p>
+
 
 <h2>Related</h2>
 
