@@ -18,7 +18,7 @@ concurrency:
   group: manual-deploy-${{ github.run_id }}
   cancel-in-progress: false
 jobs:
-  deploy-tools:
+  deploy-proxy-in-tools-environment:
     name: Deploy to 'tools' Environment
     uses: ./.github/workflows/.deployer.yml
     with:
@@ -29,13 +29,13 @@ jobs:
     secrets: inherit
   deploy-to-environment:
     name: Deploy to ${{ inputs.environment }} Environment
-    needs: deploy-tools
+    needs: deploy-proxy-in-tools-environment
     uses: ./.github/workflows/.deployer-using-secure-tunnel.yml
     with:
       environment_name: ${{ inputs.environment }}
       command: apply
-      proxy_url: ${{ needs.deploy-tools.outputs.proxy_url }}
-      proxy_auth: ${{ needs.deploy-tools.outputs.proxy_auth }}
+      proxy_url: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_url }}
+      proxy_auth: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_auth }}
       tag: latest
     secrets: inherit
   destroy-proxy-in-tools-environment:
