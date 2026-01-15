@@ -63,7 +63,7 @@ jobs:
       - name: Make deploy script executable
         shell: bash
         run: chmod +x ./initial-setup/infra/deploy-terraform.sh
-      - name: Deploy Azure proxy
+      - name: ${{ inputs.command }} ${{ inputs.target_module }}
         id: deploy
         shell: bash
         working-directory: ./initial-setup/infra
