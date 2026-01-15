@@ -159,6 +159,7 @@ variable "enable_azure_proxy" {
   default     = false
 }
 
+
 variable "enable_bastion" {
   description = "Enable deployment of the Azure Bastion host"
   type        = bool

@@ -1,0 +1,58 @@
+name: Deploy to Environments (Manual Dispatch)
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Select the environment to deploy to"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - test
+          - prod
+      command:
+        description: "The Terraform command to run"
+        required: true
+        default: "apply"
+        type: choice
+        options:
+          - apply
+          - destroy
+permissions:
+  id-token: write # This is required for requesting the JWT
+  contents: write # This is required for actions/checkout
+concurrency:
+  group: manual-deploy-${{ github.run_id }}
+  cancel-in-progress: false
+jobs:
+  deploy-proxy-in-tools-environment:
+    name: Deploy to 'tools' Environment
+    uses: ./.github/workflows/.deployer.yml
+    with:
+      environment_name: tools
+      command: apply
+      target_module: azure_proxy
+      tag: latest
+    secrets: inherit
+  deploy-to-environment:
+    name: Deploy to ${{ inputs.environment }} Environment
+    needs: deploy-proxy-in-tools-environment
+    uses: ./.github/workflows/.deployer-using-secure-tunnel.yml
+    with:
+      environment_name: ${{ inputs.environment }}
+      command: ${{ inputs.command }}
+      proxy_url: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_url }}
+      proxy_auth: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_auth }}
+      tag: latest
+    secrets: inherit
+  destroy-proxy-in-tools-environment:
+    name: Destroy Proxy in 'tools' Environment
+    needs: deploy-to-environment
+    uses: ./.github/workflows/.deployer.yml
+    with:
+      environment_name: tools
+      command: destroy
+      target_module: azure_proxy
+      tag: latest
+    secrets: inherit

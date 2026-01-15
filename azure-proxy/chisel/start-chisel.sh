@@ -32,6 +32,19 @@ if [ ! -f /var/www/healthz ]; then
   echo '{"status":"healthy"}' > /var/www/healthz
 fi
 
+# Also respond on the root path (/). busybox httpd serves index.html for directory requests.
+if [ ! -f /var/www/index.html ]; then
+  echo '{"status":"healthy"}' > /var/www/index.html
+fi
+
+# Keep automated crawlers out (harmless for an internal health endpoint).
+if [ ! -f /var/www/robots.txt ]; then
+  cat > /var/www/robots.txt <<'EOF'
+User-agent: *
+Disallow: /
+EOF
+fi
+
 stop=0
 status=1
 
@@ -60,7 +73,7 @@ while [ "$attempt" -le "$MAX_RETRIES" ] && [ "$stop" -eq 0 ]; do
   esac
 
   # shellcheck disable=SC2086
-  "$CHISEL_BIN" server --host "$CHISEL_HOST" --port "$CHISEL_PORT" --backend "$CHISEL_BACKEND" $socks_args $auth_args $CHISEL_EXTRA_ARGS || true
+  "$CHISEL_BIN" server --host "$CHISEL_HOST" --port "$CHISEL_PORT" --backend "$CHISEL_BACKEND" $socks_args $auth_args $CHISEL_EXTRA_ARGS -v || true
   status=$?
 
   if kill -0 "$httpd_pid" >/dev/null 2>&1; then

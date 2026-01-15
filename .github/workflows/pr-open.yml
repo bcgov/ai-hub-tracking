@@ -21,13 +21,5 @@ jobs:
       tags: |
         ${{ github.event.number || 'manual' }}
         manual-${{ github.run_number }}
+        ${{github.event.number}}-${{ github.run_number }}
         latest
-  deploy:
-    name: Deploy to 'tools' Environment
-    needs: builds
-    uses: ./.github/workflows/.deployer.yml
-    with:
-      environment_name: tools
-      command: apply
-      target_module: azure_proxy
-    secrets: inherit
