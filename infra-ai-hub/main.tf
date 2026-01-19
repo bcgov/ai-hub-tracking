@@ -1,201 +1,155 @@
 data "azurerm_client_config" "current" {}
 
-data "azurerm_subscription" "current" {}
-resource "azurerm_resource_group" "main" {
-  name     = var.resource_group_name
+resource "azurerm_resource_group" "this" {
   location = var.location
-  tags     = var.common_tags
-
-  lifecycle {
-    ignore_changes = [tags]
-  }
+  name     = var.resource_group_name
+  tags     = var.tags
 }
 
-module "network" {
-  source = "./modules/network"
-
-  name_prefix = var.resource_group_name
-  location    = var.location
-  common_tags = var.common_tags
-
-  vnet_name                = var.vnet_name
-  vnet_resource_group_name = var.vnet_resource_group_name
-
-  target_vnet_address_spaces            = var.target_vnet_address_spaces
-  source_vnet_address_space             = var.source_vnet_address_space
-  private_endpoint_subnet_name          = var.private_endpoint_subnet_name
-  private_endpoint_subnet_prefix_length = var.private_endpoint_subnet_prefix_length
-  private_endpoint_subnet_netnum        = var.private_endpoint_subnet_netnum
-
-  depends_on = [azurerm_resource_group.main]
+# used to randomize resource names that are globally unique
+resource "random_string" "name_suffix" {
+  length  = 4
+  special = false
+  upper   = false
 }
 
-resource "azurerm_key_vault" "main" {
-  name                = var.key_vault_name
-  location            = var.location
-  resource_group_name = azurerm_resource_group.main.name
-
-  tenant_id = data.azurerm_client_config.current.tenant_id
-  sku_name  = "standard"
-
-  # Security requirements: do not disable purge protection.
-  purge_protection_enabled   = true
-  soft_delete_retention_days = 90
-
-  # Policy-friendly configuration: private-only access.
-  public_network_access_enabled = false
-
-  # Azure Policy in the Landing Zone requires the RBAC permission model.
-  # Roles must have been assigned to the identity running the tf scripts(managed identity)
-  # the managed identity setup done in this project handles that, look at initial setup script.
-  rbac_authorization_enabled = true
-
-  network_acls {
-    default_action = "Deny"
-    bypass         = "AzureServices"
-  }
-
-  tags = var.common_tags
-
-  lifecycle {
-    ignore_changes = [tags]
-  }
-
-  depends_on = [azurerm_resource_group.main, module.network]
+locals {
+  # Use existing_zones_resource_group_resource_id from private_dns_zones block first, fallback to standalone variable
+  # Use try() to handle case where both are null (coalesce fails on all-null inputs)
+  dns_zones_rg_id = try(
+    coalesce(
+      var.private_dns_zones.existing_zones_resource_group_resource_id,
+      var.private_dns_zones_rg_id
+    ),
+    null
+  )
 }
 
-## Private Endpoint for azure kv
-resource "azurerm_private_endpoint" "key_vault_pe" {
-  name                = "${var.app_name}-kv-pe"
-  location            = var.location
-  resource_group_name = azurerm_resource_group.main.name
-  subnet_id           = module.network.private_endpoint_subnet_id
-  private_service_connection {
-    name                           = "${var.app_name}-kv-psc"
-    private_connection_resource_id = azurerm_key_vault.main.id
-    is_manual_connection           = false
-    subresource_names              = ["vault"]
-  }
+# DNS Zones Module - manages private DNS zone references
+module "dns_zones" {
+  source = "./modules/dns-zones"
 
-  tags = var.common_tags
-
-  lifecycle {
-    ignore_changes = [tags, private_dns_zone_group]
-  }
-
-  depends_on = [azurerm_key_vault.main]
+  use_platform_landing_zone                 = var.flag_platform_landing_zone
+  existing_zones_resource_group_resource_id = local.dns_zones_rg_id
 }
 
-# Hub policy attaches the Private DNS zone group and creates the A-record asynchronously.
-# Data-plane operations (like creating secrets) can fail until DNS is ready.
+# TODO: If using platform landing zone (flag_platform_landing_zone = true), 
+# add your private DNS zones creation module here
+
+module "foundry_ptn" {
+  source  = "Azure/avm-ptn-aiml-ai-foundry/azurerm"
+  version = "0.10.0"
+
+  #configure the base resource
+  base_name                  = coalesce(var.name_prefix, "foundry")
+  location                   = azurerm_resource_group.this.location
+  resource_group_resource_id = azurerm_resource_group.this.id
+  #pass through the resource definitions
+  ai_foundry               = local.foundry_ai_foundry
+  ai_model_deployments     = var.ai_foundry_definition.ai_model_deployments
+  ai_projects              = var.ai_foundry_definition.ai_projects
+  ai_search_definition     = local.foundry_ai_search_definition
+  cosmosdb_definition      = local.foundry_cosmosdb_definition
+  create_byor              = var.ai_foundry_definition.create_byor
+  create_private_endpoints = false # Cannot use module PEs - they must be in same RG/region as resources
+  enable_telemetry         = var.enable_telemetry
+  key_vault_definition     = local.foundry_key_vault_definition
+  # Note: law_definition removed - not supported in 0.10.0. Use diagnostic_settings instead.
+  storage_account_definition = local.foundry_storage_account_definition
+
+  depends_on = [azapi_resource_action.purge_ai_foundry]
+}
+
+module "capability_hosts" {
+  source = "./modules/capability-hosts"
+
+  ai_foundry_definition = var.ai_foundry_definition
+  foundry_ptn           = module.foundry_ptn
+
+  depends_on = [module.foundry_ptn]
+}
+
+resource "azapi_resource_action" "purge_ai_foundry" {
+  count = var.ai_foundry_definition.purge_on_destroy ? 1 : 0
+
+  method      = "DELETE"
+  resource_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.CognitiveServices/locations/${azurerm_resource_group.this.location}/resourceGroups/${azurerm_resource_group.this.name}/deletedAccounts/${local.ai_foundry_name}"
+  type        = "Microsoft.Resources/resourceGroups/deletedAccounts@2021-04-30"
+  when        = "destroy"
+
+  depends_on = [time_sleep.purge_ai_foundry_cooldown]
+}
+
+resource "time_sleep" "purge_ai_foundry_cooldown" {
+  count = var.ai_foundry_definition.purge_on_destroy ? 1 : 0
+
+  destroy_duration = "900s" # 10m
+
+  #depends_on = [module.ai_lz_vnet]
+}
+
+# ============================================================================
+# AI Landing Zone Module
+# ============================================================================
+# Provisions the full AI/ML Landing Zone infrastructure including:
+# - Virtual Network with subnets
+# - Azure Bastion
+# - Azure Firewall (optional)
+# - Application Gateway (optional)
+# - GenAI services (Container Registry, Container Apps, etc.)
+# - Knowledge sources (AI Search, Bing Grounding)
+# - Jump and Build VMs
+# - Private DNS Zones
 #
-# "Smarter" wait: poll Azure ARM until the policy-managed DNS zone group exists on the private endpoint.
-resource "null_resource" "wait_for_key_vault_private_dns" {
-  triggers = {
-    private_endpoint_id = azurerm_private_endpoint.key_vault_pe.id
-    resource_group_name = azurerm_resource_group.main.name
-    private_endpoint    = azurerm_private_endpoint.key_vault_pe.name
-    timeout             = var.private_endpoint_dns_wait_duration
-    interval            = var.private_endpoint_dns_poll_interval
-  }
+# NOTE: This module contains local provider configurations, so count/for_each cannot be used.
+# Set var.deploy_landing_zone = true and configure the component variables to deploy.
+# Each component has its own deploy flag (e.g., bastion_definition.deploy = true).
 
-  provisioner "local-exec" {
-    interpreter = ["bash", "-lc"]
-    command     = <<-EOT
-      set -euo pipefail
+module "ai_landing_zone" {
+  source = "git::https://github.com/bcgov/AI-Service-Hub.git?ref=feat/bcgov-landing-zone-changes-1"
 
-      duration_to_seconds() {
-        value="$1"
+  # Required variables
+  location            = var.landing_zone_location != null ? var.landing_zone_location : var.location
+  resource_group_name = var.landing_zone_resource_group_name != null ? var.landing_zone_resource_group_name : "${var.resource_group_name}-lz"
 
-        if echo "$value" | grep -Eq '^[0-9]+$'; then
-          echo "$value"
-          return 0
-        fi
+  # Virtual Network configuration (supports BYO VNet via env var or vnet_definition)
+  vnet_definition = local.resolved_vnet_definition
 
-        if ! echo "$value" | grep -Eq '^[0-9]+[smhd]$'; then
-          echo "Unsupported duration '$value'. Use e.g. 15s, 10m, 1h (or a raw number of seconds)." >&2
-          return 1
-        fi
+  # Optional naming and tagging
+  name_prefix      = var.name_prefix
+  tags             = var.tags
+  enable_telemetry = var.enable_telemetry
 
-        num="$(echo "$value" | sed -E 's/^([0-9]+)[smhd]$/\1/')"
-        unit="$(echo "$value" | sed -E 's/^[0-9]+([smhd])$/\1/')"
+  # Platform Landing Zone flag
+  flag_platform_landing_zone = var.flag_platform_landing_zone
 
-        case "$unit" in
-          s) echo "$num" ;;
-          m) echo $((num * 60)) ;;
-          h) echo $((num * 3600)) ;;
-          d) echo $((num * 86400)) ;;
-        esac
-      }
+  # AI Foundry configuration
+  ai_foundry_definition = var.landing_zone_ai_foundry_definition
 
-      if ! command -v az >/dev/null 2>&1; then
-        echo "Azure CLI (az) not found. Cannot poll for private DNS zone group." >&2
-        exit 1
-      fi
+  # Networking components
+  bastion_definition     = var.bastion_definition
+  firewall_definition    = var.firewall_definition
+  app_gateway_definition = var.app_gateway_definition
 
-      RG="${azurerm_resource_group.main.name}"
-      PE_NAME="${azurerm_private_endpoint.key_vault_pe.name}"
-      TIMEOUT="${var.private_endpoint_dns_wait_duration}"
-      INTERVAL="${var.private_endpoint_dns_poll_interval}"
+  # GenAI services
+  genai_container_registry_definition  = var.genai_container_registry_definition
+  container_app_environment_definition = var.container_app_environment_definition
+  genai_app_configuration_definition   = var.genai_app_configuration_definition
+  genai_key_vault_definition           = var.genai_key_vault_definition
+  genai_storage_account_definition     = var.genai_storage_account_definition
+  genai_cosmosdb_definition            = var.genai_cosmosdb_definition
 
-      timeout_seconds="$(duration_to_seconds "$TIMEOUT")"
-      interval_seconds="$(duration_to_seconds "$INTERVAL")"
+  # Knowledge sources
+  ks_ai_search_definition      = var.ks_ai_search_definition
+  ks_bing_grounding_definition = var.ks_bing_grounding_definition
 
-      echo "Waiting for policy-created private DNS zone group on private endpoint '$PE_NAME' (rg='$RG')..." >&2
-      echo "Timeout: $TIMEOUT ($timeout_seconds seconds), interval: $INTERVAL ($interval_seconds seconds)" >&2
+  # Virtual machines
+  jumpvm_definition  = var.jumpvm_definition
+  buildvm_definition = var.buildvm_definition
 
-      SECONDS=0
-      while true; do
-        zone_group_count="$(az network private-endpoint dns-zone-group list \
-          --resource-group "$RG" \
-          --endpoint-name "$PE_NAME" \
-          --query "length(@)" \
-          -o tsv 2>/dev/null || echo 0)"
+  # API Management
+  apim_definition = var.apim_definition
 
-        if [[ "$zone_group_count" =~ ^[0-9]+$ ]] && [[ "$zone_group_count" -gt 0 ]]; then
-          echo "Found $zone_group_count private DNS zone group(s) on '$PE_NAME'." >&2
-          exit 0
-        fi
-
-        if [[ "$SECONDS" -ge "$timeout_seconds" ]]; then
-          echo "Timed out waiting for policy-managed private DNS zone group on '$PE_NAME' after $TIMEOUT." >&2
-          exit 1
-        fi
-
-        sleep "$interval_seconds"
-      done
-    EOT
-  }
-
-  depends_on = [azurerm_private_endpoint.key_vault_pe]
-}
-
-resource "random_password" "secret_one" {
-  length  = 32
-  special = true
-}
-
-resource "random_password" "secret_two" {
-  length  = 48
-  special = true
-}
-
-# these resources  are for testing vnet peering and data plane access to the key vault
-# will be deleted in future.
-resource "azurerm_key_vault_secret" "secret_one" {
-  name            = "example-secret-test-one"
-  value           = random_password.secret_one.result
-  key_vault_id    = azurerm_key_vault.main.id
-  expiration_date = "2025-12-31T23:59:59Z"
-  content_type    = "text/plain"
-  depends_on      = [null_resource.wait_for_key_vault_private_dns]
-}
-
-resource "azurerm_key_vault_secret" "secret_two" {
-  name            = "example-secret-test-two"
-  value           = random_password.secret_two.result
-  key_vault_id    = azurerm_key_vault.main.id
-  expiration_date = "2025-12-31T23:59:59Z"
-  content_type    = "text/plain"
-  depends_on      = [null_resource.wait_for_key_vault_private_dns]
+  # Private DNS zones - use resolved local with coalesce fallback
+  private_dns_zones = local.resolved_landing_zone_private_dns_zones
 }

@@ -114,11 +114,11 @@ jobs:
         env:
           ARM_USE_OIDC: "true"
           CI: "true" # Common Terraform variables
-          TF_VAR_app_name: "ai-services-hub"
+          TF_VAR_name_prefix: "ai-services-hub-${{ inputs.environment_name }}"
           TF_VAR_app_env: ${{ inputs.environment_name }}
           TF_VAR_location: "Canada Central"
           TF_VAR_resource_group_name: ${{ format('{0}-{1}', 'ai-services-hub', inputs.environment_name) }}
-          TF_VAR_common_tags: >-
+          TF_VAR_tags: >-
             {"environment":"${{ inputs.environment_name }}","app_env":"${{ inputs.environment_name }}","repo_name":"${{ github.event.repository.name }}"}
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
@@ -133,9 +133,6 @@ jobs:
           TF_VAR_prod_address_spaces: ${{ secrets.PROD_ADDRESS_SPACES }}
           TF_VAR_target_vnet_address_spaces: ${{ secrets.TARGET_VNET_ADDRESS_SPACES }}
           TF_VAR_source_vnet_address_space: ${{ secrets.SOURCE_VNET_ADDRESS_SPACE }}
-
-          # Only used by infra-ai-hub, harmless if unset/unused
-          TF_VAR_key_vault_name: ${{ format('{0}{1}{2}kv', 'aihub', inputs.environment_name, vars.SUBSCRIPTION_NAME) }}
 
           HTTP_PROXY: "http://127.0.0.1:8118"
           HTTPS_PROXY: "http://127.0.0.1:8118"
