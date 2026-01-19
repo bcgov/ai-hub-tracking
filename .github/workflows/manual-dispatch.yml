@@ -17,6 +17,7 @@ on:
         default: "apply"
         type: choice
         options:
+          - plan
           - apply
           - destroy
 permissions:
