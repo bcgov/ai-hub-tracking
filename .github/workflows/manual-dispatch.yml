@@ -47,13 +47,13 @@ jobs:
       proxy_auth: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_auth }}
       tag: latest
     secrets: inherit
-  destroy-proxy-in-tools-environment:
-    name: Destroy Proxy in 'tools' Environment
-    needs: deploy-to-environment
-    uses: ./.github/workflows/.deployer.yml
-    with:
-      environment_name: tools
-      command: destroy
-      target_module: azure_proxy
-      tag: latest
-    secrets: inherit
+  #destroy-proxy-in-tools-environment:
+  #name: Destroy Proxy in 'tools' Environment
+  #needs: deploy-to-environment
+  #uses: ./.github/workflows/.deployer.yml
+  #with:
+  #environment_name: tools
+  #command: destroy
+  #target_module: azure_proxy
+  #tag: latest
+  #secrets: inherit
