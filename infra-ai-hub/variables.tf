@@ -103,68 +103,9 @@ and multi-region access patterns.
 - `private_dns_zone_rg_id` - (Optional) Resource ID of the resource group containing private DNS zones for private endpoint DNS records. If not provided, DNS integration will be skipped.
 - `resource_group_name` - (Optional) Name of the resource group where private endpoints will be created. If not provided, will use the same resource group as the main resources.
 DESCRIPTION
-
-  validation {
-    condition = !var.private_endpoints.enabled || (
-      (var.private_endpoints.vnet_resource_id != null || var.private_endpoints_vnet_resource_id != null) &&
-      var.private_endpoints.location != null
-    )
-    error_message = "Both vnet_resource_id (either private_endpoints.vnet_resource_id or private_endpoints_vnet_resource_id) and location are required when private_endpoints is enabled."
-  }
 }
 
-variable "private_endpoints_vnet_resource_id" {
-  type        = string
-  default     = null
-  description = <<DESCRIPTION
-Alternative to private_endpoints.private_dns_zone_rg_id
-Use this variable if you want to set the value using an environment variable or other means.
-DESCRIPTION
-}
 
-variable "private_endpoints_dns_zone_rg_id" {
-  type        = string
-  default     = null
-  description = <<DESCRIPTION
-Alternative to private_endpoints.private_dns_zone_rg_id
-Use this variable if you want to set the value using an environment variable or other means.
-DESCRIPTION
-}
-
-variable "private_dns_zones_rg_id" {
-  type        = string
-  default     = null
-  description = <<DESCRIPTION
-Alternative to private_dns_zones.existing_zones_resource_group_resource_id
-Use this variable if you want to set the value using an environment variable or other means.
-
-DESCRIPTION
-}
-
-variable "private_dns_zones" {
-  type = object({
-    existing_zones_resource_group_resource_id = optional(string, null)
-  })
-  default = {
-    existing_zones_resource_group_resource_id = null
-  }
-  description = <<DESCRIPTION
-Configuration for private DNS zones used with private endpoints.
-
-- `existing_zones_resource_group_resource_id` - (Optional) Resource ID of an existing resource group containing private DNS zones. Required when flag_platform_landing_zone is false.
-
-This variable is used to reference existing private DNS zones for private endpoint DNS integration when not using the platform landing zone pattern.
-DESCRIPTION
-
-  validation {
-    # Allow null (skip DNS integration) OR require valid resource group ID format
-    condition = var.flag_platform_landing_zone || (
-      (var.private_dns_zones.existing_zones_resource_group_resource_id == null && var.private_dns_zones_rg_id == null) ||
-      can(regex("^/subscriptions/[^/]+/resourceGroups/[^/]+$", coalesce(var.private_dns_zones.existing_zones_resource_group_resource_id, var.private_dns_zones_rg_id, "")))
-    )
-    error_message = "When providing existing_zones_resource_group_resource_id, it must be a valid resource group resource ID in the format: /subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}"
-  }
-}
 
 variable "law_definition" {
   type = object({
@@ -1104,4 +1045,31 @@ variable "use_oidc" {
   description = "Whether to use OIDC for authentication"
   type        = bool
   default     = true
+}
+variable "subscription_name" {
+  description = "Name of the Azure subscription, created by platform team in registry, 6 character alphanumeric"
+  type        = string
+  nullable    = false
+}
+variable "environment_name" {
+  description = "Name of the environment"
+  type        = string
+  nullable    = false
+}
+
+variable "vnet_address_spaces" {
+  description = "List of address spaces for the virtual network"
+  type        = list(string)
+  nullable    = false
+}
+variable "vnet_name" {
+  description = "Name of the existing virtual network"
+  type        = string
+  nullable    = false
+}
+
+variable "vnet_resource_group_name" {
+  description = "Resource group name where the virtual network exists"
+  type        = string
+  nullable    = false
 }

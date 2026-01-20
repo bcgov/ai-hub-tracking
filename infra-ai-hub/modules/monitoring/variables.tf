@@ -4,11 +4,6 @@ variable "name_prefix" {
   default     = null
 }
 
-variable "enable_telemetry" {
-  description = "Enable or disable AVM telemetry for the Log Analytics Workspace module."
-  type        = bool
-  default     = false
-}
 
 variable "law_definition" {
   description = "Log Analytics Workspace definition. Fields: resource_id (existing LAW to use), name (custom LAW name), retention (days), sku (workspace SKU)."
@@ -20,4 +15,15 @@ variable "law_definition" {
   })
   default  = {}
   nullable = false
+}
+
+variable "location" {
+  type        = string
+  description = "Azure region where monitoring resources will be created."
+  nullable    = false
+}
+variable "resource_group_name" {
+  type        = string
+  description = "Name of the resource group where monitoring resources will be created."
+  nullable    = false
 }

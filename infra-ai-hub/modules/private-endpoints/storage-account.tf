@@ -28,14 +28,14 @@ locals {
 resource "azurerm_private_endpoint" "storage_pe" {
   for_each = { for item in local.storage_endpoints : item.key => item }
 
-  name                = "${each.value.sa_name}-${each.value.endpoint_type}-pe-${var.location}"
+  name                = replace(substr(replace("${each.value.sa_name}-${each.value.endpoint_type}-pe-${local.location_slug}", "/[^0-9A-Za-z._-]/", "-"), 0, 80), "/[^0-9A-Za-z_]+$/", "")
   location            = var.location
   resource_group_name = var.resource_group_name
   subnet_id           = var.subnet_id
   tags                = var.tags
 
   private_service_connection {
-    name                           = "${each.value.sa_name}-${each.value.endpoint_type}-psc-${var.location}"
+    name                           = replace(substr(replace("${each.value.sa_name}-${each.value.endpoint_type}-psc-${local.location_slug}", "/[^0-9A-Za-z._-]/", "-"), 0, 80), "/[^0-9A-Za-z_]+$/", "")
     private_connection_resource_id = each.value.sa_resource_id
     is_manual_connection           = false
     subresource_names              = [each.value.subresource_name]

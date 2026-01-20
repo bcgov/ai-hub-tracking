@@ -5,14 +5,14 @@
 resource "azurerm_private_endpoint" "ai_foundry_pe" {
   count = var.enabled ? 1 : 0
 
-  name                = "${var.ai_foundry_name}-pe-${var.location}"
+  name                = replace(substr(replace("${var.ai_foundry_name}-pe-${local.location_slug}", "/[^0-9A-Za-z._-]/", "-"), 0, 80), "/[^0-9A-Za-z_]+$/", "")
   location            = var.location
   resource_group_name = var.resource_group_name
   subnet_id           = var.subnet_id
   tags                = var.tags
 
   private_service_connection {
-    name                           = "${var.ai_foundry_name}-psc-${var.location}"
+    name                           = replace(substr(replace("${var.ai_foundry_name}-psc-${local.location_slug}", "/[^0-9A-Za-z._-]/", "-"), 0, 80), "/[^0-9A-Za-z_]+$/", "")
     private_connection_resource_id = var.foundry_ptn.resource_id
     is_manual_connection           = false
     subresource_names              = ["account"]

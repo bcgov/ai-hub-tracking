@@ -48,11 +48,7 @@ docker build -t local/privoxy-socks-bridge:latest .\http-client\proxy\privoxy
 This runs Privoxy on `127.0.0.1:8118` and forwards through the SOCKS proxy.
 
 ```powershell
-docker run --rm -d --name privoxy \
-  -p 127.0.0.1:8118:8118 \
-  -e SOCKS_HOST=host.docker.internal \
-  -e SOCKS_PORT=18080 \
-  local/privoxy-socks-bridge:latest
+docker run --rm -d --name privoxy -p 0.0.0.0:8118:8118 -e SOCKS_HOST=host.docker.internal -e SOCKS_PORT=18080 ghcr.io/bcgov/ai-hub-tracking/azure-proxy/privoxy:latest
 ```
 
 Environment variables:

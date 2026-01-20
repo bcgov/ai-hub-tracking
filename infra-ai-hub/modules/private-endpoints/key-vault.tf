@@ -5,14 +5,14 @@
 resource "azurerm_private_endpoint" "keyvault_pe" {
   for_each = var.enabled ? var.ai_foundry_definition.key_vault_definition : {}
 
-  name                = "${each.value.name}-pe-${var.location}"
+  name                = replace(substr(replace("${each.value.name}-pe-${local.location_slug}", "/[^0-9A-Za-z._-]/", "-"), 0, 80), "/[^0-9A-Za-z_]+$/", "")
   location            = var.location
   resource_group_name = var.resource_group_name
   subnet_id           = var.subnet_id
   tags                = var.tags
 
   private_service_connection {
-    name                           = "${each.value.name}-psc-${var.location}"
+    name                           = replace(substr(replace("${each.value.name}-psc-${local.location_slug}", "/[^0-9A-Za-z._-]/", "-"), 0, 80), "/[^0-9A-Za-z_]+$/", "")
     private_connection_resource_id = var.foundry_ptn.key_vault_id[each.key]
     is_manual_connection           = false
     subresource_names              = ["vault"]

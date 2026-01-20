@@ -1,79 +1,30 @@
 data "azurerm_client_config" "current" {}
-
-resource "azurerm_resource_group" "this" {
-  location = var.location
-  name     = var.resource_group_name
-  tags     = var.tags
+data "azurerm_resource_group" "vnet_rg" {
+  name = var.vnet_resource_group_name
 }
+module "networking" {
+  source = "./modules/networking"
 
-# used to randomize resource names that are globally unique
-resource "random_string" "name_suffix" {
-  length  = 4
-  special = false
-  upper   = false
+  vnet_name                = var.vnet_name
+  vnet_resource_group_name = var.vnet_resource_group_name
+  tags                     = var.tags
+  location                 = var.location
+  name_prefix              = var.name_prefix
+  vnet_address_spaces      = var.vnet_address_spaces
 }
+module "monitoring" {
+  source = "./modules/monitoring"
 
-locals {
-  # Use existing_zones_resource_group_resource_id from private_dns_zones block first, fallback to standalone variable
-  # Use try() to handle case where both are null (coalesce fails on all-null inputs)
-  dns_zones_rg_id = try(
-    coalesce(
-      var.private_dns_zones.existing_zones_resource_group_resource_id,
-      var.private_dns_zones_rg_id
-    ),
-    null
-  )
-}
-
-# DNS Zones Module - manages private DNS zone references
-module "dns_zones" {
-  source = "./modules/dns-zones"
-
-  use_platform_landing_zone                 = var.flag_platform_landing_zone
-  existing_zones_resource_group_resource_id = local.dns_zones_rg_id
-}
-
-# TODO: If using platform landing zone (flag_platform_landing_zone = true), 
-# add your private DNS zones creation module here
-
-module "foundry_ptn" {
-  source  = "Azure/avm-ptn-aiml-ai-foundry/azurerm"
-  version = "0.10.0"
-
-  #configure the base resource
-  base_name                  = coalesce(var.name_prefix, "foundry")
-  location                   = azurerm_resource_group.this.location
-  resource_group_resource_id = azurerm_resource_group.this.id
-  #pass through the resource definitions
-  ai_foundry               = local.foundry_ai_foundry
-  ai_model_deployments     = var.ai_foundry_definition.ai_model_deployments
-  ai_projects              = var.ai_foundry_definition.ai_projects
-  ai_search_definition     = local.foundry_ai_search_definition
-  cosmosdb_definition      = local.foundry_cosmosdb_definition
-  create_byor              = var.ai_foundry_definition.create_byor
-  create_private_endpoints = false # Cannot use module PEs - they must be in same RG/region as resources
-  enable_telemetry         = var.enable_telemetry
-  key_vault_definition     = local.foundry_key_vault_definition
-  # Note: law_definition removed - not supported in 0.10.0. Use diagnostic_settings instead.
-  storage_account_definition = local.foundry_storage_account_definition
-
-  depends_on = [azapi_resource_action.purge_ai_foundry]
-}
-
-module "capability_hosts" {
-  source = "./modules/capability-hosts"
-
-  ai_foundry_definition = var.ai_foundry_definition
-  foundry_ptn           = module.foundry_ptn
-
-  depends_on = [module.foundry_ptn]
+  location            = var.location
+  resource_group_name = var.resource_group_name
+  law_definition      = var.law_definition
 }
 
 resource "azapi_resource_action" "purge_ai_foundry" {
   count = var.ai_foundry_definition.purge_on_destroy ? 1 : 0
 
   method      = "DELETE"
-  resource_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.CognitiveServices/locations/${azurerm_resource_group.this.location}/resourceGroups/${azurerm_resource_group.this.name}/deletedAccounts/${local.ai_foundry_name}"
+  resource_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.CognitiveServices/locations/${var.location}/resourceGroups/${data.azurerm_resource_group.vnet_rg.name}/deletedAccounts/${local.ai_foundry_name}"
   type        = "Microsoft.Resources/resourceGroups/deletedAccounts@2021-04-30"
   when        = "destroy"
 
@@ -87,6 +38,41 @@ resource "time_sleep" "purge_ai_foundry_cooldown" {
 
   #depends_on = [module.ai_lz_vnet]
 }
+module "foundry_ptn" {
+  source  = "Azure/avm-ptn-aiml-ai-foundry/azurerm"
+  version = "0.10.0"
+
+  #configure the base resource
+  base_name                  = coalesce(var.name_prefix, "foundry")
+  location                   = var.location
+  resource_group_resource_id = data.azurerm_resource_group.vnet_rg.id
+
+  #pass through the resource definitions
+  ai_foundry               = local.foundry_ai_foundry
+  ai_model_deployments     = var.ai_foundry_definition.ai_model_deployments
+  ai_projects              = var.ai_foundry_definition.ai_projects
+  ai_search_definition     = var.ai_foundry_definition.ai_search_definition
+  cosmosdb_definition      = var.ai_foundry_definition.cosmosdb_definition
+  create_byor              = var.ai_foundry_definition.create_byor
+  create_private_endpoints = false # Cannot use module PEs - they must be in same RG/region as resources
+  enable_telemetry         = var.enable_telemetry
+  key_vault_definition     = var.ai_foundry_definition.key_vault_definition
+  # Note: law_definition removed - not supported in 0.10.0. Use diagnostic_settings instead.
+  storage_account_definition = var.ai_foundry_definition.storage_account_definition
+
+  depends_on = [azapi_resource_action.purge_ai_foundry]
+}
+
+module "capability_hosts" {
+  source = "./modules/capability-hosts"
+
+  ai_foundry_definition = var.ai_foundry_definition
+  foundry_ptn           = module.foundry_ptn
+
+  depends_on = [module.foundry_ptn]
+}
+
+
 
 # ============================================================================
 # AI Landing Zone Module
@@ -152,4 +138,20 @@ module "ai_landing_zone" {
 
   # Private DNS zones - use resolved local with coalesce fallback
   private_dns_zones = local.resolved_landing_zone_private_dns_zones
+  subscription_id   = var.subscription_id
+  client_id         = var.client_id
+  tenant_id         = var.tenant_id
+}
+
+module "private_endpoints" {
+  source = "./modules/private-endpoints"
+
+  enabled               = true
+  location              = var.location
+  resource_group_name   = var.landing_zone_resource_group_name
+  subnet_id             = module.networking.private_endpoint_subnet_id
+  tags                  = var.tags
+  ai_foundry_name       = local.ai_foundry_name
+  foundry_ptn           = module.foundry_ptn
+  ai_foundry_definition = var.ai_foundry_definition
 }
