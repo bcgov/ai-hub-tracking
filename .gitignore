@@ -28,7 +28,7 @@ replay_pid*
 .env.local
 .env.*.local
 *.secret.*
-*.tfvars
+terraform.tfvars
 .terraform/
 .terraform.lock.hcl
 crash.log
