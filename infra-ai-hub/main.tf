@@ -1,7 +1,15 @@
 data "azurerm_client_config" "current" {}
-data "azurerm_resource_group" "vnet_rg" {
-  name = var.vnet_resource_group_name
+resource "azurerm_resource_group" "main" {
+  name     = var.resource_group_name
+  location = var.location
+  tags     = var.tags
+  lifecycle {
+    ignore_changes = [
+      tags
+    ]
+  }
 }
+
 module "networking" {
   source = "./modules/networking"
 
@@ -24,7 +32,7 @@ resource "azapi_resource_action" "purge_ai_foundry" {
   count = var.ai_foundry_definition.purge_on_destroy ? 1 : 0
 
   method      = "DELETE"
-  resource_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.CognitiveServices/locations/${var.location}/resourceGroups/${data.azurerm_resource_group.vnet_rg.name}/deletedAccounts/${local.ai_foundry_name}"
+  resource_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.CognitiveServices/locations/${var.location}/resourceGroups/${azurerm_resource_group.main.name}/deletedAccounts/${local.ai_foundry_name}"
   type        = "Microsoft.Resources/resourceGroups/deletedAccounts@2021-04-30"
   when        = "destroy"
 
@@ -45,7 +53,7 @@ module "foundry_ptn" {
   #configure the base resource
   base_name                  = coalesce(var.name_prefix, "foundry")
   location                   = var.location
-  resource_group_resource_id = data.azurerm_resource_group.vnet_rg.id
+  resource_group_resource_id = azurerm_resource_group.main.id
 
   #pass through the resource definitions
   ai_foundry               = local.foundry_ai_foundry
@@ -96,7 +104,7 @@ module "ai_landing_zone" {
 
   # Required variables
   location            = var.landing_zone_location != null ? var.landing_zone_location : var.location
-  resource_group_name = var.landing_zone_resource_group_name != null ? var.landing_zone_resource_group_name : "${var.resource_group_name}-lz"
+  resource_group_name = azurerm_resource_group.main.name
 
   # Virtual Network configuration (supports BYO VNet via env var or vnet_definition)
   vnet_definition = local.resolved_vnet_definition
@@ -148,7 +156,7 @@ module "private_endpoints" {
 
   enabled               = true
   location              = var.location
-  resource_group_name   = var.landing_zone_resource_group_name
+  resource_group_name   = azurerm_resource_group.main.name
   subnet_id             = module.networking.private_endpoint_subnet_id
   tags                  = var.tags
   ai_foundry_name       = local.ai_foundry_name

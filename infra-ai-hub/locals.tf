@@ -4,7 +4,7 @@
 
 locals {
   # AI Foundry hub name with optional prefix and random suffix for global uniqueness
-  ai_foundry_name = "${var.name_prefix}-${var.environment_name}-${var.subscription_name}-foundry-${var.subscription_name}"
+  ai_foundry_name = "${var.name_prefix}-${var.environment_name}-${var.subscription_name}-foundry"
 
   # Log Analytics Workspace name with optional prefix
   log_analytics_workspace_name = "${var.name_prefix}-${var.environment_name}-${var.subscription_name}-law"
