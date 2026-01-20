@@ -54,7 +54,7 @@ ai_foundry_definition = {
       account_kind              = "StorageV2"
       account_tier              = "Standard"
       account_replication_type  = "ZRS"
-      shared_access_key_enabled = false
+      shared_access_key_enabled = true
       access_tier               = "Hot"
       endpoints = {
         blob = { type = "blob" }
