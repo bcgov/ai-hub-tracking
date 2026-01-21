@@ -89,6 +89,11 @@ module "ai_foundry_hub" {
     sku            = var.shared_config.log_analytics.sku
   }
 
+  # Application Insights configuration (enabled by default if log analytics is enabled)
+  application_insights = {
+    enabled = var.shared_config.log_analytics.enabled
+  }
+
   private_endpoint_dns_wait = {
     timeout       = var.shared_config.private_endpoint_dns_wait.timeout
     poll_interval = var.shared_config.private_endpoint_dns_wait.poll_interval
