@@ -18,6 +18,12 @@ variable "location" {
   type        = string
 }
 
+variable "ai_location" {
+  description = "Azure region for AI services (OpenAI, Document Intelligence). Can differ from location for model availability."
+  type        = string
+  default     = null
+}
+
 # -----------------------------------------------------------------------------
 # Resource Group Configuration
 # -----------------------------------------------------------------------------

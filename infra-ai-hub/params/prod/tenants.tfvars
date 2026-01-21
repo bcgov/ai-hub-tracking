@@ -66,14 +66,14 @@ tenants = {
           name          = "gpt-4o-mini"
           model_name    = "gpt-4o-mini"
           model_version = "2024-07-18"
-          scale_type    = "Standard"
+          scale_type    = "GlobalStandard"
           capacity      = 10
         },
         {
           name          = "text-embedding-ada-002"
           model_name    = "text-embedding-ada-002"
           model_version = "2"
-          scale_type    = "Standard"
+          scale_type    = "GlobalStandard"
           capacity      = 10
         }
       ]

@@ -263,7 +263,7 @@ module "document_intelligence" {
   count   = var.document_intelligence.enabled ? 1 : 0
 
   name                = "${local.name_prefix}-docint-${random_string.suffix.result}"
-  location            = var.location
+  location            = coalesce(var.ai_location, var.location)
   resource_group_name = local.resource_group_name
   kind                = var.document_intelligence.kind
   sku_name            = var.document_intelligence.sku
@@ -306,7 +306,7 @@ module "openai" {
   count   = var.openai.enabled ? 1 : 0
 
   name                = "${local.name_prefix}-oai-${random_string.suffix.result}"
-  location            = var.location
+  location            = coalesce(var.ai_location, var.location)
   resource_group_name = local.resource_group_name
   kind                = "OpenAI"
   sku_name            = var.openai.sku

@@ -208,6 +208,7 @@ module "tenant" {
   # Optional custom RG name (defaults to {tenant_name}-rg)
   resource_group_name_override = lookup(each.value, "resource_group_name", null)
   location                     = var.location
+  ai_location                  = var.shared_config.ai_foundry.ai_location
 
   ai_foundry_hub_id          = module.ai_foundry_hub.id
   private_endpoint_subnet_id = module.network.private_endpoint_subnet_id

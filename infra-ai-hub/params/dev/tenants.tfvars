@@ -122,14 +122,14 @@ tenants = {
           name          = "gpt-4o-mini"
           model_name    = "gpt-4o-mini"
           model_version = "2024-07-18"
-          scale_type    = "Standard" # Options: Standard, Provisioned
-          capacity      = 10         # TPM in thousands (10 = 10K TPM)
+          scale_type    = "GlobalStandard" # Options: Standard, GlobalStandard, Provisioned
+          capacity      = 10               # TPM in thousands (10 = 10K TPM)
         },
         {
           name          = "text-embedding-ada-002"
           model_name    = "text-embedding-ada-002"
           model_version = "2"
-          scale_type    = "Standard"
+          scale_type    = "GlobalStandard"
           capacity      = 10
         }
       ]
