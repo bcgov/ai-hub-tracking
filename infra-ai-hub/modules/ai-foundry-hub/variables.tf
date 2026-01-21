@@ -115,6 +115,12 @@ variable "scripts_dir" {
   default     = ""
 }
 
+variable "purge_on_destroy" {
+  description = "Whether to permanently purge the AI Foundry account on destroy (bypasses soft delete)"
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

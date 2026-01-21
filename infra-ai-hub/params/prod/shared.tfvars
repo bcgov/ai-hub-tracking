@@ -10,7 +10,7 @@ shared_config = {
   # AI Foundry Hub Settings
   # ---------------------------------------------------------------------------
   ai_foundry = {
-    name_suffix = "aihub"
+    name_suffix = "foundry"
     sku         = "S0" # Only valid SKU for AIServices kind
 
     # SECURITY: All public access disabled in production
@@ -20,6 +20,8 @@ shared_config = {
     # Cross-region deployment: Canada East for GPT-4o availability
     # The AI Foundry Hub will be in Canada East while PEs remain in Canada Central
     ai_location = "Canada East"
+    # Permanently purge AI Foundry account on destroy to avoid lingering resources
+    purge_on_destroy = true
   }
 
   # ---------------------------------------------------------------------------

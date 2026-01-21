@@ -12,7 +12,7 @@ shared_config = {
   # The AI Foundry Hub is the central AI/ML workspace that tenants connect to.
   # It provides shared capabilities like model hosting and experiment tracking.
   ai_foundry = {
-    name_suffix = "aihub" # Results in: {app_name}-{env}-aihub
+    name_suffix = "foundry" # Results in: {app_name}-{env}-aihub
     sku         = "S0"    # Only valid SKU for AIServices kind
 
     # Public access should be disabled in prod; enabled in dev for debugging
@@ -22,8 +22,10 @@ shared_config = {
     local_auth_enabled = false
 
     # Cross-region deployment: Set to "Canada East" for model availability
-    # Leave null to deploy in the same region as the VNet (Canada Central)
-    ai_location = null
+    # gpt-4o-mini and text-embedding-ada-002 require Canada East with Standard deployment
+    ai_location = "Canada East"
+        # Permanently purge AI Foundry account on destroy to avoid lingering resources
+    purge_on_destroy = true
   }
 
   # ---------------------------------------------------------------------------

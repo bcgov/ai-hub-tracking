@@ -1,7 +1,8 @@
 # AI Foundry Hub Module
 # Creates a shared Azure AI Foundry account using azapi for latest API features
 # Includes optional AI Agent service with network injection capability
-
+# Data source for subscription info
+data "azurerm_client_config" "current" {}
 # -----------------------------------------------------------------------------
 # Log Analytics Workspace (optional - or use existing)
 # -----------------------------------------------------------------------------
@@ -150,14 +151,8 @@ resource "null_resource" "wait_for_dns" {
   }
 
   provisioner "local-exec" {
-    interpreter = ["bash", "-lc"]
-    command     = <<-EOT
-      "${var.scripts_dir}/wait-for-dns-zone.sh" \
-        --resource-group "${var.resource_group_name}" \
-        --private-endpoint-name "${azurerm_private_endpoint.ai_foundry.name}" \
-        --timeout "${var.private_endpoint_dns_wait.timeout}" \
-        --interval "${var.private_endpoint_dns_wait.poll_interval}"
-    EOT
+    interpreter = ["bash", "-c"]
+    command     = "${var.scripts_dir}/wait-for-dns-zone.sh --resource-group ${var.resource_group_name} --private-endpoint-name ${azurerm_private_endpoint.ai_foundry.name} --timeout ${var.private_endpoint_dns_wait.timeout} --interval ${var.private_endpoint_dns_wait.poll_interval}"
   }
 
   depends_on = [azurerm_private_endpoint.ai_foundry]
@@ -268,4 +263,32 @@ resource "azurerm_cognitive_account" "bing_grounding" {
     ignore_changes = [tags]
   }
 }
+
+# =============================================================================
+# PURGE ON DESTROY
+# Permanently deletes the AI Foundry account, bypassing soft delete retention
+# =============================================================================
+
+# Cooldown period to allow Azure to complete soft delete before purging
+resource "time_sleep" "purge_ai_foundry_cooldown" {
+  count = var.purge_on_destroy ? 1 : 0
+
+  destroy_duration = "60s"
+
+  depends_on = [azapi_resource.ai_foundry]
+}
+
+# Purge the soft-deleted AI Foundry account on destroy
+resource "azapi_resource_action" "purge_ai_foundry" {
+  count = var.purge_on_destroy ? 1 : 0
+
+  type        = "Microsoft.CognitiveServices/locations/resourceGroups/deletedAccounts@2024-10-01"
+  resource_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.CognitiveServices/locations/${local.ai_location}/resourceGroups/${var.resource_group_name}/deletedAccounts/${var.name}"
+  method      = "DELETE"
+  when        = "destroy"
+
+  depends_on = [time_sleep.purge_ai_foundry_cooldown]
+}
+
+
 

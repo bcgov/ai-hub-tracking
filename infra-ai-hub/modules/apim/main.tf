@@ -6,12 +6,12 @@
 # =============================================================================
 locals {
   # Private endpoints - use boolean flag (known at plan time) to control creation
+  # NOTE: private_dns_zone_resource_ids omitted - Azure Policy manages DNS zone groups
   private_endpoints = var.enable_private_endpoint ? {
     primary = {
-      name                          = "${var.name}-pe"
-      subnet_resource_id            = var.private_endpoint_subnet_id
-      private_dns_zone_resource_ids = var.private_dns_zone_ids
-      tags                          = var.tags
+      name               = "${var.name}-pe"
+      subnet_resource_id = var.private_endpoint_subnet_id
+      tags               = var.tags
     }
   } : {}
 
@@ -48,6 +48,9 @@ module "apim" {
   managed_identities = {
     system_assigned = true
   }
+
+  # CRITICAL: Set to false to let Azure Policy manage DNS zone groups
+  private_endpoints_manage_dns_zone_group = false
 
   # Private endpoints for stv2 (using static keys from local)
   private_endpoints = local.private_endpoints

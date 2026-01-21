@@ -106,13 +106,10 @@ module "key_vault" {
 }
 
 # =============================================================================
-# STORAGE ACCOUNT (using AVM)
-# https://github.com/Azure/terraform-azurerm-avm-res-storage-storageaccount
+# STORAGE ACCOUNT (public access for Landing Zone - no private endpoint needed)
 # =============================================================================
-module "storage_account" {
-  source  = "Azure/avm-res-storage-storageaccount/azurerm"
-  version = "0.6.0"
-  count   = var.storage_account.enabled ? 1 : 0
+resource "azurerm_storage_account" "this" {
+  count = var.storage_account.enabled ? 1 : 0
 
   name                = "${local.tenant_name_short}st${random_string.suffix.result}"
   location            = var.location
@@ -123,28 +120,26 @@ module "storage_account" {
   account_kind             = var.storage_account.account_kind
   access_tier              = var.storage_account.access_tier
 
-  public_network_access_enabled   = false
+  # Public access allowed in Landing Zone for storage accounts
+  public_network_access_enabled   = true
   allow_nested_items_to_be_public = false
-  shared_access_key_enabled       = false
+  min_tls_version                 = "TLS1_2"
+  https_traffic_only_enabled      = true
 
-  network_rules = {
-    default_action = "Deny"
+  network_rules {
+    default_action = "Allow"
     bypass         = ["AzureServices"]
   }
 
-  # CRITICAL: Set to false to let Azure Policy manage DNS zone groups
-  private_endpoints_manage_dns_zone_group = false
-
-  private_endpoints = {
-    blob = {
-      subnet_resource_id = var.private_endpoint_subnet_id
-      subresource_name   = "blob"
-      tags               = var.tags
-    }
+  identity {
+    type = "SystemAssigned"
   }
 
-  tags             = var.tags
-  enable_telemetry = false
+  tags = var.tags
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
 
   depends_on = [azurerm_resource_group.tenant]
 }
@@ -379,7 +374,7 @@ resource "azurerm_role_assignment" "project_to_keyvault" {
 resource "azurerm_role_assignment" "project_to_storage" {
   count = var.storage_account.enabled ? 1 : 0
 
-  scope                = module.storage_account[0].resource_id
+  scope                = azurerm_storage_account.this[0].id
   role_definition_name = "Storage Blob Data Contributor"
   principal_id         = local.project_principal_id
 }
@@ -436,6 +431,7 @@ resource "azapi_resource" "connection_keyvault" {
 
   body = {
     properties = {
+      authType      = "AAD" # Required discriminator for managed identity auth
       category      = "AzureKeyVault"
       target        = module.key_vault[0].resource_id
       isSharedToAll = true
@@ -461,8 +457,9 @@ resource "azapi_resource" "connection_storage" {
 
   body = {
     properties = {
+      authType      = "AAD" # Required discriminator for managed identity auth
       category      = "AzureBlob"
-      target        = module.storage_account[0].resource_id
+      target        = azurerm_storage_account.this[0].id
       isSharedToAll = true
       metadata = {
         ApiType = "Azure"
@@ -472,7 +469,7 @@ resource "azapi_resource" "connection_storage" {
 
   schema_validation_enabled = false
 
-  depends_on = [module.storage_account, azurerm_role_assignment.project_to_storage]
+  depends_on = [azurerm_storage_account.this, azurerm_role_assignment.project_to_storage]
 }
 
 # Connection to AI Search
@@ -485,6 +482,7 @@ resource "azapi_resource" "connection_ai_search" {
 
   body = {
     properties = {
+      authType      = "AAD" # Required discriminator for managed identity auth
       category      = "CognitiveSearch"
       target        = module.ai_search[0].resource_id
       isSharedToAll = true
@@ -510,7 +508,8 @@ resource "azapi_resource" "connection_cosmos" {
 
   body = {
     properties = {
-      category      = "CosmosDB"
+      authType      = "AAD"      # Required discriminator for managed identity auth
+      category      = "CosmosDb" # API spec uses "CosmosDb" (not "CosmosDB")
       target        = azurerm_cosmosdb_account.this[0].id
       isSharedToAll = true
       metadata = {
@@ -535,6 +534,7 @@ resource "azapi_resource" "connection_openai" {
 
   body = {
     properties = {
+      authType      = "AAD" # Required discriminator for managed identity auth
       category      = "AzureOpenAI"
       target        = module.openai[0].resource_id
       isSharedToAll = true
@@ -560,6 +560,7 @@ resource "azapi_resource" "connection_docint" {
 
   body = {
     properties = {
+      authType      = "AAD" # Required discriminator for managed identity auth
       category      = "FormRecognizer"
       target        = module.document_intelligence[0].resource_id
       isSharedToAll = true
@@ -610,7 +611,7 @@ resource "azurerm_role_assignment" "custom_storage" {
     for ra in var.role_assignments.storage : "${ra.principal_id}-${ra.role_definition_name}" => ra
   } : {}
 
-  scope                = module.storage_account[0].resource_id
+  scope                = azurerm_storage_account.this[0].id
   role_definition_name = each.value.role_definition_name
   principal_id         = each.value.principal_id
   principal_type       = lookup(each.value, "principal_type", null)

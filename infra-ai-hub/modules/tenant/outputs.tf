@@ -52,17 +52,17 @@ output "key_vault_uri" {
 # =============================================================================
 output "storage_account_id" {
   description = "Resource ID of the Storage Account"
-  value       = var.storage_account.enabled ? module.storage_account[0].resource_id : null
+  value       = var.storage_account.enabled ? azurerm_storage_account.this[0].id : null
 }
 
 output "storage_account_name" {
   description = "Name of the Storage Account"
-  value       = var.storage_account.enabled ? module.storage_account[0].name : null
+  value       = var.storage_account.enabled ? azurerm_storage_account.this[0].name : null
 }
 
 output "storage_account_primary_blob_endpoint" {
   description = "Primary blob endpoint of the Storage Account"
-  value       = var.storage_account.enabled ? module.storage_account[0].resource.primary_blob_endpoint : null
+  value       = var.storage_account.enabled ? azurerm_storage_account.this[0].primary_blob_endpoint : null
 }
 
 # =============================================================================

@@ -99,9 +99,9 @@ module "ai_foundry_hub" {
     poll_interval = var.shared_config.private_endpoint_dns_wait.poll_interval
   }
 
-  scripts_dir = "${path.module}/scripts"
-
-  tags = var.common_tags
+  scripts_dir      = "${path.module}/scripts"
+  purge_on_destroy = var.shared_config.ai_foundry.purge_on_destroy
+  tags             = var.common_tags
 
   depends_on = [module.network]
 }

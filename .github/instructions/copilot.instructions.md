@@ -217,6 +217,105 @@ fi
 
 ---
 
+## AzAPI Resource Validation
+
+When using `azapi_resource` for Azure resources, **always validate against the official Azure REST API specs** before implementation.
+
+### API Spec Reference
+- GitHub: https://github.com/Azure/azure-rest-api-specs
+- Path pattern: `specification/{service}/resource-manager/Microsoft.{Service}/{stable|preview}/{version}/{service}.json`
+
+### CognitiveServices / AI Foundry API (2025-04-01-preview)
+
+**AI Foundry Hub (Account):**
+```hcl
+resource "azapi_resource" "ai_foundry" {
+  type = "Microsoft.CognitiveServices/accounts@2025-04-01-preview"
+  body = {
+    kind = "AIServices"  # Required for AI Foundry
+    sku  = { name = "S0" }  # Only valid SKU for AIServices
+    properties = {
+      customSubDomainName    = "unique-name"
+      publicNetworkAccess    = "Disabled"  # Enum: Enabled, Disabled
+      disableLocalAuth       = true
+      allowProjectManagement = true  # Required for projects
+      networkAcls = { defaultAction = "Deny" }  # Enum: Allow, Deny
+    }
+  }
+}
+```
+
+**AI Foundry Project:**
+```hcl
+resource "azapi_resource" "ai_foundry_project" {
+  type      = "Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview"
+  parent_id = azapi_resource.ai_foundry.id
+  body = {
+    sku = { name = "S0" }  # Required
+    properties = {
+      displayName = "Project Display Name"
+      description = "Project description"
+    }
+  }
+}
+```
+
+**Project Connections (CRITICAL - authType is discriminator):**
+```hcl
+resource "azapi_resource" "connection" {
+  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
+  parent_id = azapi_resource.ai_foundry_project.id
+  body = {
+    properties = {
+      authType      = "AAD"  # REQUIRED discriminator - see valid values below
+      category      = "AzureOpenAI"  # See ConnectionCategory enum
+      target        = "/subscriptions/.../resource-id"
+      isSharedToAll = true
+      metadata      = { ApiType = "Azure" }
+    }
+  }
+  schema_validation_enabled = false  # Required for preview APIs
+}
+```
+
+### ConnectionAuthType Enum (discriminator - REQUIRED)
+| Value | Use Case |
+|-------|----------|
+| `AAD` | Managed Identity / Entra ID authentication |
+| `ApiKey` | API key authentication |
+| `None` | No authentication required |
+| `SAS` | Shared Access Signature |
+| `AccountKey` | Storage account key |
+| `ServicePrincipal` | Service principal with client secret |
+| `ManagedIdentity` | Explicit managed identity |
+| `CustomKeys` | Custom key-value credentials |
+| `OAuth2` | OAuth2 flow |
+
+### ConnectionCategory Enum (case-sensitive!)
+| Service | Category Value |
+|---------|---------------|
+| Azure OpenAI | `AzureOpenAI` |
+| AI Services | `AIServices` |
+| Azure AI Search | `CognitiveSearch` |
+| Cognitive Service | `CognitiveService` |
+| Azure Blob Storage | `AzureBlob` |
+| Cosmos DB | `CosmosDb` ⚠️ (not CosmosDB) |
+| Cosmos DB MongoDB | `CosmosDbMongoDbApi` |
+| Azure Key Vault | `AzureKeyVault` |
+| Document Intelligence | `FormRecognizer` |
+| Custom Keys | `CustomKeys` |
+| API Key | `ApiKey` |
+
+### Validation Checklist for azapi_resource
+- [ ] Verify API version exists in azure-rest-api-specs
+- [ ] Check required properties in schema definitions
+- [ ] Validate enum values match exactly (case-sensitive)
+- [ ] Confirm discriminator properties are set (e.g., `authType`, `kind`)
+- [ ] Use `schema_validation_enabled = false` for preview APIs
+- [ ] Run `terraform validate` after changes
+
+---
+
 ## Common Patterns in This Repo
 
 ### Enabling/Disabling Modules
