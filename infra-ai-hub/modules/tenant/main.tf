@@ -70,7 +70,7 @@ resource "azapi_resource" "ai_foundry_project" {
 # =============================================================================
 module "key_vault" {
   source  = "Azure/avm-res-keyvault-vault/azurerm"
-  version = "0.10.0"
+  version = "0.10.2"
   count   = var.key_vault.enabled ? 1 : 0
 
   name                = "${local.tenant_name_short}kv${random_string.suffix.result}"
@@ -368,7 +368,7 @@ module "openai" {
 
 # Key Vault access for AI Foundry Project
 resource "azurerm_role_assignment" "project_to_keyvault" {
-  count = var.key_vault.enabled && local.project_principal_id != null ? 1 : 0
+  count = var.key_vault.enabled ? 1 : 0
 
   scope                = module.key_vault[0].resource_id
   role_definition_name = "Key Vault Secrets User"
@@ -377,7 +377,7 @@ resource "azurerm_role_assignment" "project_to_keyvault" {
 
 # Storage access for AI Foundry Project
 resource "azurerm_role_assignment" "project_to_storage" {
-  count = var.storage_account.enabled && local.project_principal_id != null ? 1 : 0
+  count = var.storage_account.enabled ? 1 : 0
 
   scope                = module.storage_account[0].resource_id
   role_definition_name = "Storage Blob Data Contributor"
@@ -386,7 +386,7 @@ resource "azurerm_role_assignment" "project_to_storage" {
 
 # AI Search access for AI Foundry Project
 resource "azurerm_role_assignment" "project_to_search" {
-  count = var.ai_search.enabled && local.project_principal_id != null ? 1 : 0
+  count = var.ai_search.enabled ? 1 : 0
 
   scope                = module.ai_search[0].resource_id
   role_definition_name = "Search Index Data Contributor"
@@ -395,7 +395,7 @@ resource "azurerm_role_assignment" "project_to_search" {
 
 # Cosmos DB access for AI Foundry Project
 resource "azurerm_role_assignment" "project_to_cosmos" {
-  count = var.cosmos_db.enabled && local.project_principal_id != null ? 1 : 0
+  count = var.cosmos_db.enabled ? 1 : 0
 
   scope                = azurerm_cosmosdb_account.this[0].id
   role_definition_name = "Cosmos DB Account Reader Role"
@@ -404,7 +404,7 @@ resource "azurerm_role_assignment" "project_to_cosmos" {
 
 # Document Intelligence access for AI Foundry Project
 resource "azurerm_role_assignment" "project_to_docint" {
-  count = var.document_intelligence.enabled && local.project_principal_id != null ? 1 : 0
+  count = var.document_intelligence.enabled ? 1 : 0
 
   scope                = module.document_intelligence[0].resource_id
   role_definition_name = "Cognitive Services User"
@@ -413,7 +413,7 @@ resource "azurerm_role_assignment" "project_to_docint" {
 
 # OpenAI access for AI Foundry Project
 resource "azurerm_role_assignment" "project_to_openai" {
-  count = var.openai.enabled && local.project_principal_id != null ? 1 : 0
+  count = var.openai.enabled ? 1 : 0
 
   scope                = module.openai[0].resource_id
   role_definition_name = "Cognitive Services OpenAI User"
