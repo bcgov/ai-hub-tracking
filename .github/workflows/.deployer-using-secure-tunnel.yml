@@ -137,37 +137,17 @@ jobs:
           # Only used by infra-ai-hub, harmless if unset/unused
           TF_VAR_key_vault_name: ${{ format('{0}{1}{2}kv', 'aihub', inputs.environment_name, vars.SUBSCRIPTION_NAME) }}
 
+          # Backend configuration for deploy script
+          BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+
           HTTP_PROXY: "http://127.0.0.1:8118"
           HTTPS_PROXY: "http://127.0.0.1:8118"
         run: |
           export no_proxy="$NO_PROXY"
 
-          # Define var-file paths for shared and tenant configs
-          SHARED_VAR_FILE="params/${{ inputs.environment_name }}/shared.tfvars"
-          TENANTS_VAR_FILE="params/${{ inputs.environment_name }}/tenants.tfvars"
+          # Make deploy script executable
+          chmod +x ./scripts/deploy-terraform.sh
 
-          terraform init -upgrade -reconfigure \
-            -backend-config="resource_group_name=${{ secrets.VNET_RESOURCE_GROUP_NAME }}" \
-            -backend-config="storage_account_name=${{ vars.STORAGE_ACCOUNT_NAME }}" \
-            -backend-config="container_name=tfstate" \
-            -backend-config="key=ai-services-hub/${{ inputs.environment_name }}/terraform.tfstate" \
-            -backend-config="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-            -backend-config="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-            -backend-config="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
-            -backend-config="use_oidc=true"
-
-          case "${{ inputs.command }}" in
-            apply|destroy)
-              terraform "${{ inputs.command }}" -auto-approve -input=false \
-                -var-file="$SHARED_VAR_FILE" \
-                -var-file="$TENANTS_VAR_FILE"
-              ;;
-            plan)
-              terraform plan -input=false \
-                -var-file="$SHARED_VAR_FILE" \
-                -var-file="$TENANTS_VAR_FILE"
-              ;;
-            *)
-              terraform "${{ inputs.command }}" -input=false
-              ;;
-          esac
+          # Run deployment via script
+          ./scripts/deploy-terraform.sh "${{ inputs.command }}" "${{ inputs.environment_name }}"
