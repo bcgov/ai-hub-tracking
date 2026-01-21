@@ -22,6 +22,9 @@ resource "azurerm_log_analytics_workspace" "this" {
 }
 
 locals {
+  # Determine if Log Analytics will be available (for count conditions - must use variables only)
+  log_analytics_available = var.log_analytics.enabled || var.log_analytics.workspace_id != null
+
   # Use existing Log Analytics workspace if provided, otherwise use created one
   log_analytics_workspace_id = var.log_analytics.workspace_id != null ? var.log_analytics.workspace_id : (
     var.log_analytics.enabled ? azurerm_log_analytics_workspace.this[0].id : null
@@ -37,7 +40,7 @@ locals {
 # Provides monitoring, metrics, and tracing for AI Foundry applications
 # -----------------------------------------------------------------------------
 resource "azurerm_application_insights" "this" {
-  count = var.application_insights.enabled && local.log_analytics_workspace_id != null ? 1 : 0
+  count = var.application_insights.enabled && local.log_analytics_available ? 1 : 0
 
   name                = coalesce(var.application_insights.name, "${var.name}-appi")
   location            = var.location
@@ -164,7 +167,7 @@ resource "null_resource" "wait_for_dns" {
 # Diagnostic Settings
 # -----------------------------------------------------------------------------
 resource "azurerm_monitor_diagnostic_setting" "ai_foundry" {
-  count = local.log_analytics_workspace_id != null ? 1 : 0
+  count = local.log_analytics_available ? 1 : 0
 
   name                       = "${var.name}-diag"
   target_resource_id         = azapi_resource.ai_foundry.id
