@@ -33,7 +33,7 @@ resource "random_string" "suffix" {
 resource "azapi_resource" "ai_foundry_project" {
   type      = "Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview"
   name      = "${local.name_prefix}-project"
-  location  = var.location
+  location  = coalesce(var.ai_location, var.location) # Must match parent hub location
   parent_id = var.ai_foundry_hub_id
 
   identity {
@@ -142,6 +142,15 @@ resource "azurerm_storage_account" "this" {
   }
 
   depends_on = [azurerm_resource_group.tenant]
+}
+
+# Default container for AI Foundry project connection
+resource "azurerm_storage_container" "default" {
+  count = var.storage_account.enabled ? 1 : 0
+
+  name                  = "default"
+  storage_account_id    = azurerm_storage_account.this[0].id
+  container_access_type = "private"
 }
 
 # =============================================================================
@@ -263,7 +272,7 @@ module "document_intelligence" {
   count   = var.document_intelligence.enabled ? 1 : 0
 
   name                = "${local.name_prefix}-docint-${random_string.suffix.result}"
-  location            = coalesce(var.ai_location, var.location)
+  location            = var.location
   resource_group_name = local.resource_group_name
   kind                = var.document_intelligence.kind
   sku_name            = var.document_intelligence.sku
@@ -347,6 +356,7 @@ module "openai" {
     primary = {
       subnet_resource_id = var.private_endpoint_subnet_id
       tags               = var.tags
+      location           = var.location # must be canada central for PE as subnets are region-specific
     }
   }
 
@@ -459,17 +469,18 @@ resource "azapi_resource" "connection_storage" {
     properties = {
       authType      = "AAD" # Required discriminator for managed identity auth
       category      = "AzureBlob"
-      target        = azurerm_storage_account.this[0].id
+      target        = "https://${azurerm_storage_account.this[0].name}.blob.core.windows.net"
       isSharedToAll = true
       metadata = {
-        ApiType = "Azure"
+        AccountName   = azurerm_storage_account.this[0].name
+        ContainerName = "default"
       }
     }
   }
 
   schema_validation_enabled = false
 
-  depends_on = [azurerm_storage_account.this, azurerm_role_assignment.project_to_storage]
+  depends_on = [azurerm_storage_account.this, azurerm_role_assignment.project_to_storage, azurerm_storage_container.default]
 }
 
 # Connection to AI Search
@@ -561,12 +572,12 @@ resource "azapi_resource" "connection_docint" {
   body = {
     properties = {
       authType      = "AAD" # Required discriminator for managed identity auth
-      category      = "FormRecognizer"
-      target        = module.document_intelligence[0].resource_id
+      category      = "CognitiveService"
+      target        = module.document_intelligence[0].endpoint
       isSharedToAll = true
       metadata = {
-        ApiType    = "Azure"
-        ApiVersion = "2024-02-29-preview"
+        ApiType = "Azure"
+        Kind    = "FormRecognizer"
       }
     }
   }
