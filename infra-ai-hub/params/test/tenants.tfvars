@@ -5,20 +5,18 @@
 # =============================================================================
 
 tenants = {
-  # ---------------------------------------------------------------------------
-  # Test Tenant - Integration Testing
-  # ---------------------------------------------------------------------------
-  test-tenant = {
-    tenant_name  = "test-tenant"
-    display_name = "Integration Test Tenant"
+  wlrs-water-form-assistant = {
+    tenant_name  = "wlrs-water-form-assistant"
+    display_name = "WLRS Water Form Assistant"
     enabled      = true
 
     tags = {
-      purpose = "integration-testing"
+      ministry    = "WLRS"
+      environment = "test"
     }
 
     key_vault = {
-      enabled                    = true
+      enabled                    = false
       sku                        = "standard"
       purge_protection_enabled   = true
       soft_delete_retention_days = 30 # Shorter retention for test
@@ -42,7 +40,7 @@ tenants = {
     }
 
     cosmos_db = {
-      enabled                      = true
+      enabled                      = false
       offer_type                   = "Standard"
       kind                         = "GlobalDocumentDB"
       consistency_level            = "Session"

@@ -117,18 +117,21 @@ module "apim" {
   resource_group_name = azurerm_resource_group.main.name
   location            = var.location
 
-  sku_name        = lookup(local.apim_config, "sku_name", "StandardV2")
+  sku_name        = lookup(local.apim_config, "sku_name", "StandardV2_1")
   publisher_name  = lookup(local.apim_config, "publisher_name", "AI Hub")
   publisher_email = lookup(local.apim_config, "publisher_email", "admin@example.com")
 
   # stv2: Use private endpoints instead of VNet injection
+  # Boolean flags are known at plan time, avoiding for_each issues
+  enable_private_endpoint    = true
   private_endpoint_subnet_id = module.network.private_endpoint_subnet_id
   private_dns_zone_ids       = lookup(local.apim_config, "private_dns_zone_ids", [])
 
   # Per-tenant products
   tenant_products = local.tenant_products
 
-  # Diagnostics
+  # Diagnostics - Boolean flag known at plan time
+  enable_diagnostics         = true
   log_analytics_workspace_id = module.ai_foundry_hub.log_analytics_workspace_id
 
   tags = var.common_tags

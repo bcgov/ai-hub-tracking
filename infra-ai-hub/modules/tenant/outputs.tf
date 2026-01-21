@@ -133,8 +133,8 @@ output "openai_endpoint" {
 }
 
 output "openai_deployment_ids" {
-  description = "Map of OpenAI deployment names to their IDs"
-  value       = var.openai.enabled ? module.openai[0].cognitive_deployment_ids : {}
+  description = "Map of OpenAI deployment names to their resource IDs"
+  value       = var.openai.enabled ? module.openai[0].resource_cognitive_deployment : {}
 }
 
 # =============================================================================

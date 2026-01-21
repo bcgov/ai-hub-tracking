@@ -2,6 +2,31 @@
 # Uses Azure Verified Module for APIM v2 with Private Endpoints (not VNet injection)
 
 # =============================================================================
+# LOCAL VARIABLES - Use boolean flags known at plan time for for_each keys
+# =============================================================================
+locals {
+  # Private endpoints - use boolean flag (known at plan time) to control creation
+  private_endpoints = var.enable_private_endpoint ? {
+    primary = {
+      name                          = "${var.name}-pe"
+      subnet_resource_id            = var.private_endpoint_subnet_id
+      private_dns_zone_resource_ids = var.private_dns_zone_ids
+      tags                          = var.tags
+    }
+  } : {}
+
+  # Diagnostic settings - use boolean flag (known at plan time) to control creation
+  diagnostic_settings = var.enable_diagnostics ? {
+    to_law = {
+      name                  = "${var.name}-diag"
+      workspace_resource_id = var.log_analytics_workspace_id
+      log_groups            = ["allLogs"]
+      metric_categories     = ["AllMetrics"]
+    }
+  } : {}
+}
+
+# =============================================================================
 # API MANAGEMENT SERVICE (using AVM) - stv2 platform
 # =============================================================================
 module "apim" {
@@ -24,16 +49,8 @@ module "apim" {
     system_assigned = true
   }
 
-  # Private endpoints for stv2
-  private_endpoints = var.private_endpoint_subnet_id != null ? {
-    primary = {
-      name                          = "${var.name}-pe"
-      subnet_resource_id            = var.private_endpoint_subnet_id
-      private_dns_zone_resource_ids = var.private_dns_zone_ids
-
-      tags = var.tags
-    }
-  } : {}
+  # Private endpoints for stv2 (using static keys from local)
+  private_endpoints = local.private_endpoints
 
   # Per-tenant products
   products = {
@@ -55,15 +72,8 @@ module "apim" {
   # Named Values (for secrets and configuration)
   named_values = var.named_values
 
-  # Diagnostic settings
-  diagnostic_settings = var.log_analytics_workspace_id != null ? {
-    to_law = {
-      name                  = "${var.name}-diag"
-      workspace_resource_id = var.log_analytics_workspace_id
-      log_groups            = ["allLogs"]
-      metric_categories     = ["AllMetrics"]
-    }
-  } : {}
+  # Diagnostic settings (using static keys from local)
+  diagnostic_settings = local.diagnostic_settings
 
   tags             = var.tags
   enable_telemetry = var.enable_telemetry

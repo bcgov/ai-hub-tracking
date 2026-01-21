@@ -34,8 +34,14 @@ variable "publisher_email" {
   type        = string
 }
 
+variable "enable_private_endpoint" {
+  description = "Whether to create a private endpoint for APIM. Must be set explicitly to avoid plan-time evaluation issues."
+  type        = bool
+  default     = false
+}
+
 variable "private_endpoint_subnet_id" {
-  description = "Subnet ID for APIM private endpoint (stv2)"
+  description = "Subnet ID for APIM private endpoint (stv2). Required when enable_private_endpoint is true."
   type        = string
   default     = null
 }
@@ -46,8 +52,14 @@ variable "private_dns_zone_ids" {
   default     = []
 }
 
+variable "enable_diagnostics" {
+  description = "Whether to enable diagnostic settings. Must be set explicitly to avoid plan-time evaluation issues."
+  type        = bool
+  default     = false
+}
+
 variable "log_analytics_workspace_id" {
-  description = "Log Analytics Workspace ID for diagnostics"
+  description = "Log Analytics Workspace ID for diagnostics. Required when enable_diagnostics is true."
   type        = string
   default     = null
 }
