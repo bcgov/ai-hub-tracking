@@ -130,6 +130,12 @@ module "apim" {
   # Per-tenant products
   tenant_products = local.tenant_products
 
+  # Per-tenant APIs (one API per tenant with path-based routing)
+  apis = local.tenant_apis
+
+  # Global policy with PII redaction and prompt injection protection
+  global_policy_xml = local.apim_global_policy_xml
+
   # Diagnostics - Boolean flag known at plan time
   enable_diagnostics         = true
   log_analytics_workspace_id = module.ai_foundry_hub.log_analytics_workspace_id
@@ -138,6 +144,190 @@ module "apim" {
 
   depends_on = [module.network, module.ai_foundry_hub]
 }
+
+# -----------------------------------------------------------------------------
+# APIM Named Values (tenant service endpoints)
+# Created separately to reference module.tenant outputs
+# -----------------------------------------------------------------------------
+
+# OpenAI endpoints
+resource "azurerm_api_management_named_value" "openai_endpoint" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.openai.enabled && local.apim_config.enabled
+  }
+
+  name                = "${each.key}-openai-endpoint"
+  resource_group_name = azurerm_resource_group.main.name
+  api_management_name = module.apim[0].name
+  display_name        = "${each.value.display_name} OpenAI Endpoint"
+  value               = module.tenant[each.key].openai_endpoint
+  secret              = false
+  tags                = ["tenant:${each.key}", "service:openai"]
+
+  depends_on = [module.apim, module.tenant]
+}
+
+# Document Intelligence endpoints
+resource "azurerm_api_management_named_value" "docint_endpoint" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.document_intelligence.enabled && local.apim_config.enabled
+  }
+
+  name                = "${each.key}-docint-endpoint"
+  resource_group_name = azurerm_resource_group.main.name
+  api_management_name = module.apim[0].name
+  display_name        = "${each.value.display_name} Document Intelligence Endpoint"
+  value               = module.tenant[each.key].document_intelligence_endpoint
+  secret              = false
+  tags                = ["tenant:${each.key}", "service:document-intelligence"]
+
+  depends_on = [module.apim, module.tenant]
+}
+
+# Storage endpoints
+resource "azurerm_api_management_named_value" "storage_endpoint" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.storage_account.enabled && local.apim_config.enabled
+  }
+
+  name                = "${each.key}-storage-endpoint"
+  resource_group_name = azurerm_resource_group.main.name
+  api_management_name = module.apim[0].name
+  display_name        = "${each.value.display_name} Storage Endpoint"
+  value               = module.tenant[each.key].storage_account_primary_blob_endpoint
+  secret              = false
+  tags                = ["tenant:${each.key}", "service:storage"]
+
+  depends_on = [module.apim, module.tenant]
+}
+
+# -----------------------------------------------------------------------------
+# APIM API Policies (per-tenant routing policies)
+# Applied to each tenant API to route to their services
+# -----------------------------------------------------------------------------
+resource "azurerm_api_management_api_policy" "tenant" {
+  for_each = {
+    for key, policy in local.tenant_api_policies : key => policy
+    if policy != null && local.apim_config.enabled
+  }
+
+  api_name            = each.key
+  api_management_name = module.apim[0].name
+  resource_group_name = azurerm_resource_group.main.name
+  xml_content         = each.value
+
+  depends_on = [
+    module.apim,
+    azurerm_api_management_named_value.openai_endpoint,
+    azurerm_api_management_named_value.docint_endpoint,
+    azurerm_api_management_named_value.storage_endpoint
+  ]
+}
+
+# -----------------------------------------------------------------------------
+# APIM Managed Identity RBAC Grants (access to tenant resources)
+# Grants APIM system-assigned identity access to route requests
+# -----------------------------------------------------------------------------
+
+# Cognitive Services OpenAI User - for OpenAI endpoints
+resource "azurerm_role_assignment" "apim_openai_user" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.openai.enabled && local.apim_config.enabled
+  }
+
+  scope                = module.tenant[each.key].openai_id
+  role_definition_name = "Cognitive Services OpenAI User"
+  principal_id         = module.apim[0].principal_id
+
+  depends_on = [module.apim, module.tenant]
+}
+
+# Cognitive Services User - for Document Intelligence
+resource "azurerm_role_assignment" "apim_docint_user" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.document_intelligence.enabled && local.apim_config.enabled
+  }
+
+  scope                = module.tenant[each.key].document_intelligence_id
+  role_definition_name = "Cognitive Services User"
+  principal_id         = module.apim[0].principal_id
+
+  depends_on = [module.apim, module.tenant]
+}
+
+# Storage Blob Data Reader - for Storage endpoints
+resource "azurerm_role_assignment" "apim_storage_reader" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.storage_account.enabled && local.apim_config.enabled
+  }
+
+  scope                = module.tenant[each.key].storage_account_id
+  role_definition_name = "Storage Blob Data Reader"
+  principal_id         = module.apim[0].principal_id
+
+  depends_on = [module.apim, module.tenant]
+}
+
+# -----------------------------------------------------------------------------
+# APIM Subscriptions (for subscription_key auth mode)
+# Creates subscription keys for tenants using key-based authentication
+# -----------------------------------------------------------------------------
+resource "azurerm_api_management_subscription" "tenant" {
+  for_each = {
+    for key, config in local.tenant_subscriptions : key => config
+    if local.apim_config.enabled
+  }
+
+  api_management_name = module.apim[0].name
+  resource_group_name = azurerm_resource_group.main.name
+  display_name        = each.value.display_name
+  product_id          = "${module.apim[0].id}/products/${each.value.product_id}"
+  state               = each.value.state
+  allow_tracing       = each.value.allow_tracing
+
+  depends_on = [module.apim]
+}
+
+# Store subscription keys in tenant Key Vault (optional - disabled by default)
+# WARNING: Only enable if Key Vault does NOT have auto-rotation policies!
+# Auto-rotated secrets would break APIM keys since the new value
+# won't match the actual APIM subscription key.
+resource "azurerm_key_vault_secret" "apim_subscription_primary_key" {
+  for_each = {
+    for key, config in local.tenants_with_subscription_key : key => config
+    if config.key_vault.enabled && local.apim_config.enabled && lookup(lookup(config, "apim_auth", {}), "store_in_keyvault", false)
+  }
+
+  name         = "apim-subscription-primary-key"
+  value        = azurerm_api_management_subscription.tenant["${each.key}-subscription"].primary_key
+  key_vault_id = module.tenant[each.key].key_vault_id
+
+  depends_on = [module.tenant, azurerm_api_management_subscription.tenant]
+}
+
+resource "azurerm_key_vault_secret" "apim_subscription_secondary_key" {
+  for_each = {
+    for key, config in local.tenants_with_subscription_key : key => config
+    if config.key_vault.enabled && local.apim_config.enabled && lookup(lookup(config, "apim_auth", {}), "store_in_keyvault", false)
+  }
+
+  name         = "apim-subscription-secondary-key"
+  value        = azurerm_api_management_subscription.tenant["${each.key}-subscription"].secondary_key
+  key_vault_id = module.tenant[each.key].key_vault_id
+
+  depends_on = [module.tenant, azurerm_api_management_subscription.tenant]
+}
+
+# -----------------------------------------------------------------------------
+# Azure AD App Registrations (for oauth2 auth mode)
+# TODO
+# -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
 # Application Gateway (optional, WAF in front of APIM)

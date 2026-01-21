@@ -78,5 +78,20 @@ tenants = {
         }
       ]
     }
+    # APIM Authentication Configuration
+    # Controls how clients authenticate to this tenant's APIs
+    # Options:
+    #   mode = "subscription_key" (default) - Simple API key in header
+    #   mode = "oauth2" - Azure AD OAuth2 with JWT tokens
+    #   store_in_keyvault = false (default) - Do NOT store in KV (avoids auto-rotation issues)
+    apim_auth = {
+      mode              = "subscription_key" # Start with subscription key, switch to oauth2 later
+      store_in_keyvault = false              # Keep false if KV has auto-rotation policies!
+      # oauth2 settings (only used when mode = "oauth2"):
+      # oauth2 = {
+      #   existing_app_id     = null          # Use existing app registration
+      #   secret_expiry_hours = 8760          # 1 year
+      # }
+    }
   }
 }

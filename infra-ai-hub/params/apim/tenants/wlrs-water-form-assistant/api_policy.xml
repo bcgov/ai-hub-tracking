@@ -1,0 +1,79 @@
+<!--
+  =============================================================================
+  TENANT API POLICY: wlrs-water-form-assistant
+  =============================================================================
+  This policy applies to the tenant's API in APIM.
+  Customize as needed for tenant-specific routing, rate limiting, etc.
+  =============================================================================
+-->
+<policies>
+    <inbound>
+        <base />
+        <!--
+        =====================================================================
+        TENANT-SPECIFIC CONFIGURATION
+        Add tenant-specific inbound policies here, such as:
+        - Custom rate limiting
+        - Tenant-specific headers
+        - Request validation
+        =====================================================================
+        -->
+        <set-header name="X-Tenant-Id" exists-action="override">
+            <value>wlrs-water-form-assistant</value>
+        </set-header>
+        
+        <!--
+        =====================================================================
+        SERVICE ROUTING
+        Route requests based on path to the appropriate backend service:
+        - /openai/*  -> OpenAI endpoint
+        - /docint/*  -> Document Intelligence endpoint
+        - /storage/* -> Storage endpoint
+        =====================================================================
+        -->
+        <choose>
+            <when condition="@(context.Request.MatchedParameters.ContainsKey("service") && context.Request.MatchedParameters["service"] == "openai")">
+                <set-backend-service base-url="{{wlrs-openai-endpoint}}" />
+                <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
+            </when>
+            <when condition="@(context.Request.MatchedParameters.ContainsKey("service") && context.Request.MatchedParameters["service"] == "docint")">
+                <set-backend-service base-url="{{wlrs-docint-endpoint}}" />
+                <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
+            </when>
+            <when condition="@(context.Request.MatchedParameters.ContainsKey("service") && context.Request.MatchedParameters["service"] == "storage")">
+                <set-backend-service base-url="{{wlrs-storage-endpoint}}" />
+                <authentication-managed-identity resource="https://storage.azure.com" />
+            </when>
+            <otherwise>
+                <return-response>
+                    <set-status code="404" reason="Not Found" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>{"error": {"code": "ServiceNotFound", "message": "Unknown service. Valid services: openai, docint, storage"}}</set-body>
+                </return-response>
+            </otherwise>
+        </choose>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+        <!--
+        =====================================================================
+        TENANT-SPECIFIC OUTBOUND PROCESSING
+        Add tenant-specific outbound policies here, such as:
+        - Response transformation
+        - Custom headers
+        - Logging
+        =====================================================================
+        -->
+    </outbound>
+    <on-error>
+        <base />
+        <set-header name="X-Error-Source" exists-action="override">
+            <value>wlrs-water-form-assistant</value>
+        </set-header>
+    </on-error>
+</policies>

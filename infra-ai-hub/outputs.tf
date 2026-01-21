@@ -150,3 +150,43 @@ output "shared_config" {
   description = "Shared configuration loaded from params"
   value       = var.shared_config
 }
+
+# =============================================================================
+# APIM AUTHENTICATION OUTPUTS
+# =============================================================================
+output "apim_tenant_subscriptions" {
+  description = "Map of tenant names to their APIM subscription keys (for subscription_key auth mode)"
+  sensitive   = true
+  value = {
+    for key, sub in azurerm_api_management_subscription.tenant :
+    trimsuffix(key, "-subscription") => {
+      subscription_id = sub.subscription_id
+      primary_key     = sub.primary_key
+      secondary_key   = sub.secondary_key
+      product_id      = sub.product_id
+      state           = sub.state
+    }
+  }
+}
+
+
+output "apim_tenant_auth_summary" {
+  description = "Summary of authentication configuration per tenant"
+  value = {
+    for key, config in local.enabled_tenants : key => {
+      auth_mode         = lookup(lookup(config, "apim_auth", {}), "mode", "subscription_key")
+      store_in_keyvault = lookup(lookup(config, "apim_auth", {}), "store_in_keyvault", false)
+      credentials_location = lookup(lookup(config, "apim_auth", {}), "store_in_keyvault", false) ? (
+        "Key Vault: ${key} - apim-subscription-primary-key or apim-client-id/secret"
+        ) : (
+        "Azure Portal: APIM → Subscriptions → ${key}-subscription → Show Keys"
+      )
+      # How platform team distributes keys
+      distribution_method = lookup(lookup(config, "apim_auth", {}), "store_in_keyvault", false) ? (
+        "Grant tenant team Key Vault access"
+        ) : (
+        "Platform team retrieves from Azure Portal and shares securely"
+      )
+    }
+  }
+}

@@ -256,6 +256,25 @@ variable "tenants" {
         capacity      = optional(number, 10)
       })), [])
     })
+
+    # APIM Authentication configuration
+    # Controls how clients authenticate to this tenant's APIs
+    apim_auth = optional(object({
+      # Auth mode: "subscription_key" (simple API key) or "oauth2" (Azure AD)
+      mode = optional(string, "subscription_key")
+      # Store credentials in Key Vault (default: false)
+      # WARNING: Set to false if Key Vault has auto-rotation policies!
+      # Auto-rotated secrets would break APIM keys since the new value
+      # won't match the actual APIM subscription key.
+      store_in_keyvault = optional(bool, false)
+      # OAuth2 settings (only used when mode = "oauth2")
+      oauth2 = optional(object({
+        # If existing_app_id is set, use that instead of creating a new one
+        existing_app_id = optional(string)
+        # Token expiration in hours (for created secrets)
+        secret_expiry_hours = optional(number, 8760) # 1 year
+      }), {})
+    }), { mode = "subscription_key", store_in_keyvault = false })
   }))
   default = {}
 }

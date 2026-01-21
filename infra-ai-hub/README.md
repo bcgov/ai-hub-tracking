@@ -390,19 +390,85 @@ flowchart TB
 
 **Path**: `modules/apim`
 
-API Management for exposing AI services with per-tenant products.
+API Management for exposing AI services with per-tenant products and path-based routing.
 
 #### Inputs
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
 | `name` | string | ✅ | APIM instance name |
-| `sku_name` | string | ❌ | APIM SKU (default: Premium_1) |
-| `products` | map | ❌ | Per-tenant products |
-| `apis` | map | ❌ | API definitions |
-| `subscriptions` | map | ❌ | API subscriptions |
-| `named_values` | map | ❌ | Named values/secrets |
-| `global_policy_xml` | string | ❌ | Global policy XML |
+| `sku_name` | string | ❌ | APIM SKU (default: StandardV2_1) |
+| `tenant_products` | map | ❌ | Per-tenant products |
+| `apis` | map | ❌ | Per-tenant API definitions with path routing |
+| `named_values` | map | ❌ | Named values (created as separate resources) |
+| `global_policy_xml` | string | ❌ | Global policy with PII redaction & prompt injection |
+| `enable_private_endpoint` | bool | ❌ | Enable private endpoint (stv2) |
+| `private_endpoint_subnet_id` | string | ❌ | PE subnet for APIM (stv2 only) |
+
+#### Tenant Routing Architecture
+
+Each tenant gets:
+1. **Product** - Subscription container for tenant APIs
+2. **API** - Path `/{tenant-name}` with wildcard operations `/{service}/{*path}`
+3. **Named Values** - Endpoints for tenant services (`{tenant}-openai-endpoint`, `{tenant}-docint-endpoint`, `{tenant}-storage-endpoint`)
+4. **Policy** - Custom XML routing policies per tenant (loaded from `params/apim/tenants/{tenant}/api_policy.xml`)
+5. **RBAC** - APIM managed identity granted access to tenant resources
+
+```mermaid
+flowchart TB
+    CLIENT["Client Request<br/>/wlrs/openai/chat"]
+    
+    subgraph "APIM"
+        GP["Global Policy<br/>PII Redaction<br/>Prompt Protection"]
+        API["Tenant API<br/>/wlrs"]
+        POLICY["Tenant Policy<br/>Service Routing"]
+    end
+    
+    subgraph "Tenant Resources"
+        OAI["OpenAI<br/>{{wlrs-openai-endpoint}}"]
+        DOCINT["Doc Intelligence<br/>{{wlrs-docint-endpoint}}"]
+        STG["Storage<br/>{{wlrs-storage-endpoint}}"]
+    end
+    
+    CLIENT --> GP
+    GP --> API
+    API --> POLICY
+    POLICY -->|/openai/*| OAI
+    POLICY -->|/docint/*| DOCINT
+    POLICY -->|/storage/*| STG
+    
+    APIM_ID["APIM Managed Identity"]
+    APIM_ID -->|OpenAI User| OAI
+    APIM_ID -->|CogServices User| DOCINT
+    APIM_ID -->|Storage Reader| STG
+```
+
+#### Global Policy
+
+**File**: `params/apim/global_policy.xml`
+
+Applied to all APIs:
+- **PII Redaction**: Detects and masks SSN, credit cards, emails, phone numbers in request/response
+- **Prompt Injection Detection**: Scans for jailbreak patterns and suspicious prompts
+
+#### Tenant-Specific Policies
+
+**File**: `params/apim/tenants/{tenant}/api_policy.xml`
+
+Example for tenant `wlrs-water-form-assistant`:
+```xml
+<when condition="@(...openai...)">
+  <set-backend-service base-url="{{wlrs-openai-endpoint}}" />
+  <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
+</when>
+```
+
+#### Validation Checks
+
+Two plan-time validation checks ensure configuration consistency:
+
+1. **Tenant Policy Name Mismatch** - X-Tenant-Id header in policy must match folder name
+2. **Policy Missing Services** - Policy cannot reference services that are disabled (e.g., `{{wlrs-openai-endpoint}}` when openai is disabled)
 
 ---
 
@@ -592,9 +658,226 @@ terraform apply
 | OpenAI | `openai.enabled` | true | LLM endpoints |
 | Doc Intel | `document_intelligence.enabled` | false | Document parsing |
 
+### APIM Authentication Configuration
+
+Each tenant can be configured with one of two authentication modes:
+
+| Mode | Config Value | Use Case |
+|------|-------------|----------|
+| Subscription Key | `apim_auth.mode = "subscription_key"` | Simple API key, quick setup |
+| OAuth 2.0 / Azure AD | `apim_auth.mode = "oauth2"` | Enterprise, short-lived tokens |
+
+#### Key Storage Warning ⚠️
+
+```hcl
+apim_auth = {
+  mode              = "subscription_key"
+  store_in_keyvault = false  # DEFAULT - recommended!
+}
+```
+
+**Why `store_in_keyvault = false` is the default:**
+- Many organizations have Key Vault policies that auto-rotate secrets every 90 days
+- If APIM keys are stored in Key Vault, auto-rotation generates a NEW random value
+- This breaks all client apps since the rotated value doesn't match the actual APIM key
+- APIM subscription keys should be rotated **in APIM**, not in Key Vault
+
+#### Subscription Key Mode (Default) - Recommended Workflow
+
+```hcl
+apim_auth = {
+  mode              = "subscription_key"
+  store_in_keyvault = false  # Avoid auto-rotation issues
+}
+```
+
+**Key Distribution Process (Admin-Assisted):**
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ 1. Platform Team deploys infrastructure                             │
+│    terraform apply                                                  │
+│                                                                     │
+│ 2. Platform Team retrieves keys from Azure Portal:                  │
+│    Azure Portal → APIM → Subscriptions → {tenant}-subscription     │
+│    → Show Keys → Copy Primary Key                                  │
+│                                                                     │
+│ 3. Platform Team shares key securely with Tenant Team:              │
+│    - Use secure channel (encrypted email, Teams DM, etc.)          │
+│    - Or store in team's existing secrets management system          │
+│                                                                     │
+│ 4. Tenant Team configures their application:                        │
+│    - Store key in their app's Key Vault or config                  │
+│    - Use in requests via Ocp-Apim-Subscription-Key header          │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Client usage:**
+```bash
+curl -X POST https://api.example.com/wlrs/openai/v1/chat/completions \
+  -H "Ocp-Apim-Subscription-Key: abc123xyz789..." \
+  -H "Content-Type: application/json"
+```
+
+**Key Rotation Process:**
+1. Platform team regenerates key in Azure Portal (APIM → Subscriptions → Regenerate)
+2. Platform team shares new key with tenant team
+3. Tenant team updates their app configuration
+
+**Terraform output (for automation):**
+```bash
+terraform output -json apim_tenant_subscriptions
+```
+
+#### OAuth 2.0 Mode
+
+```hcl
+apim_auth = {
+  mode              = "oauth2"
+  store_in_keyvault = false  # Avoid auto-rotation issues
+  oauth2 = {
+    secret_expiry_hours = 8760  # 1 year (optional)
+  }
+}
+```
+
+**Client usage:**
+```python
+from azure.identity import ClientSecretCredential
+
+credential = ClientSecretCredential(
+    tenant_id="...",
+    client_id="...",      # From platform team
+    client_secret="..."   # From platform team
+)
+token = credential.get_token("api://ai-hub-api/.default")
+
+requests.post(
+    "https://api.example.com/wlrs/openai/v1/chat/completions",
+    headers={"Authorization": f"Bearer {token.token}"}
+)
+```
+
+**Get credentials:**
+```bash
+terraform output -json apim_tenant_oauth2_secrets
+```
+
+**Summary of auth configuration:**
+```bash
+terraform output apim_tenant_auth_summary
+```
+
+#### Switching Auth Modes
+
+To migrate from subscription key to OAuth2:
+
+1. Update tenant config:
+```hcl
+apim_auth = {
+  mode = "oauth2"  # Changed from "subscription_key"
+}
+```
+
+2. Run `terraform apply` - creates Azure AD app registration
+3. Update client applications to use OAuth2 flow
+4. Old subscription key is deleted automatically
+
 ---
 
 ## Operations Runbook
+
+### Adding a New Tenant to APIM
+
+When a new tenant is enabled with APIM:
+
+#### 1. Create Tenant Policy File
+
+Create `params/apim/tenants/{tenant-name}/api_policy.xml`:
+
+```xml
+<policies>
+    <inbound>
+        <base />
+        <set-header name="X-Tenant-Id" exists-action="override">
+            <value>{tenant-name}</value>
+        </set-header>
+        <choose>
+            <when condition="@(context.Request.MatchedParameters.ContainsKey(\"service\") && ...)">
+                <set-backend-service base-url="{{TENANT-NAME-openai-endpoint}}" />
+                <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
+            </when>
+            <!-- Add more services as needed -->
+        </choose>
+    </inbound>
+    <outbound>
+        <base />
+    </outbound>
+</policies>
+```
+
+Key requirements:
+- `X-Tenant-Id` header must match folder name (validated at plan time)
+- Named value references must match enabled services (validated at plan time)
+- Use managed identity auth for backend services
+
+#### 2. Enable Services in Tenant Config
+
+In `params/{app_env}/tenants.tfvars`, set `enabled = true` for services referenced in the policy:
+
+```hcl
+tenants = {
+  "my-tenant" = {
+    enabled = true
+    openai = { enabled = true, ... }
+    document_intelligence = { enabled = true, ... }
+    # etc.
+  }
+}
+```
+
+#### 3. Deploy
+
+Run `deploy-terraform.sh plan` - validation checks will catch mismatches:
+- ❌ X-Tenant-Id doesn't match folder name
+- ❌ Policy references `{{my-tenant-openai-endpoint}}` but openai is disabled
+
+#### 4. Review APIM Resources
+
+After apply, verify in Azure Portal:
+- APIM → Products → {tenant-name}
+- APIM → APIs → {tenant-name}
+- APIM → Named Values → {tenant-name}-*-endpoint
+
+### Updating APIM Global Policy
+
+Edit `params/apim/global_policy.xml` to modify:
+- PII redaction patterns
+- Prompt injection detection rules
+- Rate limiting
+- Authentication
+
+Changes apply to **all** APIs immediately on next apply.
+
+### Monitoring APIM
+
+**Gateway Logs (KQL)**:
+```kusto
+ApiManagementGatewayLogs
+| where Properties has "X-Tenant-Id"
+| project TimeGenerated, Properties.Headers_x_tenant_id, ResponseCode, ResponseTime
+| order by TimeGenerated desc
+```
+
+**Policy Errors**:
+```kusto
+ApiManagementGatewayLogs
+| where ResponseCode >= 400
+| where RequestPath has "/openai" or RequestPath has "/docint"
+| project TimeGenerated, RequestPath, ResponseCode, Message
+```
+
+---
 
 ### Monitoring Architecture
 
@@ -746,6 +1029,7 @@ infra-ai-hub/
 ├── outputs.tf                 # Module outputs
 ├── providers.tf               # Provider config
 ├── backend.tf                 # State backend
+├── locals.tf                  # Local values & validation checks
 ├── terraform.tfvars           # Variable values
 │
 ├── modules/
@@ -763,13 +1047,21 @@ infra-ai-hub/
 │   └── wait-for-dns-zone.sh   # DNS propagation wait
 │
 └── params/
-    ├── dev/
-    │   ├── shared/
-    │   │   └── config.tfvars.json
+    ├── apim/
+    │   ├── global_policy.xml  # PII redaction & prompt injection
     │   └── tenants/
-    │       └── *.tfvars.json
+    │       └── {tenant-name}/
+    │           └── api_policy.xml   # Tenant-specific routing
+    │
+    ├── dev/
+    │   ├── shared.tfvars      # Shared config (APIM, App GW, etc.)
+    │   └── tenants.tfvars     # Tenant configs (per-tenant services)
     ├── test/
+    │   ├── shared.tfvars
+    │   └── tenants.tfvars
     └── prod/
+        ├── shared.tfvars
+        └── tenants.tfvars
 ```
 
 ---

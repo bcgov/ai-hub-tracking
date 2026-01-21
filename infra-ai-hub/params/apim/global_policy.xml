@@ -1,0 +1,129 @@
+<!--
+  =============================================================================
+  APIM GLOBAL POLICY
+  =============================================================================
+  This policy applies to ALL APIs in the API Management service.
+  Includes:
+  - Prompt Injection Protection (inbound)
+  - PII Redaction (inbound and outbound)
+  =============================================================================
+-->
+<policies>
+    <inbound>
+        <base />
+        <!-- 
+        =====================================================================
+        PROMPT INJECTION PROTECTION (Inbound)
+        Detects and blocks common jailbreak/prompt injection patterns in requests
+        =====================================================================
+        -->
+        <set-variable name="requestBodyText" value="@(context.Request.Body.As<string>(preserveContent: true) ?? "")" />
+        <choose>
+            <!-- Check for common prompt injection patterns -->
+            <when condition="@{
+                var body = (string)context.Variables["requestBodyText"];
+                if (string.IsNullOrEmpty(body)) return false;
+                body = body.ToLowerInvariant();
+                
+                // Common jailbreak/injection patterns
+                string[] injectionPatterns = new string[] {
+                    "ignore previous instructions",
+                    "ignore all previous",
+                    "disregard previous",
+                    "forget your instructions",
+                    "you are now",
+                    "pretend to be",
+                    "act as if you",
+                    "bypass your",
+                    "override your",
+                    "jailbreak",
+                    "dan mode",
+                    "do anything now",
+                    "developer mode",
+                    "ignore safety",
+                    "ignore guidelines",
+                    "ignore restrictions",
+                    "system prompt:",
+                    "new instructions:",
+                    "you must obey",
+                    "reveal your system prompt",
+                    "show your instructions",
+                    "what are your instructions"
+                };
+                
+                foreach (var pattern in injectionPatterns) {
+                    if (body.Contains(pattern)) return true;
+                }
+                return false;
+            }">
+                <return-response>
+                    <set-status code="400" reason="Bad Request" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>{"error": {"code": "PromptInjectionDetected", "message": "Request blocked due to potential prompt injection attempt."}}</set-body>
+                </return-response>
+            </when>
+        </choose>
+        
+        <!--
+        =====================================================================
+        PII REDACTION (Inbound) - Mask sensitive data in requests
+        =====================================================================
+        -->
+        <set-variable name="piiRedactedRequest" value="@{
+            var body = (string)context.Variables["requestBodyText"];
+            if (string.IsNullOrEmpty(body)) return body;
+            
+            // SSN pattern: XXX-XX-XXXX or XXXXXXXXX
+            body = System.Text.RegularExpressions.Regex.Replace(body, @"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b", "[SSN-REDACTED]");
+            
+            // Credit Card patterns (Visa, MC, Amex, Discover)
+            body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12})\b", "[CC-REDACTED]");
+            
+            // Email addresses
+            body = System.Text.RegularExpressions.Regex.Replace(body, @"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", "[EMAIL-REDACTED]");
+            
+            // Phone numbers (various formats)
+            body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}\b", "[PHONE-REDACTED]");
+            
+            return body;
+        }" />
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+        <!--
+        =====================================================================
+        PII REDACTION (Outbound) - Mask sensitive data in responses
+        =====================================================================
+        -->
+        <set-variable name="responseBodyText" value="@(context.Response.Body.As<string>(preserveContent: true) ?? "")" />
+        <choose>
+            <when condition="@(!string.IsNullOrEmpty((string)context.Variables["responseBodyText"]))">
+                <set-body>@{
+                    var body = (string)context.Variables["responseBodyText"];
+                    
+                    // SSN pattern: XXX-XX-XXXX or XXXXXXXXX
+                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b", "[SSN-REDACTED]");
+                    
+                    // Credit Card patterns
+                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12})\b", "[CC-REDACTED]");
+                    
+                    // Email addresses
+                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", "[EMAIL-REDACTED]");
+                    
+                    // Phone numbers
+                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}\b", "[PHONE-REDACTED]");
+                    
+                    return body;
+                }</set-body>
+            </when>
+        </choose>
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>

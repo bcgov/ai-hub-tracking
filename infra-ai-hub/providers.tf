@@ -5,6 +5,10 @@ terraform {
       source  = "hashicorp/azurerm"
       version = ">= 4.38"
     }
+    azuread = {
+      source  = "hashicorp/azuread"
+      version = ">= 3.0"
+    }
     azapi = {
       source  = "Azure/azapi"
       version = ">= 2.5"
@@ -38,6 +42,12 @@ provider "azurerm" {
   tenant_id       = var.tenant_id
   use_oidc        = var.use_oidc
   client_id       = var.client_id
+}
+
+provider "azuread" {
+  tenant_id = var.tenant_id
+  use_oidc  = var.use_oidc
+  client_id = var.client_id
 }
 
 provider "azapi" {
