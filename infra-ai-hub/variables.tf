@@ -128,7 +128,7 @@ variable "shared_config" {
     # API Management settings
     apim = object({
       enabled                = bool
-      sku_name               = optional(string, "Standard_v2")
+      sku_name               = optional(string, "StandardV2_1")
       publisher_name         = optional(string, "AI Hub")
       publisher_email        = optional(string, "admin@example.com")
       vnet_injection_enabled = optional(bool, false)

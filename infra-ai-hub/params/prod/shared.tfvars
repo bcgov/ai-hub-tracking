@@ -44,7 +44,7 @@ shared_config = {
   # ---------------------------------------------------------------------------
   apim = {
     enabled  = true
-    sku_name = "StandardV2"
+    sku_name = "PremiumV2_1"
 
     publisher_name  = "AI Hub Production"
     publisher_email = "ai-hub-prod@example.com"

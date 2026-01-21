@@ -14,13 +14,13 @@ variable "location" {
 }
 
 variable "sku_name" {
-  description = "SKU name for APIM (stv2). StandardV2 for cost-effective, PremiumV2 for VNet injection and advanced features."
+  description = "SKU name for APIM (stv2). StandardV2_1-10 for cost-effective, PremiumV2_1-30 for VNet injection and advanced features."
   type        = string
-  default     = "StandardV2"
+  default     = "StandardV2_1"
 
   validation {
-    condition     = contains(["StandardV2", "PremiumV2"], var.sku_name)
-    error_message = "sku_name must be either StandardV2 or PremiumV2"
+    condition     = can(regex("^(StandardV2_[1-9]|StandardV2_10|PremiumV2_([1-9]|[12][0-9]|30))$", var.sku_name))
+    error_message = "sku_name must be one of: StandardV2_1 through StandardV2_10, PremiumV2_1 through PremiumV2_30"
   }
 }
 
