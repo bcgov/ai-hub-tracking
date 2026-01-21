@@ -1,25 +1,26 @@
+# =============================================================================
+# INFRASTRUCTURE OUTPUTS
+# =============================================================================
 output "resource_group_name" {
-  description = "Resource group name"
+  description = "Name of the main resource group"
   value       = azurerm_resource_group.main.name
 }
 
-output "key_vault_id" {
-  description = "Key Vault resource ID"
-  value       = azurerm_key_vault.main.id
+output "resource_group_id" {
+  description = "Resource ID of the main resource group"
+  value       = azurerm_resource_group.main.id
 }
 
-output "key_vault_name" {
-  description = "Key Vault name"
-  value       = azurerm_key_vault.main.name
-}
-
+# =============================================================================
+# NETWORK OUTPUTS
+# =============================================================================
 output "private_endpoint_subnet_id" {
-  description = "Resource ID of the private endpoint subnet created in the existing VNet"
+  description = "Resource ID of the private endpoint subnet"
   value       = module.network.private_endpoint_subnet_id
 }
 
 output "private_endpoint_subnet_cidr" {
-  description = "CIDR of the derived private endpoint subnet"
+  description = "CIDR of the private endpoint subnet"
   value       = module.network.private_endpoint_subnet_cidr
 }
 
@@ -28,10 +29,124 @@ output "private_endpoint_nsg_id" {
   value       = module.network.private_endpoint_nsg_id
 }
 
-/* output "secret_names" {
-  description = "Names of the example secrets created in the Key Vault"
-  value = [
-    azurerm_key_vault_secret.secret_one.name,
-    azurerm_key_vault_secret.secret_two.name
-  ]
-} */
+# =============================================================================
+# AI FOUNDRY HUB OUTPUTS
+# =============================================================================
+output "ai_foundry_hub_id" {
+  description = "Resource ID of the shared AI Foundry hub"
+  value       = module.ai_foundry_hub.id
+}
+
+output "ai_foundry_hub_name" {
+  description = "Name of the shared AI Foundry hub"
+  value       = module.ai_foundry_hub.name
+}
+
+output "ai_foundry_hub_endpoint" {
+  description = "Endpoint of the shared AI Foundry hub"
+  value       = module.ai_foundry_hub.endpoint
+}
+
+output "ai_foundry_hub_principal_id" {
+  description = "Principal ID of the AI Foundry hub's managed identity"
+  value       = module.ai_foundry_hub.principal_id
+}
+
+output "log_analytics_workspace_id" {
+  description = "Resource ID of the Log Analytics workspace"
+  value       = module.ai_foundry_hub.log_analytics_workspace_id
+}
+
+# =============================================================================
+# TENANT OUTPUTS
+# =============================================================================
+output "tenant_projects" {
+  description = "Map of tenant names to their AI Foundry project details"
+  value = {
+    for tenant_key, tenant in module.tenant : tenant_key => {
+      project_id           = tenant.project_id
+      project_name         = tenant.project_name
+      project_principal_id = tenant.project_principal_id
+      enabled_resources    = tenant.enabled_resources
+    }
+  }
+}
+
+output "tenant_key_vaults" {
+  description = "Map of tenant names to their Key Vault details (if enabled)"
+  value = {
+    for tenant_key, tenant in module.tenant : tenant_key => {
+      id   = tenant.key_vault_id
+      name = tenant.key_vault_name
+      uri  = tenant.key_vault_uri
+    } if tenant.key_vault_id != null
+  }
+}
+
+output "tenant_storage_accounts" {
+  description = "Map of tenant names to their Storage Account details (if enabled)"
+  value = {
+    for tenant_key, tenant in module.tenant : tenant_key => {
+      id            = tenant.storage_account_id
+      name          = tenant.storage_account_name
+      blob_endpoint = tenant.storage_account_primary_blob_endpoint
+    } if tenant.storage_account_id != null
+  }
+}
+
+output "tenant_ai_search" {
+  description = "Map of tenant names to their AI Search details (if enabled)"
+  value = {
+    for tenant_key, tenant in module.tenant : tenant_key => {
+      id   = tenant.ai_search_id
+      name = tenant.ai_search_name
+    } if tenant.ai_search_id != null
+  }
+}
+
+output "tenant_cosmos_db" {
+  description = "Map of tenant names to their Cosmos DB details (if enabled)"
+  value = {
+    for tenant_key, tenant in module.tenant : tenant_key => {
+      id       = tenant.cosmos_db_id
+      name     = tenant.cosmos_db_name
+      endpoint = tenant.cosmos_db_endpoint
+    } if tenant.cosmos_db_id != null
+  }
+}
+
+output "tenant_document_intelligence" {
+  description = "Map of tenant names to their Document Intelligence details (if enabled)"
+  value = {
+    for tenant_key, tenant in module.tenant : tenant_key => {
+      id       = tenant.document_intelligence_id
+      name     = tenant.document_intelligence_name
+      endpoint = tenant.document_intelligence_endpoint
+    } if tenant.document_intelligence_id != null
+  }
+}
+
+output "tenant_openai" {
+  description = "Map of tenant names to their OpenAI details (if enabled)"
+  value = {
+    for tenant_key, tenant in module.tenant : tenant_key => {
+      id             = tenant.openai_id
+      name           = tenant.openai_name
+      endpoint       = tenant.openai_endpoint
+      deployment_ids = tenant.openai_deployment_ids
+    } if tenant.openai_id != null
+  }
+}
+
+# =============================================================================
+# CONFIGURATION OUTPUTS (for debugging/visibility)
+# =============================================================================
+output "enabled_tenants" {
+  description = "List of enabled tenant names"
+  value       = keys(local.enabled_tenants)
+}
+
+output "shared_config" {
+  description = "Shared configuration loaded from params"
+  value       = var.shared_config
+}

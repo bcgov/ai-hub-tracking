@@ -3,15 +3,15 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = ">= 4.20"
+      version = ">= 4.38"
     }
     azapi = {
       source  = "Azure/azapi"
-      version = ">= 2.4"
+      version = ">= 2.5"
     }
     random = {
       source  = "hashicorp/random"
-      version = ">= 3.5"
+      version = ">= 3.7"
     }
     null = {
       source  = "hashicorp/null"
@@ -29,6 +29,9 @@ provider "azurerm" {
     resource_group {
       prevent_deletion_if_contains_resources = false
     }
+    cognitive_account {
+      purge_soft_delete_on_destroy = true
+    }
   }
 
   subscription_id = var.subscription_id
@@ -37,4 +40,9 @@ provider "azurerm" {
   client_id       = var.client_id
 }
 
-provider "azapi" {}
+provider "azapi" {
+  subscription_id = var.subscription_id
+  tenant_id       = var.tenant_id
+  use_oidc        = var.use_oidc
+  client_id       = var.client_id
+}

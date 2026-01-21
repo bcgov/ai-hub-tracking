@@ -87,6 +87,61 @@ module "dependent" {
 - Prefer Azure Verified Modules over raw resources
 - Include registry URL in comments for reference
 
+### AVM Modules with Private Endpoints in Azure Landing Zones
+**IMPORTANT**: In Azure Landing Zones, private DNS zones are **policy-managed** by the platform team and Terraform does NOT have access to DNS zone IDs. However, AVM modules **CAN** work with this setup using the correct configuration:
+
+**Required Configuration for AVM modules with private endpoints:**
+```hcl
+module "example" {
+  source = "Azure/avm-res-keyvault-vault/azurerm"
+  # ... other config ...
+
+  # CRITICAL: Set this to false to let Azure Policy manage DNS
+  private_endpoints_manage_dns_zone_group = false
+
+  private_endpoints = {
+    primary = {
+      subnet_resource_id = var.private_endpoint_subnet_id
+      # private_dns_zone_resource_ids can be omitted or set to []
+    }
+  }
+}
+```
+
+**How it works:**
+1. `private_endpoints_manage_dns_zone_group = false` tells AVM to NOT create DNS zone groups
+2. AVM creates the private endpoint without DNS configuration
+3. Azure Policy detects the new private endpoint and creates the DNS zone group automatically
+4. AVM's internal `lifecycle { ignore_changes = [private_dns_zone_group] }` prevents Terraform drift
+
+**AVM modules supporting this pattern:**
+- `avm-res-keyvault-vault` (Key Vault)
+- `avm-res-storage-storageaccount` (Storage Account)
+- `avm-res-search-searchservice` (AI Search)
+- `avm-res-cognitiveservices-account` (OpenAI, Document Intelligence)
+- Most other AVM modules with `private_endpoints_manage_dns_zone_group` variable
+
+**For resources without AVM module support:**
+Use raw `azurerm_*` resources + separate `azurerm_private_endpoint` with `lifecycle { ignore_changes = [private_dns_zone_group] }`
+
+### APIM Networking Options
+APIM has different networking modes depending on the tier:
+
+**1. Private Endpoints Only (stv2 style - Standard v2, Premium v2):**
+- Uses the shared **Private Endpoints subnet**
+- No dedicated subnet needed
+- No subnet delegation required
+
+**2. VNet Injection (Premium v2 tier):**
+- Requires **dedicated subnet** (cannot be shared)
+- Requires subnet delegation to `Microsoft.Web/hostingEnvironments`
+- Minimum /27, recommended /24 for scaling
+
+**3. Classic VNet Injection (Developer, Premium classic):**
+- Requires **dedicated subnet** (cannot be shared)
+- Subnet must have **NO delegation** (`Delegate subnet to a service = None`)
+- Requires NSG with specific APIM management rules
+
 ---
 
 ## GitHub Actions Conventions

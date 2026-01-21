@@ -45,24 +45,55 @@ variable "private_endpoint_subnet_name" {
   default     = "privateendpoints-subnet"
 }
 
-variable "private_endpoint_subnet_prefix_length" {
-  description = "Prefix length for the private endpoint subnet derived from target_vnet_address_spaces[0]. Use 27 for a /27."
-  type        = number
-  default     = 27
-
-  validation {
-    condition     = var.private_endpoint_subnet_prefix_length >= 0 && var.private_endpoint_subnet_prefix_length <= 32
-    error_message = "private_endpoint_subnet_prefix_length must be between 0 and 32."
+# -----------------------------------------------------------------------------
+# APIM Subnet Configuration (for VNet injection - Premium v2 tier)
+# -----------------------------------------------------------------------------
+variable "apim_subnet" {
+  description = <<-EOT
+    Configuration for the APIM subnet. Required for APIM Premium v2 VNet injection.
+    Note: APIM Premium v2 requires subnet delegation to Microsoft.Web/hostingEnvironments.
+    For APIM with private endpoints only (stv2 style), set enabled = false and use PE subnet.
+  EOT
+  type = object({
+    enabled       = bool
+    name          = optional(string, "apim-subnet")
+    prefix_length = optional(number, 27) # /27 minimum, /24 recommended for scaling
+  })
+  default = {
+    enabled = false
   }
 }
 
-variable "private_endpoint_subnet_netnum" {
-  description = "Which derived subnet to use when splitting the base CIDR. 0 selects the first derived subnet."
-  type        = number
-  default     = 0
+# -----------------------------------------------------------------------------
+# App Gateway Subnet Configuration
+# -----------------------------------------------------------------------------
+variable "appgw_subnet" {
+  description = "Configuration for the Application Gateway subnet. Automatically placed after PE/APIM subnets."
+  type = object({
+    enabled       = bool
+    name          = optional(string, "appgw-subnet")
+    prefix_length = optional(number, 27) # /27 = 32 IPs, sufficient for App Gateway
+  })
+  default = {
+    enabled = false
+  }
+}
 
-  validation {
-    condition     = var.private_endpoint_subnet_netnum >= 0
-    error_message = "private_endpoint_subnet_netnum must be >= 0."
+# -----------------------------------------------------------------------------
+# Container Apps Environment Subnet Configuration
+# -----------------------------------------------------------------------------
+variable "aca_subnet" {
+  description = <<-EOT
+    Configuration for the Container Apps Environment subnet.
+    /27 works for consumption-only WITHOUT zone redundancy.
+    /23+ required for zone redundancy or dedicated workload profiles.
+  EOT
+  type = object({
+    enabled       = bool
+    name          = optional(string, "aca-subnet")
+    prefix_length = optional(number, 27) # /27 for consumption-only (no zone redundancy)
+  })
+  default = {
+    enabled = false
   }
 }
