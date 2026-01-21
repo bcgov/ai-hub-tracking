@@ -117,7 +117,7 @@ module "apim" {
   resource_group_name = azurerm_resource_group.main.name
   location            = var.location
 
-  sku_name        = lookup(local.apim_config, "sku_name", "Standard_v2")
+  sku_name        = lookup(local.apim_config, "sku_name", "StandardV2")
   publisher_name  = lookup(local.apim_config, "publisher_name", "AI Hub")
   publisher_email = lookup(local.apim_config, "publisher_email", "admin@example.com")
 

@@ -14,13 +14,13 @@ variable "location" {
 }
 
 variable "sku_name" {
-  description = "SKU name for APIM. Developer is minimum for VNet integration."
+  description = "SKU name for APIM (stv2). StandardV2 for cost-effective, PremiumV2 for VNet injection and advanced features."
   type        = string
-  default     = "Developer_1"
+  default     = "StandardV2"
 
   validation {
-    condition     = can(regex("^(Developer|Basic|Standard|Premium)_[0-9]+$", var.sku_name))
-    error_message = "sku_name must be in format SKU_Capacity (e.g., Developer_1, Premium_1)"
+    condition     = contains(["StandardV2", "PremiumV2"], var.sku_name)
+    error_message = "sku_name must be either StandardV2 or PremiumV2"
   }
 }
 

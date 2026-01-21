@@ -54,9 +54,9 @@ shared_config = {
     enabled = true
 
     # SKU Options:
-    # - Standard_v2: Cost-effective, private endpoint support
-    # - Premium_v2: VNet injection, multi-region, higher scale
-    sku_name = "Standard_v2"
+    # - StandardV2: Cost-effective, private endpoint support
+    # - PremiumV2: VNet injection, multi-region, higher scale
+    sku_name = "StandardV2"
 
     # Publisher info (required by APIM)
     publisher_name  = "AI Hub Dev"
