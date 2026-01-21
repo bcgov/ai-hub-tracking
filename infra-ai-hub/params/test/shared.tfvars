@@ -11,7 +11,7 @@ shared_config = {
   # ---------------------------------------------------------------------------
   ai_foundry = {
     name_suffix = "aihub"
-    sku         = "Basic"
+    sku         = "S0" # Only valid SKU for AIServices kind
 
     # Disabled in test to simulate prod-like environment
     public_network_access_enabled = false

@@ -13,7 +13,7 @@ shared_config = {
   # It provides shared capabilities like model hosting and experiment tracking.
   ai_foundry = {
     name_suffix = "aihub" # Results in: {app_name}-{env}-aihub
-    sku         = "Basic" # Options: Basic, Standard
+    sku         = "S0"    # Only valid SKU for AIServices kind
 
     # Public access should be disabled in prod; enabled in dev for debugging
     public_network_access_enabled = false

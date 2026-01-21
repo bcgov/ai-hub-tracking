@@ -11,7 +11,7 @@ shared_config = {
   # ---------------------------------------------------------------------------
   ai_foundry = {
     name_suffix = "aihub"
-    sku         = "Basic" # Upgrade to Standard for production workloads
+    sku         = "S0" # Only valid SKU for AIServices kind
 
     # SECURITY: All public access disabled in production
     public_network_access_enabled = false
