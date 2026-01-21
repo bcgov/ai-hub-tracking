@@ -98,11 +98,9 @@ shared_config = {
   # Container Registry (ACR)
   # ---------------------------------------------------------------------------
   container_registry = {
-    enabled = true
-    sku     = "Premium" # Premium required for private endpoints
-
-    # SECURITY: No public access in production
-    public_network_access_enabled = false
+    enabled                       = true
+    sku                           = "Basic"
+    public_network_access_enabled = true
 
     # SECURITY: Enable content trust for signed images
     enable_trust_policy = true

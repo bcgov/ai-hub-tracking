@@ -282,8 +282,8 @@ resource "time_sleep" "purge_ai_foundry_cooldown" {
 resource "azapi_resource_action" "purge_ai_foundry" {
   count = var.purge_on_destroy ? 1 : 0
 
-  type        = "Microsoft.CognitiveServices/locations/resourceGroups/deletedAccounts@2024-10-01"
-  resource_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.CognitiveServices/locations/${local.ai_location}/resourceGroups/${var.resource_group_name}/deletedAccounts/${var.name}"
+  type        = "Microsoft.CognitiveServices/locations/deletedAccounts@2024-10-01"
+  resource_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.CognitiveServices/locations/${local.ai_location}/deletedAccounts/${var.name}"
   method      = "DELETE"
   when        = "destroy"
 

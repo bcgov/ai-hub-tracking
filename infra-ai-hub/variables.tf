@@ -110,6 +110,7 @@ variable "shared_config" {
       public_network_access_enabled = bool
       local_auth_enabled            = bool
       ai_location                   = optional(string) # Cross-region deployment
+      purge_on_destroy              = optional(bool, false)
     })
 
     # Log Analytics settings

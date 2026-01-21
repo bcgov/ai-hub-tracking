@@ -13,7 +13,7 @@ shared_config = {
   # It provides shared capabilities like model hosting and experiment tracking.
   ai_foundry = {
     name_suffix = "foundry" # Results in: {app_name}-{env}-aihub
-    sku         = "S0"    # Only valid SKU for AIServices kind
+    sku         = "S0"      # Only valid SKU for AIServices kind
 
     # Public access should be disabled in prod; enabled in dev for debugging
     public_network_access_enabled = false
@@ -24,7 +24,7 @@ shared_config = {
     # Cross-region deployment: Set to "Canada East" for model availability
     # gpt-4o-mini and text-embedding-ada-002 require Canada East with Standard deployment
     ai_location = "Canada East"
-        # Permanently purge AI Foundry account on destroy to avoid lingering resources
+    # Permanently purge AI Foundry account on destroy to avoid lingering resources
     purge_on_destroy = true
   }
 
@@ -44,7 +44,7 @@ shared_config = {
   # In Azure Landing Zones, private DNS zones are policy-managed.
   # These settings control how long to wait for DNS propagation.
   private_endpoint_dns_wait = {
-    timeout       = "10m" # Maximum wait time
+    timeout       = "15m" # Maximum wait time
     poll_interval = "10s" # How often to check
   }
 
@@ -119,11 +119,9 @@ shared_config = {
   # ---------------------------------------------------------------------------
   # Shared container registry for storing container images.
   container_registry = {
-    enabled = true
-    sku     = "Premium" # Premium required for private endpoints
-
-    # Public access for dev debugging; disable in prod
-    public_network_access_enabled = false
+    enabled                       = true
+    sku                           = "Basic"
+    public_network_access_enabled = true
 
     # Enable trust policy for signed images (requires Premium)
     enable_trust_policy = false

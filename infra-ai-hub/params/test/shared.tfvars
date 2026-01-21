@@ -37,7 +37,7 @@ shared_config = {
   # Private Endpoint DNS Wait Settings
   # ---------------------------------------------------------------------------
   private_endpoint_dns_wait = {
-    timeout       = "10m"
+    timeout       = "15m"
     poll_interval = "10s"
   }
 
@@ -88,8 +88,8 @@ shared_config = {
   # ---------------------------------------------------------------------------
   container_registry = {
     enabled                       = true
-    sku                           = "Premium"
-    public_network_access_enabled = false
+    sku                           = "Basic"
+    public_network_access_enabled = true
     enable_trust_policy           = false
   }
 
