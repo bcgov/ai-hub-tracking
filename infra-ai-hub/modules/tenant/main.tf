@@ -337,8 +337,8 @@ module "openai" {
         name    = deployment.model_name
         version = deployment.model_version
       }
-      sku = {
-        name     = deployment.scale_type
+      scale = {
+        type     = deployment.scale_type
         capacity = deployment.capacity
       }
       rai_policy_name = deployment.rai_policy_name
