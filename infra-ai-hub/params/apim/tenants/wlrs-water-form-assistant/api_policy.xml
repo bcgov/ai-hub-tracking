@@ -37,49 +37,33 @@
 
         <!-- Path-based routing to appropriate backend service -->
         <choose>
-            <!-- OpenAI requests: /openai/* -->
-            <when condition="@(context.Request.Url.Path.Contains("/openai/"))">
-                <set-backend-service backend-id="wlrs-water-form-assistant-openai" />
-                <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
-                <!-- Explicitly set Authorization header with the obtained token -->
-                <set-header name="Authorization" exists-action="override">
-                    <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
-                </set-header>
-                <!-- Remove any api-key header that might interfere with managed identity auth -->
-                <set-header name="api-key" exists-action="delete" />
-            </when>
-            <!-- Document Intelligence requests: /documentintelligence/* or /formrecognizer/* -->
-            <when condition="@(context.Request.Url.Path.Contains("/documentintelligence/") || context.Request.Url.Path.Contains("/formrecognizer/"))">
+            <!-- Document Intelligence requests: match documentintelligence, formrecognizer, or documentModels in path -->
+            <when condition="@(context.Request.Url.Path.ToLower().Contains("documentintelligence") || context.Request.Url.Path.ToLower().Contains("formrecognizer") || context.Request.Url.Path.ToLower().Contains("documentmodels"))">
                 <set-backend-service backend-id="wlrs-water-form-assistant-docint" />
                 <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
-                <!-- Explicitly set Authorization header with the obtained token -->
                 <set-header name="Authorization" exists-action="override">
                     <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
                 </set-header>
-                <!-- Remove any api-key header that might interfere with managed identity auth -->
                 <set-header name="api-key" exists-action="delete" />
             </when>
-            <!-- Storage requests: /storage/* or /blobs/* -->
-            <when condition="@(context.Request.Url.Path.Contains("/storage/") || context.Request.Url.Path.Contains("/blobs/"))">
-                <set-backend-service backend-id="wlrs-water-form-assistant-storage" />
-                <authentication-managed-identity resource="https://storage.azure.com/" output-token-variable-name="msi-access-token" ignore-error="false" />
-                <!-- Explicitly set Authorization header with the obtained token -->
-                <set-header name="Authorization" exists-action="override">
-                    <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
-                </set-header>
-                <!-- Remove any api-key header that might interfere with managed identity auth -->
-                <set-header name="api-key" exists-action="delete" />
-            </when>
-            <!-- Default: OpenAI backend for all other requests -->
-            <otherwise>
+            <!-- OpenAI requests: /openai/* -->
+            <when condition="@(context.Request.Url.Path.ToLower().Contains("openai"))">
                 <set-backend-service backend-id="wlrs-water-form-assistant-openai" />
                 <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
-                <!-- Explicitly set Authorization header with the obtained token -->
                 <set-header name="Authorization" exists-action="override">
                     <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
                 </set-header>
-                <!-- Remove any api-key header that might interfere with managed identity auth -->
                 <set-header name="api-key" exists-action="delete" />
+            </when>
+            <!-- Default: Return 404 for unmatched paths -->
+            <otherwise>
+                <return-response>
+                    <set-status code="404" reason="Not Found" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>{"error":{"code":"NotFound","message":"The requested path is not supported by this API."}}</set-body>
+                </return-response>
             </otherwise>
         </choose>
     </inbound>
