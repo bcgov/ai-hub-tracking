@@ -41,10 +41,14 @@ module "apim" {
 
   sku_name = var.sku_name
 
-  # stv2: No VNet injection - use private endpoints instead
-  virtual_network_type = "None"
+  # VNet integration for outbound connectivity to private backends
+  # StandardV2/PremiumV2 use "External" type with subnet for outbound VNet injection
+  virtual_network_type = var.enable_vnet_integration ? "External" : "None"
 
-  # Managed identity for Key Vault access
+  # Subnet ID for VNet integration (required when virtual_network_type is not None)
+  virtual_network_subnet_id = var.enable_vnet_integration ? var.vnet_integration_subnet_id : null
+
+  # Managed identity for Key Vault access and backend authentication
   managed_identities = {
     system_assigned = true
   }

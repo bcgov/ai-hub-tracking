@@ -105,9 +105,9 @@ resource "azapi_resource" "private_endpoints_subnet" {
 }
 
 # =============================================================================
-# APIM SUBNET (optional - for Premium v2 VNet injection)
-# Required for APIM Premium v2 tier VNet injection
-# Must be dedicated subnet with delegation to Microsoft.Web/hostingEnvironments
+# APIM SUBNET (optional - for StandardV2/PremiumV2 VNet integration)
+# Required for APIM StandardV2/PremiumV2 outbound VNet integration
+# Must be dedicated subnet with delegation to Microsoft.Web/serverFarms
 # =============================================================================
 
 # NSG for APIM subnet
@@ -170,6 +170,45 @@ resource "azurerm_network_security_group" "apim" {
     destination_address_prefix = "AzureKeyVault"
   }
 
+  # Outbound to VirtualNetwork - Required for private endpoints (OpenAI, Cognitive Services, etc.)
+  security_rule {
+    name                       = "AllowVirtualNetworkOutbound"
+    priority                   = 120
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "VirtualNetwork"
+  }
+
+  # Outbound to Azure Active Directory - Required for managed identity authentication
+  security_rule {
+    name                       = "AllowAzureADOutbound"
+    priority                   = 130
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "AzureActiveDirectory"
+  }
+
+  # Outbound to Internet - Required for external API calls, OAuth endpoints, etc.
+  security_rule {
+    name                       = "AllowInternetOutbound"
+    priority                   = 140
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "Internet"
+  }
+
   tags = var.common_tags
 
   lifecycle {
@@ -194,12 +233,12 @@ resource "azapi_resource" "apim_subnet" {
         id = azurerm_network_security_group.apim[0].id
       }
 
-      # APIM Premium v2 requires delegation to Microsoft.Web/hostingEnvironments
+      # APIM StandardV2/PremiumV2 VNet integration requires delegation to Microsoft.Web/serverFarms
       delegations = [
         {
-          name = "Microsoft.Web.hostingEnvironments"
+          name = "Microsoft.Web.serverFarms"
           properties = {
-            serviceName = "Microsoft.Web/hostingEnvironments"
+            serviceName = "Microsoft.Web/serverFarms"
           }
         }
       ]

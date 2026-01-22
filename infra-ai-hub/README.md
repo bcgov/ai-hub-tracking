@@ -566,97 +566,150 @@ Feature flags and configuration management.
 
 ## Tenant Configuration
 
+### Overview
+
+All tenants are configured in a single `tenants.tfvars` file per environment using HCL format. This consolidates configuration and makes it easy to manage multiple tenants:
+
+- `params/dev/tenants.tfvars` - development environment
+- `params/test/tenants.tfvars` - testing environment
+- `params/prod/tenants.tfvars` - production environment
+
+Each file contains a map of tenant configurations that are deployed together.
+
 ### Adding a New Tenant
 
-1. Create a JSON file in `params/{env}/tenants/`:
+To add a new tenant, add an entry to the `tenants` map in the appropriate `tenants.tfvars` file:
 
-```json
-{
-  "tenant_name": "contoso",
-  "display_name": "Contoso Inc.",
-  "enabled": true,
+```hcl
+tenants = {
+  # ... existing tenants ...
   
-  "key_vault": { 
-    "enabled": true,
-    "sku_name": "standard"
-  },
-  
-  "storage_account": { 
-    "enabled": true,
-    "account_tier": "Standard",
-    "replication_type": "LRS"
-  },
-  
-  "ai_search": { 
-    "enabled": true, 
-    "sku": "basic",
-    "replica_count": 1,
-    "partition_count": 1
-  },
-  
-  "cosmos_db": { 
-    "enabled": true,
-    "database_name": "contoso-db",
-    "throughput": 400
-  },
-  
-  "openai": {
-    "enabled": true,
-    "model_deployments": [
-      {
-        "name": "gpt-4o",
-        "model_name": "gpt-4o",
-        "model_version": "2024-11-20",
-        "capacity": 10,
-        "rai_policy_name": "default"
-      },
-      {
-        "name": "embedding",
-        "model_name": "text-embedding-3-large",
-        "model_version": "1",
-        "capacity": 50
-      }
-    ]
-  },
-  
-  "document_intelligence": { 
-    "enabled": true,
-    "sku": "S0"
-  },
-  
-  "project_connections": {
-    "key_vault": true,
-    "storage": true,
-    "ai_search": true,
-    "cosmos_db": true,
-    "openai": true,
-    "document_intelligence": true
-  },
-  
-  "tags": { 
-    "costCenter": "CC-12345",
-    "owner": "platform-team"
+  contoso-platform = {
+    tenant_name  = "contoso-platform"
+    display_name = "Contoso AI Platform"
+    enabled      = true
+    
+    tags = {
+      ministry    = "CONTOSO"
+      environment = "test"
+      costCenter  = "CC-12345"
+      owner       = "platform-team"
+    }
+    
+    key_vault = {
+      enabled                    = true
+      sku                        = "standard"
+      purge_protection_enabled   = true
+      soft_delete_retention_days = 30
+    }
+    
+    storage_account = {
+      enabled                  = true
+      account_tier             = "Standard"
+      account_replication_type = "LRS"
+      account_kind             = "StorageV2"
+      access_tier              = "Hot"
+    }
+    
+    ai_search = {
+      enabled            = true
+      sku                = "basic"
+      replica_count      = 1
+      partition_count    = 1
+      semantic_search    = "free"
+      local_auth_enabled = true
+    }
+    
+    cosmos_db = {
+      enabled                      = true
+      offer_type                   = "Standard"
+      kind                         = "GlobalDocumentDB"
+      consistency_level            = "Session"
+      max_interval_in_seconds      = 5
+      max_staleness_prefix         = 100
+      geo_redundant_backup_enabled = false
+      automatic_failover_enabled   = false
+    }
+    
+    openai = {
+      enabled = true
+      model_deployments = [
+        {
+          name              = "gpt-4o"
+          model_name        = "gpt-4o"
+          model_version     = "2024-11-20"
+          capacity          = 10
+          rai_policy_name   = "default"
+        },
+        {
+          name          = "embedding"
+          model_name    = "text-embedding-3-large"
+          model_version = "1"
+          capacity      = 50
+        }
+      ]
+    }
+    
+    document_intelligence = {
+      enabled = true
+      sku     = "S0"
+    }
+    
+    content_safety = {
+      pii_redaction_enabled = true
+      prompt_shield_enabled = true
+    }
   }
 }
 ```
 
-2. Run Terraform:
+### Deploying Changes
 
+After updating `tenants.tfvars`, deploy using one of these methods:
+
+**Option 1: Direct terraform commands**
 ```bash
-terraform plan
-terraform apply
+cd infra-ai-hub
+terraform plan -var-file="params/test/shared.tfvars" -var-file="params/test/tenants.tfvars"
+terraform apply -var-file="params/test/shared.tfvars" -var-file="params/test/tenants.tfvars"
+```
+
+**Option 2: Deployment script**
+```bash
+cd initial-setup/infra
+./deploy-terraform.sh plan test
+./deploy-terraform.sh apply test
 ```
 
 ### Resource Toggle Matrix
 
+Each tenant can independently enable or disable services by setting the `enabled` flag:
+
 | Resource | Config Key | Default | Notes |
 |----------|-----------|---------|-------|
-| Key Vault | `key_vault.enabled` | true | Secrets storage |
+| Key Vault | `key_vault.enabled` | false | Secrets storage |
 | Storage | `storage_account.enabled` | true | Blob/file storage |
-| AI Search | `ai_search.enabled` | true | Vector search |
+| AI Search | `ai_search.enabled` | false | Vector search |
 | Cosmos DB | `cosmos_db.enabled` | false | Document database |
-| OpenAI | `openai.enabled` | true | LLM endpoints |
+| OpenAI | `openai.enabled` | false | LLM endpoints |
 | Doc Intel | `document_intelligence.enabled` | false | Document parsing |
+| Content Safety | `content_safety.*` | PII: true, Shield: true | PII redaction and prompt injection protection |
+
+### Content Safety Configuration
+
+Control PII redaction and prompt injection protection on a per-tenant basis:
+
+```hcl
+content_safety = {
+  pii_redaction_enabled = true      # Enable/disable PII masking
+  prompt_shield_enabled = true      # Enable/disable prompt injection detection
+}
+```
+
+These settings are applied at **deploy time** to the tenant's API policy:
+- When enabled, the policy triggers the global content safety policy to check requests/responses
+- When disabled, the policy sets skip headers to bypass content safety checks
+- Configuration in `params/{env}/tenants.tfvars` controls behavior independently per tenant
 
 ### APIM Authentication Configuration
 
@@ -789,58 +842,49 @@ apim_auth = {
 
 ### Adding a New Tenant to APIM
 
-When a new tenant is enabled with APIM:
+When a new tenant is enabled with APIM, follow these steps:
 
-#### 1. Create Tenant Policy File
+#### 1. Add Tenant Configuration to tenants.tfvars
 
-Create `params/apim/tenants/{tenant-name}/api_policy.xml`:
-
-```xml
-<policies>
-    <inbound>
-        <base />
-        <set-header name="X-Tenant-Id" exists-action="override">
-            <value>{tenant-name}</value>
-        </set-header>
-        <choose>
-            <when condition="@(context.Request.MatchedParameters.ContainsKey(\"service\") && ...)">
-                <set-backend-service base-url="{{TENANT-NAME-openai-endpoint}}" />
-                <authentication-managed-identity resource="https://cognitiveservices.azure.com" />
-            </when>
-            <!-- Add more services as needed -->
-        </choose>
-    </inbound>
-    <outbound>
-        <base />
-    </outbound>
-</policies>
-```
-
-Key requirements:
-- `X-Tenant-Id` header must match folder name (validated at plan time)
-- Named value references must match enabled services (validated at plan time)
-- Use managed identity auth for backend services
-
-#### 2. Enable Services in Tenant Config
-
-In `params/{app_env}/tenants.tfvars`, set `enabled = true` for services referenced in the policy:
+Edit `params/{env}/tenants.tfvars` and add the tenant to the `tenants` map with desired services enabled:
 
 ```hcl
 tenants = {
-  "my-tenant" = {
-    enabled = true
+  # ... existing tenants ...
+  
+  "new-tenant" = {
+    tenant_name  = "new-tenant"
+    display_name = "New Tenant Display Name"
+    enabled      = true
+    
     openai = { enabled = true, ... }
     document_intelligence = { enabled = true, ... }
-    # etc.
+    # other services as needed
   }
 }
 ```
 
-#### 3. Deploy
+#### 2. Create Tenant APIM Policy File
 
-Run `deploy-terraform.sh plan` - validation checks will catch mismatches:
-- ❌ X-Tenant-Id doesn't match folder name
-- ❌ Policy references `{{my-tenant-openai-endpoint}}` but openai is disabled
+Create `params/apim/tenants/{tenant-name}/api_policy.xml`:
+
+#### 3. Enable Services in Tenant Config
+
+Update the same entry in `params/{env}/tenants.tfvars`, ensuring all services referenced in the policy have `enabled = true`:
+
+#### 4. Deploy
+
+Run terraform to validate and deploy:
+
+```bash
+terraform validate
+terraform plan -var-file="params/test/shared.tfvars" -var-file="params/test/tenants.tfvars"
+terraform apply -var-file="params/test/shared.tfvars" -var-file="params/test/tenants.tfvars"
+```
+
+**Validation checks** at plan time will catch mismatches:
+- ❌ Policy file references service not enabled in tenants.tfvars
+- ❌ Policy file `X-Tenant-Id` header doesn't match folder name
 
 #### 4. Review APIM Resources
 
@@ -925,7 +969,7 @@ flowchart LR
 
 **Adding capacity to a tenant:**
 
-1. Update the tenant JSON file
+1. Update the tenant configuration in `params/{env}/tenants.tfvars`
 2. Increase SKU or capacity values
 3. Run `terraform apply`
 
@@ -1048,20 +1092,25 @@ infra-ai-hub/
 │
 └── params/
     ├── apim/
-    │   ├── global_policy.xml  # PII redaction & prompt injection
+    │   ├── global_policy.xml              # PII redaction & prompt injection (all APIs)
+    │   ├── fragments/                     # Reusable authentication policies
+    │   │   ├── cognitive-services-auth.xml  # Managed identity for OpenAI, DI, Search
+    │   │   ├── storage-auth.xml             # Managed identity for Blob Storage
+    │   │   ├── cosmosdb-auth.xml            # Managed identity for Cosmos DB
+    │   │   └── keyvault-auth.xml            # Managed identity for Key Vault
     │   └── tenants/
     │       └── {tenant-name}/
-    │           └── api_policy.xml   # Tenant-specific routing
+    │           └── api_policy.xml        # Tenant-specific routing & content safety
     │
     ├── dev/
-    │   ├── shared.tfvars      # Shared config (APIM, App GW, etc.)
-    │   └── tenants.tfvars     # Tenant configs (per-tenant services)
+    │   ├── shared.tfvars                  # Shared config (APIM, App GW, network, monitoring)
+    │   └── tenants.tfvars                 # All dev tenant configurations (map format)
     ├── test/
     │   ├── shared.tfvars
-    │   └── tenants.tfvars
+    │   └── tenants.tfvars                 # All test tenant configurations (map format)
     └── prod/
         ├── shared.tfvars
-        └── tenants.tfvars
+        └── tenants.tfvars                 # All prod tenant configurations (map format)
 ```
 
 ---

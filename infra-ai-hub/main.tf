@@ -121,8 +121,12 @@ module "apim" {
   publisher_name  = lookup(local.apim_config, "publisher_name", "AI Hub")
   publisher_email = lookup(local.apim_config, "publisher_email", "admin@example.com")
 
-  # stv2: Use private endpoints instead of VNet injection
-  # Boolean flags are known at plan time, avoiding for_each issues
+  # VNet integration for outbound connectivity to private backends
+  # Required because backend services (OpenAI, DocInt, etc.) have public network access disabled
+  enable_vnet_integration    = lookup(local.apim_config, "vnet_injection_enabled", false)
+  vnet_integration_subnet_id = module.network.apim_subnet_id
+
+  # Private endpoint for inbound APIM access
   enable_private_endpoint    = true
   private_endpoint_subnet_id = module.network.private_endpoint_subnet_id
   private_dns_zone_ids       = lookup(local.apim_config, "private_dns_zone_ids", [])
@@ -661,4 +665,42 @@ module "tenant" {
   tags = merge(var.common_tags, lookup(each.value, "tags", {}))
 
   depends_on = [module.ai_foundry_hub]
+}
+
+
+resource "azurerm_api_management_api_operation" "tenant_methods" {
+  for_each = local.tenant_api_operations
+
+  operation_id        = "catchall-${lower(each.value.method)}"
+  api_name            = each.value.tenant
+  api_management_name = module.apim[0].name
+  resource_group_name = azurerm_resource_group.main.name
+  display_name        = "Catch All ${each.value.method}"
+  method              = each.value.method
+  url_template        = "/*"
+  description         = "Catch-all ${each.value.method} operation for path-based routing to tenant services"
+
+  response {
+    status_code = 200
+  }
+
+  depends_on = [module.apim]
+}
+
+# =============================================================================
+# APIM PRODUCT-API LINKS
+# Links each tenant's API to their product so subscription keys work
+# =============================================================================
+resource "azurerm_api_management_product_api" "tenant" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if local.apim_config.enabled
+  }
+
+  api_name            = each.key
+  product_id          = each.key
+  api_management_name = module.apim[0].name
+  resource_group_name = azurerm_resource_group.main.name
+
+  depends_on = [module.apim]
 }

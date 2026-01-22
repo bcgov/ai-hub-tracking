@@ -51,7 +51,9 @@ shared_config = {
     publisher_name  = "AI Hub Test"
     publisher_email = "ai-hub-test@example.com"
 
-    vnet_injection_enabled = false
+    # VNet integration required for outbound connectivity to private backends
+    # Backend services (OpenAI, DocInt, etc.) have public network access disabled
+    vnet_injection_enabled = true
     subnet_name            = "apim-subnet"
     subnet_prefix_length   = 27
 

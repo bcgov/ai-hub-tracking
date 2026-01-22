@@ -160,6 +160,27 @@ locals {
       allow_tracing = var.app_env != "prod" # Enable tracing in non-prod
     }
   }
+  # =============================================================================
+  # APIM API OPERATIONS (catch-all for path-based routing)
+  # Tenant APIs need operations to handle incoming requests
+  # APIM requires explicit HTTP methods - wildcard (*) doesn't match all requests
+  # =============================================================================
+  # HTTP methods needed for OpenAI/Azure AI APIs
+  api_methods = ["POST", "GET", "PUT", "DELETE", "PATCH"]
+
+  # Create a map of tenant + method combinations
+  tenant_api_operations = {
+    for pair in flatten([
+      for tenant_key, config in local.enabled_tenants : [
+        for method in local.api_methods : {
+          key    = "${tenant_key}-${lower(method)}"
+          tenant = tenant_key
+          method = method
+          config = config
+        }
+      ] if local.apim_config.enabled
+    ]) : pair.key => pair
+  }
 }
 
 # =============================================================================

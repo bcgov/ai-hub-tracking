@@ -35,7 +35,7 @@ variable "publisher_email" {
 }
 
 variable "enable_private_endpoint" {
-  description = "Whether to create a private endpoint for APIM. Must be set explicitly to avoid plan-time evaluation issues."
+  description = "Whether to create a private endpoint for APIM inbound access. Must be set explicitly to avoid plan-time evaluation issues."
   type        = bool
   default     = false
 }
@@ -50,6 +50,19 @@ variable "private_dns_zone_ids" {
   description = "List of private DNS zone IDs to link for APIM private endpoint"
   type        = list(string)
   default     = []
+}
+
+# VNet Integration for outbound connectivity (StandardV2/PremiumV2)
+variable "enable_vnet_integration" {
+  description = "Whether to enable VNet integration for outbound connectivity. Required when backend services have public network access disabled."
+  type        = bool
+  default     = false
+}
+
+variable "vnet_integration_subnet_id" {
+  description = "Subnet ID for APIM VNet integration (outbound). Required when enable_vnet_integration is true. Subnet must have delegation to Microsoft.Web/hostingEnvironments."
+  type        = string
+  default     = null
 }
 
 variable "enable_diagnostics" {

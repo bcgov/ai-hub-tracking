@@ -57,7 +57,7 @@
         </set-header>
         <!-- Add remaining tokens header for rate limit visibility -->
         <set-header name="x-ratelimit-remaining-tokens" exists-action="override">
-            <value>@(context.Variables.GetValueOrDefault<string>("remainingTokens", "N/A"))</value>
+            <value>@(context.Variables.ContainsKey("remainingTokens") ? ((int)context.Variables["remainingTokens"]).ToString() : "N/A")</value>
         </set-header>
         <!-- Content safety status headers for debugging -->
         <set-header name="x-content-safety-pii" exists-action="override">
