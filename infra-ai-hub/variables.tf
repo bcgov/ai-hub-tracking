@@ -275,6 +275,16 @@ variable "tenants" {
         secret_expiry_hours = optional(number, 8760) # 1 year
       }), {})
     }), { mode = "subscription_key", store_in_keyvault = false })
+
+    # Content Safety configuration
+    # Controls PII redaction and prompt injection protection at the API gateway
+    # These are enabled by default at the global level; set to false to opt-out
+    content_safety = optional(object({
+      # Redact PII (emails, phone numbers, addresses, etc.) from requests/responses
+      pii_redaction_enabled = optional(bool, true)
+      # Protect against prompt injection attacks (jailbreak attempts)
+      prompt_shield_enabled = optional(bool, true)
+    }), { pii_redaction_enabled = true, prompt_shield_enabled = true })
   }))
   default = {}
 }

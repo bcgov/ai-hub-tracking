@@ -160,10 +160,10 @@ resource "azurerm_api_management_named_value" "openai_endpoint" {
   name                = "${each.key}-openai-endpoint"
   resource_group_name = azurerm_resource_group.main.name
   api_management_name = module.apim[0].name
-  display_name        = "${each.value.display_name} OpenAI Endpoint"
-  value               = module.tenant[each.key].openai_endpoint
-  secret              = false
-  tags                = ["tenant:${each.key}", "service:openai"]
+  # display_name can only contain alphanumeric, periods, underscores, dashes
+  display_name = "${local.sanitized_display_names[each.key]}_OpenAI_Endpoint"
+  value        = module.tenant[each.key].openai_endpoint
+  secret       = false
 
   depends_on = [module.apim, module.tenant]
 }
@@ -178,10 +178,10 @@ resource "azurerm_api_management_named_value" "docint_endpoint" {
   name                = "${each.key}-docint-endpoint"
   resource_group_name = azurerm_resource_group.main.name
   api_management_name = module.apim[0].name
-  display_name        = "${each.value.display_name} Document Intelligence Endpoint"
-  value               = module.tenant[each.key].document_intelligence_endpoint
-  secret              = false
-  tags                = ["tenant:${each.key}", "service:document-intelligence"]
+  # display_name can only contain alphanumeric, periods, underscores, dashes
+  display_name = "${local.sanitized_display_names[each.key]}_Document_Intelligence_Endpoint"
+  value        = module.tenant[each.key].document_intelligence_endpoint
+  secret       = false
 
   depends_on = [module.apim, module.tenant]
 }
@@ -196,12 +196,197 @@ resource "azurerm_api_management_named_value" "storage_endpoint" {
   name                = "${each.key}-storage-endpoint"
   resource_group_name = azurerm_resource_group.main.name
   api_management_name = module.apim[0].name
-  display_name        = "${each.value.display_name} Storage Endpoint"
-  value               = module.tenant[each.key].storage_account_primary_blob_endpoint
-  secret              = false
-  tags                = ["tenant:${each.key}", "service:storage"]
+  # display_name can only contain alphanumeric, periods, underscores, dashes
+  display_name = "${local.sanitized_display_names[each.key]}_Storage_Endpoint"
+  value        = module.tenant[each.key].storage_account_primary_blob_endpoint
+  secret       = false
 
   depends_on = [module.apim, module.tenant]
+}
+
+# -----------------------------------------------------------------------------
+# APIM Backends (for path-based routing to tenant services)
+# Each backend uses managed identity for authentication
+# NOTE: Content safety opt-out is handled via templatefile() at compile-time
+# in tenant API policies, not via Named Values
+# -----------------------------------------------------------------------------
+
+# OpenAI backends
+resource "azurerm_api_management_backend" "openai" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.openai.enabled && local.apim_config.enabled
+  }
+
+  name                = "${each.key}-openai"
+  resource_group_name = azurerm_resource_group.main.name
+  api_management_name = module.apim[0].name
+  protocol            = "http"
+  url                 = module.tenant[each.key].openai_endpoint
+  description         = "OpenAI backend for ${each.value.display_name}"
+
+  # Authentication handled via policy (authentication-managed-identity)
+  # No credentials block needed - managed identity token is set in policy
+
+  depends_on = [module.apim, module.tenant, azurerm_api_management_named_value.openai_endpoint]
+}
+
+# Document Intelligence backends
+resource "azurerm_api_management_backend" "docint" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.document_intelligence.enabled && local.apim_config.enabled
+  }
+
+  name                = "${each.key}-docint"
+  resource_group_name = azurerm_resource_group.main.name
+  api_management_name = module.apim[0].name
+  protocol            = "http"
+  url                 = module.tenant[each.key].document_intelligence_endpoint
+  description         = "Document Intelligence backend for ${each.value.display_name}"
+
+  depends_on = [module.apim, module.tenant]
+}
+
+# Storage backends
+resource "azurerm_api_management_backend" "storage" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.storage_account.enabled && local.apim_config.enabled
+  }
+
+  name                = "${each.key}-storage"
+  resource_group_name = azurerm_resource_group.main.name
+  api_management_name = module.apim[0].name
+  protocol            = "http"
+  url                 = module.tenant[each.key].storage_account_primary_blob_endpoint
+  description         = "Storage backend for ${each.value.display_name}"
+
+  depends_on = [module.apim, module.tenant]
+}
+
+# -----------------------------------------------------------------------------
+# APIM Application Insights Logger (for token metrics and request logging)
+# Uses connection string with managed identity for secure telemetry
+# -----------------------------------------------------------------------------
+resource "azurerm_api_management_logger" "app_insights" {
+  count = local.apim_config.enabled && module.ai_foundry_hub.application_insights_connection_string != null ? 1 : 0
+
+  name                = "${module.apim[0].name}-appinsights-logger"
+  api_management_name = module.apim[0].name
+  resource_group_name = azurerm_resource_group.main.name
+  resource_id         = module.ai_foundry_hub.application_insights_id
+
+  application_insights {
+    connection_string = module.ai_foundry_hub.application_insights_connection_string
+  }
+
+  depends_on = [module.apim, module.ai_foundry_hub]
+}
+
+# APIM Diagnostics - Enable Application Insights logging for all APIs
+resource "azurerm_api_management_diagnostic" "app_insights" {
+  count = local.apim_config.enabled && module.ai_foundry_hub.application_insights_connection_string != null ? 1 : 0
+
+  identifier               = "applicationinsights"
+  resource_group_name      = azurerm_resource_group.main.name
+  api_management_name      = module.apim[0].name
+  api_management_logger_id = azurerm_api_management_logger.app_insights[0].id
+
+  # Sampling settings (100% for debugging, reduce in production)
+  sampling_percentage = 100
+
+  # Log settings
+  always_log_errors         = true
+  log_client_ip             = true
+  http_correlation_protocol = "W3C"
+  verbosity                 = "information"
+
+  # Request/Response body logging (limit size for performance)
+  frontend_request {
+    body_bytes = 1024
+    headers_to_log = [
+      "X-Tenant-Id",
+      "X-Request-ID",
+      "Content-Type",
+      "Authorization"
+    ]
+  }
+
+  frontend_response {
+    body_bytes = 1024
+    headers_to_log = [
+      "x-ms-request-id",
+      "x-ratelimit-remaining-tokens",
+      "x-tokens-consumed"
+    ]
+  }
+
+  backend_request {
+    body_bytes = 1024
+    headers_to_log = [
+      "Authorization",
+      "api-key"
+    ]
+  }
+
+  backend_response {
+    body_bytes = 1024
+    headers_to_log = [
+      "x-ms-region",
+      "x-ratelimit-remaining-tokens"
+    ]
+  }
+
+  depends_on = [azurerm_api_management_logger.app_insights]
+}
+
+# -----------------------------------------------------------------------------
+# APIM Policy Fragments (reusable policy snippets)
+# These can be included in API policies via <include-fragment fragment-id="..." />
+# -----------------------------------------------------------------------------
+resource "azurerm_api_management_policy_fragment" "cognitive_services_auth" {
+  count = local.apim_config.enabled ? 1 : 0
+
+  api_management_id = module.apim[0].id
+  name              = "cognitive-services-auth"
+  format            = "rawxml"
+  value             = file("${path.module}/params/apim/fragments/cognitive-services-auth.xml")
+
+  depends_on = [module.apim]
+}
+
+resource "azurerm_api_management_policy_fragment" "storage_auth" {
+  count = local.apim_config.enabled ? 1 : 0
+
+  api_management_id = module.apim[0].id
+  name              = "storage-auth"
+  format            = "rawxml"
+  value             = file("${path.module}/params/apim/fragments/storage-auth.xml")
+
+  depends_on = [module.apim]
+}
+
+resource "azurerm_api_management_policy_fragment" "cosmosdb_auth" {
+  count = local.apim_config.enabled ? 1 : 0
+
+  api_management_id = module.apim[0].id
+  name              = "cosmosdb-auth"
+  format            = "rawxml"
+  value             = file("${path.module}/params/apim/fragments/cosmosdb-auth.xml")
+
+  depends_on = [module.apim]
+}
+
+resource "azurerm_api_management_policy_fragment" "keyvault_auth" {
+  count = local.apim_config.enabled ? 1 : 0
+
+  api_management_id = module.apim[0].id
+  name              = "keyvault-auth"
+  format            = "rawxml"
+  value             = file("${path.module}/params/apim/fragments/keyvault-auth.xml")
+
+  depends_on = [module.apim]
 }
 
 # -----------------------------------------------------------------------------
@@ -223,7 +408,14 @@ resource "azurerm_api_management_api_policy" "tenant" {
     module.apim,
     azurerm_api_management_named_value.openai_endpoint,
     azurerm_api_management_named_value.docint_endpoint,
-    azurerm_api_management_named_value.storage_endpoint
+    azurerm_api_management_named_value.storage_endpoint,
+    azurerm_api_management_backend.openai,
+    azurerm_api_management_backend.docint,
+    azurerm_api_management_backend.storage,
+    azurerm_api_management_policy_fragment.cognitive_services_auth,
+    azurerm_api_management_policy_fragment.storage_auth,
+    azurerm_api_management_policy_fragment.cosmosdb_auth,
+    azurerm_api_management_policy_fragment.keyvault_auth
   ]
 }
 

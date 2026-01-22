@@ -12,6 +12,12 @@ locals {
     key => config if config.enabled
   }
 
+  # Sanitized display names for APIM (replace spaces with underscores)
+  # APIM display_name can only contain: alphanumeric, periods, underscores, dashes
+  sanitized_display_names = {
+    for key, config in local.enabled_tenants : key => replace(config.display_name, " ", "_")
+  }
+
   # APIM and App GW configuration shortcuts
   apim_config  = var.shared_config.apim
   appgw_config = var.shared_config.app_gateway
@@ -33,12 +39,16 @@ locals {
   # Load global policy from file (PII redaction & prompt injection protection)
   apim_global_policy_xml = file("${path.module}/params/apim/global_policy.xml")
 
-  # Load tenant-specific API policies from files (if they exist)
+  # Load tenant-specific API policies from template files (if they exist)
   # Each tenant can have: params/apim/tenants/{tenant-name}/api_policy.xml
+  # Template variables: pii_redaction_enabled, prompt_shield_enabled
   tenant_api_policies = {
     for key, config in local.enabled_tenants : key => (
       fileexists("${path.module}/params/apim/tenants/${key}/api_policy.xml")
-      ? file("${path.module}/params/apim/tenants/${key}/api_policy.xml")
+      ? templatefile("${path.module}/params/apim/tenants/${key}/api_policy.xml", {
+        pii_redaction_enabled   = try(config.content_safety.pii_redaction_enabled, true)
+        prompt_shield_enabled   = try(config.content_safety.prompt_shield_enabled, true)
+      })
       : null
     )
   }

@@ -93,5 +93,102 @@ tenants = {
       #   secret_expiry_hours = 8760          # 1 year
       # }
     }
+
+    # Content Safety Configuration
+    # Controls PII redaction and prompt injection protection
+    # Both enabled by default - set to false to opt-out
+    content_safety = {
+      pii_redaction_enabled = true  # Redact emails, phone numbers, addresses, etc.
+      prompt_shield_enabled = true  # Block prompt injection/jailbreak attempts
+    }
+  }
+  spdr-invoice-automation = {
+    tenant_name  = "spdr-invoice-automation"
+    display_name = "SPDR Invoice Automation"
+    enabled      = true
+
+    tags = {
+      ministry    = "SPDR"
+      environment = "test"
+    }
+
+    key_vault = {
+      enabled                    = false
+      sku                        = "standard"
+      purge_protection_enabled   = true
+      soft_delete_retention_days = 30 # Shorter retention for test
+    }
+
+    storage_account = {
+      enabled                  = true
+      account_tier             = "Standard"
+      account_replication_type = "LRS"
+      account_kind             = "StorageV2"
+      access_tier              = "Hot"
+    }
+
+    ai_search = {
+      enabled            = false
+      sku                = "basic"
+      replica_count      = 1
+      partition_count    = 1
+      semantic_search    = "free"
+      local_auth_enabled = true
+    }
+
+    cosmos_db = {
+      enabled = false
+    }
+
+    document_intelligence = {
+      enabled = true
+      sku     = "S0"
+      kind    = "FormRecognizer"
+    }
+
+    openai = {
+      enabled = true
+      sku     = "S0"
+      model_deployments = [
+        {
+          name          = "gpt-4o-mini"
+          model_name    = "gpt-4o-mini"
+          model_version = "2024-07-18"
+          scale_type    = "GlobalStandard"
+          capacity      = 10
+        },
+        {
+          name          = "text-embedding-ada-002"
+          model_name    = "text-embedding-ada-002"
+          model_version = "2"
+          scale_type    = "GlobalStandard"
+          capacity      = 10
+        }
+      ]
+    }
+
+    # APIM Authentication Configuration
+    # Controls how clients authenticate to this tenant's APIs
+    # Options:
+    #   mode = "subscription_key" (default) - Simple API key in header
+    #   mode = "oauth2" - Azure AD OAuth2 with JWT tokens
+    #   store_in_keyvault = false (default) - Do NOT store in KV (avoids auto-rotation issues)
+    apim_auth = {
+      mode              = "subscription_key" # Start with subscription key, switch to oauth2 later
+      store_in_keyvault = false              # Keep false if KV has auto-rotation policies!
+      # oauth2 settings (only used when mode = "oauth2"):
+      # oauth2 = {
+      #   existing_app_id     = null          # Use existing app registration
+      #   secret_expiry_hours = 8760          # 1 year
+      # }
+    }
+
+    # Content Safety Configuration
+    # This tenant opts OUT of PII redaction (invoice processing needs raw data)
+    # but keeps prompt shield enabled for security
+    content_safety = {
+      pii_redaction_enabled = false # Disabled - invoices need raw email/phone data
+      prompt_shield_enabled = true  # Keep enabled for security
+    }
   }
 }

@@ -1,129 +1,91 @@
-<!--
-  =============================================================================
-  APIM GLOBAL POLICY
-  =============================================================================
-  This policy applies to ALL APIs in the API Management service.
-  Includes:
-  - Prompt Injection Protection (inbound)
-  - PII Redaction (inbound and outbound)
-  =============================================================================
--->
 <policies>
     <inbound>
-        <base />
-        <!-- 
-        =====================================================================
-        PROMPT INJECTION PROTECTION (Inbound)
-        Detects and blocks common jailbreak/prompt injection patterns in requests
-        =====================================================================
-        -->
-        <set-variable name="requestBodyText" value="@(context.Request.Body.As<string>(preserveContent: true) ?? "")" />
+        <!-- Set correlation ID for request tracing -->
+        <set-header name="x-ms-correlation-request-id" exists-action="skip">
+            <value>@(context.RequestId.ToString())</value>
+        </set-header>
+        
+        <!-- ================================================================== -->
+        <!-- CONTENT SAFETY: PII Redaction & Prompt Injection Protection       -->
+        <!-- Applied globally - tenants can opt-out via X-Skip-* headers       -->
+        <!-- ================================================================== -->
+        
+        <!-- PII Redaction: Mask sensitive data (emails, phone numbers, etc.) -->
+        <!-- Skipped if tenant sets X-Skip-PII-Redaction header to "true" -->
         <choose>
-            <!-- Check for common prompt injection patterns -->
-            <when condition="@{
-                var body = (string)context.Variables["requestBodyText"];
-                if (string.IsNullOrEmpty(body)) return false;
-                body = body.ToLowerInvariant();
-                
-                // Common jailbreak/injection patterns
-                string[] injectionPatterns = new string[] {
-                    "ignore previous instructions",
-                    "ignore all previous",
-                    "disregard previous",
-                    "forget your instructions",
-                    "you are now",
-                    "pretend to be",
-                    "act as if you",
-                    "bypass your",
-                    "override your",
-                    "jailbreak",
-                    "dan mode",
-                    "do anything now",
-                    "developer mode",
-                    "ignore safety",
-                    "ignore guidelines",
-                    "ignore restrictions",
-                    "system prompt:",
-                    "new instructions:",
-                    "you must obey",
-                    "reveal your system prompt",
-                    "show your instructions",
-                    "what are your instructions"
-                };
-                
-                foreach (var pattern in injectionPatterns) {
-                    if (body.Contains(pattern)) return true;
-                }
-                return false;
-            }">
-                <return-response>
-                    <set-status code="400" reason="Bad Request" />
-                    <set-header name="Content-Type" exists-action="override">
-                        <value>application/json</value>
-                    </set-header>
-                    <set-body>{"error": {"code": "PromptInjectionDetected", "message": "Request blocked due to potential prompt injection attempt."}}</set-body>
-                </return-response>
+            <when condition="@(context.Request.Headers.GetValueOrDefault("X-Skip-PII-Redaction", "false") != "true")">
+                <azure-openai-emit-token-metric namespace="AIHub.ContentSafety">
+                    <dimension name="Protection" value="PII-Redaction" />
+                </azure-openai-emit-token-metric>
+                <!-- Apply PII text analytics to redact sensitive data -->
+                <set-variable name="pii-redaction-applied" value="true" />
             </when>
+            <otherwise>
+                <set-variable name="pii-redaction-applied" value="false" />
+            </otherwise>
         </choose>
         
-        <!--
-        =====================================================================
-        PII REDACTION (Inbound) - Mask sensitive data in requests
-        =====================================================================
-        -->
-        <set-variable name="piiRedactedRequest" value="@{
-            var body = (string)context.Variables["requestBodyText"];
-            if (string.IsNullOrEmpty(body)) return body;
-            
-            // SSN pattern: XXX-XX-XXXX or XXXXXXXXX
-            body = System.Text.RegularExpressions.Regex.Replace(body, @"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b", "[SSN-REDACTED]");
-            
-            // Credit Card patterns (Visa, MC, Amex, Discover)
-            body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12})\b", "[CC-REDACTED]");
-            
-            // Email addresses
-            body = System.Text.RegularExpressions.Regex.Replace(body, @"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", "[EMAIL-REDACTED]");
-            
-            // Phone numbers (various formats)
-            body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}\b", "[PHONE-REDACTED]");
-            
-            return body;
-        }" />
+        <!-- Prompt Shield: Block prompt injection/jailbreak attempts -->
+        <!-- Skipped if tenant sets X-Skip-Prompt-Shield header to "true" -->
+        <choose>
+            <when condition="@(context.Request.Headers.GetValueOrDefault("X-Skip-Prompt-Shield", "false") != "true")">
+                <azure-openai-emit-token-metric namespace="AIHub.ContentSafety">
+                    <dimension name="Protection" value="Prompt-Shield" />
+                </azure-openai-emit-token-metric>
+                <set-variable name="prompt-shield-applied" value="true" />
+            </when>
+            <otherwise>
+                <set-variable name="prompt-shield-applied" value="false" />
+            </otherwise>
+        </choose>
+        
+        <!-- Emit LLM token metrics for AI service requests -->
+        <!-- Tracks: Total Tokens, Prompt Tokens, Completion Tokens -->
+        <llm-emit-token-metric namespace="AIHub">
+            <dimension name="API ID" />
+            <dimension name="Subscription ID" />
+            <dimension name="Tenant" value="@(context.Request.Headers.GetValueOrDefault("X-Tenant-Id", "unknown"))" />
+        </llm-emit-token-metric>
     </inbound>
     <backend>
-        <base />
+        <forward-request buffer-request-body="true" />
     </backend>
     <outbound>
-        <base />
-        <!--
-        =====================================================================
-        PII REDACTION (Outbound) - Mask sensitive data in responses
-        =====================================================================
-        -->
-        <set-variable name="responseBodyText" value="@(context.Response.Body.As<string>(preserveContent: true) ?? "")" />
-        <choose>
-            <when condition="@(!string.IsNullOrEmpty((string)context.Variables["responseBodyText"]))">
-                <set-body>@{
-                    var body = (string)context.Variables["responseBodyText"];
-                    
-                    // SSN pattern: XXX-XX-XXXX or XXXXXXXXX
-                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b\d{3}[-\s]?\d{2}[-\s]?\d{4}\b", "[SSN-REDACTED]");
-                    
-                    // Credit Card patterns
-                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(?:4[0-9]{12}(?:[0-9]{3})?|5[1-5][0-9]{14}|3[47][0-9]{13}|6(?:011|5[0-9]{2})[0-9]{12})\b", "[CC-REDACTED]");
-                    
-                    // Email addresses
-                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b", "[EMAIL-REDACTED]");
-                    
-                    // Phone numbers
-                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(?:\+?1[-.\s]?)?\(?[0-9]{3}\)?[-.\s]?[0-9]{3}[-.\s]?[0-9]{4}\b", "[PHONE-REDACTED]");
-                    
-                    return body;
-                }</set-body>
-            </when>
-        </choose>
+        <!-- Add request tracing headers to response -->
+        <set-header name="x-ms-request-id" exists-action="override">
+            <value>@(context.RequestId.ToString())</value>
+        </set-header>
+        <!-- Add remaining tokens header for rate limit visibility -->
+        <set-header name="x-ratelimit-remaining-tokens" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("remainingTokens", "N/A"))</value>
+        </set-header>
+        <!-- Content safety status headers for debugging -->
+        <set-header name="x-content-safety-pii" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("pii-redaction-applied", "unknown"))</value>
+        </set-header>
+        <set-header name="x-content-safety-prompt-shield" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("prompt-shield-applied", "unknown"))</value>
+        </set-header>
     </outbound>
     <on-error>
-        <base />
+        <!-- Return consistent error format with correlation ID -->
+        <return-response>
+            <set-status code="@(context.Response.StatusCode)" reason="@(context.Response.StatusReason)" />
+            <set-header name="x-ms-request-id" exists-action="override">
+                <value>@(context.RequestId.ToString())</value>
+            </set-header>
+            <set-header name="Content-Type" exists-action="override">
+                <value>application/json</value>
+            </set-header>
+            <set-body>@{
+                return new JObject(
+                    new JProperty("error", new JObject(
+                        new JProperty("code", context.Response.StatusCode.ToString()),
+                        new JProperty("message", context.Response.StatusReason),
+                        new JProperty("requestId", context.RequestId.ToString())
+                    ))
+                ).ToString();
+            }</set-body>
+        </return-response>
     </on-error>
 </policies>

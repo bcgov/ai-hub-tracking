@@ -3,7 +3,7 @@
         <base />
         <!-- Tenant identification -->
         <set-header name="X-Tenant-Id" exists-action="override">
-            <value>wlrs-water-form-assistant</value>
+            <value>spdr-invoice-automation</value>
         </set-header>
 
         <!-- ================================================================== -->
@@ -39,22 +39,22 @@
         <choose>
             <!-- OpenAI requests: /openai/* -->
             <when condition="@(context.Request.Url.Path.Contains("/openai/"))">
-                <set-backend-service backend-id="wlrs-water-form-assistant-openai" />
+                <set-backend-service backend-id="spdr-invoice-automation-openai" />
                 <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
             </when>
             <!-- Document Intelligence requests: /documentintelligence/* or /formrecognizer/* -->
             <when condition="@(context.Request.Url.Path.Contains("/documentintelligence/") || context.Request.Url.Path.Contains("/formrecognizer/"))">
-                <set-backend-service backend-id="wlrs-water-form-assistant-docint" />
+                <set-backend-service backend-id="spdr-invoice-automation-docint" />
                 <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
             </when>
             <!-- Storage requests: /storage/* or /blobs/* -->
             <when condition="@(context.Request.Url.Path.Contains("/storage/") || context.Request.Url.Path.Contains("/blobs/"))">
-                <set-backend-service backend-id="wlrs-water-form-assistant-storage" />
+                <set-backend-service backend-id="spdr-invoice-automation-storage" />
                 <authentication-managed-identity resource="https://storage.azure.com/" output-token-variable-name="msi-access-token" ignore-error="false" />
             </when>
             <!-- Default: OpenAI backend for all other requests -->
             <otherwise>
-                <set-backend-service backend-id="wlrs-water-form-assistant-openai" />
+                <set-backend-service backend-id="spdr-invoice-automation-openai" />
                 <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
             </otherwise>
         </choose>
