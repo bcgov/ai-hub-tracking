@@ -102,13 +102,13 @@ tenants = {
       prompt_shield_enabled = true # Block prompt injection/jailbreak attempts
     }
   }
-  spdr-invoice-automation = {
-    tenant_name  = "spdr-invoice-automation"
-    display_name = "SPDR Invoice Automation"
+  sdpr-invoice-automation = {
+    tenant_name  = "sdpr-invoice-automation"
+    display_name = "SDPR Invoice Automation"
     enabled      = true
 
     tags = {
-      ministry    = "SPDR"
+      ministry    = "SDPR"
       environment = "test"
     }
 

@@ -3,7 +3,7 @@
         <base />
         <!-- Tenant identification -->
         <set-header name="X-Tenant-Id" exists-action="override">
-            <value>spdr-invoice-automation</value>
+            <value>sdpr-invoice-automation</value>
         </set-header>
 
         <!-- ================================================================== -->
@@ -39,7 +39,7 @@
         <choose>
             <!-- Document Intelligence requests: match documentintelligence, formrecognizer, or documentModels in path -->
             <when condition="@(context.Request.Url.Path.ToLower().Contains("documentintelligence") || context.Request.Url.Path.ToLower().Contains("formrecognizer") || context.Request.Url.Path.ToLower().Contains("documentmodels"))">
-                <set-backend-service backend-id="spdr-invoice-automation-docint" />
+                <set-backend-service backend-id="sdpr-invoice-automation-docint" />
                 <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
                 <set-header name="Authorization" exists-action="override">
                     <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
@@ -48,7 +48,7 @@
             </when>
             <!-- OpenAI requests: /openai/* -->
             <when condition="@(context.Request.Url.Path.ToLower().Contains("openai"))">
-                <set-backend-service backend-id="spdr-invoice-automation-openai" />
+                <set-backend-service backend-id="sdpr-invoice-automation-openai" />
                 <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
                 <set-header name="Authorization" exists-action="override">
                     <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
