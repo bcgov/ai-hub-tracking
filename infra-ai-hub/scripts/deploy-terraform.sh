@@ -31,6 +31,12 @@
 #   TF_VAR_client_id           - Azure Client ID (for OIDC)
 #   ARM_USE_OIDC=true          - Use OIDC authentication
 #
+# Auto-Recovery Features:
+#   - Deposed objects: Automatically removes deposed objects from state when
+#     Terraform fails with 404 errors trying to delete already-deleted resources
+#   - Existing resources: Automatically imports resources that exist in Azure
+#     but not in Terraform state
+#
 # Examples:
 #   ./scripts/deploy-terraform.sh plan dev
 #   ./scripts/deploy-terraform.sh apply test
@@ -361,6 +367,46 @@ tf_import_existing_resource_if_needed() {
     return 2
 }
 
+# Detect and remove deposed objects from state
+# Deposed objects occur when a resource replace fails mid-operation, leaving
+# Terraform trying to delete a resource that no longer exists (404 errors)
+tf_remove_deposed_object_if_needed() {
+    local tf_output_file="$1"
+
+    # Look for deposed object deletion errors
+    # Pattern: "Error: deleting deposed object for <resource_address>"
+    # Followed by: "StatusCode=404" or "not found" or similar
+    local deposed_resource
+    deposed_resource=$(grep -oP '(?<=Error: deleting deposed object for )[^\s,]+' "$tf_output_file" 2>/dev/null | head -1)
+
+    if [[ -z "$deposed_resource" ]]; then
+        # Alternative pattern: "deposed object" with resource address
+        deposed_resource=$(grep -oP 'deposed object.*?(\S+\.\S+\[\d+\]|\S+\.\S+\.\S+\[\d+\]|\S+\.\S+\.\S+\.\S+\[\d+\])' "$tf_output_file" 2>/dev/null | grep -oP '\S+\[\d+\]$' | head -1)
+    fi
+
+    if [[ -z "$deposed_resource" ]]; then
+        return 1
+    fi
+
+    # Verify this is a 404/not-found situation (safe to remove from state)
+    if ! grep -qiE '(StatusCode=404|not found|does not exist|NoSuchResource)' "$tf_output_file" 2>/dev/null; then
+        log_warning "Deposed object detected but error is not 404/not-found. Manual intervention required."
+        return 1
+    fi
+
+    log_warning "Detected deposed object with 404 error (resource already deleted)"
+    log_info "Deposed resource: $deposed_resource"
+    log_info "Removing deposed object from state..."
+
+    if terraform state rm "$deposed_resource" 2>/dev/null; then
+        log_success "Removed deposed object from state: $deposed_resource"
+        return 0
+    fi
+
+    log_error "Failed to remove deposed object from state: $deposed_resource"
+    return 2
+}
+
 tf_apply() {
     log_info "Applying Terraform changes..."
     if [[ "${CI:-false}" == "true" ]]; then
@@ -398,18 +444,29 @@ tf_apply() {
             break
         fi
 
-        if tf_import_existing_resource_if_needed "$tf_output_file"; then
+        # Try to handle recoverable errors before failing
+        local handled=false
+
+        # Check for deposed object errors (404 on delete)
+        if tf_remove_deposed_object_if_needed "$tf_output_file"; then
+            handled=true
+        # Check for existing resource that needs import
+        elif tf_import_existing_resource_if_needed "$tf_output_file"; then
+            handled=true
+        fi
+
+        if [[ "$handled" == "true" ]]; then
             rm -f "$tf_output_file"
             attempt=$((attempt + 1))
             if [[ $attempt -gt $max_retries ]]; then
-                log_error "Exceeded maximum retries (${max_retries}) for auto-import/retry"
+                log_error "Exceeded maximum retries (${max_retries}) for auto-recovery"
                 exit $tf_exit
             fi
             continue
         fi
 
         rm -f "$tf_output_file"
-        log_error "Terraform apply failed (non-importable error)."
+        log_error "Terraform apply failed (non-recoverable error)."
         exit $tf_exit
     done
     
