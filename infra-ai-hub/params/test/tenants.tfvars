@@ -98,8 +98,8 @@ tenants = {
     # Controls PII redaction and prompt injection protection
     # Both enabled by default - set to false to opt-out
     content_safety = {
-      pii_redaction_enabled = true  # Redact emails, phone numbers, addresses, etc.
-      prompt_shield_enabled = true  # Block prompt injection/jailbreak attempts
+      pii_redaction_enabled = true # Redact emails, phone numbers, addresses, etc.
+      prompt_shield_enabled = true # Block prompt injection/jailbreak attempts
     }
   }
   spdr-invoice-automation = {

@@ -46,8 +46,8 @@ locals {
     for key, config in local.enabled_tenants : key => (
       fileexists("${path.module}/params/apim/tenants/${key}/api_policy.xml")
       ? templatefile("${path.module}/params/apim/tenants/${key}/api_policy.xml", {
-        pii_redaction_enabled   = try(config.content_safety.pii_redaction_enabled, true)
-        prompt_shield_enabled   = try(config.content_safety.prompt_shield_enabled, true)
+        pii_redaction_enabled = try(config.content_safety.pii_redaction_enabled, true)
+        prompt_shield_enabled = try(config.content_safety.prompt_shield_enabled, true)
       })
       : null
     )
