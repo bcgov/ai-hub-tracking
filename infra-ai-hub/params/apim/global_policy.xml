@@ -6,36 +6,44 @@
         </set-header>
         
         <!-- ================================================================== -->
-        <!-- CONTENT SAFETY: PII Redaction & Prompt Injection Protection       -->
-        <!-- Applied globally - tenants can opt-out via X-Skip-* headers       -->
+        <!-- CONTENT SAFETY: PII Redaction                                   -->
+        <!-- Applied globally - tenant opt-out resolved at deploy time        -->
         <!-- ================================================================== -->
-        
-        <!-- PII Redaction: Mask sensitive data (emails, phone numbers, etc.) -->
-        <!-- Skipped if tenant sets X-Skip-PII-Redaction header to "true" -->
+
+        <!-- Determine if this tenant opted out of PII redaction -->
+        <set-variable name="pii-redaction-skip" value="@{
+            var path = context.Request.Url.Path.ToLower().Trim('/');
+            var apiPath = context.Api != null ? context.Api.Path?.ToLower() : null;
+            var tenant = !string.IsNullOrEmpty(apiPath)
+                ? apiPath.Trim('/')
+                : (path.Contains("/") ? path.Split('/')[0] : path);
+%{ if length(pii_redaction_opt_out_tenants) > 0 ~}
+            var optOut = new [] { ${join(", ", [for t in pii_redaction_opt_out_tenants : "\"${t}\""])} };
+            return optOut.Contains(tenant) ? "true" : "false";
+%{ else ~}
+            return "false";
+%{ endif ~}
+        }" />
+
+        <!-- PII Redaction: Mask sensitive data in LLM requests/responses -->
+        <!-- Skipped if tenant opted out in params/{env}/tenants.tfvars -->
         <choose>
-            <when condition="@(context.Request.Headers.GetValueOrDefault("X-Skip-PII-Redaction", "false") != "true")">
-                <azure-openai-emit-token-metric namespace="AIHub.ContentSafety">
-                    <dimension name="Protection" value="PII-Redaction" />
-                </azure-openai-emit-token-metric>
-                <!-- Apply PII text analytics to redact sensitive data -->
+            <when condition="@(context.Request.Url.Path.ToLower().Contains("openai") && context.Variables.GetValueOrDefault<string>("pii-redaction-skip", "false") != "true")">
                 <set-variable name="pii-redaction-applied" value="true" />
+                <set-body>@{
+                    var body = context.Request.Body.As<string>(preserveContent: true);
+                    if (string.IsNullOrEmpty(body)) {
+                        return body;
+                    }
+                    body = System.Text.RegularExpressions.Regex.Replace(body, @"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "[REDACTED_EMAIL]", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(\+?\d{1,3}[\s\.-]?)?(\(?\d{3}\)?[\s\.-]?){1}\d{3}[\s\.-]?\d{4}\b", "[REDACTED_PHONE]");
+                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b\d{3}-\d{2}-\d{4}\b", "[REDACTED_SSN]");
+                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(?:\d[ -]*?){13,16}\b", "[REDACTED_CC]");
+                    return body;
+                }</set-body>
             </when>
             <otherwise>
                 <set-variable name="pii-redaction-applied" value="false" />
-            </otherwise>
-        </choose>
-        
-        <!-- Prompt Shield: Block prompt injection/jailbreak attempts -->
-        <!-- Skipped if tenant sets X-Skip-Prompt-Shield header to "true" -->
-        <choose>
-            <when condition="@(context.Request.Headers.GetValueOrDefault("X-Skip-Prompt-Shield", "false") != "true")">
-                <azure-openai-emit-token-metric namespace="AIHub.ContentSafety">
-                    <dimension name="Protection" value="Prompt-Shield" />
-                </azure-openai-emit-token-metric>
-                <set-variable name="prompt-shield-applied" value="true" />
-            </when>
-            <otherwise>
-                <set-variable name="prompt-shield-applied" value="false" />
             </otherwise>
         </choose>
         
@@ -59,12 +67,25 @@
         <set-header name="x-ratelimit-remaining-tokens" exists-action="override">
             <value>@(context.Variables.ContainsKey("remainingTokens") ? ((int)context.Variables["remainingTokens"]).ToString() : "N/A")</value>
         </set-header>
+        <!-- PII Redaction on responses (only if applied on inbound) -->
+        <choose>
+            <when condition="@(context.Variables.GetValueOrDefault<string>("pii-redaction-applied", "false") == "true")">
+                <set-body>@{
+                    var body = context.Response.Body.As<string>(preserveContent: true);
+                    if (string.IsNullOrEmpty(body)) {
+                        return body;
+                    }
+                    body = System.Text.RegularExpressions.Regex.Replace(body, @"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "[REDACTED_EMAIL]", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(\+?\d{1,3}[\s\.-]?)?(\(?\d{3}\)?[\s\.-]?){1}\d{3}[\s\.-]?\d{4}\b", "[REDACTED_PHONE]");
+                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b\d{3}-\d{2}-\d{4}\b", "[REDACTED_SSN]");
+                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(?:\d[ -]*?){13,16}\b", "[REDACTED_CC]");
+                    return body;
+                }</set-body>
+            </when>
+        </choose>
         <!-- Content safety status headers for debugging -->
         <set-header name="x-content-safety-pii" exists-action="override">
             <value>@(context.Variables.GetValueOrDefault<string>("pii-redaction-applied", "unknown"))</value>
-        </set-header>
-        <set-header name="x-content-safety-prompt-shield" exists-action="override">
-            <value>@(context.Variables.GetValueOrDefault<string>("prompt-shield-applied", "unknown"))</value>
         </set-header>
     </outbound>
     <on-error>

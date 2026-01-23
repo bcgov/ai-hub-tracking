@@ -6,25 +6,6 @@
             <value>sdpr-invoice-automation</value>
         </set-header>
 
-        <!-- ================================================================== -->
-        <!-- CONTENT SAFETY OPT-OUT (compile-time configuration)               -->
-        <!-- Skip headers are set based on tenant tfvars at deploy time        -->
-        <!-- pii_redaction_enabled: ${pii_redaction_enabled}                   -->
-        <!-- prompt_shield_enabled: ${prompt_shield_enabled}                   -->
-        <!-- ================================================================== -->
-%{ if !pii_redaction_enabled ~}
-        <!-- PII Redaction is DISABLED for this tenant -->
-        <set-header name="X-Skip-PII-Redaction" exists-action="override">
-            <value>true</value>
-        </set-header>
-%{ endif ~}
-%{ if !prompt_shield_enabled ~}
-        <!-- Prompt Shield is DISABLED for this tenant -->
-        <set-header name="X-Skip-Prompt-Shield" exists-action="override">
-            <value>true</value>
-        </set-header>
-%{ endif ~}
-
         <!-- Token rate limiting: 10,000 TPM per subscription for this tenant -->
         <!-- Protects backend from token exhaustion, returns 429 when exceeded -->
         <llm-token-limit

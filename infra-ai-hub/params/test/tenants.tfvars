@@ -95,11 +95,10 @@ tenants = {
     }
 
     # Content Safety Configuration
-    # Controls PII redaction and prompt injection protection
-    # Both enabled by default - set to false to opt-out
+    # Controls PII redaction
+    # Enabled by default - set to false to opt-out
     content_safety = {
       pii_redaction_enabled = true # Redact emails, phone numbers, addresses, etc.
-      prompt_shield_enabled = true # Block prompt injection/jailbreak attempts
     }
   }
   sdpr-invoice-automation = {
@@ -185,10 +184,8 @@ tenants = {
 
     # Content Safety Configuration
     # This tenant opts OUT of PII redaction (invoice processing needs raw data)
-    # but keeps prompt shield enabled for security
     content_safety = {
       pii_redaction_enabled = false # Disabled - invoices need raw email/phone data
-      prompt_shield_enabled = true  # Keep enabled for security
     }
   }
 }

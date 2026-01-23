@@ -401,7 +401,7 @@ API Management for exposing AI services with per-tenant products and path-based 
 | `tenant_products` | map | ❌ | Per-tenant products |
 | `apis` | map | ❌ | Per-tenant API definitions with path routing |
 | `named_values` | map | ❌ | Named values (created as separate resources) |
-| `global_policy_xml` | string | ❌ | Global policy with PII redaction & prompt injection |
+| `global_policy_xml` | string | ❌ | Global policy with PII redaction |
 | `enable_private_endpoint` | bool | ❌ | Enable private endpoint (stv2) |
 | `private_endpoint_subnet_id` | string | ❌ | PE subnet for APIM (stv2 only) |
 
@@ -419,7 +419,7 @@ flowchart TB
     CLIENT["Client Request<br/>/wlrs/openai/chat"]
     
     subgraph "APIM"
-        GP["Global Policy<br/>PII Redaction<br/>Prompt Protection"]
+        GP["Global Policy<br/>PII Redaction"]
         API["Tenant API<br/>/wlrs"]
         POLICY["Tenant Policy<br/>Service Routing"]
     end
@@ -449,7 +449,6 @@ flowchart TB
 
 Applied to all APIs:
 - **PII Redaction**: Detects and masks SSN, credit cards, emails, phone numbers in request/response
-- **Prompt Injection Detection**: Scans for jailbreak patterns and suspicious prompts
 
 #### Tenant-Specific Policies
 
@@ -657,7 +656,6 @@ tenants = {
     
     content_safety = {
       pii_redaction_enabled = true
-      prompt_shield_enabled = true
     }
   }
 }
@@ -693,23 +691,23 @@ Each tenant can independently enable or disable services by setting the `enabled
 | Cosmos DB | `cosmos_db.enabled` | false | Document database |
 | OpenAI | `openai.enabled` | false | LLM endpoints |
 | Doc Intel | `document_intelligence.enabled` | false | Document parsing |
-| Content Safety | `content_safety.*` | PII: true, Shield: true | PII redaction and prompt injection protection |
+| Content Safety | `content_safety.*` | PII: true | PII redaction |
 
 ### Content Safety Configuration
 
-Control PII redaction and prompt injection protection on a per-tenant basis:
+Control PII redaction on a per-tenant basis:
 
 ```hcl
 content_safety = {
   pii_redaction_enabled = true      # Enable/disable PII masking
-  prompt_shield_enabled = true      # Enable/disable prompt injection detection
 }
 ```
 
-These settings are applied at **deploy time** to the tenant's API policy:
-- When enabled, the policy triggers the global content safety policy to check requests/responses
-- When disabled, the policy sets skip headers to bypass content safety checks
+These settings are applied at **deploy time** to the global policy:
+- When enabled, the global policy redacts PII in requests/responses
+- When disabled, the global policy skips PII redaction for that tenant
 - Configuration in `params/{env}/tenants.tfvars` controls behavior independently per tenant
+
 
 ### APIM Authentication Configuration
 
@@ -897,7 +895,6 @@ After apply, verify in Azure Portal:
 
 Edit `params/apim/global_policy.xml` to modify:
 - PII redaction patterns
-- Prompt injection detection rules
 - Rate limiting
 - Authentication
 
@@ -1092,7 +1089,7 @@ infra-ai-hub/
 │
 └── params/
     ├── apim/
-    │   ├── global_policy.xml              # PII redaction & prompt injection (all APIs)
+    │   ├── global_policy.xml              # PII redaction (all APIs)
     │   ├── fragments/                     # Reusable authentication policies
     │   │   ├── cognitive-services-auth.xml  # Managed identity for OpenAI, DI, Search
     │   │   ├── storage-auth.xml             # Managed identity for Blob Storage
@@ -1100,7 +1097,7 @@ infra-ai-hub/
     │   │   └── keyvault-auth.xml            # Managed identity for Key Vault
     │   └── tenants/
     │       └── {tenant-name}/
-    │           └── api_policy.xml        # Tenant-specific routing & content safety
+    │           └── api_policy.xml        # Tenant-specific routing
     │
     ├── dev/
     │   ├── shared.tfvars                  # Shared config (APIM, App GW, network, monitoring)

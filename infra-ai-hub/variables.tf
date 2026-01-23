@@ -282,9 +282,7 @@ variable "tenants" {
     content_safety = optional(object({
       # Redact PII (emails, phone numbers, addresses, etc.) from requests/responses
       pii_redaction_enabled = optional(bool, true)
-      # Protect against prompt injection attacks (jailbreak attempts)
-      prompt_shield_enabled = optional(bool, true)
-    }), { pii_redaction_enabled = true, prompt_shield_enabled = true })
+    }), { pii_redaction_enabled = true })
   }))
   default = {}
 }

@@ -36,19 +36,23 @@ locals {
   # =============================================================================
   # APIM POLICY FILES
   # =============================================================================
-  # Load global policy from file (PII redaction & prompt injection protection)
-  apim_global_policy_xml = file("${path.module}/params/apim/global_policy.xml")
+  # Tenants that opt out of PII redaction (deploy-time decision)
+  pii_redaction_opt_out_tenants = [
+    for key, config in local.enabled_tenants : key
+    if try(config.content_safety.pii_redaction_enabled, true) == false
+  ]
 
-  # Load tenant-specific API policies from template files (if they exist)
+  # Load global policy from template (PII redaction)
+  apim_global_policy_xml = templatefile("${path.module}/params/apim/global_policy.xml", {
+    pii_redaction_opt_out_tenants = local.pii_redaction_opt_out_tenants
+  })
+
+  # Load tenant-specific API policies from files (if they exist)
   # Each tenant can have: params/apim/tenants/{tenant-name}/api_policy.xml
-  # Template variables: pii_redaction_enabled, prompt_shield_enabled
   tenant_api_policies = {
     for key, config in local.enabled_tenants : key => (
       fileexists("${path.module}/params/apim/tenants/${key}/api_policy.xml")
-      ? templatefile("${path.module}/params/apim/tenants/${key}/api_policy.xml", {
-        pii_redaction_enabled = try(config.content_safety.pii_redaction_enabled, true)
-        prompt_shield_enabled = try(config.content_safety.prompt_shield_enabled, true)
-      })
+      ? file("${path.module}/params/apim/tenants/${key}/api_policy.xml")
       : null
     )
   }
