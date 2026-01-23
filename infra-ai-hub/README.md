@@ -653,6 +653,12 @@ tenants = {
       enabled = true
       sku     = "S0"
     }
+
+    log_analytics = {
+      enabled        = true
+      retention_days = 30
+      sku            = "PerGB2018"
+    }
     
     content_safety = {
       pii_redaction_enabled = true
@@ -691,7 +697,35 @@ Each tenant can independently enable or disable services by setting the `enabled
 | Cosmos DB | `cosmos_db.enabled` | false | Document database |
 | OpenAI | `openai.enabled` | false | LLM endpoints |
 | Doc Intel | `document_intelligence.enabled` | false | Document parsing |
+| Tenant Log Analytics | `log_analytics.enabled` | false | Per-tenant LAW + diagnostics |
 | Content Safety | `content_safety.*` | PII: true | PII redaction |
+
+### Tenant Log Analytics Configuration
+
+Create a per-tenant Log Analytics workspace and attach diagnostics to enabled tenant resources (per-service diagnostics block):
+
+```hcl
+log_analytics = {
+  enabled        = true
+  retention_days = 30
+  sku            = "PerGB2018"
+}
+
+key_vault = {
+  enabled = true
+  diagnostics = {
+    log_groups        = ["allLogs"]
+    log_categories    = []
+    metric_categories = ["AllMetrics"]
+  }
+}
+```
+
+When enabled and the per-service `diagnostics` block is present, diagnostics are sent for:
+- Key Vault
+- Storage Account
+- AI Search
+- Cosmos DB
 
 ### Content Safety Configuration
 

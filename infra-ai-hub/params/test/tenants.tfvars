@@ -28,6 +28,11 @@ tenants = {
       account_replication_type = "LRS"
       account_kind             = "StorageV2"
       access_tier              = "Hot"
+      diagnostics = {
+        log_groups        = []
+        log_categories    = []
+        metric_categories = ["Capacity", "Transaction"]
+      }
     }
 
     ai_search = {
@@ -55,11 +60,27 @@ tenants = {
       enabled = true
       sku     = "S0"
       kind    = "FormRecognizer"
+      diagnostics = {
+        log_groups        = ["allLogs"]
+        log_categories    = []
+        metric_categories = ["AllMetrics"]
+      }
+    }
+
+    log_analytics = {
+      enabled        = true
+      retention_days = 30
+      sku            = "PerGB2018"
     }
 
     openai = {
       enabled = true
       sku     = "S0"
+      diagnostics = {
+        log_groups        = ["allLogs"]
+        log_categories    = []
+        metric_categories = ["AllMetrics"]
+      }
       model_deployments = [
         {
           name          = "gpt-4o-mini"
@@ -124,6 +145,11 @@ tenants = {
       account_replication_type = "LRS"
       account_kind             = "StorageV2"
       access_tier              = "Hot"
+      diagnostics = {
+        log_groups        = []
+        log_categories    = []
+        metric_categories = ["Capacity", "Transaction"]
+      }
     }
 
     ai_search = {
@@ -143,11 +169,27 @@ tenants = {
       enabled = true
       sku     = "S0"
       kind    = "FormRecognizer"
+      diagnostics = {
+        log_groups        = ["allLogs"]
+        log_categories    = []
+        metric_categories = ["AllMetrics"]
+      }
+    }
+
+    log_analytics = {
+      enabled        = true
+      retention_days = 30
+      sku            = "PerGB2018"
     }
 
     openai = {
       enabled = true
       sku     = "S0"
+      diagnostics = {
+        log_groups        = ["allLogs"]
+        log_categories    = []
+        metric_categories = ["AllMetrics"]
+      }
       model_deployments = [
         {
           name          = "gpt-4o-mini"

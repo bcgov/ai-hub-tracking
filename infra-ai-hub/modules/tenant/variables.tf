@@ -44,9 +44,21 @@ variable "private_endpoint_subnet_id" {
 }
 
 variable "log_analytics_workspace_id" {
-  description = "Resource ID of Log Analytics workspace for diagnostics"
+  description = "Resource ID of Log Analytics workspace for diagnostics (legacy/shared)"
   type        = string
   default     = null
+}
+
+variable "log_analytics" {
+  description = "Per-tenant Log Analytics workspace configuration"
+  type = object({
+    enabled        = bool
+    retention_days = optional(number, 30)
+    sku            = optional(string, "PerGB2018")
+  })
+  default = {
+    enabled = false
+  }
 }
 
 variable "private_endpoint_dns_wait" {
@@ -68,6 +80,11 @@ variable "key_vault" {
     sku                        = optional(string, "standard")
     purge_protection_enabled   = optional(bool, true)
     soft_delete_retention_days = optional(number, 90)
+    diagnostics = optional(object({
+      log_groups        = optional(list(string), [])
+      log_categories    = optional(list(string), [])
+      metric_categories = optional(list(string), [])
+    }))
   })
   default = {
     enabled = false
@@ -85,6 +102,11 @@ variable "storage_account" {
     account_replication_type = optional(string, "LRS")
     account_kind             = optional(string, "StorageV2")
     access_tier              = optional(string, "Hot")
+    diagnostics = optional(object({
+      log_groups        = optional(list(string), [])
+      log_categories    = optional(list(string), [])
+      metric_categories = optional(list(string), [])
+    }))
   })
   default = {
     enabled = false
@@ -103,6 +125,11 @@ variable "ai_search" {
     partition_count    = optional(number, 1)
     semantic_search    = optional(string, "disabled")
     local_auth_enabled = optional(bool, true)
+    diagnostics = optional(object({
+      log_groups        = optional(list(string), [])
+      log_categories    = optional(list(string), [])
+      metric_categories = optional(list(string), [])
+    }))
   })
   default = {
     enabled = false
@@ -125,6 +152,11 @@ variable "cosmos_db" {
     automatic_failover_enabled   = optional(bool, false)
     total_throughput_limit       = optional(number, 1000)
     database_name                = optional(string, "default") # Database name for project connection
+    diagnostics = optional(object({
+      log_groups        = optional(list(string), [])
+      log_categories    = optional(list(string), [])
+      metric_categories = optional(list(string), [])
+    }))
   })
   default = {
     enabled = false
@@ -157,6 +189,11 @@ variable "document_intelligence" {
     enabled = bool
     sku     = optional(string, "S0")
     kind    = optional(string, "FormRecognizer")
+    diagnostics = optional(object({
+      log_groups        = optional(list(string), [])
+      log_categories    = optional(list(string), [])
+      metric_categories = optional(list(string), [])
+    }))
   })
   default = {
     enabled = false
@@ -179,6 +216,11 @@ variable "openai" {
       capacity        = optional(number, 10)
       rai_policy_name = optional(string) # Responsible AI policy name
     })), [])
+    diagnostics = optional(object({
+      log_groups        = optional(list(string), [])
+      log_categories    = optional(list(string), [])
+      metric_categories = optional(list(string), [])
+    }))
   })
   default = {
     enabled = false

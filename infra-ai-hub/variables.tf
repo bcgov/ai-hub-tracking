@@ -197,12 +197,24 @@ variable "tenants" {
     resource_group_name = optional(string)
     tags                = optional(map(string), {})
 
+    # Tenant Log Analytics configuration (optional)
+    log_analytics = optional(object({
+      enabled        = bool
+      retention_days = optional(number, 30)
+      sku            = optional(string, "PerGB2018")
+    }), { enabled = false })
+
     # Key Vault configuration
     key_vault = object({
       enabled                    = bool
       sku                        = optional(string, "standard")
       purge_protection_enabled   = optional(bool, true)
       soft_delete_retention_days = optional(number, 90)
+      diagnostics = optional(object({
+        log_groups        = optional(list(string), [])
+        log_categories    = optional(list(string), [])
+        metric_categories = optional(list(string), [])
+      }))
     })
 
     # Storage Account configuration
@@ -212,6 +224,11 @@ variable "tenants" {
       account_replication_type = optional(string, "LRS")
       account_kind             = optional(string, "StorageV2")
       access_tier              = optional(string, "Hot")
+      diagnostics = optional(object({
+        log_groups        = optional(list(string), [])
+        log_categories    = optional(list(string), [])
+        metric_categories = optional(list(string), [])
+      }))
     })
 
     # AI Search configuration
@@ -222,6 +239,11 @@ variable "tenants" {
       partition_count    = optional(number, 1)
       semantic_search    = optional(string, "disabled")
       local_auth_enabled = optional(bool, true)
+      diagnostics = optional(object({
+        log_groups        = optional(list(string), [])
+        log_categories    = optional(list(string), [])
+        metric_categories = optional(list(string), [])
+      }))
     })
 
     # Cosmos DB configuration
@@ -235,6 +257,11 @@ variable "tenants" {
       geo_redundant_backup_enabled = optional(bool, false)
       automatic_failover_enabled   = optional(bool, false)
       total_throughput_limit       = optional(number, 1000)
+      diagnostics = optional(object({
+        log_groups        = optional(list(string), [])
+        log_categories    = optional(list(string), [])
+        metric_categories = optional(list(string), [])
+      }))
     })
 
     # Document Intelligence configuration
@@ -242,6 +269,11 @@ variable "tenants" {
       enabled = bool
       sku     = optional(string, "S0")
       kind    = optional(string, "FormRecognizer")
+      diagnostics = optional(object({
+        log_groups        = optional(list(string), [])
+        log_categories    = optional(list(string), [])
+        metric_categories = optional(list(string), [])
+      }))
     })
 
     # OpenAI configuration
@@ -255,6 +287,11 @@ variable "tenants" {
         scale_type    = optional(string, "Standard")
         capacity      = optional(number, 10)
       })), [])
+      diagnostics = optional(object({
+        log_groups        = optional(list(string), [])
+        log_categories    = optional(list(string), [])
+        metric_categories = optional(list(string), [])
+      }))
     })
 
     # APIM Authentication configuration

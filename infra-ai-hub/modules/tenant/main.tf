@@ -27,6 +27,26 @@ resource "random_string" "suffix" {
   special = false
 }
 
+# -----------------------------------------------------------------------------
+# Tenant Log Analytics Workspace (optional)
+# -----------------------------------------------------------------------------
+resource "azurerm_log_analytics_workspace" "tenant" {
+  count = var.log_analytics.enabled ? 1 : 0
+
+  name                = "${local.tenant_name_short}-law-${random_string.suffix.result}"
+  location            = var.location
+  resource_group_name = local.resource_group_name
+
+  sku               = var.log_analytics.sku
+  retention_in_days = var.log_analytics.retention_days
+
+  tags = var.tags
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
+}
+
 # =============================================================================
 # AI FOUNDRY PROJECT (using azapi - no AVM available yet)
 # =============================================================================
@@ -99,6 +119,16 @@ module "key_vault" {
     }
   }
 
+  diagnostic_settings = local.has_log_analytics && local.kv_diagnostics != null ? {
+    to_law = {
+      name                  = "${local.name_prefix}-kv-diag"
+      workspace_resource_id = local.tenant_log_analytics_workspace_id
+      log_groups            = local.kv_log_groups
+      log_categories        = local.kv_log_categories
+      metric_categories     = local.kv_metric_categories
+    }
+  } : {}
+
   tags             = var.tags
   enable_telemetry = false
 
@@ -153,6 +183,36 @@ resource "azurerm_storage_container" "default" {
   container_access_type = "private"
 }
 
+# Storage diagnostics -> tenant Log Analytics (if enabled)
+resource "azurerm_monitor_diagnostic_setting" "storage" {
+  count = var.storage_account.enabled && local.has_log_analytics && local.storage_diagnostics != null ? 1 : 0
+
+  name                       = "${local.name_prefix}-storage-diag"
+  target_resource_id         = azurerm_storage_account.this[0].id
+  log_analytics_workspace_id = local.tenant_log_analytics_workspace_id
+
+  dynamic "enabled_log" {
+    for_each = local.storage_log_groups
+    content {
+      category_group = enabled_log.value
+    }
+  }
+
+  dynamic "enabled_log" {
+    for_each = local.storage_log_categories
+    content {
+      category = enabled_log.value
+    }
+  }
+
+  dynamic "enabled_metric" {
+    for_each = local.storage_metric_categories
+    content {
+      category = enabled_metric.value
+    }
+  }
+}
+
 # =============================================================================
 # AI SEARCH (using AVM)
 # https://github.com/Azure/terraform-azurerm-avm-res-search-searchservice
@@ -186,6 +246,16 @@ module "ai_search" {
       tags               = var.tags
     }
   }
+
+  diagnostic_settings = local.has_log_analytics && local.search_diagnostics != null ? {
+    to_law = {
+      name                  = "${local.name_prefix}-search-diag"
+      workspace_resource_id = local.tenant_log_analytics_workspace_id
+      log_groups            = local.search_log_groups
+      log_categories        = local.search_log_categories
+      metric_categories     = local.search_metric_categories
+    }
+  } : {}
 
   tags             = var.tags
   enable_telemetry = false
@@ -236,6 +306,36 @@ resource "azurerm_cosmosdb_account" "this" {
 
   lifecycle {
     ignore_changes = [tags]
+  }
+}
+
+# Cosmos DB diagnostics -> tenant Log Analytics (if enabled)
+resource "azurerm_monitor_diagnostic_setting" "cosmos" {
+  count = var.cosmos_db.enabled && local.has_log_analytics && local.cosmos_diagnostics != null ? 1 : 0
+
+  name                       = "${local.name_prefix}-cosmos-diag"
+  target_resource_id         = azurerm_cosmosdb_account.this[0].id
+  log_analytics_workspace_id = local.tenant_log_analytics_workspace_id
+
+  dynamic "enabled_log" {
+    for_each = local.cosmos_log_groups
+    content {
+      category_group = enabled_log.value
+    }
+  }
+
+  dynamic "enabled_log" {
+    for_each = local.cosmos_log_categories
+    content {
+      category = enabled_log.value
+    }
+  }
+
+  dynamic "enabled_metric" {
+    for_each = local.cosmos_metric_categories
+    content {
+      category = enabled_metric.value
+    }
   }
 }
 
@@ -299,6 +399,16 @@ module "document_intelligence" {
     }
   }
 
+  diagnostic_settings = local.has_log_analytics && local.docint_diagnostics != null ? {
+    to_law = {
+      name                  = "${local.name_prefix}-docint-diag"
+      workspace_resource_id = local.tenant_log_analytics_workspace_id
+      log_groups            = local.docint_log_groups
+      log_categories        = local.docint_log_categories
+      metric_categories     = local.docint_metric_categories
+    }
+  } : {}
+
   tags             = var.tags
   enable_telemetry = false
 
@@ -359,6 +469,16 @@ module "openai" {
       location           = var.location # must be canada central for PE as subnets are region-specific
     }
   }
+
+  diagnostic_settings = local.has_log_analytics && local.openai_diagnostics != null ? {
+    to_law = {
+      name                  = "${local.name_prefix}-openai-diag"
+      workspace_resource_id = local.tenant_log_analytics_workspace_id
+      log_groups            = local.openai_log_groups
+      log_categories        = local.openai_log_categories
+      metric_categories     = local.openai_metric_categories
+    }
+  } : {}
 
   tags             = var.tags
   enable_telemetry = false

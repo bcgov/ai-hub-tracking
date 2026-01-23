@@ -6,6 +6,7 @@ This module creates all resources for a single tenant within the AI Foundry plat
 
 Each tenant gets their own isolated set of resources:
 - AI Foundry Project (within the shared hub)
+- Log Analytics Workspace (optional)
 - Key Vault (optional)
 - Storage Account (optional)
 - Azure AI Search (optional)
@@ -31,6 +32,21 @@ module "tenant" {
   ai_foundry_hub_id = module.ai_foundry_hub.id
   
   private_endpoint_subnet_id = module.network.private_endpoint_subnet_id
+
+  log_analytics = {
+    enabled        = false
+    retention_days = 30
+    sku            = "PerGB2018"
+  }
+
+  key_vault = {
+    enabled = true
+    diagnostics = {
+      log_groups        = ["allLogs"]
+      log_categories    = []
+      metric_categories = ["AllMetrics"]
+    }
+  }
   
   key_vault        = each.value.key_vault
   storage_account  = each.value.storage_account

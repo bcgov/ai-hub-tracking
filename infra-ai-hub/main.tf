@@ -605,12 +605,19 @@ module "tenant" {
     poll_interval = var.shared_config.private_endpoint_dns_wait.poll_interval
   }
 
+  log_analytics = {
+    enabled        = lookup(each.value.log_analytics, "enabled", false)
+    retention_days = lookup(each.value.log_analytics, "retention_days", 30)
+    sku            = lookup(each.value.log_analytics, "sku", "PerGB2018")
+  }
+
   # Resource configurations from tenant config file
   key_vault = {
     enabled                    = lookup(each.value.key_vault, "enabled", false)
     sku                        = lookup(each.value.key_vault, "sku", "standard")
     purge_protection_enabled   = lookup(each.value.key_vault, "purge_protection_enabled", true)
     soft_delete_retention_days = lookup(each.value.key_vault, "soft_delete_retention_days", 90)
+    diagnostics                = lookup(each.value.key_vault, "diagnostics", null)
   }
 
   storage_account = {
@@ -619,6 +626,7 @@ module "tenant" {
     account_replication_type = lookup(each.value.storage_account, "account_replication_type", "LRS")
     account_kind             = lookup(each.value.storage_account, "account_kind", "StorageV2")
     access_tier              = lookup(each.value.storage_account, "access_tier", "Hot")
+    diagnostics              = lookup(each.value.storage_account, "diagnostics", null)
   }
 
   ai_search = {
@@ -628,6 +636,7 @@ module "tenant" {
     partition_count    = lookup(each.value.ai_search, "partition_count", 1)
     semantic_search    = lookup(each.value.ai_search, "semantic_search", "disabled")
     local_auth_enabled = lookup(each.value.ai_search, "local_auth_enabled", true)
+    diagnostics        = lookup(each.value.ai_search, "diagnostics", null)
   }
 
   cosmos_db = {
@@ -640,12 +649,14 @@ module "tenant" {
     geo_redundant_backup_enabled = lookup(each.value.cosmos_db, "geo_redundant_backup_enabled", false)
     automatic_failover_enabled   = lookup(each.value.cosmos_db, "automatic_failover_enabled", false)
     total_throughput_limit       = lookup(each.value.cosmos_db, "total_throughput_limit", 1000)
+    diagnostics                  = lookup(each.value.cosmos_db, "diagnostics", null)
   }
 
   document_intelligence = {
-    enabled = lookup(each.value.document_intelligence, "enabled", false)
-    sku     = lookup(each.value.document_intelligence, "sku", "S0")
-    kind    = lookup(each.value.document_intelligence, "kind", "FormRecognizer")
+    enabled     = lookup(each.value.document_intelligence, "enabled", false)
+    sku         = lookup(each.value.document_intelligence, "sku", "S0")
+    kind        = lookup(each.value.document_intelligence, "kind", "FormRecognizer")
+    diagnostics = lookup(each.value.document_intelligence, "diagnostics", null)
   }
 
   openai = {
@@ -660,6 +671,7 @@ module "tenant" {
         capacity      = lookup(deployment, "capacity", 10)
       }
     ]
+    diagnostics = lookup(each.value.openai, "diagnostics", null)
   }
 
   tags = merge(var.common_tags, lookup(each.value, "tags", {}))
