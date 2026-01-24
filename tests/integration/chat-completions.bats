@@ -68,7 +68,7 @@ setup() {
 EOF
 )
     
-    response=$(apim_request "POST" "wlrs-water-form-assistant" \
+    response=$(apim_request_with_retry "POST" "wlrs-water-form-assistant" \
         "/openai/deployments/${DEFAULT_MODEL}/chat/completions?api-version=${OPENAI_API_VERSION}" \
         "${body}")
     parse_response "${response}"

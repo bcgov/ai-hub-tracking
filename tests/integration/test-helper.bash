@@ -52,7 +52,42 @@ parse_response() {
     export RESPONSE_STATUS RESPONSE_BODY
 }
 
-# Make a chat completion request
+# Retry configuration for rate limiting
+MAX_RETRIES="${MAX_RETRIES:-3}"
+RETRY_DELAY="${RETRY_DELAY:-5}"
+
+# Make a request with retry logic for 429 rate limiting
+# Usage: apim_request_with_retry <method> <tenant> <path> [body]
+apim_request_with_retry() {
+    local method="${1}"
+    local tenant="${2}"
+    local path="${3}"
+    local body="${4:-}"
+    local retries=0
+    local response
+    
+    while [[ ${retries} -lt ${MAX_RETRIES} ]]; do
+        response=$(apim_request "${method}" "${tenant}" "${path}" "${body}")
+        parse_response "${response}"
+        
+        if [[ "${RESPONSE_STATUS}" == "429" ]]; then
+            retries=$((retries + 1))
+            # Extract retry-after from response if available, default to RETRY_DELAY
+            local retry_after
+            retry_after=$(echo "${RESPONSE_BODY}" | grep -oP 'retry after \K[0-9]+' || echo "${RETRY_DELAY}")
+            echo "Rate limited (429), retry ${retries}/${MAX_RETRIES} after ${retry_after}s..." >&2
+            sleep "${retry_after}"
+        else
+            echo "${response}"
+            return 0
+        fi
+    done
+    
+    # Return the last response after all retries exhausted
+    echo "${response}"
+}
+
+# Make a chat completion request (with retry for rate limiting)
 # Usage: chat_completion <tenant> <model> <message>
 chat_completion() {
     local tenant="${1}"
@@ -76,7 +111,7 @@ chat_completion() {
 EOF
 )
     
-    apim_request "POST" "${tenant}" "${path}" "${body}"
+    apim_request_with_retry "POST" "${tenant}" "${path}" "${body}"
 }
 
 # Make a document intelligence analyze request
@@ -100,9 +135,15 @@ EOF
 
 # Assert HTTP status code
 # Usage: assert_status <expected> <actual>
+# If SKIP_ON_RATE_LIMIT=true and status is 429, the test will be skipped instead of failing
 assert_status() {
     local expected="${1}"
     local actual="${2}"
+    
+    # Handle rate limiting gracefully
+    if [[ "${actual}" == "429" ]] && [[ "${SKIP_ON_RATE_LIMIT:-false}" == "true" ]]; then
+        skip "Rate limited (429) - skipping test"
+    fi
     
     if [[ "${actual}" != "${expected}" ]]; then
         echo "Expected status ${expected}, got ${actual}" >&2
@@ -241,6 +282,6 @@ setup_test_suite() {
 }
 
 # Export functions
-export -f apim_request parse_response chat_completion docint_analyze
+export -f apim_request apim_request_with_retry parse_response chat_completion docint_analyze
 export -f assert_status assert_contains assert_not_contains json_get
 export -f looks_like_pii is_redacted wait_for_operation setup_test_suite

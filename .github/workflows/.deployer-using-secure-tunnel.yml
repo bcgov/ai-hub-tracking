@@ -143,8 +143,8 @@ jobs:
 
           HTTP_PROXY: "http://127.0.0.1:8118"
           HTTPS_PROXY: "http://127.0.0.1:8118"
-          # Bypass proxy only for Azure control plane APIs; data plane (vault, storage, APIM) uses proxy for private endpoint access
-          NO_PROXY: "management.azure.com,login.microsoftonline.com,graph.microsoft.com"
+          # Bypass proxy for Azure control plane APIs and Terraform registries; data plane uses proxy for private endpoint access
+          NO_PROXY: "management.azure.com,login.microsoftonline.com,graph.microsoft.com,registry.terraform.io,releases.hashicorp.com,github.com"
         run: |
           export no_proxy="$NO_PROXY"
 

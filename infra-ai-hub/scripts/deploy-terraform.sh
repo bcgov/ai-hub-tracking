@@ -524,9 +524,6 @@ tf_apply() {
     
     log_success "Apply complete"
     
-    log_info ""
-    log_info "=== Deployment Outputs ==="
-    tf_output
 }
 
 tf_destroy() {
