@@ -27,7 +27,7 @@ on:
         type: string
 env:
   TF_VERSION: 1.12.2
-  TF_LOG: ERROR
+  TF_LOG: DEBUG
   CHISEL_IMAGE_VERSION: 1.11
   CHISEL_IMAGE: jpillora/chisel
 permissions:
@@ -143,6 +143,8 @@ jobs:
 
           HTTP_PROXY: "http://127.0.0.1:8118"
           HTTPS_PROXY: "http://127.0.0.1:8118"
+          # Bypass proxy only for Azure control plane APIs; data plane (vault, storage, APIM) uses proxy for private endpoint access
+          NO_PROXY: "management.azure.com,login.microsoftonline.com,graph.microsoft.com"
         run: |
           export no_proxy="$NO_PROXY"
 
