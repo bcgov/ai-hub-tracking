@@ -189,7 +189,10 @@ variable "shared_config" {
 }
 
 variable "tenants" {
-  description = "Tenant configurations loaded from params/{env}/tenants.tfvars"
+  description = <<-EOT
+    Tenant configurations. Individual tenant configs are stored in 
+    params/{env}/tenants/{tenant-name}/tenant.tfvars and merged by the deploy script.
+  EOT
   type = map(object({
     tenant_name         = string
     display_name        = string

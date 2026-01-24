@@ -31,6 +31,7 @@ replay_pid*
 terraform.tfvars
 .terraform/
 .terraform.lock.hcl
+.tenants-*.auto.tfvars
 crash.log
 _bkp
 *._bkp

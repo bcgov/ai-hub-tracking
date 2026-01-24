@@ -58,6 +58,19 @@ output "log_analytics_workspace_id" {
 }
 
 # =============================================================================
+# APIM OUTPUTS
+# =============================================================================
+output "apim_gateway_url" {
+  description = "Gateway URL of the API Management instance (for API calls)"
+  value       = local.apim_config.enabled ? module.apim[0].gateway_url : null
+}
+
+output "apim_name" {
+  description = "Name of the API Management instance"
+  value       = local.apim_config.enabled ? module.apim[0].name : null
+}
+
+# =============================================================================
 # TENANT OUTPUTS
 # =============================================================================
 output "tenant_projects" {

@@ -151,3 +151,41 @@ jobs:
 
           # Run deployment via script
           ./scripts/deploy-terraform.sh "${{ inputs.command }}" "${{ inputs.environment_name }}"
+
+      - name: Install bats-core
+        if: inputs.command == 'apply'
+        uses: bats-core/bats-action@3.0.0
+
+      - name: Run Integration Tests
+        if: inputs.command == 'apply'
+        shell: bash
+        working-directory: ./infra-ai-hub
+        env:
+          OPENAI_API_VERSION: "2024-10-21"
+          DOCINT_API_VERSION: "2024-11-30"
+          DEFAULT_MODEL: "gpt-4.1-mini"
+        run: |
+          set -euo pipefail
+
+          echo "=== Loading Terraform Configuration ==="
+          TF_OUTPUT=$(terraform output -json)
+
+          APIM_GATEWAY_URL=$(echo "$TF_OUTPUT" | jq -r '.apim_gateway_url.value')
+          APIM_NAME=$(echo "$TF_OUTPUT" | jq -r '.apim_name.value')
+
+          SUBSCRIPTIONS=$(echo "$TF_OUTPUT" | jq -r '.apim_tenant_subscriptions.value')
+          WLRS_SUBSCRIPTION_KEY=$(echo "$SUBSCRIPTIONS" | jq -r '.["wlrs-water-form-assistant"].primary_key')
+          SDPR_SUBSCRIPTION_KEY=$(echo "$SUBSCRIPTIONS" | jq -r '.["sdpr-invoice-automation"].primary_key')
+
+          echo "APIM Gateway: $APIM_GATEWAY_URL"
+          echo "WLRS Key: ****${WLRS_SUBSCRIPTION_KEY: -4}"
+          echo "SDPR Key: ****${SDPR_SUBSCRIPTION_KEY: -4}"
+
+          echo "=== Running Integration Tests ==="
+          cd ../tests/integration
+
+          APIM_GATEWAY_URL="$APIM_GATEWAY_URL" \
+          APIM_NAME="$APIM_NAME" \
+          WLRS_SUBSCRIPTION_KEY="$WLRS_SUBSCRIPTION_KEY" \
+          SDPR_SUBSCRIPTION_KEY="$SDPR_SUBSCRIPTION_KEY" \
+          bats --formatter tap *.bats

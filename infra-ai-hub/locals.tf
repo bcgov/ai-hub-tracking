@@ -3,6 +3,7 @@
 # =============================================================================
 # Computed values for the AI Foundry infrastructure.
 # Configuration is loaded from params/{app_env}/*.tfvars via -var-file.
+# Tenant configurations are merged from individual tfvars files by deploy script.
 # =============================================================================
 
 locals {

@@ -209,7 +209,8 @@ setup_variables() {
     log_info "Setting up variable files for environment: $ENVIRONMENT"
     
     local shared_tfvars="${INFRA_DIR}/params/${ENVIRONMENT}/shared.tfvars"
-    local tenants_tfvars="${INFRA_DIR}/params/${ENVIRONMENT}/tenants.tfvars"
+    local tenants_dir="${INFRA_DIR}/params/${ENVIRONMENT}/tenants"
+    local combined_tenants_file="${INFRA_DIR}/.tenants-${ENVIRONMENT}.auto.tfvars"
     
     # Check shared.tfvars exists
     if [[ ! -f "$shared_tfvars" ]]; then
@@ -220,12 +221,63 @@ setup_variables() {
     TFVARS_ARGS=("-var-file=$shared_tfvars")
     log_info "Using shared config: $shared_tfvars"
     
-    # Check tenants.tfvars exists (optional)
-    if [[ -f "$tenants_tfvars" ]]; then
-        TFVARS_ARGS+=("-var-file=$tenants_tfvars")
-        log_info "Using tenants config: $tenants_tfvars"
+    # Merge individual tenant tfvars files into a combined tenants map
+    if [[ -d "$tenants_dir" ]]; then
+        # Collect tenant files into an array (handles spaces in paths)
+        local -a tenant_files_arr=()
+        local tenant_count=0
+        
+        while IFS= read -r -d '' file; do
+            tenant_files_arr+=("$file")
+            ((tenant_count++)) || true
+        done < <(find "$tenants_dir" -name "tenant.tfvars" -type f -print0 2>/dev/null | sort -z)
+        
+        if [[ $tenant_count -gt 0 ]]; then
+            log_info "Merging $tenant_count tenant configuration(s)..."
+            
+            # Start the combined tenants map
+            {
+                echo "# Auto-generated - DO NOT EDIT"
+                echo "# Combined tenant configurations from params/${ENVIRONMENT}/tenants/*/"
+                echo "# Generated at: $(date -Iseconds 2>/dev/null || date)"
+                echo ""
+                echo "tenants = {"
+            } > "$combined_tenants_file"
+            
+            # Process each tenant file
+            for tenant_file in "${tenant_files_arr[@]}"; do
+                local tenant_name
+                tenant_name=$(basename "$(dirname "$tenant_file")")
+                log_info "  - $tenant_name"
+                
+                # Add tenant to combined file
+                {
+                    echo ""
+                    echo "  # From: tenants/${tenant_name}/tenant.tfvars"
+                    # Extract just the block content (without "tenant = ") and add key prefix on same line
+                    local block_content
+                    block_content=$(awk '/^tenant[[:space:]]*=[[:space:]]*\{/,/^\}$/' "$tenant_file" | \
+                        sed 's/^tenant[[:space:]]*=[[:space:]]*//')
+                    echo "  \"${tenant_name}\" = ${block_content}"
+                } >> "$combined_tenants_file"
+            done
+            
+            # Close the tenants map
+            echo "}" >> "$combined_tenants_file"
+            
+            TFVARS_ARGS+=("-var-file=$combined_tenants_file")
+            log_info "Generated combined tenants file: $combined_tenants_file"
+        else
+            log_warning "No tenant configurations found in: $tenants_dir"
+            # Create empty tenants map
+            echo "tenants = {}" > "$combined_tenants_file"
+            TFVARS_ARGS+=("-var-file=$combined_tenants_file")
+        fi
     else
-        log_warning "Tenants config not found: $tenants_tfvars (optional)"
+        log_warning "Tenants directory not found: $tenants_dir"
+        # Create empty tenants map
+        echo "tenants = {}" > "$combined_tenants_file"
+        TFVARS_ARGS+=("-var-file=$combined_tenants_file")
     fi
     
     log_success "Variable files configured"
