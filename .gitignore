@@ -43,3 +43,6 @@ _bkp
 *.sqlite
 *.db
 *.http
+tfplan
+**/*.tfplan
+**/tfplan/**

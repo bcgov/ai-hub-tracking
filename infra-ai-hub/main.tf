@@ -726,3 +726,29 @@ resource "azurerm_api_management_product_api" "tenant" {
 
   depends_on = [module.apim]
 }
+
+# =============================================================================
+# DEFENDER FOR APIS - ONBOARD APIM APIs
+# Onboards each tenant API to Microsoft Defender for APIs for security monitoring
+# This resolves: "Azure API Management APIs should be onboarded to Defender for APIs"
+# =============================================================================
+resource "azapi_resource" "defender_api_collection" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if local.apim_config.enabled && var.defender_enabled
+  }
+
+  type = "Microsoft.Security/apiCollections@2023-11-15"
+  name = each.key
+
+  # Parent is the APIM service - the API ID is in the name
+  parent_id = module.apim[0].id
+
+  body = {}
+
+  depends_on = [
+    module.apim,
+    module.defender,
+    azurerm_api_management_product_api.tenant
+  ]
+}

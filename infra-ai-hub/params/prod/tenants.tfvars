@@ -85,10 +85,18 @@ tenants = {
           scale_type    = "GlobalStandard"
           capacity      = 10
         },
+        # GPT-5.1 Series (No registration required)
         {
-          name          = "gpt-5-chat"
-          model_name    = "gpt-5-chat"
-          model_version = "2025-08-07"
+          name          = "gpt-5.1-chat"
+          model_name    = "gpt-5.1-chat"
+          model_version = "2025-11-13"
+          scale_type    = "GlobalStandard"
+          capacity      = 10
+        },
+        {
+          name          = "gpt-5.1-codex-mini"
+          model_name    = "gpt-5.1-codex-mini"
+          model_version = "2025-11-13"
           scale_type    = "GlobalStandard"
           capacity      = 10
         },
