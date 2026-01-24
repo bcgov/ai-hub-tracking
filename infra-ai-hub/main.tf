@@ -581,6 +581,16 @@ module "app_gateway" {
   depends_on = [module.network, module.apim]
 }
 
+# ------------------------------------------------------------------------------
+# Defender for Cloud
+# ------------------------------------------------------------------------------
+module "defender" {
+  source = "./modules/defender"
+  count  = var.defender_enabled ? 1 : 0
+
+  resource_types = var.defender_resource_types
+}
+
 # -----------------------------------------------------------------------------
 # Tenant Resources (per tenant)
 # -----------------------------------------------------------------------------

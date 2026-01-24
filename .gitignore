@@ -42,3 +42,4 @@ _bkp
 *.ovpn
 *.sqlite
 *.db
+*.http

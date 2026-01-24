@@ -112,3 +112,18 @@ shared_config = {
     public_network_access = "Disabled"
   }
 }
+
+# =============================================================================
+# DEFENDER FOR CLOUD
+# =============================================================================
+# Only manage Defender plans NOT already enabled by central team/Azure Policy.
+# Plans already enabled (managed externally): SqlServers, StorageAccounts,
+# SqlServerVirtualMachines, KeyVaults, Arm, CosmosDbs, Discovery, FoundationalCspm
+#
+# Add new plans here only if you want to enable something not already active.
+# Note: "AI" plan protects Azure OpenAI and Azure AI Model Inference services
+defender_enabled = true
+defender_resource_types = {
+  "AI"  = { subplan = null }
+  "Api" = { subplan = "P1" }
+}

@@ -323,3 +323,35 @@ variable "tenants" {
   }))
   default = {}
 }
+
+# =============================================================================
+# DEFENDER FOR CLOUD VARIABLES
+# =============================================================================
+variable "defender_enabled" {
+  description = "Enable Microsoft Defender for Cloud subscription pricing"
+  type        = bool
+  default     = false
+}
+
+variable "defender_resource_types" {
+  description = <<-EOT
+    Map of Defender for Cloud resource types to enable.
+    Keys are resource type names, values are objects with optional subplan.
+    
+    Example:
+      defender_resource_types = {
+        Api             = { subplan = "P1" }  # P1 or P2
+        StorageAccounts = {}                   # No subplan needed
+        KeyVaults       = {}
+      }
+    
+    Valid resource types: Api, AppServices, Arm, CloudPosture, ContainerRegistry,
+    Containers, CosmosDbs, Dns, KeyVaults, KubernetesService,
+    OpenSourceRelationalDatabases, SqlServers, SqlServerVirtualMachines,
+    StorageAccounts, VirtualMachines
+  EOT
+  type = map(object({
+    subplan = optional(string, null)
+  }))
+  default = {}
+}
