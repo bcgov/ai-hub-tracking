@@ -47,6 +47,26 @@ resource "azurerm_log_analytics_workspace" "tenant" {
   }
 }
 
+# -----------------------------------------------------------------------------
+# Tenant Application Insights (when tenant LAW is enabled)
+# This provides per-tenant App Insights linked to tenant LAW for APIM API diagnostics
+# -----------------------------------------------------------------------------
+resource "azurerm_application_insights" "tenant" {
+  count = var.log_analytics.enabled ? 1 : 0
+
+  name                = "${local.tenant_name_short}-appi-${random_string.suffix.result}"
+  location            = var.location
+  resource_group_name = local.resource_group_name
+  workspace_id        = azurerm_log_analytics_workspace.tenant[0].id
+  application_type    = "web"
+
+  tags = var.tags
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
+}
+
 # =============================================================================
 # AI FOUNDRY PROJECT (using azapi - no AVM available yet)
 # =============================================================================

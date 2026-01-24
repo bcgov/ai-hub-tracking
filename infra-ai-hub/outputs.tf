@@ -190,3 +190,25 @@ output "apim_tenant_auth_summary" {
     }
   }
 }
+
+# =============================================================================
+# TENANT DIAGNOSTICS OUTPUTS
+# =============================================================================
+output "tenant_diagnostics_summary" {
+  description = "Summary of per-tenant APIM diagnostics configuration"
+  value = {
+    for key, config in local.enabled_tenants : key => {
+      has_dedicated_law = lookup(config.log_analytics, "enabled", false)
+      log_destination = lookup(config.log_analytics, "enabled", false) ? (
+        "Tenant Log Analytics Workspace"
+        ) : (
+        "Central Application Insights"
+      )
+      log_analytics_workspace_id = lookup(config.log_analytics, "enabled", false) ? (
+        module.tenant[key].log_analytics_workspace_id
+      ) : null
+      sampling_percentage = try(config.apim_diagnostics.sampling_percentage, 100)
+      verbosity           = try(config.apim_diagnostics.verbosity, "information")
+    }
+  }
+}

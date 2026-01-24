@@ -138,6 +138,44 @@ output "openai_deployment_ids" {
 }
 
 # =============================================================================
+# LOG ANALYTICS OUTPUTS
+# =============================================================================
+output "log_analytics_workspace_id" {
+  description = "Resource ID of the tenant's Log Analytics workspace (if enabled)"
+  value       = local.tenant_log_analytics_workspace_id
+}
+
+output "has_log_analytics" {
+  description = "Whether the tenant has a Log Analytics workspace (own or shared)"
+  value       = local.has_log_analytics
+}
+
+output "log_analytics_enabled" {
+  description = "Whether the tenant has its own dedicated Log Analytics workspace"
+  value       = var.log_analytics.enabled
+}
+
+# =============================================================================
+# APPLICATION INSIGHTS OUTPUTS
+# =============================================================================
+output "application_insights_id" {
+  description = "Resource ID of the tenant's Application Insights (if tenant LAW enabled)"
+  value       = var.log_analytics.enabled ? azurerm_application_insights.tenant[0].id : null
+}
+
+output "application_insights_instrumentation_key" {
+  description = "Instrumentation key for the tenant's Application Insights"
+  value       = var.log_analytics.enabled ? azurerm_application_insights.tenant[0].instrumentation_key : null
+  sensitive   = true
+}
+
+output "application_insights_connection_string" {
+  description = "Connection string for the tenant's Application Insights"
+  value       = var.log_analytics.enabled ? azurerm_application_insights.tenant[0].connection_string : null
+  sensitive   = true
+}
+
+# =============================================================================
 # SUMMARY OUTPUT
 # =============================================================================
 output "enabled_resources" {
@@ -149,5 +187,6 @@ output "enabled_resources" {
     cosmos_db             = var.cosmos_db.enabled
     document_intelligence = var.document_intelligence.enabled
     openai                = var.openai.enabled
+    log_analytics         = var.log_analytics.enabled
   }
 }

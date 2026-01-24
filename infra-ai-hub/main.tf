@@ -346,6 +346,117 @@ resource "azurerm_api_management_diagnostic" "app_insights" {
 }
 
 # -----------------------------------------------------------------------------
+# PER-TENANT APIM DIAGNOSTICS
+# Creates per-tenant Application Insights loggers for APIM API diagnostics
+# When tenant has their own LAW, we use their dedicated App Insights
+# This ensures APIM API logs flow to the tenant's Log Analytics Workspace
+# -----------------------------------------------------------------------------
+
+# Per-tenant Application Insights loggers (only for tenants with dedicated LAW)
+# These loggers use the tenant's own Application Insights which is linked to their LAW
+resource "azurerm_api_management_logger" "tenant_app_insights" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if local.apim_config.enabled && lookup(config.log_analytics, "enabled", false)
+  }
+
+  name                = "${module.apim[0].name}-${each.key}-appinsights"
+  api_management_name = module.apim[0].name
+  resource_group_name = azurerm_resource_group.main.name
+
+  # Use tenant's own Application Insights (linked to tenant LAW)
+  # This ensures APIM API logs flow directly to the tenant's Log Analytics Workspace
+  application_insights {
+    instrumentation_key = module.tenant[each.key].application_insights_instrumentation_key
+  }
+
+  depends_on = [module.apim, module.tenant, module.ai_foundry_hub]
+}
+
+# Per-tenant API diagnostics - routes API logs to tenant's LAW if enabled
+# Falls back to central Application Insights logger if tenant LAW is not enabled
+resource "azurerm_api_management_api_diagnostic" "tenant" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if local.apim_config.enabled
+  }
+
+  identifier          = "applicationinsights"
+  resource_group_name = azurerm_resource_group.main.name
+  api_management_name = module.apim[0].name
+  api_name            = each.key
+
+  # Use tenant-specific logger if they have their own LAW, otherwise use shared App Insights
+  api_management_logger_id = lookup(each.value.log_analytics, "enabled", false) ? (
+    azurerm_api_management_logger.tenant_app_insights[each.key].id
+    ) : (
+    module.ai_foundry_hub.application_insights_connection_string != null ? azurerm_api_management_logger.app_insights[0].id : null
+  )
+
+  # Get tenant-specific diagnostics config or use defaults
+  sampling_percentage       = try(each.value.apim_diagnostics.sampling_percentage, local.default_apim_diagnostics.sampling_percentage)
+  always_log_errors         = try(each.value.apim_diagnostics.always_log_errors, local.default_apim_diagnostics.always_log_errors)
+  log_client_ip             = try(each.value.apim_diagnostics.log_client_ip, local.default_apim_diagnostics.log_client_ip)
+  http_correlation_protocol = try(each.value.apim_diagnostics.http_correlation_protocol, local.default_apim_diagnostics.http_correlation_protocol)
+  verbosity                 = try(each.value.apim_diagnostics.verbosity, local.default_apim_diagnostics.verbosity)
+
+  # Frontend request logging
+  frontend_request {
+    body_bytes = try(
+      each.value.apim_diagnostics.frontend_request.body_bytes,
+      local.default_apim_diagnostics.frontend_request.body_bytes
+    )
+    headers_to_log = try(
+      each.value.apim_diagnostics.frontend_request.headers_to_log,
+      local.default_apim_diagnostics.frontend_request.headers_to_log
+    )
+  }
+
+  # Frontend response logging
+  frontend_response {
+    body_bytes = try(
+      each.value.apim_diagnostics.frontend_response.body_bytes,
+      local.default_apim_diagnostics.frontend_response.body_bytes
+    )
+    headers_to_log = try(
+      each.value.apim_diagnostics.frontend_response.headers_to_log,
+      local.default_apim_diagnostics.frontend_response.headers_to_log
+    )
+  }
+
+  # Backend request logging
+  backend_request {
+    body_bytes = try(
+      each.value.apim_diagnostics.backend_request.body_bytes,
+      local.default_apim_diagnostics.backend_request.body_bytes
+    )
+    headers_to_log = try(
+      each.value.apim_diagnostics.backend_request.headers_to_log,
+      local.default_apim_diagnostics.backend_request.headers_to_log
+    )
+  }
+
+  # Backend response logging
+  backend_response {
+    body_bytes = try(
+      each.value.apim_diagnostics.backend_response.body_bytes,
+      local.default_apim_diagnostics.backend_response.body_bytes
+    )
+    headers_to_log = try(
+      each.value.apim_diagnostics.backend_response.headers_to_log,
+      local.default_apim_diagnostics.backend_response.headers_to_log
+    )
+  }
+
+  depends_on = [
+    module.apim,
+    module.tenant,
+    azurerm_api_management_logger.app_insights,
+    azurerm_api_management_logger.tenant_app_insights
+  ]
+}
+
+# -----------------------------------------------------------------------------
 # APIM Policy Fragments (reusable policy snippets)
 # These can be included in API policies via <include-fragment fragment-id="..." />
 # -----------------------------------------------------------------------------
@@ -608,7 +719,9 @@ module "tenant" {
 
   ai_foundry_hub_id          = module.ai_foundry_hub.id
   private_endpoint_subnet_id = module.network.private_endpoint_subnet_id
-  log_analytics_workspace_id = module.ai_foundry_hub.log_analytics_workspace_id
+  # Only pass shared LAW if tenant doesn't have their own LAW enabled
+  # When tenant has log_analytics.enabled = true, pass null to use tenant's own LAW
+  log_analytics_workspace_id = lookup(each.value.log_analytics, "enabled", false) ? null : module.ai_foundry_hub.log_analytics_workspace_id
 
   private_endpoint_dns_wait = {
     timeout       = var.shared_config.private_endpoint_dns_wait.timeout

@@ -22,6 +22,34 @@ locals {
   apim_config  = var.shared_config.apim
   appgw_config = var.shared_config.app_gateway
 
+  # =============================================================================
+  # PER-TENANT APIM DIAGNOSTICS
+  # =============================================================================
+  # Default APIM diagnostic settings (can be overridden per tenant)
+  default_apim_diagnostics = {
+    sampling_percentage       = 100
+    always_log_errors         = true
+    log_client_ip             = true
+    http_correlation_protocol = "W3C"
+    verbosity                 = "information"
+    frontend_request = {
+      body_bytes     = 1024
+      headers_to_log = ["X-Tenant-Id", "X-Request-ID", "Content-Type"]
+    }
+    frontend_response = {
+      body_bytes     = 1024
+      headers_to_log = ["x-ms-request-id", "x-ratelimit-remaining-tokens", "x-tokens-consumed"]
+    }
+    backend_request = {
+      body_bytes     = 1024
+      headers_to_log = ["Authorization", "api-key"]
+    }
+    backend_response = {
+      body_bytes     = 1024
+      headers_to_log = ["x-ms-region", "x-ratelimit-remaining-tokens"]
+    }
+  }
+
   # Build tenant products for APIM
   tenant_products = {
     for key, config in local.enabled_tenants : key => {

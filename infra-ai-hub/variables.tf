@@ -320,6 +320,34 @@ variable "tenants" {
       # Redact PII (emails, phone numbers, addresses, etc.) from requests/responses
       pii_redaction_enabled = optional(bool, true)
     }), { pii_redaction_enabled = true })
+
+    # Per-tenant APIM Diagnostics configuration (optional)
+    # Overrides default diagnostic settings for this tenant's API
+    # If tenant has log_analytics.enabled = true, logs go to tenant LAW
+    # Otherwise, logs go to central Application Insights
+    apim_diagnostics = optional(object({
+      sampling_percentage       = optional(number, 100)
+      always_log_errors         = optional(bool, true)
+      log_client_ip             = optional(bool, true)
+      http_correlation_protocol = optional(string, "W3C")
+      verbosity                 = optional(string, "information") # error, information, verbose
+      frontend_request = optional(object({
+        body_bytes     = optional(number, 1024)
+        headers_to_log = optional(list(string), ["X-Tenant-Id", "X-Request-ID", "Content-Type"])
+      }))
+      frontend_response = optional(object({
+        body_bytes     = optional(number, 1024)
+        headers_to_log = optional(list(string), ["x-ms-request-id", "x-ratelimit-remaining-tokens", "x-tokens-consumed"])
+      }))
+      backend_request = optional(object({
+        body_bytes     = optional(number, 1024)
+        headers_to_log = optional(list(string), ["Authorization", "api-key"])
+      }))
+      backend_response = optional(object({
+        body_bytes     = optional(number, 1024)
+        headers_to_log = optional(list(string), ["x-ms-region", "x-ratelimit-remaining-tokens"])
+      }))
+    }))
   }))
   default = {}
 }

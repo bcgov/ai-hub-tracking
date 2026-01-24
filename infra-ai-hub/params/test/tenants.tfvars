@@ -153,6 +153,12 @@ tenants = {
     content_safety = {
       pii_redaction_enabled = true # Redact emails, phone numbers, addresses, etc.
     }
+
+    # Per-tenant APIM Diagnostics - logs go to tenant's own LAW
+    apim_diagnostics = {
+      sampling_percentage = 100
+      verbosity           = "information"
+    }
   }
   sdpr-invoice-automation = {
     tenant_name  = "sdpr-invoice-automation"
@@ -292,6 +298,12 @@ tenants = {
     # This tenant opts OUT of PII redaction (invoice processing needs raw data)
     content_safety = {
       pii_redaction_enabled = false # Disabled - invoices need raw email/phone data
+    }
+
+    # Per-tenant APIM Diagnostics - logs go to tenant's own LAW
+    apim_diagnostics = {
+      sampling_percentage = 100
+      verbosity           = "information"
     }
   }
 }
