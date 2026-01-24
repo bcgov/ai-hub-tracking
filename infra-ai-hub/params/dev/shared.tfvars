@@ -22,7 +22,7 @@ shared_config = {
     local_auth_enabled = false
 
     # Cross-region deployment: Set to "Canada East" for model availability
-    # gpt-4o-mini and text-embedding-ada-002 require Canada East with Standard deployment
+    # gpt-4.1-mini (2025-04-14) and text-embedding-ada-002 available in Canada East with GlobalStandard deployment
     ai_location = "Canada East"
     # Permanently purge AI Foundry account on destroy to avoid lingering resources
     purge_on_destroy = true

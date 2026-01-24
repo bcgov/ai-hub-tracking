@@ -19,7 +19,7 @@ variable "location" {
 }
 
 variable "ai_location" {
-  description = "Azure region for AI Foundry Hub. Can differ from location for model availability (e.g., canadaeast for GPT-4o). Defaults to location."
+  description = "Azure region for AI Foundry Hub. Can differ from location for model availability (e.g., canadaeast for GPT-4.1). Defaults to location."
   type        = string
   default     = null
 }

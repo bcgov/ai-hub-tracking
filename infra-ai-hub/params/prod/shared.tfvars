@@ -17,8 +17,8 @@ shared_config = {
     public_network_access_enabled = false
     local_auth_enabled            = false
 
-    # Cross-region deployment: Canada East for GPT-4o availability
-    # The AI Foundry Hub will be in Canada East while PEs remain in Canada Central
+    # Cross-region deployment: Canada East for GPT-4.1 availability
+    # gpt-4.1-mini (2025-04-14) available in Canada East with GlobalStandard deployment
     ai_location = "Canada East"
     # Permanently purge AI Foundry account on destroy to avoid lingering resources
     purge_on_destroy = true
