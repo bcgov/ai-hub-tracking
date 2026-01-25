@@ -141,11 +141,12 @@ module "key_vault" {
 
   diagnostic_settings = local.has_log_analytics && local.kv_diagnostics != null ? {
     to_law = {
-      name                  = "${local.name_prefix}-kv-diag"
-      workspace_resource_id = local.tenant_log_analytics_workspace_id
-      log_groups            = local.kv_log_groups
-      log_categories        = local.kv_log_categories
-      metric_categories     = local.kv_metric_categories
+      name                           = "${local.name_prefix}-kv-diag"
+      workspace_resource_id          = local.tenant_log_analytics_workspace_id
+      log_analytics_destination_type = "Dedicated"
+      log_groups                     = local.kv_log_groups
+      log_categories                 = local.kv_log_categories
+      metric_categories              = local.kv_metric_categories
     }
   } : {}
 
@@ -269,11 +270,12 @@ module "ai_search" {
 
   diagnostic_settings = local.has_log_analytics && local.search_diagnostics != null ? {
     to_law = {
-      name                  = "${local.name_prefix}-search-diag"
-      workspace_resource_id = local.tenant_log_analytics_workspace_id
-      log_groups            = local.search_log_groups
-      log_categories        = local.search_log_categories
-      metric_categories     = local.search_metric_categories
+      name                           = "${local.name_prefix}-search-diag"
+      workspace_resource_id          = local.tenant_log_analytics_workspace_id
+      log_analytics_destination_type = "Dedicated"
+      log_groups                     = local.search_log_groups
+      log_categories                 = local.search_log_categories
+      metric_categories              = local.search_metric_categories
     }
   } : {}
 
@@ -421,11 +423,12 @@ module "document_intelligence" {
 
   diagnostic_settings = local.has_log_analytics && local.docint_diagnostics != null ? {
     to_law = {
-      name                  = "${local.name_prefix}-docint-diag"
-      workspace_resource_id = local.tenant_log_analytics_workspace_id
-      log_groups            = local.docint_log_groups
-      log_categories        = local.docint_log_categories
-      metric_categories     = local.docint_metric_categories
+      name                           = "${local.name_prefix}-docint-diag"
+      workspace_resource_id          = local.tenant_log_analytics_workspace_id
+      log_analytics_destination_type = "Dedicated"
+      log_groups                     = local.docint_log_groups
+      log_categories                 = local.docint_log_categories
+      metric_categories              = local.docint_metric_categories
     }
   } : {}
 
@@ -492,11 +495,12 @@ module "openai" {
 
   diagnostic_settings = local.has_log_analytics && local.openai_diagnostics != null ? {
     to_law = {
-      name                  = "${local.name_prefix}-openai-diag"
-      workspace_resource_id = local.tenant_log_analytics_workspace_id
-      log_groups            = local.openai_log_groups
-      log_categories        = local.openai_log_categories
-      metric_categories     = local.openai_metric_categories
+      name                           = "${local.name_prefix}-openai-diag"
+      workspace_resource_id          = local.tenant_log_analytics_workspace_id
+      log_analytics_destination_type = "Dedicated"
+      log_groups                     = local.openai_log_groups
+      log_categories                 = local.openai_log_categories
+      metric_categories              = local.openai_metric_categories
     }
   } : {}
 
@@ -584,7 +588,7 @@ resource "azapi_resource" "connection_keyvault" {
       authType      = "AAD" # Required discriminator for managed identity auth
       category      = "AzureKeyVault"
       target        = module.key_vault[0].resource_id
-      isSharedToAll = true
+      isSharedToAll = false # Tenant-specific connection, not shared across projects
       metadata = {
         ApiType    = "Azure"
         ApiVersion = "7.4"
@@ -610,7 +614,7 @@ resource "azapi_resource" "connection_storage" {
       authType      = "AAD" # Required discriminator for managed identity auth
       category      = "AzureBlob"
       target        = "https://${azurerm_storage_account.this[0].name}.blob.core.windows.net"
-      isSharedToAll = true
+      isSharedToAll = false # Tenant-specific connection, not shared across projects
       metadata = {
         AccountName   = azurerm_storage_account.this[0].name
         ContainerName = "default"
@@ -636,7 +640,7 @@ resource "azapi_resource" "connection_ai_search" {
       authType      = "AAD" # Required discriminator for managed identity auth
       category      = "CognitiveSearch"
       target        = module.ai_search[0].resource_id
-      isSharedToAll = true
+      isSharedToAll = false # Tenant-specific connection, not shared across projects
       metadata = {
         ApiType    = "Azure"
         ApiVersion = "2024-05-01-preview"
@@ -662,7 +666,7 @@ resource "azapi_resource" "connection_cosmos" {
       authType      = "AAD"      # Required discriminator for managed identity auth
       category      = "CosmosDb" # API spec uses "CosmosDb" (not "CosmosDB")
       target        = azurerm_cosmosdb_account.this[0].id
-      isSharedToAll = true
+      isSharedToAll = false # Tenant-specific connection, not shared across projects
       metadata = {
         ApiType    = "Azure"
         DatabaseId = var.cosmos_db.database_name
@@ -688,7 +692,7 @@ resource "azapi_resource" "connection_openai" {
       authType      = "AAD" # Required discriminator for managed identity auth
       category      = "AzureOpenAI"
       target        = module.openai[0].resource_id
-      isSharedToAll = true
+      isSharedToAll = false # Tenant-specific connection, not shared across projects
       metadata = {
         ApiType    = "Azure"
         ApiVersion = "2024-06-01"
@@ -714,7 +718,7 @@ resource "azapi_resource" "connection_docint" {
       authType      = "AAD" # Required discriminator for managed identity auth
       category      = "CognitiveService"
       target        = module.document_intelligence[0].endpoint
-      isSharedToAll = true
+      isSharedToAll = false # Tenant-specific connection, not shared across projects
       metadata = {
         ApiType = "Azure"
         Kind    = "FormRecognizer"

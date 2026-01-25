@@ -598,6 +598,12 @@ resource "azurerm_api_management_subscription" "tenant" {
   state               = each.value.state
   allow_tracing       = each.value.allow_tracing
 
+  # Azure automatically resets allow_tracing to false after ~1 hour for security
+  # Ignore this to prevent perpetual drift on every Terraform run
+  lifecycle {
+    ignore_changes = [allow_tracing]
+  }
+
   depends_on = [module.apim]
 }
 

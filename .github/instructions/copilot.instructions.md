@@ -270,7 +270,7 @@ resource "azapi_resource" "connection" {
       authType      = "AAD"  # REQUIRED discriminator - see valid values below
       category      = "AzureOpenAI"  # See ConnectionCategory enum
       target        = "/subscriptions/.../resource-id"
-      isSharedToAll = true
+      isSharedToAll = false  # false for tenant-specific connections (multi-tenant isolation)
       metadata      = { ApiType = "Azure" }
     }
   }
