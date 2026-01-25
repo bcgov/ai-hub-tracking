@@ -25,9 +25,14 @@ on:
         description: "The container tag to use for deployment"
         required: false
         type: string
+      terraform_log_level:
+        description: "The Terraform logging level"
+        required: false
+        default: "ERROR"
+        type: string
 env:
   TF_VERSION: 1.12.2
-  TF_LOG: INFO
+  TF_LOG: ${{ inputs.terraform_log_level }}
   CHISEL_IMAGE_VERSION: 1.11
   CHISEL_IMAGE: jpillora/chisel
 permissions:

@@ -20,6 +20,18 @@ on:
           - plan
           - apply
           - destroy
+      terraform_log_level:
+        description: "The Terraform logging level"
+        required: false
+        default: "ERROR"
+        type: choice
+        options:
+          - TRACE
+          - DEBUG
+          - INFO
+          - WARN
+          - ERROR
+
 permissions:
   id-token: write # This is required for requesting the JWT
   contents: write # This is required for actions/checkout
@@ -35,6 +47,7 @@ jobs:
       command: apply
       target_module: azure_proxy
       tag: latest
+      terraform_log_level: ${{ inputs.terraform_log_level }}
     secrets: inherit
   deploy-to-environment:
     name: Deploy to ${{ inputs.environment }} Environment
@@ -46,4 +59,5 @@ jobs:
       proxy_url: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_url }}
       proxy_auth: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_auth }}
       tag: latest
+      terraform_log_level: ${{ inputs.terraform_log_level }}
     secrets: inherit
