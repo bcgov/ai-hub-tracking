@@ -470,6 +470,8 @@ tf_apply() {
     
     local apply_args=("${TFVARS_ARGS[@]}")
     apply_args+=("-input=false")
+    # Use parallelism=1 to avoid Azure AI Foundry ETag conflicts on concurrent operations
+    apply_args+=("-parallelism=1")
     
     if [[ "${CI:-false}" == "true" ]]; then
         apply_args+=("-auto-approve")
@@ -533,6 +535,8 @@ tf_destroy() {
     
     local destroy_args=("${TFVARS_ARGS[@]}")
     destroy_args+=("-input=false")
+    # Use parallelism=1 to avoid Azure AI Foundry ETag conflicts on concurrent operations
+    destroy_args+=("-parallelism=1")
     
     if [[ "${CI:-false}" == "true" ]]; then
         destroy_args+=("-auto-approve")
