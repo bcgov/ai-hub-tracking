@@ -715,6 +715,7 @@ resource "azapi_resource" "connection_keyvault" {
 }
 
 # Connection to Storage Account
+# NOTE: Connections are chained via depends_on to serialize API calls and avoid ETag conflicts
 resource "azapi_resource" "connection_storage" {
   count = var.storage_account.enabled && var.project_connections.storage ? 1 : 0
 
@@ -737,7 +738,12 @@ resource "azapi_resource" "connection_storage" {
 
   schema_validation_enabled = false
 
-  depends_on = [azurerm_storage_account.this, azurerm_role_assignment.project_to_storage, azurerm_storage_container.default]
+  depends_on = [
+    azurerm_storage_account.this,
+    azurerm_role_assignment.project_to_storage,
+    azurerm_storage_container.default,
+    azapi_resource.connection_keyvault # Serialize connection operations
+  ]
 }
 
 # Connection to AI Search
@@ -763,7 +769,11 @@ resource "azapi_resource" "connection_ai_search" {
 
   schema_validation_enabled = false
 
-  depends_on = [module.ai_search, azurerm_role_assignment.project_to_search]
+  depends_on = [
+    module.ai_search,
+    azurerm_role_assignment.project_to_search,
+    azapi_resource.connection_storage # Serialize connection operations
+  ]
 }
 
 # Connection to Cosmos DB
@@ -789,7 +799,11 @@ resource "azapi_resource" "connection_cosmos" {
 
   schema_validation_enabled = false
 
-  depends_on = [azurerm_cosmosdb_account.this, azurerm_role_assignment.project_to_cosmos]
+  depends_on = [
+    azurerm_cosmosdb_account.this,
+    azurerm_role_assignment.project_to_cosmos,
+    azapi_resource.connection_ai_search # Serialize connection operations
+  ]
 }
 
 # Connection to OpenAI
@@ -815,7 +829,11 @@ resource "azapi_resource" "connection_openai" {
 
   schema_validation_enabled = false
 
-  depends_on = [module.openai, azurerm_role_assignment.project_to_openai]
+  depends_on = [
+    module.openai,
+    azurerm_role_assignment.project_to_openai,
+    azapi_resource.connection_cosmos # Serialize connection operations
+  ]
 }
 
 # Connection to Document Intelligence
@@ -841,7 +859,11 @@ resource "azapi_resource" "connection_docint" {
 
   schema_validation_enabled = false
 
-  depends_on = [module.document_intelligence, azurerm_role_assignment.project_to_docint]
+  depends_on = [
+    module.document_intelligence,
+    azurerm_role_assignment.project_to_docint,
+    azapi_resource.connection_openai # Serialize connection operations
+  ]
 }
 
 # =============================================================================
