@@ -139,21 +139,49 @@ module "key_vault" {
     }
   }
 
-  diagnostic_settings = local.has_log_analytics && local.kv_diagnostics != null ? {
-    to_law = {
-      name                           = "${local.name_prefix}-kv-diag"
-      workspace_resource_id          = local.tenant_log_analytics_workspace_id
-      log_analytics_destination_type = "Dedicated"
-      log_groups                     = local.kv_log_groups
-      log_categories                 = local.kv_log_categories
-      metric_categories              = local.kv_metric_categories
-    }
-  } : {}
+  # Diagnostic settings managed separately to control lifecycle and prevent drift
+  diagnostic_settings = {}
 
   tags             = var.tags
   enable_telemetry = false
 
   depends_on = [azurerm_resource_group.tenant]
+}
+
+# Diagnostic settings for Key Vault (managed separately from AVM to prevent drift)
+resource "azurerm_monitor_diagnostic_setting" "key_vault" {
+  count = var.key_vault.enabled && local.has_log_analytics && local.kv_diagnostics != null ? 1 : 0
+
+  name                           = "${local.name_prefix}-kv-diag"
+  target_resource_id             = module.key_vault[0].resource_id
+  log_analytics_workspace_id     = local.tenant_log_analytics_workspace_id
+  log_analytics_destination_type = "Dedicated"
+
+  dynamic "enabled_log" {
+    for_each = local.kv_log_groups
+    content {
+      category_group = enabled_log.value
+    }
+  }
+
+  dynamic "enabled_log" {
+    for_each = local.kv_log_categories
+    content {
+      category = enabled_log.value
+    }
+  }
+
+  dynamic "enabled_metric" {
+    for_each = local.kv_metric_categories
+    content {
+      category = enabled_metric.value
+    }
+  }
+
+  # Ignore drift on log_analytics_destination_type - Azure may reset this
+  lifecycle {
+    ignore_changes = [log_analytics_destination_type]
+  }
 }
 
 # =============================================================================
@@ -189,7 +217,8 @@ resource "azurerm_storage_account" "this" {
   tags = var.tags
 
   lifecycle {
-    ignore_changes = [tags]
+    # Ignore tags (managed externally) and network_rules drift (Azure may add ip_rules/subnet_ids)
+    ignore_changes = [tags, network_rules]
   }
 
   depends_on = [azurerm_resource_group.tenant]
@@ -268,21 +297,49 @@ module "ai_search" {
     }
   }
 
-  diagnostic_settings = local.has_log_analytics && local.search_diagnostics != null ? {
-    to_law = {
-      name                           = "${local.name_prefix}-search-diag"
-      workspace_resource_id          = local.tenant_log_analytics_workspace_id
-      log_analytics_destination_type = "Dedicated"
-      log_groups                     = local.search_log_groups
-      log_categories                 = local.search_log_categories
-      metric_categories              = local.search_metric_categories
-    }
-  } : {}
+  # Diagnostic settings managed separately to control lifecycle and prevent drift
+  diagnostic_settings = {}
 
   tags             = var.tags
   enable_telemetry = false
 
   depends_on = [azurerm_resource_group.tenant]
+}
+
+# Diagnostic settings for AI Search (managed separately from AVM to prevent drift)
+resource "azurerm_monitor_diagnostic_setting" "ai_search" {
+  count = var.ai_search.enabled && local.has_log_analytics && local.search_diagnostics != null ? 1 : 0
+
+  name                           = "${local.name_prefix}-search-diag"
+  target_resource_id             = module.ai_search[0].resource_id
+  log_analytics_workspace_id     = local.tenant_log_analytics_workspace_id
+  log_analytics_destination_type = "Dedicated"
+
+  dynamic "enabled_log" {
+    for_each = local.search_log_groups
+    content {
+      category_group = enabled_log.value
+    }
+  }
+
+  dynamic "enabled_log" {
+    for_each = local.search_log_categories
+    content {
+      category = enabled_log.value
+    }
+  }
+
+  dynamic "enabled_metric" {
+    for_each = local.search_metric_categories
+    content {
+      category = enabled_metric.value
+    }
+  }
+
+  # Ignore drift on log_analytics_destination_type - Azure may reset this
+  lifecycle {
+    ignore_changes = [log_analytics_destination_type]
+  }
 }
 
 # =============================================================================
@@ -421,21 +478,49 @@ module "document_intelligence" {
     }
   }
 
-  diagnostic_settings = local.has_log_analytics && local.docint_diagnostics != null ? {
-    to_law = {
-      name                           = "${local.name_prefix}-docint-diag"
-      workspace_resource_id          = local.tenant_log_analytics_workspace_id
-      log_analytics_destination_type = "Dedicated"
-      log_groups                     = local.docint_log_groups
-      log_categories                 = local.docint_log_categories
-      metric_categories              = local.docint_metric_categories
-    }
-  } : {}
+  # Diagnostic settings managed separately to control lifecycle and prevent drift
+  diagnostic_settings = {}
 
   tags             = var.tags
   enable_telemetry = false
 
   depends_on = [azurerm_resource_group.tenant]
+}
+
+# Diagnostic settings for Document Intelligence (managed separately from AVM to prevent drift)
+resource "azurerm_monitor_diagnostic_setting" "document_intelligence" {
+  count = var.document_intelligence.enabled && local.has_log_analytics && local.docint_diagnostics != null ? 1 : 0
+
+  name                           = "${local.name_prefix}-docint-diag"
+  target_resource_id             = module.document_intelligence[0].resource_id
+  log_analytics_workspace_id     = local.tenant_log_analytics_workspace_id
+  log_analytics_destination_type = "Dedicated"
+
+  dynamic "enabled_log" {
+    for_each = local.docint_log_groups
+    content {
+      category_group = enabled_log.value
+    }
+  }
+
+  dynamic "enabled_log" {
+    for_each = local.docint_log_categories
+    content {
+      category = enabled_log.value
+    }
+  }
+
+  dynamic "enabled_metric" {
+    for_each = local.docint_metric_categories
+    content {
+      category = enabled_metric.value
+    }
+  }
+
+  # Ignore drift on log_analytics_destination_type - Azure may reset this
+  lifecycle {
+    ignore_changes = [log_analytics_destination_type]
+  }
 }
 
 # =============================================================================
@@ -493,21 +578,49 @@ module "openai" {
     }
   }
 
-  diagnostic_settings = local.has_log_analytics && local.openai_diagnostics != null ? {
-    to_law = {
-      name                           = "${local.name_prefix}-openai-diag"
-      workspace_resource_id          = local.tenant_log_analytics_workspace_id
-      log_analytics_destination_type = "Dedicated"
-      log_groups                     = local.openai_log_groups
-      log_categories                 = local.openai_log_categories
-      metric_categories              = local.openai_metric_categories
-    }
-  } : {}
+  # Diagnostic settings managed separately to control lifecycle and prevent drift
+  diagnostic_settings = {}
 
   tags             = var.tags
   enable_telemetry = false
 
   depends_on = [azurerm_resource_group.tenant]
+}
+
+# Diagnostic settings for OpenAI (managed separately from AVM to prevent drift)
+resource "azurerm_monitor_diagnostic_setting" "openai" {
+  count = var.openai.enabled && local.has_log_analytics && local.openai_diagnostics != null ? 1 : 0
+
+  name                           = "${local.name_prefix}-openai-diag"
+  target_resource_id             = module.openai[0].resource_id
+  log_analytics_workspace_id     = local.tenant_log_analytics_workspace_id
+  log_analytics_destination_type = "Dedicated"
+
+  dynamic "enabled_log" {
+    for_each = local.openai_log_groups
+    content {
+      category_group = enabled_log.value
+    }
+  }
+
+  dynamic "enabled_log" {
+    for_each = local.openai_log_categories
+    content {
+      category = enabled_log.value
+    }
+  }
+
+  dynamic "enabled_metric" {
+    for_each = local.openai_metric_categories
+    content {
+      category = enabled_metric.value
+    }
+  }
+
+  # Ignore drift on log_analytics_destination_type - Azure may reset this
+  lifecycle {
+    ignore_changes = [log_analytics_destination_type]
+  }
 }
 
 # =============================================================================
