@@ -1,3 +1,4 @@
+#!/bin/bash
 # Run all integration tests for AI Services Hub APIM
 # Loads configuration from terraform outputs and executes bats tests
 

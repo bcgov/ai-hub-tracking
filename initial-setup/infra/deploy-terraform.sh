@@ -51,9 +51,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="${SCRIPT_DIR}"
 TFVARS_FILE="${INFRA_DIR}/terraform.tfvars"
 
-# Backend configuration (can be overridden by environment variables)
-BACKEND_RESOURCE_GROUP="${BACKEND_RESOURCE_GROUP:-da4cf6-tools-networking}"
-BACKEND_STORAGE_ACCOUNT="${BACKEND_STORAGE_ACCOUNT:-tftoolsaihubtracking}"
+# Backend configuration (must be set via environment variables)
+BACKEND_RESOURCE_GROUP="${BACKEND_RESOURCE_GROUP:-}"
+BACKEND_STORAGE_ACCOUNT="${BACKEND_STORAGE_ACCOUNT:-}"
 BACKEND_CONTAINER_NAME="${BACKEND_CONTAINER_NAME:-tfstate}"
 BACKEND_STATE_KEY="${BACKEND_STATE_KEY:-ai-hub-deploy-utils/tools/terraform.tfstate}"
 

@@ -1,6 +1,7 @@
 variable "tenant_name" {
   description = "Unique identifier for the tenant (used in resource names)"
   type        = string
+  nullable    = false
 
   validation {
     condition     = can(regex("^[a-z0-9-]+$", var.tenant_name))
@@ -11,11 +12,13 @@ variable "tenant_name" {
 variable "display_name" {
   description = "Human-readable display name for the tenant"
   type        = string
+  nullable    = false
 }
 
 variable "location" {
   description = "Azure region for resources"
   type        = string
+  nullable    = false
 }
 
 variable "ai_location" {
@@ -36,11 +39,13 @@ variable "resource_group_name_override" {
 variable "ai_foundry_hub_id" {
   description = "Resource ID of the shared AI Foundry hub"
   type        = string
+  nullable    = false
 }
 
 variable "private_endpoint_subnet_id" {
   description = "Subnet ID for private endpoints"
   type        = string
+  nullable    = false
 }
 
 variable "log_analytics_workspace_id" {

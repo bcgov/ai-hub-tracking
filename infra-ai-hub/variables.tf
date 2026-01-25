@@ -4,6 +4,7 @@
 variable "app_env" {
   description = "Application environment (dev, test, prod) - used to load params from params/{app_env}/"
   type        = string
+  nullable    = false
 
   validation {
     condition     = contains(["dev", "test", "prod"], var.app_env)
@@ -14,6 +15,7 @@ variable "app_env" {
 variable "app_name" {
   description = "Name of the application (used as prefix for resource names)"
   type        = string
+  nullable    = false
 }
 
 variable "location" {
@@ -25,6 +27,7 @@ variable "location" {
 variable "resource_group_name" {
   description = "Resource group name for the AI Hub infrastructure"
   type        = string
+  nullable    = false
 }
 
 variable "common_tags" {
@@ -66,11 +69,13 @@ variable "use_oidc" {
 variable "vnet_name" {
   description = "Name of the existing virtual network (provided by Landing Zone)"
   type        = string
+  nullable    = false
 }
 
 variable "vnet_resource_group_name" {
   description = "Resource group name where the virtual network exists"
   type        = string
+  nullable    = false
 }
 
 variable "target_vnet_address_spaces" {

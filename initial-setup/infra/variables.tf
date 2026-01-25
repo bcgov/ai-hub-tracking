@@ -2,11 +2,13 @@
 variable "app_env" {
   description = "Application environment (dev, test, prod)"
   type        = string
+  nullable    = false
 }
 
 variable "app_name" {
   description = "Name of the application"
   type        = string
+  nullable    = false
 }
 variable "common_tags" {
   description = "Common tags to apply to all resources"
@@ -20,6 +22,7 @@ variable "location" {
 variable "resource_group_name" {
   description = "Name of the resource group"
   type        = string
+  nullable    = false
 }
 
 variable "subscription_id" {
