@@ -279,13 +279,30 @@ resource "time_sleep" "purge_ai_foundry_cooldown" {
 }
 
 # Purge the soft-deleted AI Foundry account on destroy
-resource "azapi_resource_action" "purge_ai_foundry" {
+# Uses null_resource with local-exec to gracefully handle 404 errors
+# (404 means already purged, which is the desired state)
+resource "null_resource" "purge_ai_foundry" {
   count = var.purge_on_destroy ? 1 : 0
 
-  type        = "Microsoft.CognitiveServices/locations/deletedAccounts@2024-10-01"
-  resource_id = "/subscriptions/${data.azurerm_client_config.current.subscription_id}/providers/Microsoft.CognitiveServices/locations/${local.ai_location}/deletedAccounts/${var.name}"
-  method      = "DELETE"
-  when        = "destroy"
+  triggers = {
+    account_name        = var.name
+    location            = local.ai_location
+    resource_group_name = var.resource_group_name
+    subscription_id     = data.azurerm_client_config.current.subscription_id
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      az cognitiveservices account purge \
+        --name "${self.triggers.account_name}" \
+        --location "${self.triggers.location}" \
+        --resource-group "${self.triggers.resource_group_name}" \
+        --subscription "${self.triggers.subscription_id}" \
+        2>&1 || true
+    EOT
+    # The '|| true' ensures we don't fail if account is already purged (404)
+  }
 
   depends_on = [time_sleep.purge_ai_foundry_cooldown]
 }
