@@ -274,7 +274,7 @@ resource "azurerm_api_management_backend" "storage" {
 # Uses connection string with managed identity for secure telemetry
 # -----------------------------------------------------------------------------
 resource "azurerm_api_management_logger" "app_insights" {
-  count = local.apim_config.enabled && module.ai_foundry_hub.application_insights_connection_string != null ? 1 : 0
+  count = local.apim_config.enabled && local.application_insights_enabled ? 1 : 0
 
   name                = "${module.apim[0].name}-appinsights-logger"
   api_management_name = module.apim[0].name
@@ -290,7 +290,7 @@ resource "azurerm_api_management_logger" "app_insights" {
 
 # APIM Diagnostics - Enable Application Insights logging for all APIs
 resource "azurerm_api_management_diagnostic" "app_insights" {
-  count = local.apim_config.enabled && module.ai_foundry_hub.application_insights_connection_string != null ? 1 : 0
+  count = local.apim_config.enabled && local.application_insights_enabled ? 1 : 0
 
   identifier               = "applicationinsights"
   resource_group_name      = azurerm_resource_group.main.name
@@ -390,7 +390,7 @@ resource "azurerm_api_management_api_diagnostic" "tenant" {
   api_management_logger_id = lookup(each.value.log_analytics, "enabled", false) ? (
     azurerm_api_management_logger.tenant_app_insights[each.key].id
     ) : (
-    module.ai_foundry_hub.application_insights_connection_string != null ? azurerm_api_management_logger.app_insights[0].id : null
+    local.application_insights_enabled ? azurerm_api_management_logger.app_insights[0].id : null
   )
 
   # Get tenant-specific diagnostics config or use defaults

@@ -23,6 +23,10 @@ locals {
   apim_config  = var.shared_config.apim
   appgw_config = var.shared_config.app_gateway
 
+  # Application Insights enabled flag - use input variable directly for count expressions
+  # This avoids "count depends on resource attributes" errors during destroy
+  application_insights_enabled = var.shared_config.log_analytics.enabled
+
   # =============================================================================
   # PER-TENANT APIM DIAGNOSTICS
   # =============================================================================
