@@ -37,7 +37,7 @@ env:
   CHISEL_IMAGE: jpillora/chisel
 permissions:
   id-token: write # Required for OIDC authentication
-  contents: read
+  contents: write
 
 jobs:
   validate:
