@@ -702,13 +702,17 @@ resource "null_resource" "wait_for_dns_key_vault" {
 }
 
 # Wait for AI Search PE DNS zone group
+# Note: AI Search AVM v0.2.0 has a bug where private_endpoints output only includes
+# managed DNS PEs, not unmanaged ones. We construct PE name from resource name.
 resource "null_resource" "wait_for_dns_ai_search" {
   count = var.scripts_dir != "" && var.ai_search.enabled ? 1 : 0
 
   triggers = {
-    private_endpoint_id   = module.ai_search[0].private_endpoints["primary"].id
+    # AI Search AVM v0.2.0 private_endpoints output is empty when private_endpoints_manage_dns_zone_group=false
+    # Construct PE name from resource name using the AVM naming convention: "pe-${resource_name}"
+    private_endpoint_id   = module.ai_search[0].resource_id
     resource_group_name   = local.resource_group_name
-    private_endpoint_name = module.ai_search[0].private_endpoints["primary"].name
+    private_endpoint_name = "pe-${module.ai_search[0].resource.name}"
     timeout               = var.private_endpoint_dns_wait.timeout
     interval              = var.private_endpoint_dns_wait.poll_interval
     scripts_dir           = var.scripts_dir
@@ -756,13 +760,18 @@ resource "null_resource" "wait_for_dns_cosmos_db" {
 }
 
 # Wait for Document Intelligence PE DNS zone group
+# Note: Cognitive Services AVM v0.6.0 has a bug where private_endpoints output only
+# includes managed DNS PEs, not unmanaged ones. We construct PE name from resource name.
+# Cognitive Services uses "pep-${resource_name}" naming convention.
 resource "null_resource" "wait_for_dns_document_intelligence" {
   count = var.scripts_dir != "" && var.document_intelligence.enabled ? 1 : 0
 
   triggers = {
-    private_endpoint_id   = module.document_intelligence[0].private_endpoints["primary"].id
-    resource_group_name   = local.resource_group_name
-    private_endpoint_name = module.document_intelligence[0].private_endpoints["primary"].name
+    # Use resource_id as trigger for changes
+    private_endpoint_id = module.document_intelligence[0].resource_id
+    resource_group_name = local.resource_group_name
+    # Cognitive Services AVM uses "pep-${resource_name}" for PE names
+    private_endpoint_name = "pep-${module.document_intelligence[0].name}"
     timeout               = var.private_endpoint_dns_wait.timeout
     interval              = var.private_endpoint_dns_wait.poll_interval
     scripts_dir           = var.scripts_dir
@@ -783,13 +792,18 @@ resource "null_resource" "wait_for_dns_document_intelligence" {
 }
 
 # Wait for OpenAI PE DNS zone group
+# Note: Cognitive Services AVM v0.6.0 has a bug where private_endpoints output only
+# includes managed DNS PEs, not unmanaged ones. We construct PE name from resource name.
+# Cognitive Services uses "pep-${resource_name}" naming convention.
 resource "null_resource" "wait_for_dns_openai" {
   count = var.scripts_dir != "" && var.openai.enabled ? 1 : 0
 
   triggers = {
-    private_endpoint_id   = module.openai[0].private_endpoints["primary"].id
-    resource_group_name   = local.resource_group_name
-    private_endpoint_name = module.openai[0].private_endpoints["primary"].name
+    # Use resource_id as trigger for changes
+    private_endpoint_id = module.openai[0].resource_id
+    resource_group_name = local.resource_group_name
+    # Cognitive Services AVM uses "pep-${resource_name}" for PE names
+    private_endpoint_name = "pep-${module.openai[0].name}"
     timeout               = var.private_endpoint_dns_wait.timeout
     interval              = var.private_endpoint_dns_wait.poll_interval
     scripts_dir           = var.scripts_dir
