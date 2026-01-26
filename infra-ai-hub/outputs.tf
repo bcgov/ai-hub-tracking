@@ -76,11 +76,11 @@ output "apim_name" {
 output "tenant_projects" {
   description = "Map of tenant names to their AI Foundry project details"
   value = {
-    for tenant_key, tenant in module.tenant : tenant_key => {
-      project_id           = tenant.project_id
-      project_name         = tenant.project_name
-      project_principal_id = tenant.project_principal_id
-      enabled_resources    = tenant.enabled_resources
+    for tenant_key, project in module.foundry_project : tenant_key => {
+      project_id           = project.project_id
+      project_name         = project.project_name
+      project_principal_id = project.project_principal_id
+      enabled_resources    = module.tenant[tenant_key].enabled_resources
     }
   }
 }

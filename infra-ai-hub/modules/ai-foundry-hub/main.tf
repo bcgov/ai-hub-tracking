@@ -1,6 +1,12 @@
 # AI Foundry Hub Module
 # Creates a shared Azure AI Foundry account using azapi for latest API features
 # Includes optional AI Agent service with network injection capability
+#
+# IMPORTANT: Resources within this module are serialized via explicit depends_on
+# chains to avoid Azure ETag conflicts on concurrent operations against the same
+# Cognitive Services account. This allows other modules to run in parallel while
+# ensuring AI Foundry operations remain sequential.
+#
 # Data source for subscription info
 data "azurerm_client_config" "current" {}
 # -----------------------------------------------------------------------------
@@ -217,7 +223,8 @@ resource "azapi_resource" "ai_agent" {
     ignore_changes = [tags]
   }
 
-  depends_on = [azapi_resource.ai_foundry]
+  # Serialize AI Foundry operations to avoid Azure ETag conflicts
+  depends_on = [azapi_resource.ai_foundry, azurerm_monitor_diagnostic_setting.ai_foundry]
 }
 
 # Private endpoint for AI Agent (if network injection is enabled)
@@ -241,6 +248,9 @@ resource "azurerm_private_endpoint" "ai_agent" {
   lifecycle {
     ignore_changes = [tags, private_dns_zone_group]
   }
+
+  # Serialize: PE after agent resource to avoid ETag conflicts
+  depends_on = [azapi_resource.ai_agent]
 }
 
 # =============================================================================
@@ -262,6 +272,9 @@ resource "azurerm_cognitive_account" "bing_grounding" {
   lifecycle {
     ignore_changes = [tags]
   }
+
+  # Serialize: Bing after AI Agent operations to avoid ETag conflicts on the parent account
+  depends_on = [azapi_resource.ai_agent, azurerm_private_endpoint.ai_agent]
 }
 
 # =============================================================================
@@ -273,7 +286,7 @@ resource "azurerm_cognitive_account" "bing_grounding" {
 resource "time_sleep" "purge_ai_foundry_cooldown" {
   count = var.purge_on_destroy ? 1 : 0
 
-  destroy_duration = "60s"
+  destroy_duration = "90s"
 
   depends_on = [azapi_resource.ai_foundry]
 }
@@ -292,15 +305,9 @@ resource "null_resource" "purge_ai_foundry" {
   }
 
   provisioner "local-exec" {
-    when    = destroy
-    command = <<-EOT
-      az cognitiveservices account purge \
-        --name "${self.triggers.account_name}" \
-        --location "${self.triggers.location}" \
-        --resource-group "${self.triggers.resource_group_name}" \
-        --subscription "${self.triggers.subscription_id}" \
-        2>&1 || true
-    EOT
+    when        = destroy
+    interpreter = ["bash", "-c"]
+    command     = "az cognitiveservices account purge --name \"${self.triggers.account_name}\" --location \"${self.triggers.location}\" --resource-group \"${self.triggers.resource_group_name}\" --subscription \"${self.triggers.subscription_id}\" 2>&1 || true"
     # The '|| true' ensures we don't fail if account is already purged (404)
   }
 

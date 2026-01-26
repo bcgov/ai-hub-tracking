@@ -723,7 +723,6 @@ module "tenant" {
   location                     = var.location
   ai_location                  = var.shared_config.ai_foundry.ai_location
 
-  ai_foundry_hub_id          = module.ai_foundry_hub.id
   private_endpoint_subnet_id = module.network.private_endpoint_subnet_id
   # Only pass shared LAW if tenant doesn't have their own LAW enabled
   # When tenant has log_analytics.enabled = true, pass null to use tenant's own LAW
@@ -806,6 +805,72 @@ module "tenant" {
   tags = merge(var.common_tags, lookup(each.value, "tags", {}))
 
   depends_on = [module.ai_foundry_hub]
+}
+
+# -----------------------------------------------------------------------------
+# AI Foundry Projects (per tenant)
+# This module creates AI Foundry projects and their connections AFTER tenant
+# resources are ready. Projects all modify the shared AI Foundry hub.
+#
+# NOTE: With the current structure, all foundry projects may be created in parallel.
+# To avoid ETag conflicts, the connections within each project are serialized.
+# If ETag conflicts still occur across tenants, use -parallelism=1 for the targeted
+# apply: terraform apply -target=module.foundry_project -parallelism=1
+# -----------------------------------------------------------------------------
+module "foundry_project" {
+  source   = "./modules/foundry-project"
+  for_each = local.enabled_tenants
+
+  tenant_name       = each.value.tenant_name
+  ai_foundry_hub_id = module.ai_foundry_hub.id
+  location          = var.location
+  ai_location       = var.shared_config.ai_foundry.ai_location
+
+  # Resource references from tenant module (for role assignments and connections)
+  # Note: enabled flags come from config (not resource outputs) to ensure plan works
+  key_vault = {
+    enabled     = lookup(each.value.key_vault, "enabled", false)
+    resource_id = module.tenant[each.key].key_vault_id
+  }
+
+  storage_account = {
+    enabled           = lookup(each.value.storage_account, "enabled", false)
+    resource_id       = module.tenant[each.key].storage_account_id
+    name              = module.tenant[each.key].storage_account_name
+    blob_endpoint_url = module.tenant[each.key].storage_account_primary_blob_endpoint
+  }
+
+  ai_search = {
+    enabled     = lookup(each.value.ai_search, "enabled", false)
+    resource_id = module.tenant[each.key].ai_search_id
+  }
+
+  cosmos_db = {
+    enabled       = lookup(each.value.cosmos_db, "enabled", false)
+    resource_id   = module.tenant[each.key].cosmos_db_id
+    database_name = lookup(each.value.cosmos_db, "database_name", "default")
+  }
+
+  openai = {
+    enabled     = lookup(each.value.openai, "enabled", false)
+    resource_id = module.tenant[each.key].openai_id
+  }
+
+  document_intelligence = {
+    enabled     = lookup(each.value.document_intelligence, "enabled", false)
+    resource_id = module.tenant[each.key].document_intelligence_id
+    endpoint    = module.tenant[each.key].document_intelligence_endpoint
+  }
+
+  # Connection toggles (which resources to connect to the project)
+  project_connections = lookup(each.value, "project_connections", {})
+
+  tags = merge(var.common_tags, lookup(each.value, "tags", {}))
+
+  depends_on = [
+    module.tenant,
+    module.ai_foundry_hub
+  ]
 }
 
 

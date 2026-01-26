@@ -46,7 +46,4 @@ locals {
   openai_log_groups        = local.openai_diagnostics != null ? try(local.openai_diagnostics.log_groups, []) : []
   openai_log_categories    = local.openai_diagnostics != null ? try(local.openai_diagnostics.log_categories, []) : []
   openai_metric_categories = local.openai_diagnostics != null ? try(local.openai_diagnostics.metric_categories, []) : []
-
-  # Project principal ID for role assignments
-  project_principal_id = try(azapi_resource.ai_foundry_project.output.identity.principalId, null)
 }

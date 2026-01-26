@@ -36,12 +36,6 @@ variable "resource_group_name_override" {
   default     = null
 }
 
-variable "ai_foundry_hub_id" {
-  description = "Resource ID of the shared AI Foundry hub"
-  type        = string
-  nullable    = false
-}
-
 variable "private_endpoint_subnet_id" {
   description = "Subnet ID for private endpoints"
   type        = string
@@ -166,23 +160,6 @@ variable "cosmos_db" {
   default = {
     enabled = false
   }
-}
-
-# -----------------------------------------------------------------------------
-# Project Connections Configuration
-# Controls which resources are connected to the AI Foundry project
-# -----------------------------------------------------------------------------
-variable "project_connections" {
-  description = "Configure which resources to connect to the AI Foundry project"
-  type = object({
-    key_vault             = optional(bool, true)
-    storage               = optional(bool, true)
-    ai_search             = optional(bool, true)
-    cosmos_db             = optional(bool, true)
-    openai                = optional(bool, true)
-    document_intelligence = optional(bool, true)
-  })
-  default = {}
 }
 
 # -----------------------------------------------------------------------------

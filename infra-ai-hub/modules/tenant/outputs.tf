@@ -12,24 +12,6 @@ output "resource_group_id" {
 }
 
 # =============================================================================
-# AI FOUNDRY PROJECT OUTPUTS
-# =============================================================================
-output "project_id" {
-  description = "Resource ID of the AI Foundry project"
-  value       = azapi_resource.ai_foundry_project.id
-}
-
-output "project_name" {
-  description = "Name of the AI Foundry project"
-  value       = azapi_resource.ai_foundry_project.name
-}
-
-output "project_principal_id" {
-  description = "Principal ID of the AI Foundry project's managed identity"
-  value       = try(azapi_resource.ai_foundry_project.output.identity.principalId, null)
-}
-
-# =============================================================================
 # KEY VAULT OUTPUTS
 # =============================================================================
 output "key_vault_id" {

@@ -100,8 +100,10 @@ Usage: $0 <command> <environment> [options]
 Commands:
     init        Initialize Terraform (download providers, configure backend)
     plan        Create execution plan
-    apply       Apply changes
-    destroy     Destroy infrastructure
+    apply       Apply changes (all modules in parallel)
+    apply-phased Apply in two phases: 1) all except foundry_project, 2) foundry_project with parallelism=1
+    destroy     Destroy infrastructure (all modules in parallel)
+    destroy-phased Destroy in two phases: 1) foundry_project with parallelism=1, 2) all remaining
     validate    Validate configuration
     fmt         Format Terraform files
     output      Show Terraform outputs
@@ -419,6 +421,56 @@ tf_import_existing_resource_if_needed() {
     return 2
 }
 
+run_terraform_with_retries() {
+    local command="$1"
+    shift
+
+    local max_retries=3
+    local attempt=1
+
+    while true; do
+        local tf_output_file
+        tf_output_file="$(mktemp -t terraform-${command}.XXXXXX.log)"
+
+        log_info "Running terraform ${command} (attempt ${attempt}/${max_retries})"
+
+        set +e
+        terraform "$command" "$@" 2>&1 | tee "$tf_output_file"
+        local tf_exit=${PIPESTATUS[0]}
+        set -e
+
+        if [[ $tf_exit -eq 0 ]]; then
+            rm -f "$tf_output_file"
+            break
+        fi
+
+        # Try to handle recoverable errors before failing
+        local handled=false
+
+        # Check for deposed object errors (404 on delete)
+        if tf_remove_deposed_object_if_needed "$tf_output_file"; then
+            handled=true
+        # Check for existing resource that needs import (apply only)
+        elif [[ "$command" == "apply" ]] && tf_import_existing_resource_if_needed "$tf_output_file"; then
+            handled=true
+        fi
+
+        if [[ "$handled" == "true" ]]; then
+            rm -f "$tf_output_file"
+            attempt=$((attempt + 1))
+            if [[ $attempt -gt $max_retries ]]; then
+                log_error "Exceeded maximum retries (${max_retries}) for auto-recovery"
+                exit $tf_exit
+            fi
+            continue
+        fi
+
+        rm -f "$tf_output_file"
+        log_error "Terraform ${command} failed (non-recoverable error)."
+        exit $tf_exit
+    done
+}
+
 # Detect and remove deposed objects from state
 # Deposed objects occur when a resource replace fails mid-operation, leaving
 # Terraform trying to delete a resource that no longer exists (404 errors)
@@ -470,62 +522,115 @@ tf_apply() {
     
     local apply_args=("${TFVARS_ARGS[@]}")
     apply_args+=("-input=false")
-    # Use parallelism=1 to avoid Azure AI Foundry ETag conflicts on concurrent operations
-    apply_args+=("-parallelism=1")
     
     if [[ "${CI:-false}" == "true" ]]; then
         apply_args+=("-auto-approve")
     fi
     
     apply_args+=("$@")
-    
-    local max_retries=3
-    local attempt=1
 
-    while true; do
-        local tf_output_file
-        tf_output_file="$(mktemp -t terraform-apply.XXXXXX.log)"
-
-        log_info "Running terraform apply (attempt ${attempt}/${max_retries})"
-
-        set +e
-        terraform apply "${apply_args[@]}" 2>&1 | tee "$tf_output_file"
-        local tf_exit=${PIPESTATUS[0]}
-        set -e
-
-        if [[ $tf_exit -eq 0 ]]; then
-            rm -f "$tf_output_file"
-            break
-        fi
-
-        # Try to handle recoverable errors before failing
-        local handled=false
-
-        # Check for deposed object errors (404 on delete)
-        if tf_remove_deposed_object_if_needed "$tf_output_file"; then
-            handled=true
-        # Check for existing resource that needs import
-        elif tf_import_existing_resource_if_needed "$tf_output_file"; then
-            handled=true
-        fi
-
-        if [[ "$handled" == "true" ]]; then
-            rm -f "$tf_output_file"
-            attempt=$((attempt + 1))
-            if [[ $attempt -gt $max_retries ]]; then
-                log_error "Exceeded maximum retries (${max_retries}) for auto-recovery"
-                exit $tf_exit
+    # Check if this is a targeted apply
+    local is_targeted=false
+    local is_foundry_target=false
+    for arg in "$@"; do
+        if [[ "$arg" == "-target="* ]]; then
+            is_targeted=true
+            if [[ "$arg" == *"foundry_project"* ]]; then
+                is_foundry_target=true
             fi
-            continue
         fi
-
-        rm -f "$tf_output_file"
-        log_error "Terraform apply failed (non-recoverable error)."
-        exit $tf_exit
     done
+    
+    # If targeting foundry_project specifically, use parallelism=1
+    if [[ "$is_foundry_target" == "true" ]]; then
+        log_info "Detected foundry_project target - using parallelism=1 to avoid ETag conflicts"
+        apply_args+=("-parallelism=1")
+    fi
+    
+    run_terraform_with_retries apply "${apply_args[@]}"
     
     log_success "Apply complete"
     
+}
+
+# =============================================================================
+# Two-Phase Apply
+# Phase 1: All modules EXCEPT foundry_project (parallel)
+# Phase 2: foundry_project module only (serial with parallelism=1)
+# =============================================================================
+tf_apply_phased() {
+    log_info "Starting phased apply..."
+    log_info "Phase 1: All modules except foundry_project (parallel)"
+    log_info "Phase 2: foundry_project module only (parallelism=1)"
+
+    if [[ "${CI:-false}" == "true" ]]; then
+        tf_init
+    else
+        ensure_initialized
+    fi
+    cd "$INFRA_DIR"
+
+    # Get list of all root modules except foundry_project
+    # We exclude foundry_project from phase 1 by targeting everything else
+    log_info "=== PHASE 1: Applying all modules except foundry_project ==="
+    
+    local phase1_args=("${TFVARS_ARGS[@]}")
+    phase1_args+=("-input=false")
+    
+    if [[ "${CI:-false}" == "true" ]]; then
+        phase1_args+=("-auto-approve")
+    fi
+
+    # Get all top-level modules and resources, excluding foundry_project
+    local targets=()
+    
+    # Parse terraform state/plan to get resources, or use known module list
+    # Using explicit targets for known infrastructure modules
+    targets+=(
+        "-target=azurerm_resource_group.main"
+        "-target=module.network"
+        "-target=module.ai_foundry_hub"
+        "-target=module.apim"
+        "-target=module.app_gateway"
+        "-target=module.defender"
+        "-target=module.tenant"
+    )
+
+    log_info "Phase 1 targets: ${targets[*]}"
+
+    run_terraform_with_retries apply "${phase1_args[@]}" "${targets[@]}" "$@"
+    log_success "Phase 1 complete"
+
+    # Phase 2: Apply foundry_project module with parallelism=1
+    log_info "=== PHASE 2: Applying foundry_project module (parallelism=1) ==="
+    
+    local phase2_args=("${TFVARS_ARGS[@]}")
+    phase2_args+=("-input=false")
+    phase2_args+=("-parallelism=1")
+    
+    if [[ "${CI:-false}" == "true" ]]; then
+        phase2_args+=("-auto-approve")
+    fi
+    
+    phase2_args+=("-target=module.foundry_project")
+
+    run_terraform_with_retries apply "${phase2_args[@]}" "$@"
+    log_success "Phase 2 complete"
+
+    # Phase 3: Final apply to catch any remaining resources (APIM operations, etc.)
+    log_info "=== PHASE 3: Final apply for remaining resources ==="
+    
+    local phase3_args=("${TFVARS_ARGS[@]}")
+    phase3_args+=("-input=false")
+    
+    if [[ "${CI:-false}" == "true" ]]; then
+        phase3_args+=("-auto-approve")
+    fi
+
+    run_terraform_with_retries apply "${phase3_args[@]}" "$@"
+    log_success "Phase 3 complete"
+    
+    log_success "Phased apply complete"
 }
 
 tf_destroy() {
@@ -535,8 +640,6 @@ tf_destroy() {
     
     local destroy_args=("${TFVARS_ARGS[@]}")
     destroy_args+=("-input=false")
-    # Use parallelism=1 to avoid Azure AI Foundry ETag conflicts on concurrent operations
-    destroy_args+=("-parallelism=1")
     
     if [[ "${CI:-false}" == "true" ]]; then
         destroy_args+=("-auto-approve")
@@ -556,6 +659,60 @@ tf_destroy() {
     terraform destroy "${destroy_args[@]}"
     
     log_success "Destroy complete"
+}
+
+# =============================================================================
+# Two-Phase Destroy
+# Phase 1: Destroy foundry_project module first (serial with parallelism=1)
+# Phase 2: Destroy all remaining modules (parallel)
+# Reverse order of apply to respect dependencies
+# =============================================================================
+tf_destroy_phased() {
+    log_info "Starting phased destroy..."
+    log_info "Phase 1: foundry_project module only (parallelism=1)"
+    log_info "Phase 2: All remaining modules (parallel)"
+
+    ensure_initialized
+    cd "$INFRA_DIR"
+
+    if [[ "${CI:-false}" != "true" ]]; then
+        log_warning "This will DESTROY infrastructure!"
+        read -p "Are you sure? (yes/no): " confirm
+        if [[ "$confirm" != "yes" ]]; then
+            log_info "Destroy cancelled"
+            exit 0
+        fi
+    fi
+
+    # Phase 1: Destroy foundry_project first with parallelism=1
+    log_info "=== PHASE 1: Destroying foundry_project module (parallelism=1) ==="
+    
+    local phase1_args=("${TFVARS_ARGS[@]}")
+    phase1_args+=("-input=false")
+    phase1_args+=("-parallelism=1")
+    phase1_args+=("-target=module.foundry_project")
+    
+    if [[ "${CI:-false}" == "true" ]]; then
+        phase1_args+=("-auto-approve")
+    fi
+
+    run_terraform_with_retries destroy "${phase1_args[@]}" "$@"
+    log_success "Phase 1 destroy complete"
+
+    # Phase 2: Destroy all remaining resources
+    log_info "=== PHASE 2: Destroying all remaining modules (parallel) ==="
+    
+    local phase2_args=("${TFVARS_ARGS[@]}")
+    phase2_args+=("-input=false")
+    
+    if [[ "${CI:-false}" == "true" ]]; then
+        phase2_args+=("-auto-approve")
+    fi
+
+    run_terraform_with_retries destroy "${phase2_args[@]}" "$@"
+    log_success "Phase 2 destroy complete"
+    
+    log_success "Phased destroy complete"
 }
 
 tf_output() {
@@ -635,8 +792,14 @@ main() {
         apply)
             tf_apply "$@"
             ;;
+        apply-phased)
+            tf_apply_phased "$@"
+            ;;
         destroy)
             tf_destroy "$@"
+            ;;
+        destroy-phased)
+            tf_destroy_phased "$@"
             ;;
         output)
             tf_output "$@"

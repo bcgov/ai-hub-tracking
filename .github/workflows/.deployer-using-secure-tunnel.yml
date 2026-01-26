@@ -156,8 +156,20 @@ jobs:
           # Make all scripts executable
           chmod +x ./scripts/*.sh
 
+          # Use phased apply for 'apply' command to avoid ETag conflicts on foundry_project
+          # Phase 1: All modules except foundry_project (parallel)
+          # Phase 2: foundry_project only (parallelism=1)
+          # Phase 3: Final apply for remaining resources
+          # Same for destroy but in reverse order
+          COMMAND="${{ inputs.command }}"
+          if [[ "$COMMAND" == "apply" ]]; then
+            COMMAND="apply-phased"
+          elif [[ "$COMMAND" == "destroy" ]]; then
+            COMMAND="destroy-phased"
+          fi
+
           # Run deployment via script
-          ./scripts/deploy-terraform.sh "${{ inputs.command }}" "${{ inputs.environment_name }}"
+          ./scripts/deploy-terraform.sh "$COMMAND" "${{ inputs.environment_name }}"
 
       - name: Install bats-core
         if: inputs.command == 'apply'
