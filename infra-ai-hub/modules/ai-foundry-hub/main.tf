@@ -116,6 +116,8 @@ resource "azapi_resource" "ai_foundry" {
   lifecycle {
     ignore_changes = [tags]
   }
+
+  depends_on = var.purge_on_destroy ? null_resource.purge_ai_foundry : []
 }
 
 # -----------------------------------------------------------------------------
@@ -282,15 +284,6 @@ resource "azurerm_cognitive_account" "bing_grounding" {
 # Permanently deletes the AI Foundry account, bypassing soft delete retention
 # =============================================================================
 
-# Cooldown period to allow Azure to complete soft delete before purging
-resource "time_sleep" "purge_ai_foundry_cooldown" {
-  count = var.purge_on_destroy ? 1 : 0
-
-  destroy_duration = "90s"
-
-  depends_on = [azapi_resource.ai_foundry]
-}
-
 # Purge the soft-deleted AI Foundry account on destroy
 # Uses null_resource with local-exec to gracefully handle 404 errors
 # (404 means already purged, which is the desired state)
@@ -307,11 +300,8 @@ resource "null_resource" "purge_ai_foundry" {
   provisioner "local-exec" {
     when        = destroy
     interpreter = ["bash", "-c"]
-    command     = "az cognitiveservices account purge --name \"${self.triggers.account_name}\" --location \"${self.triggers.location}\" --resource-group \"${self.triggers.resource_group_name}\" --subscription \"${self.triggers.subscription_id}\" 2>&1 || true"
-    # The '|| true' ensures we don't fail if account is already purged (404)
+    command     = "${var.scripts_dir}/purge-ai-foundry.sh --name \"${self.triggers.account_name}\" --location \"${self.triggers.location}\" --resource-group \"${self.triggers.resource_group_name}\" --subscription \"${self.triggers.subscription_id}\" --timeout ${var.purge_wait.timeout} --interval ${var.purge_wait.poll_interval}"
   }
-
-  depends_on = [time_sleep.purge_ai_foundry_cooldown]
 }
 
 

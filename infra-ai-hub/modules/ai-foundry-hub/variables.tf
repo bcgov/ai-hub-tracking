@@ -121,6 +121,16 @@ variable "purge_on_destroy" {
   default     = false
 }
 
+variable "purge_wait" {
+  description = "Wait configuration for AI Foundry soft-delete before purge"
+  type = object({
+    timeout       = optional(string, "10m")
+    poll_interval = optional(string, "15s")
+  })
+  default = {}
+}
+
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)
