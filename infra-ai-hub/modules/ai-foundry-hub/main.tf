@@ -116,8 +116,6 @@ resource "azapi_resource" "ai_foundry" {
   lifecycle {
     ignore_changes = [tags]
   }
-
-  depends_on = var.purge_on_destroy ? null_resource.purge_ai_foundry : []
 }
 
 # -----------------------------------------------------------------------------
@@ -295,13 +293,18 @@ resource "null_resource" "purge_ai_foundry" {
     location            = local.ai_location
     resource_group_name = var.resource_group_name
     subscription_id     = data.azurerm_client_config.current.subscription_id
+    scripts_dir         = var.scripts_dir
+    timeout             = var.purge_wait.timeout
+    poll_interval       = var.purge_wait.poll_interval
   }
 
   provisioner "local-exec" {
     when        = destroy
     interpreter = ["bash", "-c"]
-    command     = "${var.scripts_dir}/purge-ai-foundry.sh --name \"${self.triggers.account_name}\" --location \"${self.triggers.location}\" --resource-group \"${self.triggers.resource_group_name}\" --subscription \"${self.triggers.subscription_id}\" --timeout ${var.purge_wait.timeout} --interval ${var.purge_wait.poll_interval}"
+    command     = "${self.triggers.scripts_dir}/purge-ai-foundry.sh --name \"${self.triggers.account_name}\" --location \"${self.triggers.location}\" --resource-group \"${self.triggers.resource_group_name}\" --subscription \"${self.triggers.subscription_id}\" --timeout ${self.triggers.timeout} --interval ${self.triggers.poll_interval}"
   }
+
+  depends_on = [azapi_resource.ai_foundry]
 }
 
 
