@@ -1,30 +1,6 @@
 # API Management Module (stv2)
 # Uses Azure Verified Module for APIM v2 with Private Endpoints (not VNet injection)
 
-# =============================================================================
-# LOCAL VARIABLES - Use boolean flags known at plan time for for_each keys
-# =============================================================================
-locals {
-  # Private endpoints - use boolean flag (known at plan time) to control creation
-  # NOTE: private_dns_zone_resource_ids omitted - Azure Policy manages DNS zone groups
-  private_endpoints = var.enable_private_endpoint ? {
-    primary = {
-      name               = "${var.name}-pe"
-      subnet_resource_id = var.private_endpoint_subnet_id
-      tags               = var.tags
-    }
-  } : {}
-
-  # Diagnostic settings - use boolean flag (known at plan time) to control creation
-  diagnostic_settings = var.enable_diagnostics ? {
-    to_law = {
-      name                  = "${var.name}-diag"
-      workspace_resource_id = var.log_analytics_workspace_id
-      log_groups            = ["allLogs"]
-      metric_categories     = ["AllMetrics"]
-    }
-  } : {}
-}
 
 # =============================================================================
 # API MANAGEMENT SERVICE (using AVM) - stv2 platform
@@ -94,4 +70,26 @@ resource "azurerm_api_management_policy" "global" {
 
   api_management_id = module.apim.resource_id
   xml_content       = var.global_policy_xml
+}
+# -----------------------------------------------------------------------------
+# Wait for policy-managed DNS zone group (uses shared script)
+# -----------------------------------------------------------------------------
+resource "null_resource" "wait_for_dns_apim" {
+  count = var.scripts_dir != "" && var.enable_private_endpoint ? 1 : 0
+
+  triggers = {
+    # Use AVM module output - private_endpoints is a map keyed by "primary"
+    private_endpoint_id = module.apim.private_endpoints["primary"].id
+    resource_group_name = var.resource_group_name
+    private_endpoint    = module.apim.private_endpoints["primary"].name
+    timeout             = var.private_endpoint_dns_wait.timeout
+    interval            = var.private_endpoint_dns_wait.poll_interval
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = "${var.scripts_dir}/wait-for-dns-zone.sh --resource-group ${var.resource_group_name} --private-endpoint-name ${module.apim.private_endpoints["primary"].name} --timeout ${var.private_endpoint_dns_wait.timeout} --interval ${var.private_endpoint_dns_wait.poll_interval}"
+  }
+
+  depends_on = [module.apim]
 }

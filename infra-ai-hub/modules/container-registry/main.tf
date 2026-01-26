@@ -71,3 +71,32 @@ module "container_registry" {
   tags             = var.tags
   enable_telemetry = var.enable_telemetry
 }
+
+# =============================================================================
+# WAIT FOR POLICY-MANAGED DNS ZONE GROUP
+# =============================================================================
+resource "null_resource" "wait_for_dns_acr" {
+  count = var.scripts_dir != "" && !var.public_network_access_enabled && var.private_endpoint_subnet_id != null ? 1 : 0
+
+  triggers = {
+    private_endpoint_id   = module.container_registry.private_endpoints["primary"].id
+    resource_group_name   = coalesce(var.resource_group_name_for_dns_wait, var.resource_group_name)
+    private_endpoint_name = module.container_registry.private_endpoints["primary"].name
+    timeout               = var.private_endpoint_dns_wait.timeout
+    interval              = var.private_endpoint_dns_wait.poll_interval
+    scripts_dir           = var.scripts_dir
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = <<-EOT
+      ${self.triggers.scripts_dir}/wait-for-dns-zone.sh \
+        --resource-group ${self.triggers.resource_group_name} \
+        --private-endpoint-name ${self.triggers.private_endpoint_name} \
+        --timeout ${self.triggers.timeout} \
+        --interval ${self.triggers.interval}
+    EOT
+  }
+
+  depends_on = [module.container_registry]
+}

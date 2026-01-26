@@ -69,6 +69,12 @@ variable "private_endpoint_dns_wait" {
   default = {}
 }
 
+variable "scripts_dir" {
+  description = "Path to shared scripts directory for DNS wait operations"
+  type        = string
+  default     = ""
+}
+
 # -----------------------------------------------------------------------------
 # Key Vault Configuration
 # -----------------------------------------------------------------------------

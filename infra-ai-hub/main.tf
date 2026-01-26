@@ -144,7 +144,13 @@ module "apim" {
   enable_diagnostics         = true
   log_analytics_workspace_id = module.ai_foundry_hub.log_analytics_workspace_id
 
-  tags = var.common_tags
+  tags        = var.common_tags
+  scripts_dir = "${path.module}/scripts"
+
+  private_endpoint_dns_wait = {
+    timeout       = var.shared_config.private_endpoint_dns_wait.timeout
+    poll_interval = var.shared_config.private_endpoint_dns_wait.poll_interval
+  }
 
   depends_on = [module.network, module.ai_foundry_hub]
 }
@@ -732,6 +738,8 @@ module "tenant" {
     timeout       = var.shared_config.private_endpoint_dns_wait.timeout
     poll_interval = var.shared_config.private_endpoint_dns_wait.poll_interval
   }
+
+  scripts_dir = "${path.module}/scripts"
 
   log_analytics = {
     enabled        = lookup(each.value.log_analytics, "enabled", false)

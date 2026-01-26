@@ -180,3 +180,17 @@ variable "global_policy_xml" {
   type        = string
   default     = null
 }
+variable "scripts_dir" {
+  description = "Path to the scripts directory containing wait-for-dns-zone.sh"
+  type        = string
+  nullable    = false
+}
+
+variable "private_endpoint_dns_wait" {
+  description = "Configuration for waiting on policy-managed DNS zone groups"
+  type = object({
+    timeout       = optional(string, "12m")
+    poll_interval = optional(string, "30s")
+  })
+  default = {}
+}

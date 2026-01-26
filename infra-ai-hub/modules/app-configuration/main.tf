@@ -132,3 +132,32 @@ resource "azurerm_monitor_diagnostic_setting" "app_config" {
     category = "AllMetrics"
   }
 }
+
+# =============================================================================
+# WAIT FOR POLICY-MANAGED DNS ZONE GROUP
+# =============================================================================
+resource "null_resource" "wait_for_dns_appconfig" {
+  count = var.scripts_dir != "" && var.private_endpoint_subnet_id != null ? 1 : 0
+
+  triggers = {
+    private_endpoint_id   = azurerm_private_endpoint.app_config[0].id
+    resource_group_name   = var.resource_group_name
+    private_endpoint_name = azurerm_private_endpoint.app_config[0].name
+    timeout               = var.private_endpoint_dns_wait.timeout
+    interval              = var.private_endpoint_dns_wait.poll_interval
+    scripts_dir           = var.scripts_dir
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = <<-EOT
+      ${self.triggers.scripts_dir}/wait-for-dns-zone.sh \
+        --resource-group ${self.triggers.resource_group_name} \
+        --private-endpoint-name ${self.triggers.private_endpoint_name} \
+        --timeout ${self.triggers.timeout} \
+        --interval ${self.triggers.interval}
+    EOT
+  }
+
+  depends_on = [azurerm_private_endpoint.app_config]
+}

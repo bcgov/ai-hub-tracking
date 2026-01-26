@@ -253,6 +253,26 @@ resource "azurerm_private_endpoint" "ai_agent" {
   depends_on = [azapi_resource.ai_agent]
 }
 
+# Wait for policy-managed DNS zone group on AI Agent PE
+resource "null_resource" "wait_for_dns_ai_agent" {
+  count = var.scripts_dir != "" && var.ai_agent.enabled && var.ai_agent.network_injection_enabled ? 1 : 0
+
+  triggers = {
+    private_endpoint_id = azurerm_private_endpoint.ai_agent[0].id
+    resource_group_name = var.resource_group_name
+    private_endpoint    = azurerm_private_endpoint.ai_agent[0].name
+    timeout             = var.private_endpoint_dns_wait.timeout
+    interval            = var.private_endpoint_dns_wait.poll_interval
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = "${var.scripts_dir}/wait-for-dns-zone.sh --resource-group ${var.resource_group_name} --private-endpoint-name ${azurerm_private_endpoint.ai_agent[0].name} --timeout ${var.private_endpoint_dns_wait.timeout} --interval ${var.private_endpoint_dns_wait.poll_interval}"
+  }
+
+  depends_on = [azurerm_private_endpoint.ai_agent]
+}
+
 # =============================================================================
 # BING GROUNDING (Optional)
 # Bing Web Search resource for grounding AI models with web data

@@ -99,6 +99,27 @@ variable "log_analytics_workspace_id" {
   default     = null
 }
 
+variable "scripts_dir" {
+  description = "Path to shared scripts directory for DNS wait operations"
+  type        = string
+  default     = ""
+}
+
+variable "private_endpoint_dns_wait" {
+  description = "Configuration for waiting on policy-managed DNS zone groups"
+  type = object({
+    timeout       = optional(string, "12m")
+    poll_interval = optional(string, "30s")
+  })
+  default = {}
+}
+
+variable "resource_group_name_for_dns_wait" {
+  description = "Resource group name to use for DNS wait operations (where PE is created)"
+  type        = string
+  default     = null
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

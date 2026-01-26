@@ -669,3 +669,142 @@ resource "azurerm_role_assignment" "custom_cosmos" {
   description          = lookup(each.value, "description", null)
 }
 
+# =============================================================================
+# WAIT FOR POLICY-MANAGED DNS ZONE GROUPS
+# Uses shared script to wait for Azure Policy to create DNS zone groups
+# =============================================================================
+
+# Wait for Key Vault PE DNS zone group
+resource "null_resource" "wait_for_dns_key_vault" {
+  count = var.scripts_dir != "" && var.key_vault.enabled ? 1 : 0
+
+  triggers = {
+    private_endpoint_id   = module.key_vault[0].private_endpoints["primary"].id
+    resource_group_name   = local.resource_group_name
+    private_endpoint_name = module.key_vault[0].private_endpoints["primary"].name
+    timeout               = var.private_endpoint_dns_wait.timeout
+    interval              = var.private_endpoint_dns_wait.poll_interval
+    scripts_dir           = var.scripts_dir
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = <<-EOT
+      ${self.triggers.scripts_dir}/wait-for-dns-zone.sh \
+        --resource-group ${self.triggers.resource_group_name} \
+        --private-endpoint-name ${self.triggers.private_endpoint_name} \
+        --timeout ${self.triggers.timeout} \
+        --interval ${self.triggers.interval}
+    EOT
+  }
+
+  depends_on = [module.key_vault]
+}
+
+# Wait for AI Search PE DNS zone group
+resource "null_resource" "wait_for_dns_ai_search" {
+  count = var.scripts_dir != "" && var.ai_search.enabled ? 1 : 0
+
+  triggers = {
+    private_endpoint_id   = module.ai_search[0].private_endpoints["primary"].id
+    resource_group_name   = local.resource_group_name
+    private_endpoint_name = module.ai_search[0].private_endpoints["primary"].name
+    timeout               = var.private_endpoint_dns_wait.timeout
+    interval              = var.private_endpoint_dns_wait.poll_interval
+    scripts_dir           = var.scripts_dir
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = <<-EOT
+      ${self.triggers.scripts_dir}/wait-for-dns-zone.sh \
+        --resource-group ${self.triggers.resource_group_name} \
+        --private-endpoint-name ${self.triggers.private_endpoint_name} \
+        --timeout ${self.triggers.timeout} \
+        --interval ${self.triggers.interval}
+    EOT
+  }
+
+  depends_on = [module.ai_search]
+}
+
+# Wait for Cosmos DB PE DNS zone group
+resource "null_resource" "wait_for_dns_cosmos_db" {
+  count = var.scripts_dir != "" && var.cosmos_db.enabled ? 1 : 0
+
+  triggers = {
+    private_endpoint_id   = azurerm_private_endpoint.cosmos_db[0].id
+    resource_group_name   = local.resource_group_name
+    private_endpoint_name = azurerm_private_endpoint.cosmos_db[0].name
+    timeout               = var.private_endpoint_dns_wait.timeout
+    interval              = var.private_endpoint_dns_wait.poll_interval
+    scripts_dir           = var.scripts_dir
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = <<-EOT
+      ${self.triggers.scripts_dir}/wait-for-dns-zone.sh \
+        --resource-group ${self.triggers.resource_group_name} \
+        --private-endpoint-name ${self.triggers.private_endpoint_name} \
+        --timeout ${self.triggers.timeout} \
+        --interval ${self.triggers.interval}
+    EOT
+  }
+
+  depends_on = [azurerm_private_endpoint.cosmos_db]
+}
+
+# Wait for Document Intelligence PE DNS zone group
+resource "null_resource" "wait_for_dns_document_intelligence" {
+  count = var.scripts_dir != "" && var.document_intelligence.enabled ? 1 : 0
+
+  triggers = {
+    private_endpoint_id   = module.document_intelligence[0].private_endpoints["primary"].id
+    resource_group_name   = local.resource_group_name
+    private_endpoint_name = module.document_intelligence[0].private_endpoints["primary"].name
+    timeout               = var.private_endpoint_dns_wait.timeout
+    interval              = var.private_endpoint_dns_wait.poll_interval
+    scripts_dir           = var.scripts_dir
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = <<-EOT
+      ${self.triggers.scripts_dir}/wait-for-dns-zone.sh \
+        --resource-group ${self.triggers.resource_group_name} \
+        --private-endpoint-name ${self.triggers.private_endpoint_name} \
+        --timeout ${self.triggers.timeout} \
+        --interval ${self.triggers.interval}
+    EOT
+  }
+
+  depends_on = [module.document_intelligence]
+}
+
+# Wait for OpenAI PE DNS zone group
+resource "null_resource" "wait_for_dns_openai" {
+  count = var.scripts_dir != "" && var.openai.enabled ? 1 : 0
+
+  triggers = {
+    private_endpoint_id   = module.openai[0].private_endpoints["primary"].id
+    resource_group_name   = local.resource_group_name
+    private_endpoint_name = module.openai[0].private_endpoints["primary"].name
+    timeout               = var.private_endpoint_dns_wait.timeout
+    interval              = var.private_endpoint_dns_wait.poll_interval
+    scripts_dir           = var.scripts_dir
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = <<-EOT
+      ${self.triggers.scripts_dir}/wait-for-dns-zone.sh \
+        --resource-group ${self.triggers.resource_group_name} \
+        --private-endpoint-name ${self.triggers.private_endpoint_name} \
+        --timeout ${self.triggers.timeout} \
+        --interval ${self.triggers.interval}
+    EOT
+  }
+
+  depends_on = [module.openai]
+}
