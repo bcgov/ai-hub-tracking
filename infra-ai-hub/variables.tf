@@ -329,13 +329,6 @@ variable "tenants" {
       pii_redaction_enabled = optional(bool, true)
     }), { pii_redaction_enabled = true })
 
-    # Tenant users for RBAC at resource group scope
-    # Email must be a valid gov.bc.ca address, role must be admin or reader
-    users = optional(map(object({
-      email = string
-      role  = string
-    })), {})
-
     # Per-tenant APIM Diagnostics configuration (optional)
     # Overrides default diagnostic settings for this tenant's API
     # If tenant has log_analytics.enabled = true, logs go to tenant LAW

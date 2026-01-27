@@ -812,8 +812,6 @@ module "tenant" {
 
   tags = merge(var.common_tags, lookup(each.value, "tags", {}))
 
-  # Tenant users for RBAC
-  users      = lookup(each.value, "users", {})
   depends_on = [module.ai_foundry_hub]
 }
 
