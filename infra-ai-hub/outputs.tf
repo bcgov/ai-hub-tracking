@@ -98,11 +98,14 @@ output "tenant_key_vaults" {
 
 output "tenant_storage_accounts" {
   description = "Map of tenant names to their Storage Account details (if enabled)"
+  sensitive   = true
   value = {
     for tenant_key, tenant in module.tenant : tenant_key => {
-      id            = tenant.storage_account_id
-      name          = tenant.storage_account_name
-      blob_endpoint = tenant.storage_account_primary_blob_endpoint
+      id                 = tenant.storage_account_id
+      name               = tenant.storage_account_name
+      blob_endpoint      = tenant.storage_account_primary_blob_endpoint
+      primary_access_key = tenant.storage_account_primary_access_key
+      connection_string  = tenant.storage_account_primary_connection_string
     } if tenant.storage_account_id != null
   }
 }
