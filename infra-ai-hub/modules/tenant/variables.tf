@@ -222,6 +222,32 @@ variable "tags" {
 }
 
 # -----------------------------------------------------------------------------
+# Tenant User RBAC (Resource Group scope)
+# -----------------------------------------------------------------------------
+variable "users" {
+  description = "Tenant users to grant RBAC at the resource group scope. Uses custom tenant roles (admin/reader)."
+  type = map(object({
+    email = string
+    role  = string
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for u in values(var.users) : can(regex("^[^@\\s]+@gov\\.bc\\.ca$", lower(u.email)))
+    ])
+    error_message = "Each user email must be a valid gov.bc.ca address ending with @gov.bc.ca."
+  }
+
+  validation {
+    condition = alltrue([
+      for u in values(var.users) : contains(["admin", "reader"], lower(u.role))
+    ])
+    error_message = "Each user role must be one of: admin, reader."
+  }
+}
+
+# -----------------------------------------------------------------------------
 # Role Assignments Configuration
 # Allows custom RBAC assignments to tenant resources
 # -----------------------------------------------------------------------------
@@ -266,4 +292,9 @@ variable "role_assignments" {
     })), [])
   })
   default = {}
+}
+variable "license_plate" {
+  description = "The license_plate is 6 char alphanumeric given by Azure Landing platform team."
+  type        = string
+  default     = "da4cf6"
 }

@@ -139,4 +139,25 @@ tenant = {
     sampling_percentage = 100
     verbosity           = "information"
   }
+  # Tenant users for RBAC at resource group scope
+  # Email must end with @gov.bc.ca, role must be admin or reader
+  users = {
+    anthony = {
+      email = "anthony.shivakumar@gov.bc.ca"
+      role  = "admin"
+    }
+    alex = {
+      email = "alex.struk@gov.bc.ca"
+      role  = "admin"
+    }
+    kaegan = {
+      email = "kaegan.mandryk@gov.bc.ca"
+      role  = "admin"
+    }
+    justin = {
+      email = "justin.hewitt@gov.bc.ca"
+      role  = "admin"
+    }
+
+  }
 }

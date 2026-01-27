@@ -589,9 +589,94 @@ resource "azurerm_monitor_diagnostic_setting" "openai" {
 
 
 # =============================================================================
+# CUSTOM TENANT ROLES
+# Creates per-tenant custom roles scoped to the tenant resource group
+# =============================================================================
+
+# Tenant Admin Role - Full control over all resources in tenant RG (control + data plane)
+resource "azurerm_role_definition" "tenant_admin" {
+  name        = "${var.license_plate}-${var.tenant_name}-tenant-admin"
+  scope       = azurerm_resource_group.tenant.id
+  description = "Full access to all resources in ${var.display_name} tenant resource group"
+
+  permissions {
+    actions = [
+      # Full control over all resources in the RG
+      "*"
+    ]
+    data_actions = [
+      # Cognitive Services (OpenAI, Document Intelligence)
+      "Microsoft.CognitiveServices/*",
+      # Storage data plane
+      "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/*",
+      "Microsoft.Storage/storageAccounts/fileServices/fileshares/files/*",
+      "Microsoft.Storage/storageAccounts/queueServices/queues/messages/*",
+      "Microsoft.Storage/storageAccounts/tableServices/tables/entities/*",
+      # Key Vault data plane
+      "Microsoft.KeyVault/vaults/secrets/*",
+      "Microsoft.KeyVault/vaults/keys/*",
+      "Microsoft.KeyVault/vaults/certificates/*"
+    ]
+    not_data_actions = []
+  }
+
+  assignable_scopes = [
+    azurerm_resource_group.tenant.id
+  ]
+}
+
+# Tenant Reader Role - Read-only access to all resources in tenant RG (control + data plane)
+resource "azurerm_role_definition" "tenant_reader" {
+  name        = "${var.license_plate}-${var.tenant_name}-tenant-reader"
+  scope       = azurerm_resource_group.tenant.id
+  description = "Read-only access to all resources in ${var.display_name} tenant resource group"
+
+  permissions {
+    actions = [
+      "*/read"
+    ]
+    not_actions = []
+    data_actions = [
+      # Cognitive Services read
+      "Microsoft.CognitiveServices/*/read",
+      # Storage data plane read
+      "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read",
+      "Microsoft.Storage/storageAccounts/fileServices/fileshares/files/read",
+      "Microsoft.Storage/storageAccounts/queueServices/queues/messages/read",
+      "Microsoft.Storage/storageAccounts/tableServices/tables/entities/read",
+      # Key Vault data plane read
+      "Microsoft.KeyVault/vaults/secrets/readMetadata/action",
+      "Microsoft.KeyVault/vaults/keys/read",
+      "Microsoft.KeyVault/vaults/certificates/read"
+    ]
+    not_data_actions = []
+  }
+
+  assignable_scopes = [
+    azurerm_resource_group.tenant.id
+  ]
+}
+
+# =============================================================================
 # CUSTOM ROLE ASSIGNMENTS
 # Allows configuration of additional RBAC assignments for principals
 # =============================================================================
+
+# Tenant users looked up by email (UPN)
+data "azuread_user" "tenant_users" {
+  for_each            = var.users
+  user_principal_name = each.value.email
+}
+
+# Tenant user role assignments using custom tenant roles
+resource "azurerm_role_assignment" "tenant_users_rg" {
+  for_each = data.azuread_user.tenant_users
+
+  scope              = azurerm_resource_group.tenant.id
+  role_definition_id = lower(var.users[each.key].role) == "admin" ? azurerm_role_definition.tenant_admin.role_definition_resource_id : azurerm_role_definition.tenant_reader.role_definition_resource_id
+  principal_id       = each.value.object_id
+  principal_type     = "User"
+}
 
 # Custom role assignments at Resource Group scope
 resource "azurerm_role_assignment" "custom_rg" {
