@@ -47,6 +47,18 @@ output "storage_account_primary_blob_endpoint" {
   value       = var.storage_account.enabled ? azurerm_storage_account.this[0].primary_blob_endpoint : null
 }
 
+output "storage_account_primary_access_key" {
+  description = "Primary access key of the Storage Account"
+  value       = var.storage_account.enabled ? azurerm_storage_account.this[0].primary_access_key : null
+  sensitive   = true
+}
+
+output "storage_account_primary_connection_string" {
+  description = "Primary connection string of the Storage Account"
+  value       = var.storage_account.enabled ? azurerm_storage_account.this[0].primary_connection_string : null
+  sensitive   = true
+}
+
 # =============================================================================
 # AI SEARCH OUTPUTS
 # =============================================================================
