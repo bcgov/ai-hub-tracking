@@ -202,19 +202,17 @@ Reusable fragments in `fragments/` directory enable code reuse across tenant pol
 
 ### Usage Logging & Metrics Fragments
 
-| Fragment | Purpose | Use Case | Status |
-|----------|---------|----------|--------|
-| `openai-usage-logging.xml` | Logs detailed OpenAI usage to Application Insights | Cost allocation, chargeback, audit trails | Active |
-| `openai-streaming-metrics.xml` | Emits token metrics for streaming requests | Accurate streaming token counting, real-time monitoring | Reserved for future use* |
-| `tracking-dimensions.xml` | Extracts session/user/app IDs from headers | Per-user analytics, debugging, chargeback | Active |
+| Fragment | Purpose | Use Case |
+|----------|---------|----------|
+| `openai-usage-logging.xml` | Logs detailed OpenAI usage to Application Insights | Cost allocation, chargeback, audit trails |
+| `openai-streaming-metrics.xml` | Emits token metrics for streaming requests | Accurate streaming token counting, real-time monitoring |
+| `tracking-dimensions.xml` | Extracts session/user/app IDs from headers | Per-user analytics, debugging, chargeback |
 
-*The `openai-streaming-metrics` fragment is created in Terraform but not currently referenced in tenant API policies. It will be conditionally included when streaming detection logic is implemented.
-
-Active fragments log:
-- Token usage (prompt, completion, total) from OpenAI response bodies
-- Routing metadata (backendId, routeLocation, routeName, deploymentName) set by the tenant policy template
-- Subscription/product context from APIM
-- Session/user tracking dimensions from request headers
+These fragments log:
+- Token usage (prompt, completion, total)
+- Routing info (backend, region, deployment)
+- Subscription/product context
+- Session/user tracking (via headers)
 
 ### Content Safety Fragments
 
@@ -232,19 +230,15 @@ PII anonymization via Language Service:
 
 ### Routing Fragments
 
-| Fragment | Purpose | Use Case | Status |
-|----------|---------|----------|--------|
-| `intelligent-routing.xml` | Priority-based backend selection | Load balancing, failover, throttle avoidance | Reserved for future use* |
+| Fragment | Purpose | Use Case |
+|----------|---------|----------|
+| `intelligent-routing.xml` | Priority-based backend selection | Load balancing, failover, throttle avoidance |
 
-*The `intelligent-routing` fragment is created in Terraform but not currently referenced in tenant API policies. It will be conditionally included when `apim_policies.intelligent_routing.enabled` is implemented and multi-backend configurations are deployed.
-
-Planned intelligent routing features:
+Intelligent routing features:
 - Priority-based backend selection
 - Throttling awareness (avoids throttled backends)
 - Load balancing across same-priority backends
 - Automatic failover to secondary regions
-
-Current routing is single-backend per service (e.g., one OpenAI backend per tenant), with routing metadata captured for future use.
 
 ### Fragment Pattern
 
