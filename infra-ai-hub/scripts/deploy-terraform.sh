@@ -554,13 +554,14 @@ tf_apply() {
 }
 
 # =============================================================================
-# Two-Phase Apply
-# Phase 1: All modules EXCEPT foundry_project (parallel)
-# Phase 2: foundry_project module only (serial with parallelism=1)
+# Two-Phase Apply (Plan-Based Target Discovery)
+# Phase 1: All resources EXCEPT foundry_project (max parallelism)
+#          Uses terraform plan to discover all resources, then filters
+# Phase 2: foundry_project module only (parallelism=1)
 # =============================================================================
 tf_apply_phased() {
     log_info "Starting phased apply..."
-    log_info "Phase 1: All modules except foundry_project (parallel)"
+    log_info "Phase 1: All resources except foundry_project (max parallelism)"
     log_info "Phase 2: foundry_project module only (parallelism=1)"
 
     if [[ "${CI:-false}" == "true" ]]; then
@@ -570,65 +571,106 @@ tf_apply_phased() {
     fi
     cd "$INFRA_DIR"
 
-    # Get list of all root modules except foundry_project
-    # We exclude foundry_project from phase 1 by targeting everything else
-    log_info "=== PHASE 1: Applying all modules except foundry_project ==="
-    
-    local phase1_args=("${TFVARS_ARGS[@]}")
-    phase1_args+=("-input=false")
-    
-    if [[ "${CI:-false}" == "true" ]]; then
-        phase1_args+=("-auto-approve")
-    fi
+    # Filter out apply-only flags from args (plan doesn't accept -auto-approve)
+    local extra_args=()
+    for arg in "$@"; do
+        case "$arg" in
+            -auto-approve|--auto-approve) ;; # Skip apply-only flags
+            *) extra_args+=("$arg") ;;
+        esac
+    done
 
-    # Get all top-level modules and resources, excluding foundry_project
+    # Generate plan to discover all resources (no concurrency issues)
+    log_info "Generating terraform plan to discover resources..."
+    local plan_file="${INFRA_DIR}/.tfplan-phased"
+    
+    local plan_args=("${TFVARS_ARGS[@]}")
+    plan_args+=("-input=false")
+    plan_args+=("-out=${plan_file}")
+    
+    terraform plan "${plan_args[@]}" "${extra_args[@]}"
+    
+    # Extract all resource addresses from plan (excluding foundry_project)
+    log_info "Analyzing plan to extract resource targets..."
+    
     local targets=()
+    local foundry_targets=()
     
-    # Parse terraform state/plan to get resources, or use known module list
-    # Using explicit targets for known infrastructure modules
-    targets+=(
-        "-target=azurerm_resource_group.main"
-        "-target=module.network"
-        "-target=module.ai_foundry_hub"
-        "-target=module.apim"
-        "-target=module.app_gateway"
-        "-target=module.defender"
-        "-target=module.tenant"
-    )
+    # Parse plan JSON to get all resource addresses
+    while IFS= read -r address; do
+        [[ -z "$address" ]] && continue
+        
+        if [[ "$address" == module.foundry_project* ]]; then
+            # Collect foundry_project resources for Phase 2
+            foundry_targets+=("$address")
+        else
+            # Extract top-level module or resource for targeting
+            local top_level
+            if [[ "$address" == module.* ]]; then
+                # Extract module.name (handles indexed modules like module.tenant["foo"])
+                top_level=$(echo "$address" | sed -E 's/^(module\.[^.[]+(\[[^]]+\])?).*/\1/')
+            else
+                # Root resource - extract resource type and name
+                top_level=$(echo "$address" | sed -E 's/^([^.]+\.[^.[]+(\[[^]]+\])?).*/\1/')
+            fi
+            targets+=("$top_level")
+        fi
+    done < <(terraform show -json "${plan_file}" 2>/dev/null | jq -r '
+        .resource_changes[]? | 
+        select(.change.actions | . != ["no-op"]) | 
+        .address
+    ' 2>/dev/null)
+    
+    # De-duplicate targets
+    local unique_targets=()
+    declare -A seen
+    for t in "${targets[@]}"; do
+        if [[ -z "${seen[$t]:-}" ]]; then
+            seen[$t]=1
+            unique_targets+=("-target=$t")
+        fi
+    done
+    
+    # Clean up plan file
+    rm -f "${plan_file}"
+    
+    # Phase 1: Apply all resources except foundry_project
+    log_info "=== PHASE 1: Applying ${#unique_targets[@]} targets (excluding foundry_project) ==="
+    
+    if [[ ${#unique_targets[@]} -gt 0 ]]; then
+        local phase1_args=("${TFVARS_ARGS[@]}")
+        phase1_args+=("-input=false")
+        
+        if [[ "${CI:-false}" == "true" ]]; then
+            phase1_args+=("-auto-approve")
+        fi
 
-    log_info "Phase 1 targets: ${targets[*]}"
-
-    run_terraform_with_retries apply "${phase1_args[@]}" "${targets[@]}" "$@"
-    log_success "Phase 1 complete"
+        run_terraform_with_retries apply "${phase1_args[@]}" "${unique_targets[@]}" "${extra_args[@]}"
+        log_success "Phase 1 complete"
+    else
+        log_info "No non-foundry_project changes detected, skipping Phase 1"
+    fi
 
     # Phase 2: Apply foundry_project module with parallelism=1
-    log_info "=== PHASE 2: Applying foundry_project module (parallelism=1) ==="
-    
-    local phase2_args=("${TFVARS_ARGS[@]}")
-    phase2_args+=("-input=false")
-    phase2_args+=("-parallelism=1")
-    
-    if [[ "${CI:-false}" == "true" ]]; then
-        phase2_args+=("-auto-approve")
+    if [[ ${#foundry_targets[@]} -gt 0 ]]; then
+        log_info "=== PHASE 2: Applying foundry_project module (parallelism=1) ==="
+        log_info "Found ${#foundry_targets[@]} foundry_project resources to apply"
+        
+        local phase2_args=("${TFVARS_ARGS[@]}")
+        phase2_args+=("-input=false")
+        phase2_args+=("-parallelism=1")
+        
+        if [[ "${CI:-false}" == "true" ]]; then
+            phase2_args+=("-auto-approve")
+        fi
+        
+        phase2_args+=("-target=module.foundry_project")
+
+        run_terraform_with_retries apply "${phase2_args[@]}" "${extra_args[@]}"
+        log_success "Phase 2 complete"
+    else
+        log_info "No foundry_project changes detected, skipping Phase 2"
     fi
-    
-    phase2_args+=("-target=module.foundry_project")
-
-    run_terraform_with_retries apply "${phase2_args[@]}" "$@"
-    log_success "Phase 2 complete"
-
-    # Phase 3: Final apply to catch any remaining resources (APIM operations, etc.)
-    log_info "=== PHASE 3: Final apply for remaining resources ==="
-    
-    local phase3_args=("${TFVARS_ARGS[@]}")
-    phase3_args+=("-input=false")
-    
-    if [[ "${CI:-false}" == "true" ]]; then
-        phase3_args+=("-auto-approve")
-    fi
-
-    run_terraform_with_retries apply "${phase3_args[@]}" "$@"
-    log_success "Phase 3 complete"
     
     log_success "Phased apply complete"
 }
@@ -662,15 +704,14 @@ tf_destroy() {
 }
 
 # =============================================================================
-# Two-Phase Destroy
-# Phase 1: Destroy foundry_project module first (serial with parallelism=1)
-# Phase 2: Destroy all remaining modules (parallel)
-# Reverse order of apply to respect dependencies
+# Two-Phase Destroy (Plan-Based Target Discovery - Reverse order)
+# Phase 1: foundry_project module only (parallelism=1)
+# Phase 2: All other resources (max parallelism)
 # =============================================================================
 tf_destroy_phased() {
     log_info "Starting phased destroy..."
     log_info "Phase 1: foundry_project module only (parallelism=1)"
-    log_info "Phase 2: All remaining modules (parallel)"
+    log_info "Phase 2: All other resources (max parallelism)"
 
     ensure_initialized
     cd "$INFRA_DIR"
@@ -684,33 +725,103 @@ tf_destroy_phased() {
         fi
     fi
 
-    # Phase 1: Destroy foundry_project first with parallelism=1
-    log_info "=== PHASE 1: Destroying foundry_project module (parallelism=1) ==="
+    # Filter out destroy-only flags from args (plan doesn't accept -auto-approve)
+    local extra_args=()
+    for arg in "$@"; do
+        case "$arg" in
+            -auto-approve|--auto-approve) ;; # Skip apply-only flags
+            *) extra_args+=("$arg") ;;
+        esac
+    done
+
+    # Generate destroy plan to discover all resources
+    log_info "Generating terraform destroy plan to discover resources..."
+    local plan_file="${INFRA_DIR}/.tfplan-destroy-phased"
     
-    local phase1_args=("${TFVARS_ARGS[@]}")
-    phase1_args+=("-input=false")
-    phase1_args+=("-parallelism=1")
-    phase1_args+=("-target=module.foundry_project")
+    local plan_args=("${TFVARS_ARGS[@]}")
+    plan_args+=("-input=false")
+    plan_args+=("-destroy")
+    plan_args+=("-out=${plan_file}")
     
-    if [[ "${CI:-false}" == "true" ]]; then
-        phase1_args+=("-auto-approve")
+    terraform plan "${plan_args[@]}" "${extra_args[@]}"
+    
+    # Extract all resource addresses from plan
+    log_info "Analyzing plan to extract resource targets..."
+    
+    local other_targets=()
+    local foundry_count=0
+    
+    # Parse plan JSON to get all resource addresses
+    while IFS= read -r address; do
+        [[ -z "$address" ]] && continue
+        
+        if [[ "$address" == module.foundry_project* ]]; then
+            ((foundry_count++))
+        else
+            # Extract top-level module or resource for targeting
+            local top_level
+            if [[ "$address" == module.* ]]; then
+                top_level=$(echo "$address" | sed -E 's/^(module\.[^.[]+(\[[^]]+\])?).*/\1/')
+            else
+                top_level=$(echo "$address" | sed -E 's/^([^.]+\.[^.[]+(\[[^]]+\])?).*/\1/')
+            fi
+            other_targets+=("$top_level")
+        fi
+    done < <(terraform show -json "${plan_file}" 2>/dev/null | jq -r '
+        .resource_changes[]? | 
+        select(.change.actions | . != ["no-op"]) | 
+        .address
+    ' 2>/dev/null)
+    
+    # De-duplicate other targets
+    local unique_other_targets=()
+    declare -A seen
+    for t in "${other_targets[@]}"; do
+        if [[ -z "${seen[$t]:-}" ]]; then
+            seen[$t]=1
+            unique_other_targets+=("-target=$t")
+        fi
+    done
+    
+    # Clean up plan file
+    rm -f "${plan_file}"
+
+    # Phase 1: Destroy foundry_project first (must be serial)
+    if [[ $foundry_count -gt 0 ]]; then
+        log_info "=== PHASE 1: Destroying foundry_project module (parallelism=1) ==="
+        log_info "Found ${foundry_count} foundry_project resources to destroy"
+        
+        local phase1_args=("${TFVARS_ARGS[@]}")
+        phase1_args+=("-input=false")
+        phase1_args+=("-parallelism=1")
+        phase1_args+=("-target=module.foundry_project")
+        
+        if [[ "${CI:-false}" == "true" ]]; then
+            phase1_args+=("-auto-approve")
+        fi
+
+        run_terraform_with_retries destroy "${phase1_args[@]}" "${extra_args[@]}"
+        log_success "Phase 1 destroy complete"
+    else
+        log_info "No foundry_project resources to destroy, skipping Phase 1"
     fi
 
-    run_terraform_with_retries destroy "${phase1_args[@]}" "$@"
-    log_success "Phase 1 destroy complete"
+    # Phase 2: Destroy all remaining resources (max parallelism)
+    if [[ ${#unique_other_targets[@]} -gt 0 ]]; then
+        log_info "=== PHASE 2: Destroying ${#unique_other_targets[@]} other targets (max parallelism) ==="
+        
+        local phase2_args=("${TFVARS_ARGS[@]}")
+        phase2_args+=("-input=false")
+        
+        if [[ "${CI:-false}" == "true" ]]; then
+            phase2_args+=("-auto-approve")
+        fi
 
-    # Phase 2: Destroy all remaining resources
-    log_info "=== PHASE 2: Destroying all remaining modules (parallel) ==="
-    
-    local phase2_args=("${TFVARS_ARGS[@]}")
-    phase2_args+=("-input=false")
-    
-    if [[ "${CI:-false}" == "true" ]]; then
-        phase2_args+=("-auto-approve")
+        run_terraform_with_retries destroy "${phase2_args[@]}" "${unique_other_targets[@]}" "${extra_args[@]}"
+        log_success "Phase 2 destroy complete"
+    else
+        log_info "No other resources to destroy, skipping Phase 2"
     fi
-
-    run_terraform_with_retries destroy "${phase2_args[@]}" "$@"
-    log_success "Phase 2 destroy complete"
     
     log_success "Phased destroy complete"
 }
