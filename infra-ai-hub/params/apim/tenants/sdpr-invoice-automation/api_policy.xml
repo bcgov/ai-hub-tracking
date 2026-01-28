@@ -32,6 +32,8 @@
             <!-- OpenAI requests: /openai/* -->
             <when condition="@(context.Request.Url.Path.ToLower().Contains("openai"))">
                 <set-backend-service backend-id="sdpr-invoice-automation-openai" />
+                <!-- Initialize isStream to false, will be updated at runtime -->
+                <set-variable name="isStream" value="@(false)" />
                 <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
                 <set-header name="Authorization" exists-action="override">
                     <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
@@ -55,6 +57,13 @@
     </backend>
     <outbound>
         <base />
+        <!-- OpenAI usage logging -->
+        <choose>
+            <when condition="@(context.Request.Url.Path.ToLower().Contains("openai"))">
+                <set-variable name="responseBody" value="@(context.Response.Body.As<JObject>(preserveContent: true))" />
+                <include-fragment fragment-id="openai-usage-logging" />
+            </when>
+        </choose>
     </outbound>
     <on-error>
         <base />
