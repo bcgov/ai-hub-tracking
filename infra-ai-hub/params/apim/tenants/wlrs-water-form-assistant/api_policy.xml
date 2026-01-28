@@ -36,7 +36,6 @@
                 <set-variable name="isStream" value="@(false)" />
                 <!-- PII Anonymization via Azure Language Service -->
                 <set-variable name="piiAnonymizationEnabled" value="true" />
-                <set-variable name="piiServiceUrl" value="https://ai-services-hub-test-language.cognitiveservices.azure.com" />
                 <set-variable name="piiInputContent" value="@(context.Request.Body.As&lt;string&gt;(preserveContent: true))" />
                 <include-fragment fragment-id="pii-anonymization" />
                 <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />

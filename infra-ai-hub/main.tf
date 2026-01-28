@@ -323,10 +323,10 @@ resource "azurerm_api_management_named_value" "speech_services_endpoint" {
 resource "azurerm_api_management_named_value" "pii_service_url" {
   count = var.shared_config.language_service.enabled && local.apim_config.enabled ? 1 : 0
 
-  name                = "pii-service-url"
+  name                = "piiServiceUrl"
   resource_group_name = azurerm_resource_group.main.name
   api_management_name = module.apim[0].name
-  display_name        = "PII_Service_URL"
+  display_name        = "piiServiceUrl"
   # The PII fragment expects the base endpoint without trailing slash
   value  = trimsuffix(azurerm_cognitive_account.language_service[0].endpoint, "/")
   secret = false
