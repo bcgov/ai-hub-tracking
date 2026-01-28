@@ -190,6 +190,13 @@ variable "shared_config" {
       sku                   = optional(string, "standard")
       public_network_access = optional(string, "Disabled")
     }), { enabled = false })
+
+    # Language Service settings (for PII detection via Azure AI Language)
+    language_service = optional(object({
+      enabled                       = bool
+      sku                           = optional(string, "S")
+      public_network_access_enabled = optional(bool, false)
+    }), { enabled = false })
   })
 }
 
@@ -284,6 +291,17 @@ variable "tenants" {
       }))
     })
 
+    # Speech Services configuration
+    speech_services = optional(object({
+      enabled = bool
+      sku     = optional(string, "S0")
+      diagnostics = optional(object({
+        log_groups        = optional(list(string), [])
+        log_categories    = optional(list(string), [])
+        metric_categories = optional(list(string), [])
+      }))
+    }), { enabled = false })
+
     # OpenAI configuration
     openai = object({
       enabled = bool
@@ -321,13 +339,62 @@ variable "tenants" {
       }), {})
     }), { mode = "subscription_key", store_in_keyvault = false })
 
-    # Content Safety configuration
-    # Controls PII redaction and prompt injection protection at the API gateway
-    # These are enabled by default at the global level; set to false to opt-out
-    content_safety = optional(object({
-      # Redact PII (emails, phone numbers, addresses, etc.) from requests/responses
-      pii_redaction_enabled = optional(bool, true)
-    }), { pii_redaction_enabled = true })
+    # ==========================================================================
+    # APIM POLICIES CONFIGURATION
+    # ==========================================================================
+    # Consolidated configuration for all APIM policy features.
+    # Each feature can be enabled/disabled per tenant.
+    # Policy XML is auto-generated based on these settings.
+    # ==========================================================================
+    apim_policies = optional(object({
+      # ---- Rate Limiting ----
+      # Token-based rate limiting for LLM endpoints
+      rate_limiting = optional(object({
+        enabled           = optional(bool, true)
+        tokens_per_minute = optional(number, 10000)
+      }), { enabled = true, tokens_per_minute = 10000 })
+
+      # ---- Content Safety ----
+      # PII redaction using Azure Language Service
+      pii_redaction = optional(object({
+        enabled              = optional(bool, true)
+        confidence_threshold = optional(number, 0.8)
+        entity_exclusions    = optional(string, "")
+        detection_language   = optional(string, "en")
+      }), { enabled = true, confidence_threshold = 0.8, entity_exclusions = "", detection_language = "en" })
+
+      # ---- Usage Logging ----
+      # OpenAI token usage logging to App Insights
+      usage_logging = optional(object({
+        enabled = optional(bool, true)
+      }), { enabled = true })
+
+      # ---- Streaming Metrics ----
+      # Enhanced metrics for streaming responses
+      streaming_metrics = optional(object({
+        enabled = optional(bool, true)
+      }), { enabled = true })
+
+      # ---- Tracking Dimensions ----
+      # Extract custom dimensions from headers for analytics
+      tracking_dimensions = optional(object({
+        enabled = optional(bool, true)
+      }), { enabled = true })
+
+      # ---- Intelligent Routing ----
+      # Multi-backend load balancing and failover (future use)
+      intelligent_routing = optional(object({
+        enabled = optional(bool, false)
+      }), { enabled = false })
+
+      }), {
+      rate_limiting       = { enabled = true, tokens_per_minute = 10000 }
+      pii_redaction       = { enabled = true, confidence_threshold = 0.8, entity_exclusions = "", detection_language = "en" }
+      usage_logging       = { enabled = true }
+      streaming_metrics   = { enabled = true }
+      tracking_dimensions = { enabled = true }
+      intelligent_routing = { enabled = false }
+    })
 
     # Per-tenant APIM Diagnostics configuration (optional)
     # Overrides default diagnostic settings for this tenant's API

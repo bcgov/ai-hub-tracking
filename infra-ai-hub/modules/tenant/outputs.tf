@@ -72,6 +72,11 @@ output "ai_search_name" {
   value       = var.ai_search.enabled ? module.ai_search[0].resource.name : null
 }
 
+output "ai_search_endpoint" {
+  description = "Endpoint URL of the AI Search service"
+  value       = var.ai_search.enabled ? "https://${module.ai_search[0].resource.name}.search.windows.net" : null
+}
+
 # =============================================================================
 # COSMOS DB OUTPUTS
 # =============================================================================
@@ -85,9 +90,24 @@ output "cosmos_db_name" {
   value       = var.cosmos_db.enabled ? azurerm_cosmosdb_account.this[0].name : null
 }
 
+output "cosmos_db_account_name" {
+  description = "Account name of the Cosmos DB (alias for cosmos_db_name, used for role assignments)"
+  value       = var.cosmos_db.enabled ? azurerm_cosmosdb_account.this[0].name : null
+}
+
+output "cosmos_db_resource_group_name" {
+  description = "Resource group name containing the Cosmos DB account"
+  value       = var.cosmos_db.enabled ? azurerm_resource_group.tenant.name : null
+}
+
 output "cosmos_db_endpoint" {
   description = "Endpoint of the Cosmos DB account"
   value       = var.cosmos_db.enabled ? azurerm_cosmosdb_account.this[0].endpoint : null
+}
+
+output "cosmos_db_database_name" {
+  description = "Name of the pre-created Cosmos DB SQL database"
+  value       = var.cosmos_db.enabled ? azurerm_cosmosdb_sql_database.default[0].name : null
 }
 
 # =============================================================================
@@ -106,6 +126,24 @@ output "document_intelligence_name" {
 output "document_intelligence_endpoint" {
   description = "Endpoint of the Document Intelligence account"
   value       = var.document_intelligence.enabled ? module.document_intelligence[0].resource.endpoint : null
+}
+
+# =============================================================================
+# SPEECH SERVICES OUTPUTS
+# =============================================================================
+output "speech_services_id" {
+  description = "Resource ID of the Speech Services account"
+  value       = var.speech_services.enabled ? module.speech_services[0].resource_id : null
+}
+
+output "speech_services_name" {
+  description = "Name of the Speech Services account"
+  value       = var.speech_services.enabled ? module.speech_services[0].resource.name : null
+}
+
+output "speech_services_endpoint" {
+  description = "Endpoint of the Speech Services account"
+  value       = var.speech_services.enabled ? module.speech_services[0].resource.endpoint : null
 }
 
 # =============================================================================
@@ -180,6 +218,7 @@ output "enabled_resources" {
     ai_search             = var.ai_search.enabled
     cosmos_db             = var.cosmos_db.enabled
     document_intelligence = var.document_intelligence.enabled
+    speech_services       = var.speech_services.enabled
     openai                = var.openai.enabled
     log_analytics         = var.log_analytics.enabled
   }

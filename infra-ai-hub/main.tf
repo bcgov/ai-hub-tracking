@@ -107,6 +107,78 @@ module "ai_foundry_hub" {
 }
 
 # -----------------------------------------------------------------------------
+# Language Service (shared - for PII detection)
+# Azure Cognitive Services Text Analytics for enterprise PII detection
+# https://learn.microsoft.com/en-us/azure/ai-services/language-service/
+# -----------------------------------------------------------------------------
+resource "azurerm_cognitive_account" "language_service" {
+  count = var.shared_config.language_service.enabled ? 1 : 0
+
+  name                = "${var.app_name}-${var.app_env}-language"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+  kind                = "TextAnalytics"
+  sku_name            = var.shared_config.language_service.sku
+
+  public_network_access_enabled = var.shared_config.language_service.public_network_access_enabled
+  # Use managed identity only - disables key-based authentication for security
+  # IMPORTANT: APIM's managed identity role assignment must complete before PII detection works.
+  # Transient failures may occur during initial deployment while role assignment propagates.
+  local_auth_enabled    = false
+  custom_subdomain_name = "${var.app_name}-${var.app_env}-language"
+
+  identity {
+    type = "SystemAssigned"
+  }
+
+  network_acls {
+    default_action = "Deny"
+  }
+
+  tags = var.common_tags
+
+  depends_on = [azurerm_resource_group.main]
+}
+
+# Private endpoint for Language Service
+resource "azurerm_private_endpoint" "language_service" {
+  count = var.shared_config.language_service.enabled ? 1 : 0
+
+  name                = "${var.app_name}-${var.app_env}-language-pe"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+  subnet_id           = module.network.private_endpoint_subnet_id
+
+  private_service_connection {
+    name                           = "${var.app_name}-${var.app_env}-language-psc"
+    private_connection_resource_id = azurerm_cognitive_account.language_service[0].id
+    is_manual_connection           = false
+    subresource_names              = ["account"]
+  }
+
+  # Let Azure Policy manage DNS zone groups (Landing Zone pattern)
+  lifecycle {
+    ignore_changes = [tags, private_dns_zone_group]
+  }
+
+  tags = var.common_tags
+
+  depends_on = [azurerm_cognitive_account.language_service, module.network]
+}
+
+# Wait for Language Service DNS zone to be created by Azure Policy
+resource "terraform_data" "language_service_dns_wait" {
+  count = var.shared_config.language_service.enabled ? 1 : 0
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = "${path.module}/scripts/wait-for-dns-zone.sh --resource-group ${azurerm_resource_group.main.name} --private-endpoint-name ${azurerm_private_endpoint.language_service[0].name} --timeout ${var.shared_config.private_endpoint_dns_wait.timeout} --interval ${var.shared_config.private_endpoint_dns_wait.poll_interval}"
+  }
+
+  depends_on = [azurerm_private_endpoint.language_service]
+}
+
+# -----------------------------------------------------------------------------
 # API Management (shared, with per-tenant products) - stv2 with Private Endpoints
 # -----------------------------------------------------------------------------
 module "apim" {
@@ -214,6 +286,57 @@ resource "azurerm_api_management_named_value" "storage_endpoint" {
   depends_on = [module.apim, module.tenant]
 }
 
+# AI Search endpoints
+resource "azurerm_api_management_named_value" "ai_search_endpoint" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.ai_search.enabled && local.apim_config.enabled
+  }
+
+  name                = "${each.key}-ai-search-endpoint"
+  resource_group_name = azurerm_resource_group.main.name
+  api_management_name = module.apim[0].name
+  # display_name can only contain alphanumeric, periods, underscores, dashes
+  display_name = "${local.sanitized_display_names[each.key]}_AI_Search_Endpoint"
+  value        = module.tenant[each.key].ai_search_endpoint
+  secret       = false
+
+  depends_on = [module.apim, module.tenant]
+}
+
+# Speech Services endpoints
+resource "azurerm_api_management_named_value" "speech_services_endpoint" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.speech_services.enabled && local.apim_config.enabled
+  }
+
+  name                = "${each.key}-speech-endpoint"
+  resource_group_name = azurerm_resource_group.main.name
+  api_management_name = module.apim[0].name
+  # display_name can only contain alphanumeric, periods, underscores, dashes
+  display_name = "${local.sanitized_display_names[each.key]}_Speech_Services_Endpoint"
+  value        = module.tenant[each.key].speech_services_endpoint
+  secret       = false
+
+  depends_on = [module.apim, module.tenant]
+}
+
+# Language Service endpoint (shared - for PII detection)
+resource "azurerm_api_management_named_value" "pii_service_url" {
+  count = var.shared_config.language_service.enabled && local.apim_config.enabled ? 1 : 0
+
+  name                = "piiServiceUrl"
+  resource_group_name = azurerm_resource_group.main.name
+  api_management_name = module.apim[0].name
+  display_name        = "piiServiceUrl"
+  # The PII fragment expects the base endpoint without trailing slash
+  value  = trimsuffix(azurerm_cognitive_account.language_service[0].endpoint, "/")
+  secret = false
+
+  depends_on = [module.apim, azurerm_cognitive_account.language_service, terraform_data.language_service_dns_wait]
+}
+
 # -----------------------------------------------------------------------------
 # APIM Backends (for path-based routing to tenant services)
 # Each backend uses managed identity for authentication
@@ -273,6 +396,40 @@ resource "azurerm_api_management_backend" "storage" {
   description         = "Storage backend for ${each.value.display_name}"
 
   depends_on = [module.apim, module.tenant]
+}
+
+# AI Search backends
+resource "azurerm_api_management_backend" "ai_search" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.ai_search.enabled && local.apim_config.enabled
+  }
+
+  name                = "${each.key}-ai-search"
+  resource_group_name = azurerm_resource_group.main.name
+  api_management_name = module.apim[0].name
+  protocol            = "http"
+  url                 = module.tenant[each.key].ai_search_endpoint
+  description         = "AI Search backend for ${each.value.display_name}"
+
+  depends_on = [module.apim, module.tenant, azurerm_api_management_named_value.ai_search_endpoint]
+}
+
+# Speech Services backends
+resource "azurerm_api_management_backend" "speech_services" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.speech_services.enabled && local.apim_config.enabled
+  }
+
+  name                = "${each.key}-speech"
+  resource_group_name = azurerm_resource_group.main.name
+  api_management_name = module.apim[0].name
+  protocol            = "http"
+  url                 = module.tenant[each.key].speech_services_endpoint
+  description         = "Speech Services backend for ${each.value.display_name}"
+
+  depends_on = [module.apim, module.tenant, azurerm_api_management_named_value.speech_services_endpoint]
 }
 
 # -----------------------------------------------------------------------------
@@ -488,17 +645,6 @@ resource "azurerm_api_management_policy_fragment" "storage_auth" {
   depends_on = [module.apim]
 }
 
-resource "azurerm_api_management_policy_fragment" "cosmosdb_auth" {
-  count = local.apim_config.enabled ? 1 : 0
-
-  api_management_id = module.apim[0].id
-  name              = "cosmosdb-auth"
-  format            = "rawxml"
-  value             = file("${path.module}/params/apim/fragments/cosmosdb-auth.xml")
-
-  depends_on = [module.apim]
-}
-
 resource "azurerm_api_management_policy_fragment" "keyvault_auth" {
   count = local.apim_config.enabled ? 1 : 0
 
@@ -510,6 +656,70 @@ resource "azurerm_api_management_policy_fragment" "keyvault_auth" {
   depends_on = [module.apim]
 }
 
+resource "azurerm_api_management_policy_fragment" "openai_usage_logging" {
+  count = local.apim_config.enabled ? 1 : 0
+
+  api_management_id = module.apim[0].id
+  name              = "openai-usage-logging"
+  format            = "rawxml"
+  value             = file("${path.module}/params/apim/fragments/openai-usage-logging.xml")
+
+  depends_on = [module.apim]
+}
+
+# TODO: Streaming metrics fragment - reserved for future use
+# This fragment will be included in outbound policies when streaming response
+# detection is implemented. Currently created but not referenced in API policies.
+resource "azurerm_api_management_policy_fragment" "openai_streaming_metrics" {
+  count = local.apim_config.enabled ? 1 : 0
+
+  api_management_id = module.apim[0].id
+  name              = "openai-streaming-metrics"
+  format            = "rawxml"
+  value             = file("${path.module}/params/apim/fragments/openai-streaming-metrics.xml")
+
+  depends_on = [module.apim]
+}
+
+# PII Anonymization fragment via Language Service
+# Enabled for tenants with pii_redaction_enabled = true
+resource "azurerm_api_management_policy_fragment" "pii_anonymization" {
+  count = local.apim_config.enabled ? 1 : 0
+
+  api_management_id = module.apim[0].id
+  name              = "pii-anonymization"
+  format            = "rawxml"
+  value             = file("${path.module}/params/apim/fragments/pii-anonymization.xml")
+
+  depends_on = [module.apim, azurerm_api_management_named_value.pii_service_url]
+}
+
+# TODO: Intelligent routing fragment - reserved for future multi-backend support
+# This fragment implements priority-based backend selection with throttling awareness.
+# Currently created but not referenced in API policies (tenant config has enabled = false by default).
+# Will be conditionally included when intelligent_routing.enabled = true in tenant config.
+resource "azurerm_api_management_policy_fragment" "intelligent_routing" {
+  count = local.apim_config.enabled ? 1 : 0
+
+  api_management_id = module.apim[0].id
+  name              = "intelligent-routing"
+  format            = "rawxml"
+  value             = file("${path.module}/params/apim/fragments/intelligent-routing.xml")
+
+  depends_on = [module.apim]
+}
+
+resource "azurerm_api_management_policy_fragment" "tracking_dimensions" {
+  count = local.apim_config.enabled ? 1 : 0
+
+  api_management_id = module.apim[0].id
+  name              = "tracking-dimensions"
+  format            = "rawxml"
+  value             = file("${path.module}/params/apim/fragments/tracking-dimensions.xml")
+
+  depends_on = [module.apim]
+}
+
 # -----------------------------------------------------------------------------
 # APIM API Policies (per-tenant routing policies)
 # Applied to each tenant API to route to their services
@@ -517,7 +727,7 @@ resource "azurerm_api_management_policy_fragment" "keyvault_auth" {
 resource "azurerm_api_management_api_policy" "tenant" {
   for_each = {
     for key, policy in local.tenant_api_policies : key => policy
-    if policy != null && local.apim_config.enabled
+    if local.apim_config.enabled
   }
 
   api_name            = each.key
@@ -530,13 +740,19 @@ resource "azurerm_api_management_api_policy" "tenant" {
     azurerm_api_management_named_value.openai_endpoint,
     azurerm_api_management_named_value.docint_endpoint,
     azurerm_api_management_named_value.storage_endpoint,
+    azurerm_api_management_named_value.speech_services_endpoint,
     azurerm_api_management_backend.openai,
     azurerm_api_management_backend.docint,
     azurerm_api_management_backend.storage,
+    azurerm_api_management_backend.speech_services,
     azurerm_api_management_policy_fragment.cognitive_services_auth,
     azurerm_api_management_policy_fragment.storage_auth,
-    azurerm_api_management_policy_fragment.cosmosdb_auth,
-    azurerm_api_management_policy_fragment.keyvault_auth
+    azurerm_api_management_policy_fragment.keyvault_auth,
+    azurerm_api_management_policy_fragment.openai_usage_logging,
+    azurerm_api_management_policy_fragment.openai_streaming_metrics,
+    azurerm_api_management_policy_fragment.pii_anonymization,
+    azurerm_api_management_policy_fragment.intelligent_routing,
+    azurerm_api_management_policy_fragment.tracking_dimensions
   ]
 }
 
@@ -585,6 +801,59 @@ resource "azurerm_role_assignment" "apim_storage_reader" {
   principal_id         = module.apim[0].principal_id
 
   depends_on = [module.apim, module.tenant]
+}
+
+# Search Index Data Contributor - for AI Search endpoints (read/write access)
+resource "azurerm_role_assignment" "apim_search_contributor" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.ai_search.enabled && local.apim_config.enabled
+  }
+
+  scope                = module.tenant[each.key].ai_search_id
+  role_definition_name = "Search Index Data Contributor"
+  principal_id         = module.apim[0].principal_id
+
+  depends_on = [module.apim, module.tenant]
+}
+
+# Search Service Contributor - for AI Search management operations (list indexes, service stats)
+resource "azurerm_role_assignment" "apim_search_service_contributor" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.ai_search.enabled && local.apim_config.enabled
+  }
+
+  scope                = module.tenant[each.key].ai_search_id
+  role_definition_name = "Search Service Contributor"
+  principal_id         = module.apim[0].principal_id
+
+  depends_on = [module.apim, module.tenant]
+}
+
+# Cognitive Services User - for Speech Services
+resource "azurerm_role_assignment" "apim_speech_services_user" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.speech_services.enabled && local.apim_config.enabled
+  }
+
+  scope                = module.tenant[each.key].speech_services_id
+  role_definition_name = "Cognitive Services User"
+  principal_id         = module.apim[0].principal_id
+
+  depends_on = [module.apim, module.tenant]
+}
+
+# Cognitive Services User - for Language Service (shared PII detection)
+resource "azurerm_role_assignment" "apim_language_service_user" {
+  count = var.shared_config.language_service.enabled && local.apim_config.enabled ? 1 : 0
+
+  scope                = azurerm_cognitive_account.language_service[0].id
+  role_definition_name = "Cognitive Services User"
+  principal_id         = module.apim[0].principal_id
+
+  depends_on = [module.apim, azurerm_cognitive_account.language_service]
 }
 
 # -----------------------------------------------------------------------------

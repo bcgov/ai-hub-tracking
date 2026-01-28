@@ -22,6 +22,7 @@ locals {
   cosmos_diagnostics  = try(var.cosmos_db.diagnostics, null)
   docint_diagnostics  = try(var.document_intelligence.diagnostics, null)
   openai_diagnostics  = try(var.openai.diagnostics, null)
+  speech_diagnostics  = try(var.speech_services.diagnostics, null)
 
   kv_log_groups        = local.kv_diagnostics != null ? try(local.kv_diagnostics.log_groups, []) : []
   kv_log_categories    = local.kv_diagnostics != null ? try(local.kv_diagnostics.log_categories, []) : []
@@ -46,4 +47,8 @@ locals {
   openai_log_groups        = local.openai_diagnostics != null ? try(local.openai_diagnostics.log_groups, []) : []
   openai_log_categories    = local.openai_diagnostics != null ? try(local.openai_diagnostics.log_categories, []) : []
   openai_metric_categories = local.openai_diagnostics != null ? try(local.openai_diagnostics.metric_categories, []) : []
+
+  speech_log_groups        = local.speech_diagnostics != null ? try(local.speech_diagnostics.log_groups, []) : []
+  speech_log_categories    = local.speech_diagnostics != null ? try(local.speech_diagnostics.log_categories, []) : []
+  speech_metric_categories = local.speech_diagnostics != null ? try(local.speech_diagnostics.metric_categories, []) : []
 }

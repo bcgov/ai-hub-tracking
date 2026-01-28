@@ -35,7 +35,7 @@ tenant = {
   }
 
   ai_search = {
-    enabled            = false
+    enabled            = true
     sku                = "basic"
     replica_count      = 1
     partition_count    = 1
@@ -44,7 +44,7 @@ tenant = {
   }
 
   cosmos_db = {
-    enabled                      = false
+    enabled                      = true
     offer_type                   = "Standard"
     kind                         = "GlobalDocumentDB"
     consistency_level            = "Session"
@@ -53,6 +53,8 @@ tenant = {
     geo_redundant_backup_enabled = false
     automatic_failover_enabled   = false
     total_throughput_limit       = 1000
+    database_name                = "default"
+    container_name               = "cosmosContainer"
   }
 
   document_intelligence = {
@@ -64,6 +66,11 @@ tenant = {
       log_categories    = []
       metric_categories = ["AllMetrics"]
     }
+  }
+
+  # Speech Services - disabled by default, enable for text-to-speech/speech-to-text capabilities
+  speech_services = {
+    enabled = false
   }
 
   log_analytics = {
@@ -141,10 +148,28 @@ tenant = {
     store_in_keyvault = false              # Keep false if KV has auto-rotation policies!
   }
 
-  # Content Safety Configuration
-  # Controls PII redaction - enabled by default
-  content_safety = {
-    pii_redaction_enabled = true # Redact emails, phone numbers, addresses, etc.
+  # APIM Policies Configuration
+  # Consolidates all APIM policy settings for this tenant
+  apim_policies = {
+    rate_limiting = {
+      enabled           = true
+      tokens_per_minute = 10000 # Default TPM per subscription
+    }
+    pii_redaction = {
+      enabled = true # Redact emails, phone numbers, addresses, etc.
+    }
+    usage_logging = {
+      enabled = true # Log OpenAI token usage
+    }
+    streaming_metrics = {
+      enabled = true # Emit metrics for streaming requests
+    }
+    tracking_dimensions = {
+      enabled = true # Extract tracking headers for analytics
+    }
+    intelligent_routing = {
+      enabled = false # Disabled until multi-backend setup
+    }
   }
 
   # Per-tenant APIM Diagnostics - logs go to tenant's own LAW

@@ -136,4 +136,15 @@ shared_config = {
     # SECURITY: No public access in production
     public_network_access = "Disabled"
   }
+
+  # ---------------------------------------------------------------------------
+  # Language Service (for PII Detection)
+  # ---------------------------------------------------------------------------
+  # Azure AI Language Service for enterprise PII detection via APIM policies.
+  # SECURITY: PII detection enabled for all production workloads.
+  language_service = {
+    enabled                       = true
+    sku                           = "S"
+    public_network_access_enabled = false
+  }
 }

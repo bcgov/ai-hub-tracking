@@ -1,0 +1,130 @@
+<policies>
+    <inbound>
+        <base />
+%{ if tracking_dimensions_enabled ~}
+        <!-- Extract tracking dimensions from headers -->
+        <include-fragment fragment-id="tracking-dimensions" />
+%{ endif ~}
+        <!-- Tenant identification -->
+        <set-header name="X-Tenant-Id" exists-action="override">
+            <value>${tenant_name}</value>
+        </set-header>
+%{ if rate_limiting_enabled ~}
+
+        <!-- Token rate limiting: ${tokens_per_minute} TPM per subscription for this tenant -->
+        <!-- Protects backend from token exhaustion, returns 429 when exceeded -->
+        <llm-token-limit
+            counter-key="@(context.Subscription.Id)"
+            tokens-per-minute="${tokens_per_minute}"
+            estimate-prompt-tokens="true"
+            remaining-tokens-variable-name="remainingTokens"
+            remaining-tokens-header-name="x-ratelimit-remaining-tokens"
+            tokens-consumed-variable-name="tokensConsumed" />
+%{ endif ~}
+
+        <!-- Path-based routing to appropriate backend service -->
+        <choose>
+%{ if document_intelligence_enabled ~}
+            <!-- Document Intelligence requests: match documentintelligence, formrecognizer, or documentModels in path -->
+            <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;documentintelligence&quot;) || context.Request.Url.Path.ToLower().Contains(&quot;formrecognizer&quot;) || context.Request.Url.Path.ToLower().Contains(&quot;documentmodels&quot;))">
+                <set-backend-service backend-id="${tenant_name}-docint" />
+                <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
+                <set-header name="Authorization" exists-action="override">
+                    <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
+                </set-header>
+                <set-header name="api-key" exists-action="delete" />
+            </when>
+%{ endif ~}
+%{ if openai_enabled ~}
+            <!-- OpenAI requests: /openai/* -->
+            <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;))">
+                <set-backend-service backend-id="${tenant_name}-openai" />
+                <!-- Initialize isStream to false, will be updated at runtime -->
+                <set-variable name="isStream" value="@(false)" />
+%{ if pii_redaction_enabled ~}
+                <!-- PII Anonymization via Azure Language Service -->
+                <set-variable name="piiAnonymizationEnabled" value="true" />
+                <set-variable name="piiInputContent" value="@(context.Request.Body.As&lt;string&gt;(preserveContent: true))" />
+                <include-fragment fragment-id="pii-anonymization" />
+                <!-- Apply the anonymized content back to the request body -->
+                <set-body>@((string)context.Variables["piiAnonymizedContent"])</set-body>
+%{ endif ~}
+                <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
+                <set-header name="Authorization" exists-action="override">
+                    <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
+                </set-header>
+                <set-header name="api-key" exists-action="delete" />
+            </when>
+%{ endif ~}
+%{ if ai_search_enabled ~}
+            <!-- AI Search requests: /ai-search/* -->
+            <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;ai-search&quot;))">
+                <set-backend-service backend-id="${tenant_name}-ai-search" />
+                <!-- Strip /ai-search prefix from path before forwarding to backend -->
+                <rewrite-uri template="@{
+                    var path = context.Request.Url.Path;
+                    var searchIndex = path.ToLower().IndexOf(&quot;ai-search&quot;);
+                    if (searchIndex >= 0) {
+                        return &quot;/&quot; + path.Substring(searchIndex + 9).TrimStart('/');
+                    }
+                    return path;
+                }" copy-unmatched-params="true" />
+                <authentication-managed-identity resource="https://search.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
+                <set-header name="Authorization" exists-action="override">
+                    <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
+                </set-header>
+                <set-header name="api-key" exists-action="delete" />
+            </when>
+%{ endif ~}
+%{ if storage_enabled ~}
+            <!-- Storage requests: /storage/* -->
+            <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;storage&quot;))">
+                <set-backend-service backend-id="${tenant_name}-storage" />
+                <authentication-managed-identity resource="https://storage.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
+                <set-header name="Authorization" exists-action="override">
+                    <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
+                </set-header>
+                <set-header name="api-key" exists-action="delete" />
+            </when>
+%{ endif ~}
+            <!-- Default: Return 404 for unmatched paths -->
+            <otherwise>
+                <return-response>
+                    <set-status code="404" reason="Not Found" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>{"error":{"code":"NotFound","message":"The requested path is not supported by this API."}}</set-body>
+                </return-response>
+            </otherwise>
+        </choose>
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+%{ if openai_enabled && usage_logging_enabled ~}
+        <!-- OpenAI usage logging -->
+        <choose>
+            <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;))">
+                <set-variable name="responseBody" value="@(context.Response.Body.As&lt;JObject&gt;(preserveContent: true))" />
+                <!-- Set routing metadata for usage logging (single-backend for now) -->
+                <set-variable name="backendId" value="@(&quot;${tenant_name}-openai&quot;)" />
+                <set-variable name="routeLocation" value="@(&quot;canadaeast&quot;)" />
+                <set-variable name="routeName" value="@(&quot;primary&quot;)" />
+                <set-variable name="deploymentName" value="@{
+                    // Extract deployment name from URL path: /openai/deployments/{deployment-name}/...
+                    var path = context.Request.Url.Path;
+                    var match = System.Text.RegularExpressions.Regex.Match(path, @&quot;/deployments/([^/]+)/&quot;);
+                    return match.Success ? match.Groups[1].Value : &quot;unknown&quot;;
+                }" />
+                <include-fragment fragment-id="openai-usage-logging" />
+            </when>
+        </choose>
+%{ endif ~}
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>

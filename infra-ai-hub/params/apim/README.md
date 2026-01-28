@@ -7,85 +7,191 @@ This folder contains XML policy files for Azure API Management.
 ```
 params/apim/
 ├── README.md                              # This file
-├── global_policy.xml                      # Global policy (PII, prompt injection, rate limit)
+├── global_policy.xml                      # Global policy (base policies, error handling)
+├── api_policy.xml.tftpl                   # Dynamic template for tenant-specific policies
 ├── fragments/                             # Reusable policy fragments
 │   ├── cognitive-services-auth.xml        # Managed identity for OpenAI, Document Intel, AI Search
 │   ├── storage-auth.xml                   # Managed identity for Blob Storage
-│   ├── cosmosdb-auth.xml                  # Managed identity for Cosmos DB
-│   └── keyvault-auth.xml                  # Managed identity for Key Vault
-└── tenants/
-    └── {tenant-name}/
-        └── api_policy.xml                 # Tenant-specific routing & content safety
+│   ├── keyvault-auth.xml                  # Managed identity for Key Vault
+│   ├── pii-anonymization.xml              # Azure Language Service PII detection
+│   ├── openai-usage-logging.xml           # OpenAI token usage tracking
+│   ├── openai-streaming-metrics.xml       # Streaming response metrics
+│   ├── tracking-dimensions.xml            # Analytics dimension extraction
+│   ├── intelligent-routing.xml            # Multi-backend routing (future)
+│   └── ... (other authentication fragments)
+└── params/{env}/
+    └── tenants/
+        └── {tenant-name}/
+            └── tenant.tfvars              # Tenant config (includes apim_policies)
 ```
 
 ## Global Policy (`global_policy.xml`)
 
-The global policy is applied at the APIM service level and affects all API calls:
+The global policy is applied at the APIM service level and provides base functionality for all API calls:
 
-### Content Safety Protection
-- **PII Redaction**: Detects and masks Personally Identifiable Information (SSN, credit cards, emails, phone numbers)
-- **Prompt Injection Detection**: Identifies and blocks jailbreak patterns and suspicious prompts
-- **Per-Tenant Control**: Each tenant can independently enable/disable via `params/{env}/tenants.tfvars`
-  - Set `content_safety.pii_redaction_enabled = false` to disable PII masking for that tenant
-  - Set `content_safety.prompt_shield_enabled = false` to disable prompt injection detection
+### Subscription Key Normalization
 
-### Request Correlation
-- Adds `x-ms-correlation-request-id` header for distributed tracing
-- Adds `x-ms-request-id` response header
+Supports multiple header formats for API authentication:
+- `Ocp-Apim-Subscription-Key` - Standard APIM subscription key header (primary)
+- `api-key` - Alternative header name (falls back if primary missing)
+- `x-api-key` - Common REST API header convention (lowest priority)
 
-### Token Metrics (LLM APIs)
-Uses `llm-emit-token-metric` to track LLM token consumption:
-- **Dimensions**: API ID, Subscription ID, Tenant
-- **Metrics**: Prompt Tokens, Completion Tokens, Total Tokens
-- **Destination**: Application Insights
+The policy checks headers in order and normalizes to `Ocp-Apim-Subscription-Key` for internal routing:
+```
+if Ocp-Apim-Subscription-Key is empty:
+  use api-key header value
+  else use x-api-key header value
+```
 
-### Response Headers
-- `x-ratelimit-remaining-tokens`: Shows tokens remaining in rate limit window
+This allows clients to use their preferred header format without code changes.
+
+### Request Correlation & Tracing
+
+- `x-ms-correlation-request-id` - Unique ID for distributed request tracing (set on inbound)
+- `x-ms-request-id` - Request ID returned in response headers (set on outbound)
+- All error responses include `requestId` in JSON body for support team correlation
+
+### Token Metrics
+
+Emits LLM token metrics for OpenAI requests:
+- **Dimensions**: API ID, Subscription ID, Tenant (from X-Tenant-Id header)
+- **Metrics**: Total Tokens, Prompt Tokens, Completion Tokens
+- **Namespace**: AIHub (in Application Insights)
+- Only emitted for requests containing "openai" in path
+
+### Rate Limit Visibility
+
+- `x-ratelimit-remaining-tokens` - Shows remaining tokens in current rate limit window
+- Set by the `llm-token-limit` policy (when enabled per-tenant)
+- Returned in response headers so clients can implement smart rate limiting
+
+### Throttling Handling (429 Responses)
+
+Special handling for rate limit (429) responses:
+- Preserves `Retry-After` header from backend for proper backoff
+- Returns structured JSON error with retry guidance
+- Includes remaining tokens count for client awareness
+- Maintains correlation ID for debugging
+
+Example 429 response:
+```json
+{
+  "error": {
+    "code": "429",
+    "message": "Too Many Requests - Rate limit exceeded",
+    "retryAfter": "30",
+    "requestId": "correlation-id-here"
+  }
+}
+```
 
 ### Error Handling
-Returns structured JSON errors with:
-- Error code
-- Error message
-- Request ID for correlation
 
-## Tenant Policies (`tenants/{tenant-name}/api_policy.xml`)
+All errors (5xx, 4xx, etc.) return structured JSON format:
+- Error code (HTTP status)
+- Human-readable error message
+- Correlation request ID for support tracing
 
-Each tenant has their own API-level policy for:
+Example error response:
+```json
+{
+  "error": {
+    "code": "500",
+    "message": "Internal Server Error",
+    "requestId": "correlation-id-here"
+  }
+}
+```
 
-### Content Safety Opt-Out
-Applied at **deploy time** from `params/{env}/tenants.tfvars`:
-- If `content_safety.pii_redaction_enabled = false`, sets `X-Skip-PII-Redaction` header
-- If `content_safety.prompt_shield_enabled = false`, sets `X-Skip-Prompt-Shield` header
-- The global policy checks for these headers and skips content safety for that tenant
+### Policy Features
 
-### Token Rate Limiting
-Uses `llm-token-limit` policy:
-- **Default**: 10,000 tokens-per-minute per subscription
-- **Counter key**: Subscription ID
-- **Response**: 429 Too Many Requests when exceeded
+No global policies are enforced by default. All policies are **tenant-opt-in** via the `apim_policies` config:
+- **Token Rate Limiting**: Protect backends from token exhaustion (enabled by default, disable per-tenant if needed)
+- **PII Anonymization**: Azure Language Service-based entity detection and redaction (enable per-tenant)
+- **Usage Logging**: Log OpenAI token consumption to Application Insights (enabled by default)
+- **Streaming Metrics**: Emit token metrics for streaming responses (enabled by default)
+- **Tracking Dimensions**: Extract custom dimensions from headers for analytics (enabled by default)
+
+### Request/Response Processing
+
+- Adds standard correlation headers for distributed tracing
+- Returns 404 for unmatched paths (no catch-all routing)
+- Returns structured JSON error responses with request correlation info
+
+### Application Insights Integration
+
+When enabled, the following data is logged:
+- API operations and routing decisions
+- Request/response headers and bodies (configurable)
+- Token consumption metrics
+- Tenant and subscription context
+- Error details and correlations
+
+## Tenant Policies (Dynamic Templates)
+
+Tenant API policies are **dynamically generated** from `api_policy.xml.tftpl` based on tenant configuration in `params/{env}/tenants/{tenant-name}/tenant.tfvars`.
+
+### Dynamic Template Variables
+
+The template receives these variables from `locals.tf`:
+
+| Variable | Source | Purpose |
+|----------|--------|---------|
+| `tenant_name` | Tenant key | Sets `X-Tenant-Id` header |
+| `tokens_per_minute` | `apim_policies.rate_limiting.tokens_per_minute` | Rate limit setting |
+| `openai_enabled` | `tenant.openai.enabled` | Routes `/openai/*` paths |
+| `document_intelligence_enabled` | `tenant.document_intelligence.enabled` | Routes `/documentintelligence/*` paths |
+| `ai_search_enabled` | `tenant.ai_search.enabled` | Routes `/ai-search/*` paths |
+| `storage_enabled` | `tenant.storage_account.enabled` | Routes `/storage/*` paths |
+| `rate_limiting_enabled` | `apim_policies.rate_limiting.enabled` | Wraps `llm-token-limit` policy |
+| `pii_redaction_enabled` | `apim_policies.pii_redaction.enabled` AND language service enabled | Wraps PII anonymization fragment |
+| `usage_logging_enabled` | `apim_policies.usage_logging.enabled` | Wraps OpenAI usage logging fragment |
+| `streaming_metrics_enabled` | `apim_policies.streaming_metrics.enabled` | Wraps streaming metrics fragment |
+| `tracking_dimensions_enabled` | `apim_policies.tracking_dimensions.enabled` | Wraps tracking dimensions fragment |
+
+### Conditional Policy Inclusion
+
+Policies are included **only when enabled**:
+
+```hcl
+# Example: Rate limiting included only when enabled
+%{ if rate_limiting_enabled ~}
+<llm-token-limit ... />
+%{ endif ~}
+
+# Example: PII anonymization included only when enabled AND Language Service available
+%{ if pii_redaction_enabled ~}
+<include-fragment fragment-id="pii-anonymization" />
+%{ endif ~}
+```
 
 ### Path-Based Routing
-Routes requests to appropriate backends based on URL path:
-- `/openai/*` → `{tenant}-openai` backend
-- `/documentintelligence/*` or `/formrecognizer/*` → `{tenant}-docint` backend
-- `/storage/*` or `/blobs/*` → `{tenant}-storage` backend
-- `/cosmosdb/*` → `{tenant}-cosmos` backend
-- `/keyvault/*` → `{tenant}-keyvault` backend
+
+Routes requests to appropriate backends based on enabled services:
+- `/openai/*` → `{tenant}-openai` backend (if `openai_enabled = true`)
+- `/documentintelligence/*`, `/formrecognizer/*`, `/documentmodels/*` → `{tenant}-docint` backend (if `document_intelligence_enabled = true`)
+- `/ai-search/*` → `{tenant}-ai-search` backend (if `ai_search_enabled = true`)
+- `/storage/*` → `{tenant}-storage` backend (if `storage_enabled = true`)
+- Other paths → 404 Not Found
 
 ### Managed Identity Authentication
+
 Each route uses `include-fragment` to include the appropriate authentication:
 - `cognitive-services-auth` - For OpenAI, Document Intelligence, AI Search
 - `storage-auth` - For Blob Storage
-- `cosmosdb-auth` - For Cosmos DB
 - `keyvault-auth` - For Key Vault
 
 ### Custom Headers
-- `X-Tenant-Id`: Identifies the tenant for downstream services
-- `x-tokens-consumed`: Shows tokens used (outbound)
+
+- `X-Tenant-Id`: Identifies the tenant for downstream services and logging
+- `x-ratelimit-remaining-tokens`: Shows tokens remaining in rate limit window (when rate limiting enabled)
+- `x-tokens-consumed`: Shows tokens used in the request (when usage logging enabled)
 
 ## Policy Fragments
 
 Reusable fragments in `fragments/` directory enable code reuse across tenant policies:
+
+### Authentication Fragments
 
 | Fragment | Resource | Resource Scope | Use Case |
 |----------|----------|-----------------|----------|
@@ -93,6 +199,46 @@ Reusable fragments in `fragments/` directory enable code reuse across tenant pol
 | `storage-auth.xml` | Azure Blob Storage | `https://storage.azure.com/` | Blob uploads/downloads |
 | `cosmosdb-auth.xml` | Cosmos DB | `https://cosmos.azure.com` | NoSQL document database |
 | `keyvault-auth.xml` | Azure Key Vault | `https://vault.azure.net` | Secrets management |
+
+### Usage Logging & Metrics Fragments
+
+| Fragment | Purpose | Use Case |
+|----------|---------|----------|
+| `openai-usage-logging.xml` | Logs detailed OpenAI usage to Application Insights | Cost allocation, chargeback, audit trails |
+| `openai-streaming-metrics.xml` | Emits token metrics for streaming requests | Accurate streaming token counting, real-time monitoring |
+| `tracking-dimensions.xml` | Extracts session/user/app IDs from headers | Per-user analytics, debugging, chargeback |
+
+These fragments log:
+- Token usage (prompt, completion, total)
+- Routing info (backend, region, deployment)
+- Subscription/product context
+- Session/user tracking (via headers)
+
+### Content Safety Fragments
+
+| Fragment | Purpose | Use Case |
+|----------|---------|----------|
+| `pii-anonymization.xml` | Azure Language Service PII detection | Enterprise PII redaction with ML-based detection |
+
+PII anonymization via Language Service:
+- Calls Azure Language Service `/language/:analyze-text` API for entity detection
+- Named value: `piiServiceUrl` points to Language Service endpoint
+- Only included when:
+  - Tenant has `apim_policies.pii_redaction.enabled = true`
+  - AND Language Service is enabled in shared config
+- Detects and redacts: emails, phone numbers, URLs, social security numbers, credit card numbers, addresses, etc.
+
+### Routing Fragments
+
+| Fragment | Purpose | Use Case |
+|----------|---------|----------|
+| `intelligent-routing.xml` | Priority-based backend selection | Load balancing, failover, throttle avoidance |
+
+Intelligent routing features:
+- Priority-based backend selection
+- Throttling awareness (avoids throttled backends)
+- Load balancing across same-priority backends
+- Automatic failover to secondary regions
 
 ### Fragment Pattern
 
@@ -115,6 +261,9 @@ Use `<include-fragment>` in tenant API policies:
 <policies>
     <inbound>
         <base />
+        <!-- Include tracking dimensions for analytics -->
+        <include-fragment fragment-id="tracking-dimensions" />
+        
         <when condition="@(context.Request.Path.Contains('/storage'))">
             <include-fragment fragment-id="storage-auth" />
         </when>
@@ -145,71 +294,134 @@ APIM backends are created per tenant in Terraform:
 
 When adding a new tenant with APIM support:
 
-1. **Add to tenants.tfvars**
+1. **Create Tenant Configuration**
+   ```bash
+   # Create tenant config file
+   mkdir -p params/{env}/tenants/my-new-tenant
+   touch params/{env}/tenants/my-new-tenant/tenant.tfvars
+   ```
+
+2. **Add Tenant Configuration Block**
+   
+   In `params/{env}/tenants/my-new-tenant/tenant.tfvars`:
    ```hcl
-   # In params/{env}/tenants.tfvars
-   tenants = {
-     "my-new-tenant" = {
-       tenant_name  = "my-new-tenant"
-       display_name = "My New Tenant"
-       enabled      = true
-       
-       openai = { enabled = true, ... }
-       storage_account = { enabled = true, ... }
-       # ... enable services as needed
-       
-       content_safety = {
-         pii_redaction_enabled = true
-         prompt_shield_enabled = true
+   tenant = {
+     tenant_name  = "my-new-tenant"
+     display_name = "My New Tenant"
+     enabled      = true
+     
+     # Enable services needed by this tenant
+     openai = {
+       enabled = true
+       sku     = "S0"
+       model_deployments = [
+         { name = "gpt-4", model_name = "gpt-4", ... }
+       ]
+     }
+     
+     storage_account = {
+       enabled = true
+       account_tier = "Standard"
+     }
+     
+     # APIM Policies - all features available per-tenant
+     apim_policies = {
+       rate_limiting = {
+         enabled           = true
+         tokens_per_minute = 10000
+       }
+       pii_redaction = {
+         enabled = true  # Enable/disable as needed
+       }
+       usage_logging = {
+         enabled = true
+       }
+       streaming_metrics = {
+         enabled = true
+       }
+       tracking_dimensions = {
+         enabled = true
+       }
+       intelligent_routing = {
+         enabled = false  # For future multi-backend setup
        }
      }
+     
+     apim_auth = {
+       mode              = "subscription_key"
+       store_in_keyvault = false
+     }
+     
+     apim_diagnostics = {
+       sampling_percentage = 100
+       verbosity           = "information"
+     }
+     
+     # ... other service configs
    }
    ```
 
-2. **Create Tenant Policy File**
-   - Create: `params/apim/tenants/my-new-tenant/api_policy.xml`
-   - Start with an existing tenant policy as template
-   - Update `X-Tenant-Id` header value to match folder name
-   - Update backend routing based on enabled services
-   - Use `<include-fragment>` for authentication
-
-3. **Example Tenant Policy**
-   ```xml
-   <policies>
-       <inbound>
-           <base />
-           <set-header name="X-Tenant-Id" exists-action="override">
-               <value>my-new-tenant</value>
-           </set-header>
-           <choose>
-               <when condition="@(context.Request.Path.StartsWith('/openai'))">
-                   <set-backend-service base-url="{{my-new-tenant-openai-endpoint}}" />
-                   <include-fragment fragment-id="cognitive-services-auth" />
-               </when>
-               <when condition="@(context.Request.Path.StartsWith('/storage'))">
-                   <set-backend-service base-url="{{my-new-tenant-storage-endpoint}}" />
-                   <include-fragment fragment-id="storage-auth" />
-               </when>
-           </choose>
-       </inbound>
-       <outbound>
-           <base />
-       </outbound>
-   </policies>
-   ```
-
-4. **Deploy with Terraform**
+3. **Deploy with Terraform**
+   
+   The deploy script automatically:
+   - Discovers tenant config files in `params/{env}/tenants/*/tenant.tfvars`
+   - Generates dynamic API policies from `api_policy.xml.tftpl`
+   - Creates APIM resources (API, backends, policies, etc.)
+   
    ```bash
-   terraform plan -var-file="params/test/shared.tfvars" -var-file="params/test/tenants.tfvars"
-   terraform apply -var-file="params/test/shared.tfvars" -var-file="params/test/tenants.tfvars"
+   ./scripts/deploy-terraform.sh plan test
+   ./scripts/deploy-terraform.sh apply test
    ```
+
+### Key Configuration Options
+
+#### `apim_policies` Block
+
+All policy features are consolidated under `apim_policies` for easy per-tenant control:
+
+```hcl
+apim_policies = {
+  # Token rate limiting (protects backend from token exhaustion)
+  rate_limiting = {
+    enabled           = true          # Set to false to disable rate limiting
+    tokens_per_minute = 10000         # Tokens per minute per subscription
+  }
+  
+  # PII anonymization via Azure Language Service
+  pii_redaction = {
+    enabled = true  # Set to false to disable PII detection
+  }
+  
+  # OpenAI token usage logging to Application Insights
+  usage_logging = {
+    enabled = true  # Set to false to disable usage tracking
+  }
+  
+  # Streaming response metrics
+  streaming_metrics = {
+    enabled = true  # Set to false to disable streaming metrics
+  }
+  
+  # Analytics dimension extraction from headers
+  tracking_dimensions = {
+    enabled = true  # Set to false to disable dimension tracking
+  }
+  
+  # Multi-backend intelligent routing (future use)
+  intelligent_routing = {
+    enabled = false
+  }
+}
+```
 
 ### Important Notes
 
-- **X-Tenant-Id Header**: Must match the folder name (validated at plan time)
-- **Policy References**: Backend endpoints must exist and match enabled services
-- **Content Safety**: Control via `content_safety` block in tenants.tfvars
-- **Fragments**: Use `<include-fragment>` for consistent, DRY authentication code
+- **No Static Policy Files**: Tenant policies are auto-generated from the template, no XML editing needed
+- **Configuration-Driven**: Change behavior by updating `apim_policies` flags in `tenant.tfvars`
+- **X-Tenant-Id Header**: Automatically set to the tenant name from the config key
+- **Service Routing**: Backends are created only for enabled services
+- **PII Redaction**: Only included if enabled AND Language Service is available
+- **Fragments**: Used internally by generated policies for consistent authentication
 
 ## Policy Inheritance
 

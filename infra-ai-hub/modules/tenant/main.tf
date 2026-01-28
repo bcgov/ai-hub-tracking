@@ -246,6 +246,9 @@ module "ai_search" {
   local_authentication_enabled  = var.ai_search.local_auth_enabled
   public_network_access_enabled = false
 
+  # Enable AAD authentication for managed identity access from APIM
+  authentication_failure_mode = "http401WithBearerChallenge"
+
   managed_identities = {
     system_assigned = true
   }
@@ -339,9 +342,8 @@ resource "azurerm_cosmosdb_account" "this" {
   }
 
   backup {
-    type               = "Continuous"
-    tier               = var.cosmos_db.geo_redundant_backup_enabled ? "Continuous30Days" : "Continuous7Days"
-    storage_redundancy = var.cosmos_db.geo_redundant_backup_enabled ? "Geo" : "Local"
+    type = "Continuous"
+    tier = var.cosmos_db.geo_redundant_backup_enabled ? "Continuous30Days" : "Continuous7Days"
   }
 
   tags = var.tags
@@ -349,6 +351,37 @@ resource "azurerm_cosmosdb_account" "this" {
   lifecycle {
     ignore_changes = [tags]
   }
+}
+
+# Cosmos DB SQL Database - pre-create for AAD authentication
+# Note: Database creation via data plane REST API doesn't support AAD tokens,
+# so we pre-create the database in Terraform using ARM (control plane)
+resource "azurerm_cosmosdb_sql_database" "default" {
+  count = var.cosmos_db.enabled ? 1 : 0
+
+  name                = var.cosmos_db.database_name
+  resource_group_name = local.resource_group_name
+  account_name        = azurerm_cosmosdb_account.this[0].name
+}
+
+# Cosmos DB SQL Container - pre-create for AAD authentication
+# Note: Container creation via data plane REST API doesn't support AAD tokens,
+# so we pre-create the container in Terraform using ARM (control plane)
+#
+# Partition Key Strategy:
+# Using "/id" as the partition key is suitable for general-purpose document storage
+# where each document is accessed independently. For high-throughput scenarios with
+# specific query patterns (e.g., multi-tenant apps querying by tenant_id), consider
+# adding partition_key_path to the cosmos_db variable for per-tenant customization.
+resource "azurerm_cosmosdb_sql_container" "default" {
+  count = var.cosmos_db.enabled ? 1 : 0
+
+  name                  = var.cosmos_db.container_name
+  resource_group_name   = local.resource_group_name
+  account_name          = azurerm_cosmosdb_account.this[0].name
+  database_name         = azurerm_cosmosdb_sql_database.default[0].name
+  partition_key_paths   = var.cosmos_db.partition_key_paths
+  partition_key_version = 2
 }
 
 # Cosmos DB diagnostics -> tenant Log Analytics (if enabled)
@@ -475,6 +508,88 @@ resource "azurerm_monitor_diagnostic_setting" "document_intelligence" {
 
   dynamic "enabled_metric" {
     for_each = local.docint_metric_categories
+    content {
+      category = enabled_metric.value
+    }
+  }
+
+  # Ignore drift on log_analytics_destination_type - Azure may reset this
+  lifecycle {
+    ignore_changes = [log_analytics_destination_type]
+  }
+}
+
+# =============================================================================
+# SPEECH SERVICES (using AVM Cognitive Services)
+# https://github.com/Azure/terraform-azurerm-avm-res-cognitiveservices-account
+# =============================================================================
+module "speech_services" {
+  source  = "Azure/avm-res-cognitiveservices-account/azurerm"
+  version = "0.6.0"
+  count   = var.speech_services.enabled ? 1 : 0
+
+  name                = "${local.name_prefix}-speech-${random_string.suffix.result}"
+  location            = var.location
+  resource_group_name = local.resource_group_name
+  kind                = "SpeechServices"
+  sku_name            = var.speech_services.sku
+
+  public_network_access_enabled = false
+  local_auth_enabled            = false
+  custom_subdomain_name         = "${local.name_prefix}-speech-${random_string.suffix.result}"
+
+  network_acls = {
+    default_action = "Deny"
+  }
+
+  managed_identities = {
+    system_assigned = true
+  }
+
+  # CRITICAL: Set to false to let Azure Policy manage DNS zone groups
+  private_endpoints_manage_dns_zone_group = false
+
+  private_endpoints = {
+    primary = {
+      subnet_resource_id = var.private_endpoint_subnet_id
+      tags               = var.tags
+    }
+  }
+
+  # Diagnostic settings managed separately to control lifecycle and prevent drift
+  diagnostic_settings = {}
+
+  tags             = var.tags
+  enable_telemetry = false
+
+  depends_on = [azurerm_resource_group.tenant]
+}
+
+# Diagnostic settings for Speech Services (managed separately from AVM to prevent drift)
+resource "azurerm_monitor_diagnostic_setting" "speech_services" {
+  count = var.speech_services.enabled && local.has_log_analytics && local.speech_diagnostics != null ? 1 : 0
+
+  name                           = "${local.name_prefix}-speech-diag"
+  target_resource_id             = module.speech_services[0].resource_id
+  log_analytics_workspace_id     = local.tenant_log_analytics_workspace_id
+  log_analytics_destination_type = "Dedicated"
+
+  dynamic "enabled_log" {
+    for_each = local.speech_log_groups
+    content {
+      category_group = enabled_log.value
+    }
+  }
+
+  dynamic "enabled_log" {
+    for_each = local.speech_log_categories
+    content {
+      category = enabled_log.value
+    }
+  }
+
+  dynamic "enabled_metric" {
+    for_each = local.speech_metric_categories
     content {
       category = enabled_metric.value
     }
@@ -789,6 +904,38 @@ resource "null_resource" "wait_for_dns_document_intelligence" {
   }
 
   depends_on = [module.document_intelligence]
+}
+
+# Wait for Speech Services PE DNS zone group
+# Note: Cognitive Services AVM v0.6.0 has a bug where private_endpoints output only
+# includes managed DNS PEs, not unmanaged ones. We construct PE name from resource name.
+# Cognitive Services uses "pep-${resource_name}" naming convention.
+resource "null_resource" "wait_for_dns_speech_services" {
+  count = var.scripts_dir != "" && var.speech_services.enabled ? 1 : 0
+
+  triggers = {
+    # Use resource_id as trigger for changes
+    private_endpoint_id = module.speech_services[0].resource_id
+    resource_group_name = local.resource_group_name
+    # Cognitive Services AVM uses "pep-${resource_name}" for PE names
+    private_endpoint_name = "pep-${module.speech_services[0].name}"
+    timeout               = var.private_endpoint_dns_wait.timeout
+    interval              = var.private_endpoint_dns_wait.poll_interval
+    scripts_dir           = var.scripts_dir
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = <<-EOT
+      ${self.triggers.scripts_dir}/wait-for-dns-zone.sh \
+        --resource-group ${self.triggers.resource_group_name} \
+        --private-endpoint-name ${self.triggers.private_endpoint_name} \
+        --timeout ${self.triggers.timeout} \
+        --interval ${self.triggers.interval}
+    EOT
+  }
+
+  depends_on = [module.speech_services]
 }
 
 # Wait for OpenAI PE DNS zone group

@@ -58,6 +58,11 @@ tenant = {
     }
   }
 
+  # Speech Services - disabled by default, enable for text-to-speech/speech-to-text capabilities
+  speech_services = {
+    enabled = false
+  }
+
   log_analytics = {
     enabled        = true
     retention_days = 30
@@ -128,10 +133,28 @@ tenant = {
     store_in_keyvault = false
   }
 
-  # Content Safety Configuration
-  # This tenant opts OUT of PII redaction (invoice processing needs raw data)
-  content_safety = {
-    pii_redaction_enabled = false # Disabled - invoices need raw email/phone data
+  # APIM Policies Configuration
+  # Consolidates all APIM policy settings for this tenant
+  apim_policies = {
+    rate_limiting = {
+      enabled           = true
+      tokens_per_minute = 10000
+    }
+    pii_redaction = {
+      enabled = false # Disabled - invoices need raw email/phone data
+    }
+    usage_logging = {
+      enabled = true
+    }
+    streaming_metrics = {
+      enabled = true
+    }
+    tracking_dimensions = {
+      enabled = true
+    }
+    intelligent_routing = {
+      enabled = false
+    }
   }
 
   # Per-tenant APIM Diagnostics

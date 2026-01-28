@@ -156,7 +156,9 @@ variable "cosmos_db" {
     geo_redundant_backup_enabled = optional(bool, false)
     automatic_failover_enabled   = optional(bool, false)
     total_throughput_limit       = optional(number, 1000)
-    database_name                = optional(string, "default") # Database name for project connection
+    database_name                = optional(string, "default")     # Database name for project connection
+    container_name               = optional(string, "default")     # Container name for project connection
+    partition_key_paths          = optional(list(string), ["/id"]) # Partition key paths for the container
     diagnostics = optional(object({
       log_groups        = optional(list(string), [])
       log_categories    = optional(list(string), [])
@@ -177,6 +179,25 @@ variable "document_intelligence" {
     enabled = bool
     sku     = optional(string, "S0")
     kind    = optional(string, "FormRecognizer")
+    diagnostics = optional(object({
+      log_groups        = optional(list(string), [])
+      log_categories    = optional(list(string), [])
+      metric_categories = optional(list(string), [])
+    }))
+  })
+  default = {
+    enabled = false
+  }
+}
+
+# -----------------------------------------------------------------------------
+# Speech Services Configuration
+# -----------------------------------------------------------------------------
+variable "speech_services" {
+  description = "Azure Speech Services configuration for the tenant"
+  type = object({
+    enabled = bool
+    sku     = optional(string, "S0")
     diagnostics = optional(object({
       log_groups        = optional(list(string), [])
       log_categories    = optional(list(string), [])
