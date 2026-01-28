@@ -274,6 +274,121 @@ Use `<include-fragment>` in tenant API policies:
 </policies>
 ```
 
+## Language Service PII Detection
+
+This repo supports ML-based PII anonymization by calling Azure AI Language Service (Text Analytics) from APIM policies via the `pii-anonymization.xml` fragment.
+
+### Infrastructure Components
+
+When `shared_config.language_service.enabled` is true, Terraform deploys:
+- A shared Azure Cognitive Account with `kind = "TextAnalytics"` for PII detection
+- A private endpoint to the Language Service resource
+- A DNS wait step (`wait-for-dns-zone.sh`) to allow Azure Policy / landing-zone DNS zone group management to complete
+
+Security-related settings:
+- `local_auth_enabled = false` (managed identity only; disables key-based authentication)
+- Network ACL default action is deny
+- Private endpoint access pattern is used (public access can be disabled via `public_network_access_enabled`, and is configured as disabled in shared tfvars)
+
+### APIM Integration
+
+APIM is integrated with Language Service using:
+
+**Named Value: `piiServiceUrl`**
+- Value is the Language Service endpoint without a trailing slash
+- The PII fragment expects the base endpoint in this format
+
+**RBAC:**
+- APIM's managed identity is assigned the `Cognitive Services User` role on the shared Language Service resource
+
+### Policy Fragment Deep Dive: `fragments/pii-anonymization.xml`
+
+**Purpose:**
+Detect and mask PII in text content using Language Service PII entity recognition.
+
+**Prerequisites / Inputs (variables must be set by the caller policy):**
+- `piiInputContent`: the input text to analyze (typically the request body)
+- `piiAnonymizationEnabled`: `"true"` or `"false"`
+
+**Required APIM Named Value:**
+- `piiServiceUrl`: Language Service base endpoint URL
+
+**Output:**
+- `piiAnonymizedContent`: anonymized/redacted text output
+
+**Auth:**
+- Uses `authentication-managed-identity` to obtain an AAD token for `https://cognitiveservices.azure.com`
+- Sets `Authorization: Bearer <token>`
+- Deletes any `api-key` header
+
+**API Call:**
+- Endpoint: `{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview`
+- Method: `POST`
+- Timeout: `20` seconds
+- `ignore-error="true"` (errors are handled with fallback behavior)
+
+**Request Body (high level):**
+- `kind`: `PiiEntityRecognition`
+- `parameters`:
+  - `modelVersion`: `latest`
+  - `redactionPolicy`:
+    - `policyKind`: `CharacterMask`
+    - `redactionCharacter`: `#`
+- `analysisInput.documents[0]`:
+  - `id`: `"1"`
+  - `language`: `"en"`
+  - `text`: `piiInputContent`
+
+**Response Handling:**
+- Extracts `results.documents[0].redactedText` as the anonymized output
+- Captures diagnostics:
+  - `piiDetectionStatusCode`
+  - `piiEntityCount` (from `results.documents[0].entities`)
+  - `piiEntityTypes` (unique entity categories from `entities[*].category`)
+  - `piiContentChanged` (compares input vs anonymized)
+
+**Diagnostics & Logging:**
+The fragment emits a `trace` event (source `pii-anonymization`) including metadata such as request id, tenant id, PII status code, entity count/types, and whether content changed.
+
+**Fallback Behavior:**
+- If PII anonymization is disabled, the fragment passes through the original `piiInputContent`
+- If the Language Service call fails or the response can't be parsed, the fragment returns the original input text (best-effort redaction)
+
+### Template Generation Mechanics: `api_policy.xml.tftpl`
+
+Tenant API policies are generated dynamically from `api_policy.xml.tftpl` using tenant configuration:
+- Routing blocks are generated only for services enabled for that tenant (for example OpenAI, Document Intelligence, AI Search, Storage)
+- APIM policy features are included only when enabled by per-tenant flags (for example rate limiting, PII redaction, usage logging, streaming metrics, tracking dimensions)
+
+**PII Inclusion Rule:**
+- PII anonymization is included only when `apim_policies.pii_redaction.enabled` is true AND `shared_config.language_service.enabled` is true
+- For OpenAI requests, the tenant policy sets `piiInputContent` from the request body, includes the `pii-anonymization` fragment, and replaces the request body with `piiAnonymizedContent`
+
+### Configuration Schema Change
+
+PII settings are now controlled under `apim_policies`:
+- **New:** `apim_policies.pii_redaction.enabled`
+- **Old:** `content_safety.pii_redaction_enabled` (legacy approach used for opt-out decisions in earlier policies)
+
+Additionally, global policy loading changed:
+- The global APIM policy is loaded from file
+- PII redaction is handled in tenant API policies via the `pii-anonymization` fragment (not via a templated global policy)
+
+### Performance Considerations
+
+PII anonymization adds an extra network call from APIM to Language Service for requests where it is enabled. The Language Service call uses a fixed timeout of 20 seconds; failures fall back to passing through the original content.
+
+### Troubleshooting
+
+**DNS / Private Endpoint Readiness:**
+- Terraform includes a DNS wait step for the Language Service private endpoint; ensure private DNS zone group integration is complete
+
+**Auth / RBAC:**
+- Ensure APIM managed identity has `Cognitive Services User` on the shared Language Service resource (initial deployment may see transient failures during role assignment propagation)
+
+**Incorrect `piiServiceUrl`:**
+- The fragment expects the base endpoint without a trailing slash (APIM named value uses `trimsuffix(..., "/")`)
+
 ## Backend Configuration
 
 APIM backends are created per tenant in Terraform:

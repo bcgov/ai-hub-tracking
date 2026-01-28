@@ -1,0 +1,243 @@
+<!-- TITLE: Language Service PII Detection -->
+<!-- NAV: language-service-pii -->
+
+<h1>Language Service PII Detection</h1>
+
+<p>This system supports tenant-controlled PII anonymization by calling Azure AI Language Service (Text Analytics) from Azure API Management (APIM) policies. The goal is to mask sensitive data before it is forwarded to downstream backends such as OpenAI.</p>
+
+<div class="alert alert-info">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+    </div>
+    <div>
+        <strong>Enterprise-grade PII Protection</strong><br>
+        Azure AI Language Service provides ML-based entity recognition that enables accurate detection and redaction of sensitive information including names, addresses, financial data, and medical terms.
+    </div>
+</div>
+
+<h2>Overview</h2>
+
+<p>The system uses Azure AI Language Service PII entity recognition to identify and redact sensitive information in requests. This ML-based approach provides broad entity coverage, context-aware detection, and machine learning accuracy for enterprise-grade PII protection.</p>
+
+<h3>Supported Entity Types</h3>
+<p>Azure AI Language Service can detect and redact a wide range of PII entity types:</p>
+<ul>
+    <li><strong>Personal Identifiers:</strong> Names, email addresses, phone numbers</li>
+    <li><strong>Financial Data:</strong> Credit card numbers, bank account numbers</li>
+    <li><strong>Government IDs:</strong> Social Security Numbers, passport numbers, driver's license numbers</li>
+    <li><strong>Location Data:</strong> Physical addresses, GPS coordinates</li>
+    <li><strong>Medical Information:</strong> Medical record numbers, health insurance information</li>
+</ul>
+
+<h2>Architecture</h2>
+
+<p>Requests enter APIM, tenant API policies decide whether to apply PII anonymization, and when enabled, APIM calls the shared Language Service endpoint using managed identity. The Language Service endpoint is provided to APIM policies via an APIM Named Value: <code>piiServiceUrl</code>.</p>
+
+<div class="card">
+    <h3 style="margin-top: 0;">Request Flow</h3>
+    <ol>
+        <li>Client request arrives at APIM with sensitive content</li>
+        <li>Tenant API policy extracts request body content</li>
+        <li>PII anonymization fragment calls Language Service via managed identity</li>
+        <li>Language Service analyzes and redacts PII entities</li>
+        <li>APIM replaces request body with redacted content</li>
+        <li>Request forwards to backend (OpenAI, Document Intelligence, etc.)</li>
+    </ol>
+</div>
+
+<h2>How It Works</h2>
+
+<ol>
+    <li>A tenant request arrives at APIM.</li>
+    <li>The tenant API policy (generated from <code>api_policy.xml.tftpl</code>) routes the request to the correct backend based on path (for example <code>openai</code>, <code>documentintelligence</code>, <code>ai-search</code>, <code>storage</code>).</li>
+    <li>For OpenAI requests, when PII redaction is enabled, the policy extracts the request body as text and sets it to <code>piiInputContent</code>.</li>
+    <li>The policy includes the <code>pii-anonymization</code> policy fragment.</li>
+    <li>The fragment:
+        <ul>
+            <li>Obtains an AAD token via <code>&lt;authentication-managed-identity&gt;</code> for <code>https://cognitiveservices.azure.com</code>.</li>
+            <li>Calls Language Service <code>/language/:analyze-text?api-version=2025-11-15-preview</code> with request kind <code>PiiEntityRecognition</code>.</li>
+            <li>Uses a CharacterMask redaction policy (mask character <code>#</code>).</li>
+            <li>Extracts <code>results.documents[0].redactedText</code> into <code>piiAnonymizedContent</code>.</li>
+        </ul>
+    </li>
+    <li>The tenant policy replaces the backend request body with <code>piiAnonymizedContent</code> and forwards the request.</li>
+</ol>
+
+<div class="alert alert-warning">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
+    </div>
+    <div>
+        <strong>Example Redaction</strong><br>
+        Input: "My email is alice@example.com and my SSN is 123-45-6789"<br>
+        Output: "My email is ##################### and my SSN is ###########"
+    </div>
+</div>
+
+<h2>Configuration Guide</h2>
+
+<h3>Shared Configuration (All Environments)</h3>
+
+<p>PII detection depends on the shared Language Service being enabled via <code>shared_config.language_service.enabled</code> and integrated into APIM via <code>piiServiceUrl</code>. Language Service is configured for private access (no public network access) and is connected through a private endpoint.</p>
+
+<h3>Per-Tenant Configuration</h3>
+
+<p>PII anonymization is controlled per tenant via APIM policy settings (<code>apim_policies.pii_redaction.enabled</code>). The tenant API policy generation includes PII only when tenant PII redaction is enabled and the shared Language Service is enabled.</p>
+
+<pre><code># Example tenant policy flags
+apim_policies {
+  pii_redaction {
+    enabled = true
+  }
+  rate_limiting {
+    enabled = true
+    tokens_per_minute = 10000
+  }
+  usage_logging {
+    enabled = true
+  }
+  streaming_metrics {
+    enabled = true
+  }
+  tracking_dimensions {
+    enabled = true
+  }
+}
+</code></pre>
+
+<div class="card card-gold">
+    <h3 style="margin-top: 0;">Flexible Tenant Control</h3>
+    <p>Each tenant can independently enable or disable PII redaction based on their specific requirements. This allows for granular control over data privacy settings while sharing the same infrastructure.</p>
+</div>
+
+<h2>Security Model</h2>
+
+<div class="grid grid-2">
+    <div class="card">
+        <h3 style="margin-top: 0;">Managed Identity Authentication</h3>
+        <p>Language Service uses managed identity only (<code>local_auth_enabled = false</code>) rather than API keys. This eliminates the need for credential rotation and follows Azure security best practices.</p>
+    </div>
+    <div class="card">
+        <h3 style="margin-top: 0;">Private Network Access</h3>
+        <p>Language Service network ACLs default to deny and it is accessed via a private endpoint. APIM is granted access via RBAC (<code>Cognitive Services User</code> role).</p>
+    </div>
+</div>
+
+<p>APIM policy calls use AAD tokens (Authorization Bearer) and remove any <code>api-key</code> header before calling Cognitive Services APIs.</p>
+
+<h2>Observability</h2>
+
+<p>PII anonymization emits diagnostic traces from the <code>pii-anonymization</code> fragment, including:</p>
+
+<ul>
+    <li><strong>Status Code:</strong> HTTP response from Language Service</li>
+    <li><strong>Entity Count:</strong> Number of PII entities detected</li>
+    <li><strong>Entity Types:</strong> Categories of detected entities</li>
+    <li><strong>Content Changed:</strong> Boolean indicating if redaction occurred</li>
+</ul>
+
+<p>Additional APIM policy fragments are available for analytics and monitoring:</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Fragment</th>
+            <th>Purpose</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>tracking-dimensions</code></td>
+            <td>Extract session, user, app, and correlation IDs from headers</td>
+        </tr>
+        <tr>
+            <td><code>openai-usage-logging</code></td>
+            <td>Detailed usage tracking to Application Insights</td>
+        </tr>
+        <tr>
+            <td><code>openai-streaming-metrics</code></td>
+            <td>Token metrics for streaming responses</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>Frequently Asked Questions</h2>
+
+<details>
+    <summary><strong>What kinds of entities are supported?</strong></summary>
+    <div class="accordion-content">
+        <p>The PII fragment is designed for enterprise PII detection and supports names, addresses, SSN, medical terms, financial data, and many other entity types. Azure Language Service uses machine learning to detect entities based on context.</p>
+    </div>
+</details>
+
+<details>
+    <summary><strong>What happens if Language Service fails?</strong></summary>
+    <div class="accordion-content">
+        <p>The fragment is designed to fall back to the original input content on errors (non-200 response or parsing errors). This ensures that service availability is maintained even if PII detection temporarily fails.</p>
+    </div>
+</details>
+
+<details>
+    <summary><strong>Does this apply to all requests?</strong></summary>
+    <div class="accordion-content">
+        <p>PII anonymization is tenant-controlled and is applied (in the current routing) for OpenAI requests when enabled via <code>apim_policies.pii_redaction.enabled</code>.</p>
+    </div>
+</details>
+
+<details>
+    <summary><strong>What is the performance impact?</strong></summary>
+    <div class="accordion-content">
+        <p>PII anonymization adds an extra network call from APIM to Language Service for requests where it is enabled. The Language Service call uses a fixed timeout of 20 seconds. For most requests, the latency impact is minimal (typically under 500ms).</p>
+    </div>
+</details>
+
+<details>
+    <summary><strong>Can I customize which entity types are redacted?</strong></summary>
+    <div class="accordion-content">
+        <p>The current implementation redacts all detected PII entity types. Customization of entity type filtering can be configured in the <code>pii-anonymization.xml</code> fragment by modifying the Language Service API request parameters.</p>
+    </div>
+</details>
+
+<h2>Troubleshooting</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Issue</th>
+            <th>Cause</th>
+            <th>Solution</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>401/403 calling Language Service</td>
+            <td>Missing or incorrect RBAC permissions</td>
+            <td>Verify APIM managed identity has the <code>Cognitive Services User</code> role assignment on the Language Service resource</td>
+        </tr>
+        <tr>
+            <td>DNS / private endpoint not ready</td>
+            <td>Private DNS zone integration incomplete</td>
+            <td>Deployment includes a DNS wait step; ensure private DNS zone integration is complete before testing</td>
+        </tr>
+        <tr>
+            <td>Transient failures after deploy</td>
+            <td>Role assignment propagation delay</td>
+            <td>Role assignment propagation can cause temporary failures until RBAC takes effect (typically 5-10 minutes)</td>
+        </tr>
+        <tr>
+            <td>No redaction occurring</td>
+            <td>PII detection not enabled</td>
+            <td>Confirm tenant <code>apim_policies.pii_redaction.enabled</code> is true and shared <code>language_service.enabled</code> is true</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="alert alert-info">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+    </div>
+    <div>
+        <strong>For Technical Details</strong><br>
+        See the <a href="https://github.com/bcgov/ai-hub-tracking/blob/main/infra-ai-hub/params/apim/README.md">APIM Policy README</a> for deep technical documentation on policy fragments, infrastructure components, and configuration schema.
+    </div>
+</div>
