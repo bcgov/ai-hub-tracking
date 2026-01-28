@@ -121,8 +121,11 @@ resource "azurerm_cognitive_account" "language_service" {
   sku_name            = var.shared_config.language_service.sku
 
   public_network_access_enabled = var.shared_config.language_service.public_network_access_enabled
-  local_auth_enabled            = false # Use managed identity only
-  custom_subdomain_name         = "${var.app_name}-${var.app_env}-language"
+  # Use managed identity only - disables key-based authentication for security
+  # IMPORTANT: APIM's managed identity role assignment must complete before PII detection works.
+  # Transient failures may occur during initial deployment while role assignment propagates.
+  local_auth_enabled    = false
+  custom_subdomain_name = "${var.app_name}-${var.app_env}-language"
 
   identity {
     type = "SystemAssigned"
@@ -664,6 +667,9 @@ resource "azurerm_api_management_policy_fragment" "openai_usage_logging" {
   depends_on = [module.apim]
 }
 
+# TODO: Streaming metrics fragment - reserved for future use
+# This fragment will be included in outbound policies when streaming response
+# detection is implemented. Currently created but not referenced in API policies.
 resource "azurerm_api_management_policy_fragment" "openai_streaming_metrics" {
   count = local.apim_config.enabled ? 1 : 0
 
@@ -688,6 +694,10 @@ resource "azurerm_api_management_policy_fragment" "pii_anonymization" {
   depends_on = [module.apim, azurerm_api_management_named_value.pii_service_url]
 }
 
+# TODO: Intelligent routing fragment - reserved for future multi-backend support
+# This fragment implements priority-based backend selection with throttling awareness.
+# Currently created but not referenced in API policies (tenant config has enabled = false by default).
+# Will be conditionally included when intelligent_routing.enabled = true in tenant config.
 resource "azurerm_api_management_policy_fragment" "intelligent_routing" {
   count = local.apim_config.enabled ? 1 : 0
 

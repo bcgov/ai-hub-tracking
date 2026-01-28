@@ -208,7 +208,10 @@ locals {
   # Tenant APIs need operations to handle incoming requests
   # APIM requires explicit HTTP methods - wildcard (*) doesn't match all requests
   # =============================================================================
-  # HTTP methods needed for OpenAI/Azure AI APIs
+  # HTTP methods needed for OpenAI/Azure AI APIs:
+  # - POST, GET, PUT, DELETE, PATCH: Standard REST operations for API calls
+  # - OPTIONS: Required for CORS preflight requests from browser-based clients
+  # - HEAD: Useful for lightweight health checks and metadata-only probes
   api_methods = ["POST", "GET", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]
 
   # Create a map of tenant + method combinations

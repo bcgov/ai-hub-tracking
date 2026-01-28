@@ -367,6 +367,12 @@ resource "azurerm_cosmosdb_sql_database" "default" {
 # Cosmos DB SQL Container - pre-create for AAD authentication
 # Note: Container creation via data plane REST API doesn't support AAD tokens,
 # so we pre-create the container in Terraform using ARM (control plane)
+#
+# Partition Key Strategy:
+# Using "/id" as the partition key is suitable for general-purpose document storage
+# where each document is accessed independently. For high-throughput scenarios with
+# specific query patterns (e.g., multi-tenant apps querying by tenant_id), consider
+# adding partition_key_path to the cosmos_db variable for per-tenant customization.
 resource "azurerm_cosmosdb_sql_container" "default" {
   count = var.cosmos_db.enabled ? 1 : 0
 
@@ -374,7 +380,7 @@ resource "azurerm_cosmosdb_sql_container" "default" {
   resource_group_name   = local.resource_group_name
   account_name          = azurerm_cosmosdb_account.this[0].name
   database_name         = azurerm_cosmosdb_sql_database.default[0].name
-  partition_key_paths   = ["/id"]
+  partition_key_paths   = var.cosmos_db.partition_key_paths
   partition_key_version = 2
 }
 

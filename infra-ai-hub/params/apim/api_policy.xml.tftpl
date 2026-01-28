@@ -46,6 +46,8 @@
                 <set-variable name="piiAnonymizationEnabled" value="true" />
                 <set-variable name="piiInputContent" value="@(context.Request.Body.As&lt;string&gt;(preserveContent: true))" />
                 <include-fragment fragment-id="pii-anonymization" />
+                <!-- Apply the anonymized content back to the request body -->
+                <set-body>@((string)context.Variables["piiAnonymizedContent"])</set-body>
 %{ endif ~}
                 <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
                 <set-header name="Authorization" exists-action="override">
@@ -107,6 +109,16 @@
         <choose>
             <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;))">
                 <set-variable name="responseBody" value="@(context.Response.Body.As&lt;JObject&gt;(preserveContent: true))" />
+                <!-- Set routing metadata for usage logging (single-backend for now) -->
+                <set-variable name="backendId" value="@(&quot;${tenant_name}-openai&quot;)" />
+                <set-variable name="routeLocation" value="@(&quot;canadaeast&quot;)" />
+                <set-variable name="routeName" value="@(&quot;primary&quot;)" />
+                <set-variable name="deploymentName" value="@{
+                    // Extract deployment name from URL path: /openai/deployments/{deployment-name}/...
+                    var path = context.Request.Url.Path;
+                    var match = System.Text.RegularExpressions.Regex.Match(path, @&quot;/deployments/([^/]+)/&quot;);
+                    return match.Success ? match.Groups[1].Value : &quot;unknown&quot;;
+                }" />
                 <include-fragment fragment-id="openai-usage-logging" />
             </when>
         </choose>

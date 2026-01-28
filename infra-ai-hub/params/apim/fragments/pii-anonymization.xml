@@ -26,8 +26,9 @@
                 ignore-error="false" />
 
             <!-- Call Azure Language Service PII API -->
+            <!-- See: https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/how-to/redact-text-pii -->
             <send-request mode="new" response-variable-name="piiAnalysisResponse" timeout="20" ignore-error="true">
-                <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2023-04-01</set-url>
+                <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
                 <set-method>POST</set-method>
                 <set-header name="Content-Type" exists-action="override">
                     <value>application/json</value>
@@ -75,12 +76,51 @@
                 return context.Variables.GetValueOrDefault&lt;string&gt;("piiInputContent", "");
             }" />
             
-            <!-- Log PII detection to App Insights -->
+            <!-- Extract non-PII diagnostics from Language Service response -->
+            <set-variable name="piiDetectionStatusCode" value="@{
+                var response = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiAnalysisResponse&quot;);
+                return response != null ? ((int)response.StatusCode).ToString() : &quot;no-response&quot;;
+            }" />
+            <set-variable name="piiEntityCount" value="@{
+                try {
+                    var response = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiAnalysisResponse&quot;);
+                    if (response == null || response.StatusCode != 200) { return &quot;0&quot;; }
+                    var responseBody = JObject.Parse(response.Body.As&lt;string&gt;(preserveContent: true));
+                    var entities = responseBody.SelectToken(&quot;$.results.documents[0].entities&quot;) as JArray;
+                    return (entities?.Count ?? 0).ToString();
+                } catch { return &quot;error&quot;; }
+            }" />
+            <set-variable name="piiEntityTypes" value="@{
+                try {
+                    var response = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiAnalysisResponse&quot;);
+                    if (response == null || response.StatusCode != 200) { return &quot;none&quot;; }
+                    var responseBody = JObject.Parse(response.Body.As&lt;string&gt;(preserveContent: true));
+                    var entities = responseBody.SelectToken(&quot;$.results.documents[0].entities&quot;) as JArray;
+                    if (entities == null || entities.Count == 0) { return &quot;none&quot;; }
+                    var categories = new System.Collections.Generic.HashSet&lt;string&gt;();
+                    foreach (var entity in entities) {
+                        var category = entity[&quot;category&quot;];
+                        if (category != null) { categories.Add(category.ToString()); }
+                    }
+                    return string.Join(&quot;,&quot;, categories);
+                } catch { return &quot;error&quot;; }
+            }" />
+            <set-variable name="piiContentChanged" value="@{
+                var inputText = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
+                var anonymized = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnonymizedContent&quot;, &quot;&quot;);
+                return (!string.Equals(inputText, anonymized, System.StringComparison.Ordinal)).ToString();
+            }" />
+            
+            <!-- Log PII detection to App Insights with diagnostics -->
             <trace source="pii-anonymization" severity="information">
                 <message>PII Anonymization Applied</message>
                 <metadata name="event-type" value="pii-anonymization" />
                 <metadata name="request-id" value="@(context.RequestId.ToString())" />
                 <metadata name="tenant-id" value="@(context.Request.Headers.GetValueOrDefault(&quot;X-Tenant-Id&quot;, &quot;unknown&quot;))" />
+                <metadata name="pii-status-code" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;unknown&quot;))" />
+                <metadata name="pii-entity-count" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiEntityCount&quot;, &quot;0&quot;))" />
+                <metadata name="pii-entity-types" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiEntityTypes&quot;, &quot;none&quot;))" />
+                <metadata name="pii-content-changed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiContentChanged&quot;, &quot;unknown&quot;))" />
             </trace>
         </when>
         <otherwise>
