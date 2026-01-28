@@ -87,87 +87,82 @@ locals {
   # PII redaction is handled by tenant API policies via pii-anonymization fragment
   apim_global_policy_xml = file("${path.module}/params/apim/global_policy.xml")
 
-  # Load tenant-specific API policies from files (if they exist)
-  # Each tenant can have: params/apim/tenants/{tenant-name}/api_policy.xml
+  # =============================================================================
+  # DYNAMIC TENANT API POLICIES (Generated from tenant config)
+  # =============================================================================
+  # Policies are dynamically generated from the template based on:
+  # - Enabled services (openai, document_intelligence, ai_search, storage)
+  # - Content safety settings (pii_redaction_enabled)
+  # - Token rate limits
+  # 
+  # This eliminates the need for static per-tenant api_policy.xml files.
+  # To add/remove features, just update tenant.tfvars - no XML editing needed.
+  # =============================================================================
   tenant_api_policies = {
-    for key, config in local.enabled_tenants : key => (
-      fileexists("${path.module}/params/apim/tenants/${key}/api_policy.xml")
-      ? file("${path.module}/params/apim/tenants/${key}/api_policy.xml")
-      : null
+    for key, config in local.enabled_tenants : key => templatefile(
+      "${path.module}/params/apim/api_policy.xml.tftpl",
+      {
+        tenant_name       = key
+        tokens_per_minute = try(config.apim_rate_limit.tokens_per_minute, 10000)
+        # Service routing - based on enabled services in tenant config
+        openai_enabled                = try(config.openai.enabled, false)
+        document_intelligence_enabled = try(config.document_intelligence.enabled, false)
+        ai_search_enabled             = try(config.ai_search.enabled, false)
+        storage_enabled               = try(config.storage_account.enabled, false)
+        # Content safety - PII redaction
+        pii_redaction_enabled = try(config.content_safety.pii_redaction_enabled, false) && var.shared_config.language_service.enabled
+      }
     )
   }
 
   # =============================================================================
-  # TENANT POLICY VALIDATION
+  # TENANT POLICY VALIDATION (Simplified - policies are now auto-generated)
   # =============================================================================
-  # Check that tenant policies reference the correct tenant name
-  # Extracts X-Tenant-Id header value from policy and compares to folder name
+  # Since policies are dynamically generated from tenant config, validation
+  # is simplified. The tenant_name is injected directly from the config key,
+  # so X-Tenant-Id mismatches are impossible.
+  # 
+  # Service validation is also unnecessary - if a service is disabled in
+  # tenant.tfvars, the routing for that service won't be generated.
+  # =============================================================================
+
+  # For backwards compatibility, keep empty validation structures
   tenant_policy_validation = {
     for key, policy in local.tenant_api_policies : key => {
-      has_policy = policy != null
-      # Extract tenant ID from X-Tenant-Id header in policy (if present)
-      policy_tenant_id = policy != null ? (
-        can(regex("<set-header name=\"X-Tenant-Id\"[^>]*>\\s*<value>([^<]+)</value>", policy))
-        ? regex("<set-header name=\"X-Tenant-Id\"[^>]*>\\s*<value>([^<]+)</value>", policy)[0]
-        : null
-      ) : null
-      # Check if the tenant ID in policy matches the folder name
-      is_valid = policy == null ? true : (
-        can(regex("<set-header name=\"X-Tenant-Id\"[^>]*>\\s*<value>([^<]+)</value>", policy))
-        ? regex("<set-header name=\"X-Tenant-Id\"[^>]*>\\s*<value>([^<]+)</value>", policy)[0] == key
-        : true # No X-Tenant-Id header found, skip validation
-      )
+      has_policy       = true # Always generated now
+      policy_tenant_id = key  # Always matches - injected from config key
+      is_valid         = true # Always valid - generated from template
     }
   }
 
-  # List of tenants with mismatched policy files
-  tenant_policy_mismatches = [
-    for key, validation in local.tenant_policy_validation : key
-    if !validation.is_valid
-  ]
+  # No mismatches possible with dynamic generation
+  tenant_policy_mismatches = []
 
   # =============================================================================
-  # POLICY SERVICE VALIDATION
+  # POLICY SERVICE VALIDATION (Deprecated - services auto-discovered from config)
   # =============================================================================
-  # Detect named value references in policies and validate services are enabled
+  # With dynamic policy generation, this validation is no longer needed.
+  # Services are only routed if enabled in tenant.tfvars.
   tenant_policy_service_validation = {
-    for key, policy in local.tenant_api_policies : key => {
-      has_policy = policy != null
-      # Check which service endpoints are referenced in the policy
-      references_openai    = policy != null ? can(regex("\\{\\{[^}]*-openai-endpoint\\}\\}", policy)) : false
-      references_docint    = policy != null ? can(regex("\\{\\{[^}]*-docint-endpoint\\}\\}", policy)) : false
-      references_storage   = policy != null ? can(regex("\\{\\{[^}]*-storage-endpoint\\}\\}", policy)) : false
-      references_ai_search = policy != null ? can(regex("\\{\\{[^}]*-ai-search-endpoint\\}\\}", policy)) : false
-      references_cosmos    = policy != null ? can(regex("\\{\\{[^}]*-cosmos-endpoint\\}\\}", policy)) : false
-      # Check if the referenced services are enabled for this tenant
-      openai_enabled    = lookup(local.enabled_tenants[key].openai, "enabled", false)
-      docint_enabled    = lookup(local.enabled_tenants[key].document_intelligence, "enabled", false)
-      storage_enabled   = lookup(local.enabled_tenants[key].storage_account, "enabled", false)
-      ai_search_enabled = lookup(local.enabled_tenants[key].ai_search, "enabled", false)
-      cosmos_enabled    = lookup(local.enabled_tenants[key].cosmos_db, "enabled", false)
-    } if contains(keys(local.enabled_tenants), key)
+    for key, config in local.enabled_tenants : key => {
+      has_policy = true
+      # Services are auto-detected from tenant config, not parsed from XML
+      openai_enabled    = try(config.openai.enabled, false)
+      docint_enabled    = try(config.document_intelligence.enabled, false)
+      storage_enabled   = try(config.storage_account.enabled, false)
+      ai_search_enabled = try(config.ai_search.enabled, false)
+      cosmos_enabled    = try(config.cosmos_db.enabled, false)
+      # No references to check - policy only includes enabled services
+      references_openai    = try(config.openai.enabled, false)
+      references_docint    = try(config.document_intelligence.enabled, false)
+      references_storage   = try(config.storage_account.enabled, false)
+      references_ai_search = try(config.ai_search.enabled, false)
+      references_cosmos    = try(config.cosmos_db.enabled, false)
+    }
   }
 
-  # Find policies that reference disabled services
-  tenant_policy_missing_services = [
-    for key, v in local.tenant_policy_service_validation : {
-      tenant = key
-      missing = compact([
-        v.references_openai && !v.openai_enabled ? "openai" : "",
-        v.references_docint && !v.docint_enabled ? "document_intelligence" : "",
-        v.references_storage && !v.storage_enabled ? "storage_account" : "",
-        v.references_ai_search && !v.ai_search_enabled ? "ai_search" : "",
-        v.references_cosmos && !v.cosmos_enabled ? "cosmos_db" : ""
-      ])
-    }
-    if length(compact([
-      v.references_openai && !v.openai_enabled ? "openai" : "",
-      v.references_docint && !v.docint_enabled ? "document_intelligence" : "",
-      v.references_storage && !v.storage_enabled ? "storage_account" : "",
-      v.references_ai_search && !v.ai_search_enabled ? "ai_search" : "",
-      v.references_cosmos && !v.cosmos_enabled ? "cosmos_db" : ""
-    ])) > 0
-  ]
+  # No missing services possible - policy only includes enabled services
+  tenant_policy_missing_services = []
 
   # =============================================================================
   # APIM APIS

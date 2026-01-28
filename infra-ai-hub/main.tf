@@ -717,7 +717,7 @@ resource "azurerm_api_management_policy_fragment" "tracking_dimensions" {
 resource "azurerm_api_management_api_policy" "tenant" {
   for_each = {
     for key, policy in local.tenant_api_policies : key => policy
-    if policy != null && local.apim_config.enabled
+    if local.apim_config.enabled
   }
 
   api_name            = each.key
