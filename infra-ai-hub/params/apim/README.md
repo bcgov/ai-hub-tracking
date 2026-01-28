@@ -401,6 +401,82 @@ Additionally, global policy loading changed:
 
 PII anonymization adds an extra network call from APIM to Language Service for requests where it is enabled. The Language Service call uses a fixed timeout of 20 seconds; failures fall back to passing through the original content.
 
+### Known Limitations & Future Improvements
+
+The current PII detection implementation has several constraints that may impact production deployments:
+
+**1. Fail-Open Behavior on Errors**
+
+The Language Service call is configured with `ignore-error="true"`, which means:
+- If the API returns a non-200 status code (e.g., 429 throttling, 500 server errors), the fragment returns the original `piiInputContent`
+- If the response body cannot be parsed or the `redactedText` field is missing, the fragment returns the original `piiInputContent`
+- If the Language Service times out (20-second limit), the request continues with unredacted content
+- If the Language Service is unavailable during an outage, all requests pass through without redaction
+
+**Security Implication:** Unredacted PII may reach downstream backends (e.g., OpenAI) during Language Service failures, timeouts, or parsing errors.
+
+**Monitoring:** Track the `pii-status-code` diagnostic field in Application Insights to monitor Language Service API health and identify when fallback behavior occurs. Set up alerts for non-200 status codes.
+
+**Alternative Approach:** For strict PII protection requirements, modify the fragment to remove `ignore-error="true"` and fail requests (return 500/503) when Language Service is unavailable. This trades availability for guaranteed PII protection.
+
+**2. Preview API Version Dependency**
+
+The fragment uses `api-version=2025-11-15-preview` for PII detection.
+
+**Risks:**
+- Preview APIs are subject to breaking changes without extended deprecation timelines
+- Request/response schema may change in future preview versions
+- Entity detection accuracy, coverage, or behavior may shift
+- No SLA guarantees for preview API endpoints
+- Microsoft may deprecate the preview API before reaching General Availability
+
+**Reference:** [Microsoft Learn: PII Detection API](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/overview)
+
+**Mitigation:**
+- Monitor Microsoft documentation for API version updates and migration guidance
+- Test preview API updates in non-production environments before deploying to production
+- Plan migration path to GA API version when available
+- Subscribe to Azure service health notifications for Language Service updates
+
+**3. Hard-Coded Request Shape (Language and Sizing)**
+
+The fragment has several hard-coded constraints in the request body sent to Language Service:
+
+**Language:**
+- Hard-coded: `language="en"` in `analysisInput.documents[0]`
+- **Impact:** Non-English content may have reduced detection accuracy or miss PII entities that would be detected in the specified language context
+- **Future Improvement:** Add language detection (via Language Service's language detection API) or make language configurable per tenant
+
+**Single Document Processing:**
+- The entire request body is sent as a single document (`documents[0]`)
+- No chunking or pagination for large payloads
+- **Azure Language Service Synchronous Limits:**
+  - Maximum: **5,120 text elements** per document
+  - Maximum: **5 documents** per request
+  - Maximum: **1 MB total payload size** across all documents
+
+**Chat History Re-processing:**
+- For OpenAI chat completion requests, the entire `messages` array (full conversation history) is sent to Language Service on every request
+- **Inefficiency:** Previously processed messages are re-analyzed on each subsequent request in the same conversation
+- **Scalability Concern:** Long conversation threads may exceed the 5,120 text element limit, causing the Language Service call to fail and fall back to unredacted content
+- **Cost Concern:** Language Service charges are based on text elements analyzed, so re-processing entire chat histories on every request scales poorly with conversation length
+
+**Current Behavior on Limit Exceeded:**
+- If the request body exceeds Language Service limits (5,120 text elements or 1 MB), the API call will likely fail (400 Bad Request or timeout)
+- Due to `ignore-error="true"`, the fragment will return the original unredacted content (fail-open)
+- No error is surfaced to the client; the request continues with unredacted content
+
+**Future Improvements:**
+- **Language Detection:** Use Language Service's language detection API to dynamically set the correct language per request
+- **Chunking Strategy:** Split large payloads into multiple documents within a single Language Service request (up to 5 documents)
+- **Request Size Validation:** Check request body size before calling Language Service and log warnings when approaching limits
+- **Chat History Optimization:** For chat requests, consider processing only new messages (requires tracking message indices or IDs to identify previously processed content)
+- **Pagination for Large Payloads:** For payloads exceeding 5 documents, implement multiple Language Service API calls with retry logic
+- **Configurable Language:** Add `language` parameter to tenant configuration or detect language dynamically
+
+**Example of Large Request:**
+A chat request with 100 messages of 200 characters each would be ~20,000 characters, well within the 1 MB limit but potentially exceeding 5,120 text elements depending on Language Service's text element calculation (which includes punctuation, whitespace, and linguistic units beyond just characters).
+
 ### Troubleshooting
 
 **DNS / Private Endpoint Readiness:**
