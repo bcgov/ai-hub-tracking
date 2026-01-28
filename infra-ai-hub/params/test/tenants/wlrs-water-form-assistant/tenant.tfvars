@@ -70,7 +70,7 @@ tenant = {
 
   # Speech Services - disabled by default, enable for text-to-speech/speech-to-text capabilities
   speech_services = {
-    enabled = false
+    enabled = true
   }
 
   log_analytics = {

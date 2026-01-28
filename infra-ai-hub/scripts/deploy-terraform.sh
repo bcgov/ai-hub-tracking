@@ -617,18 +617,123 @@ tf_apply_phased() {
     run_terraform_with_retries apply "${phase2_args[@]}" "$@"
     log_success "Phase 2 complete"
 
-    # Phase 3: Final apply to catch any remaining resources (APIM operations, etc.)
-    log_info "=== PHASE 3: Final apply for remaining resources ==="
+    # Phase 3: APIM Backend and Policy Orchestration
+    # ==========================================================================
+    # APIM has strict ordering constraints:
+    # - CREATION: Backends MUST exist before policies reference them
+    # - DELETION: Policies MUST be updated before backends are deleted
+    #
+    # Strategy:
+    # 1. Analyze plan to detect backend creations and deletions
+    # 2. If deletions exist: update policies FIRST (Phase 3a), then everything else in Phase 4
+    # 3. If only creations (no deletions): create backends FIRST (Phase 3a), then policies in Phase 4
+    # 4. If no backend changes: skip Phase 3 entirely
+    # ==========================================================================
+
+    log_info "=== PHASE 3: APIM Policy and Backend Orchestration ==="
     
-    local phase3_args=("${TFVARS_ARGS[@]}")
-    phase3_args+=("-input=false")
+    # Generate a plan to detect what's changing
+    local plan_file="${INFRA_DIR}/.phase3-plan"
+    local plan_json="${INFRA_DIR}/.phase3-plan.json"
+    
+    log_info "Analyzing Terraform plan for APIM changes..."
+    terraform plan "${TFVARS_ARGS[@]}" -input=false -out="$plan_file" > /dev/null 2>&1 || true
+    terraform show -json "$plan_file" > "$plan_json" 2>/dev/null || true
+    
+    # Check for backend creations and deletions
+    local backends_to_create=""
+    local backends_to_destroy=""
+    
+    if [[ -f "$plan_json" ]]; then
+        backends_to_create=$(jq -r '
+            .resource_changes[]? 
+            | select(.type == "azurerm_api_management_backend") 
+            | select(.change.actions | contains(["create"]))
+            | .address
+        ' "$plan_json" 2>/dev/null | grep -v '^$' || true)
+        
+        backends_to_destroy=$(jq -r '
+            .resource_changes[]? 
+            | select(.type == "azurerm_api_management_backend") 
+            | select(.change.actions | contains(["delete"]))
+            | .address
+        ' "$plan_json" 2>/dev/null | grep -v '^$' || true)
+    fi
+    
+    # Priority: Handle deletions first (policy update must happen before backend deletion)
+    if [[ -n "$backends_to_destroy" ]]; then
+        log_info "Detected backends scheduled for destruction:"
+        echo "$backends_to_destroy" | while read -r addr; do
+            [[ -n "$addr" ]] && log_info "  - $addr"
+        done
+        
+        # Phase 3a: Update policies FIRST to remove stale backend references
+        log_info "Updating APIM policies before backend deletion..."
+        
+        local phase3a_args=("${TFVARS_ARGS[@]}")
+        phase3a_args+=("-input=false")
+        
+        if [[ "${CI:-false}" == "true" ]]; then
+            phase3a_args+=("-auto-approve")
+        fi
+        
+        # Target only policy resources - no depends_on to backends means this won't trigger backend deletion
+        phase3a_args+=("-target=azurerm_api_management_api_policy.tenant")
+        
+        if ! run_terraform_with_retries apply "${phase3a_args[@]}"; then
+            log_warning "Policy update had issues, continuing with full apply..."
+        fi
+        log_success "Phase 3a (policy update for backend deletion) complete"
+        
+    elif [[ -n "$backends_to_create" ]]; then
+        # Only creations, no deletions - create backends first
+        log_info "Detected backends scheduled for creation (no deletions):"
+        echo "$backends_to_create" | while read -r addr; do
+            [[ -n "$addr" ]] && log_info "  - $addr"
+        done
+        
+        log_info "Creating new APIM backends before policy application..."
+        
+        local phase3a_args=("${TFVARS_ARGS[@]}")
+        phase3a_args+=("-input=false")
+        
+        if [[ "${CI:-false}" == "true" ]]; then
+            phase3a_args+=("-auto-approve")
+        fi
+        
+        # Target backend resources for creation
+        phase3a_args+=(
+            "-target=azurerm_api_management_backend.openai"
+            "-target=azurerm_api_management_backend.docint"
+            "-target=azurerm_api_management_backend.storage"
+            "-target=azurerm_api_management_backend.ai_search"
+            "-target=azurerm_api_management_backend.speech_services"
+        )
+        
+        if ! run_terraform_with_retries apply "${phase3a_args[@]}"; then
+            log_warning "Backend creation had issues, continuing..."
+        fi
+        log_success "Phase 3a (backend creation) complete"
+    else
+        log_info "No APIM backend changes detected, skipping Phase 3a"
+    fi
+    
+    rm -f "$plan_file" "$plan_json"
+    log_success "Phase 3 complete"
+
+    # Phase 4: Final apply for all remaining resources
+    # Now that policies no longer reference stale backends, backend destruction is safe
+    log_info "=== PHASE 4: Final apply (all remaining changes) ==="
+    
+    local phase4_args=("${TFVARS_ARGS[@]}")
+    phase4_args+=("-input=false")
     
     if [[ "${CI:-false}" == "true" ]]; then
-        phase3_args+=("-auto-approve")
+        phase4_args+=("-auto-approve")
     fi
 
-    run_terraform_with_retries apply "${phase3_args[@]}" "$@"
-    log_success "Phase 3 complete"
+    run_terraform_with_retries apply "${phase4_args[@]}" "$@"
+    log_success "Phase 4 complete"
     
     log_success "Phased apply complete"
 }

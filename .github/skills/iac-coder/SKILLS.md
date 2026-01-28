@@ -145,3 +145,8 @@ env:
 2. Use variables for all configurable values.
 3. Ensure variable descriptions are present.
 4. Keep changes minimal and consistent with repo patterns.
+
+## Running Deployments from local machine
+1. Always use the deployment bash script over regular terraform commands
+2. for deployments related to initial setup use this [script](../../../initial-setup/infra/deploy-terraform.sh)
+3. for deployments related to infra-ai-hub use this [script](../../../infra-ai-hub/scripts/deploy-terraform.sh)`

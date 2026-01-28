@@ -308,7 +308,7 @@ resource "azurerm_api_management_named_value" "ai_search_endpoint" {
 resource "azurerm_api_management_named_value" "speech_services_endpoint" {
   for_each = {
     for key, config in local.enabled_tenants : key => config
-    if config.speech_services.enabled && local.apim_config.enabled
+    if config.speech_services.enabled && local.apim_config.enabled && module.tenant[key].speech_services_endpoint != null
   }
 
   name                = "${each.key}-speech-endpoint"
@@ -419,7 +419,7 @@ resource "azurerm_api_management_backend" "ai_search" {
 resource "azurerm_api_management_backend" "speech_services" {
   for_each = {
     for key, config in local.enabled_tenants : key => config
-    if config.speech_services.enabled && local.apim_config.enabled
+    if config.speech_services.enabled && local.apim_config.enabled && module.tenant[key].speech_services_endpoint != null
   }
 
   name                = "${each.key}-speech"
@@ -724,6 +724,7 @@ resource "azurerm_api_management_policy_fragment" "tracking_dimensions" {
 # APIM API Policies (per-tenant routing policies)
 # Applied to each tenant API to route to their services
 # -----------------------------------------------------------------------------
+
 resource "azurerm_api_management_api_policy" "tenant" {
   for_each = {
     for key, policy in local.tenant_api_policies : key => policy
@@ -735,16 +736,19 @@ resource "azurerm_api_management_api_policy" "tenant" {
   resource_group_name = azurerm_resource_group.main.name
   xml_content         = each.value
 
+  # IMPORTANT: No explicit depends_on for backends!
+  # This allows Terraform to handle policy updates and backend destructions
+  # as independent operations. Combined with -parallelism=1, Terraform's
+  # natural ordering (updates before destructions) ensures policies are
+  # updated before orphaned backends are deleted.
+  #
+  # Dependencies for creation ordering (named values and fragments only):
   depends_on = [
     module.apim,
     azurerm_api_management_named_value.openai_endpoint,
     azurerm_api_management_named_value.docint_endpoint,
     azurerm_api_management_named_value.storage_endpoint,
     azurerm_api_management_named_value.speech_services_endpoint,
-    azurerm_api_management_backend.openai,
-    azurerm_api_management_backend.docint,
-    azurerm_api_management_backend.storage,
-    azurerm_api_management_backend.speech_services,
     azurerm_api_management_policy_fragment.cognitive_services_auth,
     azurerm_api_management_policy_fragment.storage_auth,
     azurerm_api_management_policy_fragment.keyvault_auth,
@@ -835,7 +839,7 @@ resource "azurerm_role_assignment" "apim_search_service_contributor" {
 resource "azurerm_role_assignment" "apim_speech_services_user" {
   for_each = {
     for key, config in local.enabled_tenants : key => config
-    if config.speech_services.enabled && local.apim_config.enabled
+    if config.speech_services.enabled && local.apim_config.enabled && module.tenant[key].speech_services_id != null
   }
 
   scope                = module.tenant[each.key].speech_services_id
