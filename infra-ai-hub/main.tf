@@ -168,12 +168,8 @@ resource "terraform_data" "language_service_dns_wait" {
   count = var.shared_config.language_service.enabled ? 1 : 0
 
   provisioner "local-exec" {
-    command = "${path.module}/scripts/wait-for-dns-zone.sh"
-    environment = {
-      PRIVATE_ENDPOINT_ID = azurerm_private_endpoint.language_service[0].id
-      TIMEOUT             = var.shared_config.private_endpoint_dns_wait.timeout
-      POLL_INTERVAL       = var.shared_config.private_endpoint_dns_wait.poll_interval
-    }
+    interpreter = ["bash", "-c"]
+    command     = "${path.module}/scripts/wait-for-dns-zone.sh --resource-group ${azurerm_resource_group.main.name} --private-endpoint-name ${azurerm_private_endpoint.language_service[0].name} --timeout ${var.shared_config.private_endpoint_dns_wait.timeout} --interval ${var.shared_config.private_endpoint_dns_wait.poll_interval}"
   }
 
   depends_on = [azurerm_private_endpoint.language_service]
@@ -679,8 +675,12 @@ resource "azurerm_api_management_policy_fragment" "openai_streaming_metrics" {
   depends_on = [module.apim]
 }
 
+# PII Anonymization fragment via Language Service
+# Disabled for now - the fragment has C# expression escaping issues with APIM parser
+# TODO: Fix the string literal escaping and re-enable
+# Global policy uses regex-based PII which is simpler and works
 resource "azurerm_api_management_policy_fragment" "pii_anonymization" {
-  count = local.apim_config.enabled ? 1 : 0
+  count = 0 # Disabled until C# expression escaping is fixed
 
   api_management_id = module.apim[0].id
   name              = "pii-anonymization"
@@ -742,7 +742,7 @@ resource "azurerm_api_management_api_policy" "tenant" {
     azurerm_api_management_policy_fragment.keyvault_auth,
     azurerm_api_management_policy_fragment.openai_usage_logging,
     azurerm_api_management_policy_fragment.openai_streaming_metrics,
-    azurerm_api_management_policy_fragment.pii_anonymization,
+    # pii_anonymization disabled - uses regex-based PII in global policy instead
     azurerm_api_management_policy_fragment.intelligent_routing,
     azurerm_api_management_policy_fragment.tracking_dimensions
   ]

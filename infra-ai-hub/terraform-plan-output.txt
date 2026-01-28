@@ -1,0 +1,26 @@
+﻿Acquiring state lock. This may take a few moments...
+terraform : [31mΓò╖[0m[0m
+At line:1 char:1
++ terraform plan -var-file="params/test/shared.tfvars" 2>&1 | Out-File  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([31mΓò╖[0m[0m:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[31mΓöé[0m [0m[1m[31mError: [0m[0m[1mError acquiring the state lock[0m
+[31mΓöé[0m [0m
+[31mΓöé[0m [0m[0mError message: state blob is already locked
+[31mΓöé[0m [0mLock Info:
+[31mΓöé[0m [0m  ID:        77f24d43-e333-d5c0-3c93-75d079cb75ee
+[31mΓöé[0m [0m  Path:      tfstate/ai-services-hub/test/terraform.tfstate
+[31mΓöé[0m [0m  Operation: OperationTypeApply
+[31mΓöé[0m [0m  Who:       DESKTOP-ICHG1A9\ompra@DESKTOP-ICHG1A9
+[31mΓöé[0m [0m  Version:   1.13.1
+[31mΓöé[0m [0m  Created:   2026-01-28 02:28:10.4690119 +0000 UTC
+[31mΓöé[0m [0m  Info:      
+[31mΓöé[0m [0m
+[31mΓöé[0m [0m
+[31mΓöé[0m [0mTerraform acquires a state lock to protect the state from being written
+[31mΓöé[0m [0mby multiple users at the same time. Please resolve the issue above and try
+[31mΓöé[0m [0magain. For most commands, you can disable locking with the "-lock=false"
+[31mΓöé[0m [0mflag, but this is not recommended.
+[31mΓò╡[0m[0m

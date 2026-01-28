@@ -76,16 +76,17 @@ locals {
   ]
 
   # Tenants that use Language Service for PII (vs regex-only)
+  # Note: This is used by tenant API policies (via fragments), not global policy
   pii_use_language_service_tenants = [
     for key, config in local.enabled_tenants : key
     if try(config.content_safety.pii_use_language_service, true) == true &&
     try(config.content_safety.pii_redaction_enabled, true) == true
   ]
 
-  # Load global policy from template (PII redaction)
+  # Load global policy from template (regex-based PII redaction)
+  # Language Service-based PII is available in tenant API policies via fragments
   apim_global_policy_xml = templatefile("${path.module}/params/apim/global_policy.xml", {
-    pii_redaction_opt_out_tenants    = local.pii_redaction_opt_out_tenants
-    pii_use_language_service_tenants = local.pii_use_language_service_tenants
+    pii_redaction_opt_out_tenants = local.pii_redaction_opt_out_tenants
   })
 
   # Load tenant-specific API policies from files (if they exist)

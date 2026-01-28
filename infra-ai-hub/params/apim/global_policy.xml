@@ -33,7 +33,8 @@
         <!-- ================================================================== -->
         <!-- CONTENT SAFETY: PII Redaction                                     -->
         <!-- Applied globally - tenant opt-out resolved at deploy time         -->
-        <!-- Supports: Regex-only (fast) or Language Service API (accurate)    -->
+        <!-- Uses regex-based detection (fast). Language Service available in  -->
+        <!-- tenant API policies via include-fragment after fragments created  -->
         <!-- ================================================================== -->
 
         <!-- Determine if this tenant opted out of PII redaction -->
@@ -51,100 +52,29 @@
 %{ endif ~}
         }" />
 
-        <!-- Determine if this tenant uses Language Service for PII detection -->
-        <set-variable name="pii-use-language-service" value="@{
-            var path = context.Request.Url.Path.ToLower().Trim('/');
-            var apiPath = context.Api != null ? context.Api.Path?.ToLower() : null;
-            var tenant = !string.IsNullOrEmpty(apiPath)
-                ? apiPath.Trim('/')
-                : (path.Contains("/") ? path.Split('/')[0] : path);
-%{ if length(pii_use_language_service_tenants) > 0 ~}
-            var useLangService = new [] { ${join(", ", [for t in pii_use_language_service_tenants : "\"${t}\""])} };
-            return useLangService.Contains(tenant) ? "true" : "false";
-%{ else ~}
-            return "false";
-%{ endif ~}
-        }" />
-
-        <!-- PII Redaction for OpenAI requests -->
-        <!-- Uses either Language Service API (accurate) or regex (fast) -->
+        <!-- PII Redaction for OpenAI requests using regex (fast) -->
+        <!-- For Language Service-based detection, use pii-anonymization fragment in tenant policies -->
         <choose>
             <when condition="@(context.Request.Url.Path.ToLower().Contains("openai") && context.Variables.GetValueOrDefault<string>("pii-redaction-skip", "false") != "true")">
                 <set-variable name="pii-redaction-applied" value="true" />
+                <set-variable name="pii-redaction-method" value="regex" />
                 
-                <!-- Language Service PII Detection (when enabled and configured) -->
-                <!-- Note: Requires pii-service-url named value to be configured -->
-                <choose>
-                    <when condition="@(context.Variables.GetValueOrDefault<string>("pii-use-language-service", "false") == "true")">
-                        <!-- Extract message content for PII analysis -->
-                        <set-variable name="piiInputContent" value="@{
-                            try {
-                                var body = context.Request.Body.As<JObject>(preserveContent: true);
-                                var messages = body?["messages"] as JArray;
-                                if (messages != null) {
-                                    var contentParts = new List<string>();
-                                    foreach (var msg in messages) {
-                                        var content = msg?["content"]?.ToString();
-                                        if (!string.IsNullOrEmpty(content)) {
-                                            contentParts.Add(content);
-                                        }
-                                    }
-                                    return string.Join(" ", contentParts);
-                                }
-                                return body?.ToString() ?? "";
-                            } catch {
-                                return context.Request.Body.As<string>(preserveContent: true) ?? "";
-                            }
-                        }" />
-                        <set-variable name="piiAnonymizationEnabled" value="true" />
-                        <set-variable name="piiConfidenceThreshold" value="0.8" />
-                        
-                        <!-- Include PII anonymization fragment -->
-                        <include-fragment fragment-id="pii-anonymization" />
-                        
-                        <!-- Update request body with anonymized content -->
-                        <set-body>@{
-                            var anonymizedContent = context.Variables.GetValueOrDefault<string>("piiAnonymizedContent", "");
-                            if (string.IsNullOrEmpty(anonymizedContent)) {
-                                return context.Request.Body.As<string>(preserveContent: true);
-                            }
-                            try {
-                                var body = context.Request.Body.As<JObject>(preserveContent: true);
-                                var messages = body?["messages"] as JArray;
-                                if (messages != null && messages.Count > 0) {
-                                    // Replace content in the last user message
-                                    for (int i = messages.Count - 1; i >= 0; i--) {
-                                        if (messages[i]?["role"]?.ToString() == "user") {
-                                            messages[i]["content"] = anonymizedContent;
-                                            break;
-                                        }
-                                    }
-                                    body["messages"] = messages;
-                                }
-                                return body.ToString();
-                            } catch {
-                                return context.Request.Body.As<string>(preserveContent: true);
-                            }
-                        }</set-body>
-                        
-                        <set-variable name="pii-redaction-method" value="language-service" />
-                    </when>
-                    <otherwise>
-                        <!-- Fallback: Regex-based PII redaction (fast but less accurate) -->
-                        <set-body>@{
-                            var body = context.Request.Body.As<string>(preserveContent: true);
-                            if (string.IsNullOrEmpty(body)) {
-                                return body;
-                            }
-                            body = System.Text.RegularExpressions.Regex.Replace(body, @"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "[REDACTED_EMAIL]", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                            body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(\+?\d{1,3}[\s\.-]?)?(\(?\d{3}\)?[\s\.-]?){1}\d{3}[\s\.-]?\d{4}\b", "[REDACTED_PHONE]");
-                            body = System.Text.RegularExpressions.Regex.Replace(body, @"\b\d{3}-\d{2}-\d{4}\b", "[REDACTED_SSN]");
-                            body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(?:\d[ -]*?){13,16}\b", "[REDACTED_CC]");
-                            return body;
-                        }</set-body>
-                        <set-variable name="pii-redaction-method" value="regex" />
-                    </otherwise>
-                </choose>
+                <!-- Regex-based PII redaction (fast, catches common patterns) -->
+                <set-body>@{
+                    var body = context.Request.Body.As<string>(preserveContent: true);
+                    if (string.IsNullOrEmpty(body)) {
+                        return body;
+                    }
+                    // Email addresses
+                    body = System.Text.RegularExpressions.Regex.Replace(body, @"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "[REDACTED_EMAIL]", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                    // Phone numbers (various formats)
+                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(\+?\d{1,3}[\s\.-]?)?(\(?\d{3}\)?[\s\.-]?){1}\d{3}[\s\.-]?\d{4}\b", "[REDACTED_PHONE]");
+                    // SSN (US format)
+                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b\d{3}-\d{2}-\d{4}\b", "[REDACTED_SSN]");
+                    // Credit card numbers
+                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(?:\d[ -]*?){13,16}\b", "[REDACTED_CC]");
+                    return body;
+                }</set-body>
             </when>
             <otherwise>
                 <set-variable name="pii-redaction-applied" value="false" />
@@ -154,11 +84,16 @@
         
         <!-- Emit LLM token metrics for AI service requests -->
         <!-- Tracks: Total Tokens, Prompt Tokens, Completion Tokens -->
-        <llm-emit-token-metric namespace="AIHub">
-            <dimension name="API ID" />
-            <dimension name="Subscription ID" />
-            <dimension name="Tenant" value="@(context.Request.Headers.GetValueOrDefault("X-Tenant-Id", "unknown"))" />
-        </llm-emit-token-metric>
+        <!-- Note: azure-openai-emit-token-metric requires requests to OpenAI endpoints -->
+        <choose>
+            <when condition="@(context.Request.Url.Path.ToLower().Contains("openai"))">
+                <azure-openai-emit-token-metric namespace="AIHub">
+                    <dimension name="API ID" />
+                    <dimension name="Subscription ID" />
+                    <dimension name="Tenant" value="@(context.Request.Headers.GetValueOrDefault("X-Tenant-Id", "unknown"))" />
+                </azure-openai-emit-token-metric>
+            </when>
+        </choose>
     </inbound>
     <backend>
         <forward-request buffer-request-body="true" />

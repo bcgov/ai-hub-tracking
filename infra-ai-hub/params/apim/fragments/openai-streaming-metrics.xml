@@ -19,7 +19,7 @@
     -->
     <choose>
         <!-- Only emit streaming metrics when stream=true -->
-        <when condition="@(context.Variables.GetValueOrDefault<string>("isStream", "false").Equals("true", StringComparison.OrdinalIgnoreCase))">
+        <when condition="@(context.Variables.GetValueOrDefault<bool>("isStream", false) == true)">
             <!-- Emit token metrics for streaming requests -->
             <!-- azure-openai-emit-token-metric handles streaming token counting -->
             <azure-openai-emit-token-metric namespace="AIHub-Streaming">
