@@ -58,9 +58,10 @@
             <li>Calls Language Service <code>/language/:analyze-text?api-version=2025-11-15-preview</code> with request kind <code>PiiEntityRecognition</code>.</li>
             <li>Uses a CharacterMask redaction policy (mask character <code>#</code>).</li>
             <li>Extracts <code>results.documents[0].redactedText</code> into <code>piiAnonymizedContent</code>.</li>
+            <li>Emits diagnostics including status code, entity count, entity types, and whether content changed.</li>
         </ul>
     </li>
-    <li>The tenant policy replaces the backend request body with <code>piiAnonymizedContent</code> and forwards the request.</li>
+    <li>The tenant policy explicitly applies the anonymized content back to the request body using <code>&lt;set-body&gt;</code> and forwards the request.</li>
 </ol>
 
 <div class="alert alert-warning">
@@ -127,36 +128,64 @@ apim_policies {
 
 <h2>Observability</h2>
 
-<p>PII anonymization emits diagnostic traces from the <code>pii-anonymization</code> fragment, including:</p>
+<h3>PII Detection Diagnostics</h3>
+
+<p>The <code>pii-anonymization</code> fragment emits rich diagnostic traces to Application Insights, including:</p>
 
 <ul>
-    <li><strong>Status Code:</strong> HTTP response from Language Service</li>
-    <li><strong>Entity Count:</strong> Number of PII entities detected</li>
-    <li><strong>Entity Types:</strong> Categories of detected entities</li>
-    <li><strong>Content Changed:</strong> Boolean indicating if redaction occurred</li>
+    <li><strong>pii-status-code:</strong> HTTP response status from Language Service API call</li>
+    <li><strong>pii-entity-count:</strong> Number of PII entities detected in the request</li>
+    <li><strong>pii-entity-types:</strong> Comma-separated list of entity categories found (e.g., "Email,SSN,CreditCard")</li>
+    <li><strong>pii-content-changed:</strong> Boolean flag indicating whether any redaction occurred</li>
+    <li><strong>request-id:</strong> Correlation ID for tracing the request across services</li>
+    <li><strong>tenant-id:</strong> Tenant identifier for per-tenant analytics</li>
 </ul>
 
-<p>Additional APIM policy fragments are available for analytics and monitoring:</p>
+<p>These diagnostics enable monitoring of PII detection effectiveness, understanding which entity types are most commonly detected, and tracking Language Service API health.</p>
+
+<h3>OpenAI Usage Logging</h3>
+
+<p>For OpenAI requests, the tenant policy template sets routing metadata variables before including the <code>openai-usage-logging</code> fragment:</p>
+
+<ul>
+    <li><strong>backendId:</strong> APIM backend identifier (e.g., <code>tenant-openai</code>)</li>
+    <li><strong>routeLocation:</strong> Azure region for the backend (single-backend for now)</li>
+    <li><strong>routeName:</strong> Route identifier for future intelligent routing</li>
+    <li><strong>deploymentName:</strong> Extracted from the URL path (e.g., <code>gpt-4</code>)</li>
+</ul>
+
+<p>These dimensions are logged to Application Insights along with token usage data, enabling detailed cost allocation, chargeback analytics, and deployment-level monitoring even in the current single-backend setup.</p>
+
+<h3>Additional Monitoring Fragments</h3>
 
 <table>
     <thead>
         <tr>
             <th>Fragment</th>
             <th>Purpose</th>
+            <th>Status</th>
         </tr>
     </thead>
     <tbody>
         <tr>
             <td><code>tracking-dimensions</code></td>
             <td>Extract session, user, app, and correlation IDs from headers</td>
+            <td>Active</td>
         </tr>
         <tr>
             <td><code>openai-usage-logging</code></td>
-            <td>Detailed usage tracking to Application Insights</td>
+            <td>Detailed usage tracking to Application Insights with routing metadata</td>
+            <td>Active</td>
         </tr>
         <tr>
             <td><code>openai-streaming-metrics</code></td>
             <td>Token metrics for streaming responses</td>
+            <td>Reserved for future use</td>
+        </tr>
+        <tr>
+            <td><code>intelligent-routing</code></td>
+            <td>Priority-based multi-backend selection</td>
+            <td>Reserved for future use</td>
         </tr>
     </tbody>
 </table>
@@ -173,7 +202,14 @@ apim_policies {
 <details>
     <summary><strong>What happens if Language Service fails?</strong></summary>
     <div class="accordion-content">
-        <p>The fragment is designed to fall back to the original input content on errors (non-200 response or parsing errors). This ensures that service availability is maintained even if PII detection temporarily fails.</p>
+        <p>PII redaction operates on a <strong>best-effort basis</strong>. The Language Service call uses <code>ignore-error="true"</code>, which means:</p>
+        <ul>
+            <li>If the Language Service returns a non-200 response, the original content is passed through</li>
+            <li>If the response cannot be parsed, the original content is passed through</li>
+            <li>If the Language Service is temporarily unavailable, requests continue to flow without redaction</li>
+            <li>All failures are logged in diagnostics with appropriate status codes and error details</li>
+        </ul>
+        <p>This design prioritizes service availability over PII protection. If strict PII redaction is required with no fallback, the fragment behavior would need to be modified to fail requests when Language Service is unavailable.</p>
     </div>
 </details>
 

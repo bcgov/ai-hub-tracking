@@ -202,17 +202,19 @@ Reusable fragments in `fragments/` directory enable code reuse across tenant pol
 
 ### Usage Logging & Metrics Fragments
 
-| Fragment | Purpose | Use Case |
-|----------|---------|----------|
-| `openai-usage-logging.xml` | Logs detailed OpenAI usage to Application Insights | Cost allocation, chargeback, audit trails |
-| `openai-streaming-metrics.xml` | Emits token metrics for streaming requests | Accurate streaming token counting, real-time monitoring |
-| `tracking-dimensions.xml` | Extracts session/user/app IDs from headers | Per-user analytics, debugging, chargeback |
+| Fragment | Purpose | Use Case | Status |
+|----------|---------|----------|--------|
+| `openai-usage-logging.xml` | Logs detailed OpenAI usage to Application Insights | Cost allocation, chargeback, audit trails | Active |
+| `openai-streaming-metrics.xml` | Emits token metrics for streaming requests | Accurate streaming token counting, real-time monitoring | Reserved for future use* |
+| `tracking-dimensions.xml` | Extracts session/user/app IDs from headers | Per-user analytics, debugging, chargeback | Active |
 
-These fragments log:
-- Token usage (prompt, completion, total)
-- Routing info (backend, region, deployment)
-- Subscription/product context
-- Session/user tracking (via headers)
+*The `openai-streaming-metrics` fragment is created in Terraform but not currently referenced in tenant API policies. It will be conditionally included when streaming detection logic is implemented.
+
+Active fragments log:
+- Token usage (prompt, completion, total) from OpenAI response bodies
+- Routing metadata (backendId, routeLocation, routeName, deploymentName) set by the tenant policy template
+- Subscription/product context from APIM
+- Session/user tracking dimensions from request headers
 
 ### Content Safety Fragments
 
@@ -230,15 +232,19 @@ PII anonymization via Language Service:
 
 ### Routing Fragments
 
-| Fragment | Purpose | Use Case |
-|----------|---------|----------|
-| `intelligent-routing.xml` | Priority-based backend selection | Load balancing, failover, throttle avoidance |
+| Fragment | Purpose | Use Case | Status |
+|----------|---------|----------|--------|
+| `intelligent-routing.xml` | Priority-based backend selection | Load balancing, failover, throttle avoidance | Reserved for future use* |
 
-Intelligent routing features:
+*The `intelligent-routing` fragment is created in Terraform but not currently referenced in tenant API policies. It will be conditionally included when `apim_policies.intelligent_routing.enabled` is implemented and multi-backend configurations are deployed.
+
+Planned intelligent routing features:
 - Priority-based backend selection
 - Throttling awareness (avoids throttled backends)
 - Load balancing across same-priority backends
 - Automatic failover to secondary regions
+
+Current routing is single-backend per service (e.g., one OpenAI backend per tenant), with routing metadata captured for future use.
 
 ### Fragment Pattern
 
@@ -326,6 +332,7 @@ Detect and mask PII in text content using Language Service PII entity recognitio
 - Method: `POST`
 - Timeout: `20` seconds
 - `ignore-error="true"` (errors are handled with fallback behavior)
+- API version `2025-11-15-preview` is documented at [Microsoft Learn: PII Detection](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/overview)
 
 **Request Body (high level):**
 - `kind`: `PiiEntityRecognition`
@@ -348,7 +355,15 @@ Detect and mask PII in text content using Language Service PII entity recognitio
   - `piiContentChanged` (compares input vs anonymized)
 
 **Diagnostics & Logging:**
-The fragment emits a `trace` event (source `pii-anonymization`) including metadata such as request id, tenant id, PII status code, entity count/types, and whether content changed.
+The fragment emits a `trace` event (source `pii-anonymization`) to Application Insights with detailed metadata:
+- `request-id`: Correlation ID from the APIM context for distributed tracing
+- `tenant-id`: Tenant identifier for per-tenant analytics
+- `pii-status-code`: HTTP status code from the Language Service API response
+- `pii-entity-count`: Number of PII entities detected in the request
+- `pii-entity-types`: Comma-separated list of unique entity categories (e.g., "Email,SSN,CreditCard")
+- `pii-content-changed`: Boolean flag indicating whether any redaction occurred (true if input differs from output)
+
+These diagnostics enable monitoring of PII detection effectiveness, Language Service API health, and understanding which entity types are most commonly detected across tenants.
 
 **Fallback Behavior:**
 - If PII anonymization is disabled, the fragment passes through the original `piiInputContent`
@@ -360,9 +375,23 @@ Tenant API policies are generated dynamically from `api_policy.xml.tftpl` using 
 - Routing blocks are generated only for services enabled for that tenant (for example OpenAI, Document Intelligence, AI Search, Storage)
 - APIM policy features are included only when enabled by per-tenant flags (for example rate limiting, PII redaction, usage logging, streaming metrics, tracking dimensions)
 
-**PII Inclusion Rule:**
-- PII anonymization is included only when `apim_policies.pii_redaction.enabled` is true AND `shared_config.language_service.enabled` is true
-- For OpenAI requests, the tenant policy sets `piiInputContent` from the request body, includes the `pii-anonymization` fragment, and replaces the request body with `piiAnonymizedContent`
+**PII Redaction Flow (OpenAI Requests):**
+When PII redaction is enabled (`apim_policies.pii_redaction.enabled` is true AND `shared_config.language_service.enabled` is true), the tenant policy template:
+1. Extracts the request body as text and sets it to the `piiInputContent` variable
+2. Includes the `pii-anonymization` fragment, which calls Language Service and sets `piiAnonymizedContent`
+3. Explicitly applies the anonymized content back to the request body using `<set-body>` with `@((string)context.Variables["piiAnonymizedContent"])`
+4. Forwards the modified request to the OpenAI backend
+
+This explicit `set-body` step ensures the redacted content is written back to the request before backend routing.
+
+**OpenAI Usage Logging Flow:**
+Before including the `openai-usage-logging` fragment, the tenant policy template sets routing metadata variables:
+- `backendId`: APIM backend identifier (e.g., `tenant-openai`)
+- `routeLocation`: Azure region for the backend (single-backend for now)
+- `routeName`: Route identifier for future intelligent routing
+- `deploymentName`: Extracted from the URL path using regex (e.g., `/deployments/gpt-4/` → `gpt-4`)
+
+These variables are passed to the `openai-usage-logging` fragment, which includes them in the Application Insights trace along with token usage data. This enables detailed cost allocation, chargeback analytics, and deployment-level monitoring even in the current single-backend setup.
 
 ### Configuration Schema Change
 
