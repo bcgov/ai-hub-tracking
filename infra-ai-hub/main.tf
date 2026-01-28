@@ -676,18 +676,16 @@ resource "azurerm_api_management_policy_fragment" "openai_streaming_metrics" {
 }
 
 # PII Anonymization fragment via Language Service
-# Disabled for now - the fragment has C# expression escaping issues with APIM parser
-# TODO: Fix the string literal escaping and re-enable
-# Global policy uses regex-based PII which is simpler and works
+# Enabled for tenants with pii_redaction_enabled = true
 resource "azurerm_api_management_policy_fragment" "pii_anonymization" {
-  count = 0 # Disabled until C# expression escaping is fixed
+  count = local.apim_config.enabled ? 1 : 0
 
   api_management_id = module.apim[0].id
   name              = "pii-anonymization"
   format            = "rawxml"
   value             = file("${path.module}/params/apim/fragments/pii-anonymization.xml")
 
-  depends_on = [module.apim]
+  depends_on = [module.apim, azurerm_api_management_named_value.pii_service_url]
 }
 
 resource "azurerm_api_management_policy_fragment" "intelligent_routing" {
@@ -742,7 +740,7 @@ resource "azurerm_api_management_api_policy" "tenant" {
     azurerm_api_management_policy_fragment.keyvault_auth,
     azurerm_api_management_policy_fragment.openai_usage_logging,
     azurerm_api_management_policy_fragment.openai_streaming_metrics,
-    # pii_anonymization disabled - uses regex-based PII in global policy instead
+    azurerm_api_management_policy_fragment.pii_anonymization,
     azurerm_api_management_policy_fragment.intelligent_routing,
     azurerm_api_management_policy_fragment.tracking_dimensions
   ]

@@ -30,58 +30,6 @@
             <value>@(context.RequestId.ToString())</value>
         </set-header>
         
-        <!-- ================================================================== -->
-        <!-- CONTENT SAFETY: PII Redaction                                     -->
-        <!-- Applied globally - tenant opt-out resolved at deploy time         -->
-        <!-- Uses regex-based detection (fast). Language Service available in  -->
-        <!-- tenant API policies via include-fragment after fragments created  -->
-        <!-- ================================================================== -->
-
-        <!-- Determine if this tenant opted out of PII redaction -->
-        <set-variable name="pii-redaction-skip" value="@{
-            var path = context.Request.Url.Path.ToLower().Trim('/');
-            var apiPath = context.Api != null ? context.Api.Path?.ToLower() : null;
-            var tenant = !string.IsNullOrEmpty(apiPath)
-                ? apiPath.Trim('/')
-                : (path.Contains("/") ? path.Split('/')[0] : path);
-%{ if length(pii_redaction_opt_out_tenants) > 0 ~}
-            var optOut = new [] { ${join(", ", [for t in pii_redaction_opt_out_tenants : "\"${t}\""])} };
-            return optOut.Contains(tenant) ? "true" : "false";
-%{ else ~}
-            return "false";
-%{ endif ~}
-        }" />
-
-        <!-- PII Redaction for OpenAI requests using regex (fast) -->
-        <!-- For Language Service-based detection, use pii-anonymization fragment in tenant policies -->
-        <choose>
-            <when condition="@(context.Request.Url.Path.ToLower().Contains("openai") && context.Variables.GetValueOrDefault<string>("pii-redaction-skip", "false") != "true")">
-                <set-variable name="pii-redaction-applied" value="true" />
-                <set-variable name="pii-redaction-method" value="regex" />
-                
-                <!-- Regex-based PII redaction (fast, catches common patterns) -->
-                <set-body>@{
-                    var body = context.Request.Body.As<string>(preserveContent: true);
-                    if (string.IsNullOrEmpty(body)) {
-                        return body;
-                    }
-                    // Email addresses
-                    body = System.Text.RegularExpressions.Regex.Replace(body, @"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "[REDACTED_EMAIL]", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                    // Phone numbers (various formats)
-                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(\+?\d{1,3}[\s\.-]?)?(\(?\d{3}\)?[\s\.-]?){1}\d{3}[\s\.-]?\d{4}\b", "[REDACTED_PHONE]");
-                    // SSN (US format)
-                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b\d{3}-\d{2}-\d{4}\b", "[REDACTED_SSN]");
-                    // Credit card numbers
-                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(?:\d[ -]*?){13,16}\b", "[REDACTED_CC]");
-                    return body;
-                }</set-body>
-            </when>
-            <otherwise>
-                <set-variable name="pii-redaction-applied" value="false" />
-                <set-variable name="pii-redaction-method" value="disabled" />
-            </otherwise>
-        </choose>
-        
         <!-- Emit LLM token metrics for AI service requests -->
         <!-- Tracks: Total Tokens, Prompt Tokens, Completion Tokens -->
         <!-- Note: azure-openai-emit-token-metric requires requests to OpenAI endpoints -->
@@ -106,30 +54,6 @@
         <!-- Add remaining tokens header for rate limit visibility -->
         <set-header name="x-ratelimit-remaining-tokens" exists-action="override">
             <value>@(context.Variables.ContainsKey("remainingTokens") ? ((int)context.Variables["remainingTokens"]).ToString() : "N/A")</value>
-        </set-header>
-        <!-- PII Redaction on responses (only if applied on inbound) -->
-        <choose>
-            <when condition="@(context.Variables.GetValueOrDefault<string>("pii-redaction-applied", "false") == "true")">
-                <set-body>@{
-                    var body = context.Response.Body.As<string>(preserveContent: true);
-                    if (string.IsNullOrEmpty(body)) {
-                        return body;
-                    }
-                    // Always use regex on responses for performance
-                    body = System.Text.RegularExpressions.Regex.Replace(body, @"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "[REDACTED_EMAIL]", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(\+?\d{1,3}[\s\.-]?)?(\(?\d{3}\)?[\s\.-]?){1}\d{3}[\s\.-]?\d{4}\b", "[REDACTED_PHONE]");
-                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b\d{3}-\d{2}-\d{4}\b", "[REDACTED_SSN]");
-                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(?:\d[ -]*?){13,16}\b", "[REDACTED_CC]");
-                    return body;
-                }</set-body>
-            </when>
-        </choose>
-        <!-- Content safety status headers for debugging -->
-        <set-header name="x-content-safety-pii" exists-action="override">
-            <value>@(context.Variables.GetValueOrDefault<string>("pii-redaction-applied", "unknown"))</value>
-        </set-header>
-        <set-header name="x-content-safety-pii-method" exists-action="override">
-            <value>@(context.Variables.GetValueOrDefault<string>("pii-redaction-method", "unknown"))</value>
         </set-header>
     </outbound>
     <on-error>

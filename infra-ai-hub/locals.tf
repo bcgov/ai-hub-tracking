@@ -83,11 +83,9 @@ locals {
     try(config.content_safety.pii_redaction_enabled, true) == true
   ]
 
-  # Load global policy from template (regex-based PII redaction)
-  # Language Service-based PII is available in tenant API policies via fragments
-  apim_global_policy_xml = templatefile("${path.module}/params/apim/global_policy.xml", {
-    pii_redaction_opt_out_tenants = local.pii_redaction_opt_out_tenants
-  })
+  # Load global policy from file
+  # PII redaction is handled by tenant API policies via pii-anonymization fragment
+  apim_global_policy_xml = file("${path.module}/params/apim/global_policy.xml")
 
   # Load tenant-specific API policies from files (if they exist)
   # Each tenant can have: params/apim/tenants/{tenant-name}/api_policy.xml
