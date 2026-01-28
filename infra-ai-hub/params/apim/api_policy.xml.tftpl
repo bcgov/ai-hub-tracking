@@ -1,12 +1,15 @@
 <policies>
     <inbound>
         <base />
+%{ if tracking_dimensions_enabled ~}
         <!-- Extract tracking dimensions from headers -->
         <include-fragment fragment-id="tracking-dimensions" />
+%{ endif ~}
         <!-- Tenant identification -->
         <set-header name="X-Tenant-Id" exists-action="override">
             <value>${tenant_name}</value>
         </set-header>
+%{ if rate_limiting_enabled ~}
 
         <!-- Token rate limiting: ${tokens_per_minute} TPM per subscription for this tenant -->
         <!-- Protects backend from token exhaustion, returns 429 when exceeded -->
@@ -17,6 +20,7 @@
             remaining-tokens-variable-name="remainingTokens"
             remaining-tokens-header-name="x-ratelimit-remaining-tokens"
             tokens-consumed-variable-name="tokensConsumed" />
+%{ endif ~}
 
         <!-- Path-based routing to appropriate backend service -->
         <choose>
@@ -98,7 +102,7 @@
     </backend>
     <outbound>
         <base />
-%{ if openai_enabled ~}
+%{ if openai_enabled && usage_logging_enabled ~}
         <!-- OpenAI usage logging -->
         <choose>
             <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;))">

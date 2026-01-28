@@ -72,15 +72,7 @@ locals {
   # Tenants that opt out of PII redaction (deploy-time decision)
   pii_redaction_opt_out_tenants = [
     for key, config in local.enabled_tenants : key
-    if try(config.content_safety.pii_redaction_enabled, true) == false
-  ]
-
-  # Tenants that use Language Service for PII (vs regex-only)
-  # Note: This is used by tenant API policies (via fragments), not global policy
-  pii_use_language_service_tenants = [
-    for key, config in local.enabled_tenants : key
-    if try(config.content_safety.pii_use_language_service, true) == true &&
-    try(config.content_safety.pii_redaction_enabled, true) == true
+    if try(config.apim_policies.pii_redaction.enabled, true) == false
   ]
 
   # Load global policy from file
@@ -92,7 +84,7 @@ locals {
   # =============================================================================
   # Policies are dynamically generated from the template based on:
   # - Enabled services (openai, document_intelligence, ai_search, storage)
-  # - Content safety settings (pii_redaction_enabled)
+  # - APIM policies config (pii_redaction, usage_logging, etc.)
   # - Token rate limits
   # 
   # This eliminates the need for static per-tenant api_policy.xml files.
@@ -103,14 +95,18 @@ locals {
       "${path.module}/params/apim/api_policy.xml.tftpl",
       {
         tenant_name       = key
-        tokens_per_minute = try(config.apim_rate_limit.tokens_per_minute, 10000)
+        tokens_per_minute = try(config.apim_policies.rate_limiting.tokens_per_minute, 10000)
         # Service routing - based on enabled services in tenant config
         openai_enabled                = try(config.openai.enabled, false)
         document_intelligence_enabled = try(config.document_intelligence.enabled, false)
         ai_search_enabled             = try(config.ai_search.enabled, false)
         storage_enabled               = try(config.storage_account.enabled, false)
-        # Content safety - PII redaction
-        pii_redaction_enabled = try(config.content_safety.pii_redaction_enabled, false) && var.shared_config.language_service.enabled
+        # APIM Policies - feature flags from apim_policies config
+        rate_limiting_enabled       = try(config.apim_policies.rate_limiting.enabled, true)
+        pii_redaction_enabled       = try(config.apim_policies.pii_redaction.enabled, true) && var.shared_config.language_service.enabled
+        usage_logging_enabled       = try(config.apim_policies.usage_logging.enabled, true)
+        streaming_metrics_enabled   = try(config.apim_policies.streaming_metrics.enabled, true)
+        tracking_dimensions_enabled = try(config.apim_policies.tracking_dimensions.enabled, true)
       }
     )
   }
