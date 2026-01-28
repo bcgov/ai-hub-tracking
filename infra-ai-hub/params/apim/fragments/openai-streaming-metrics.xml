@@ -1,0 +1,49 @@
+<fragment>
+    <!-- ================================================================== -->
+    <!-- OpenAI Streaming Token Metrics                                     -->
+    <!-- Emits token metrics specifically for streaming requests            -->
+    <!-- Uses azure-openai-emit-token-metric for accurate streaming counts  -->
+    <!-- ================================================================== -->
+    <!-- 
+        Prerequisites: Set isStream variable before including this fragment:
+        <set-variable name="isStream" value="@{
+            var stream = context.Request.Url.Query.GetValueOrDefault("stream", "");
+            if (string.IsNullOrEmpty(stream)) {
+                var body = context.Request.Body?.As<JObject>(preserveContent: true);
+                stream = body?["stream"]?.ToString() ?? "false";
+            }
+            return stream;
+        }" />
+        
+        Usage: Include in outbound section for streaming responses
+    -->
+    <choose>
+        <!-- Only emit streaming metrics when stream=true -->
+        <when condition="@(context.Variables.GetValueOrDefault<string>("isStream", "false").Equals("true", StringComparison.OrdinalIgnoreCase))">
+            <!-- Emit token metrics for streaming requests -->
+            <!-- azure-openai-emit-token-metric handles streaming token counting -->
+            <azure-openai-emit-token-metric namespace="AIHub-Streaming">
+                <dimension name="Subscription-Id" value="@(context.Subscription?.Id ?? "Portal-Admin")" />
+                <dimension name="Product-Name" value="@(context.Product?.Name ?? "Portal-Admin")" />
+                <dimension name="Tenant-Id" value="@(context.Request.Headers.GetValueOrDefault("X-Tenant-Id", "unknown"))" />
+                <dimension name="API-Id" value="@(context.Api?.Id ?? "unknown")" />
+                <dimension name="Backend-Id" value="@(context.Variables.GetValueOrDefault<string>("backendId", "unknown"))" />
+                <dimension name="Route-Location" value="@(context.Variables.GetValueOrDefault<string>("routeLocation", "unknown"))" />
+                <dimension name="Deployment-Name" value="@(context.Variables.GetValueOrDefault<string>("deploymentName", "unknown"))" />
+            </azure-openai-emit-token-metric>
+            
+            <!-- Log streaming request to App Insights -->
+            <trace source="openai-streaming" severity="information">
+                <message>OpenAI Streaming Request</message>
+                <metadata name="event-type" value="openai-streaming" />
+                <metadata name="request-id" value="@(context.RequestId.ToString())" />
+                <metadata name="timestamp" value="@(DateTime.UtcNow.ToString("o"))" />
+                <metadata name="subscription-id" value="@(context.Subscription?.Id ?? "Portal-Admin")" />
+                <metadata name="tenant-id" value="@(context.Request.Headers.GetValueOrDefault("X-Tenant-Id", "unknown"))" />
+                <metadata name="backend-id" value="@(context.Variables.GetValueOrDefault<string>("backendId", "unknown"))" />
+                <metadata name="deployment-name" value="@(context.Variables.GetValueOrDefault<string>("deploymentName", "unknown"))" />
+                <metadata name="is-streaming" value="true" />
+            </trace>
+        </when>
+    </choose>
+</fragment>

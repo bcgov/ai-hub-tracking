@@ -1,0 +1,110 @@
+<fragment>
+    <!-- ================================================================== -->
+    <!-- Request Tracking Dimensions                                        -->
+    <!-- Extracts session, user, and app IDs from request headers           -->
+    <!-- for analytics, debugging, and chargeback                           -->
+    <!-- ================================================================== -->
+    <!-- 
+        Supported Headers (clients can send these for tracking):
+        - X-Session-Id: Unique session identifier
+        - X-End-User-Id: End user identifier (hashed/anonymized recommended)
+        - X-App-Id: Application identifier
+        - X-Correlation-Id: External correlation ID
+        - X-Request-Source: Source system identifier
+        
+        Output variables:
+        - sessionId: Session identifier
+        - endUserId: End user identifier  
+        - appId: Application identifier
+        - correlationId: Correlation ID (uses request ID if not provided)
+        - requestSource: Source system
+        
+        Usage: Include at the start of inbound processing
+    -->
+    
+    <!-- Extract session ID from header or generate one -->
+    <set-variable name="sessionId" value="@{
+        var sessionId = context.Request.Headers.GetValueOrDefault("X-Session-Id", "");
+        if (string.IsNullOrEmpty(sessionId)) {
+            // Check alternative header names
+            sessionId = context.Request.Headers.GetValueOrDefault("x-session-id", "");
+        }
+        if (string.IsNullOrEmpty(sessionId)) {
+            sessionId = context.Request.Headers.GetValueOrDefault("Session-Id", "");
+        }
+        return string.IsNullOrEmpty(sessionId) ? "N/A" : sessionId;
+    }" />
+    
+    <!-- Extract end user ID (should be hashed/anonymized by client) -->
+    <set-variable name="endUserId" value="@{
+        var userId = context.Request.Headers.GetValueOrDefault("X-End-User-Id", "");
+        if (string.IsNullOrEmpty(userId)) {
+            userId = context.Request.Headers.GetValueOrDefault("x-end-user-id", "");
+        }
+        if (string.IsNullOrEmpty(userId)) {
+            userId = context.Request.Headers.GetValueOrDefault("X-User-Id", "");
+        }
+        return string.IsNullOrEmpty(userId) ? "N/A" : userId;
+    }" />
+    
+    <!-- Extract application ID -->
+    <set-variable name="appId" value="@{
+        var appId = context.Request.Headers.GetValueOrDefault("X-App-Id", "");
+        if (string.IsNullOrEmpty(appId)) {
+            appId = context.Request.Headers.GetValueOrDefault("x-app-id", "");
+        }
+        if (string.IsNullOrEmpty(appId)) {
+            // Fall back to subscription name as app identifier
+            appId = context.Subscription?.Name ?? "N/A";
+        }
+        return appId;
+    }" />
+    
+    <!-- Extract or generate correlation ID -->
+    <set-variable name="correlationId" value="@{
+        var correlationId = context.Request.Headers.GetValueOrDefault("X-Correlation-Id", "");
+        if (string.IsNullOrEmpty(correlationId)) {
+            correlationId = context.Request.Headers.GetValueOrDefault("x-correlation-id", "");
+        }
+        if (string.IsNullOrEmpty(correlationId)) {
+            correlationId = context.Request.Headers.GetValueOrDefault("x-ms-correlation-request-id", "");
+        }
+        if (string.IsNullOrEmpty(correlationId)) {
+            // Use APIM request ID as correlation ID
+            correlationId = context.RequestId.ToString();
+        }
+        return correlationId;
+    }" />
+    
+    <!-- Extract request source -->
+    <set-variable name="requestSource" value="@{
+        var source = context.Request.Headers.GetValueOrDefault("X-Request-Source", "");
+        if (string.IsNullOrEmpty(source)) {
+            source = context.Request.Headers.GetValueOrDefault("x-request-source", "");
+        }
+        if (string.IsNullOrEmpty(source)) {
+            source = context.Request.Headers.GetValueOrDefault("User-Agent", "unknown");
+            // Truncate user agent to reasonable length
+            if (source.Length > 50) {
+                source = source.Substring(0, 50) + "...";
+            }
+        }
+        return source;
+    }" />
+    
+    <!-- Set correlation ID header for downstream services -->
+    <set-header name="x-ms-correlation-request-id" exists-action="skip">
+        <value>@((string)context.Variables["correlationId"])</value>
+    </set-header>
+    
+    <!-- Log tracking dimensions -->
+    <trace source="request-tracking" severity="verbose">
+        <message>Request Tracking Dimensions</message>
+        <metadata name="session-id" value="@((string)context.Variables["sessionId"])" />
+        <metadata name="end-user-id" value="@((string)context.Variables["endUserId"])" />
+        <metadata name="app-id" value="@((string)context.Variables["appId"])" />
+        <metadata name="correlation-id" value="@((string)context.Variables["correlationId"])" />
+        <metadata name="request-source" value="@((string)context.Variables["requestSource"])" />
+        <metadata name="tenant-id" value="@(context.Request.Headers.GetValueOrDefault("X-Tenant-Id", "unknown"))" />
+    </trace>
+</fragment>

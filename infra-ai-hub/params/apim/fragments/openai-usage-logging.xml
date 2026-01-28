@@ -1,0 +1,75 @@
+<fragment>
+    <!-- ================================================================== -->
+    <!-- OpenAI Usage Logging to Application Insights                       -->
+    <!-- Logs detailed token usage, routing info, and metadata for          -->
+    <!-- cost allocation, chargeback, and analytics                         -->
+    <!-- ================================================================== -->
+    <!-- 
+        Prerequisites: Set these variables before including this fragment:
+        - responseBody: The response body as JObject (for non-streaming)
+        - backendId: The backend service ID used
+        - routeLocation: The Azure region of the backend
+        - routeName: The name of the route used
+        - deploymentName: The OpenAI deployment name
+        
+        Usage: Include in outbound section after setting responseBody:
+        <set-variable name="responseBody" value="@(context.Response.Body.As<JObject>(preserveContent: true))" />
+        <include-fragment fragment-id="openai-usage-logging" />
+    -->
+    <choose>
+        <when condition="@(context.Response.StatusCode == 200 && context.Variables.ContainsKey("responseBody"))">
+            <trace source="openai-usage" severity="information">
+                <message>OpenAI Token Usage</message>
+                <metadata name="event-type" value="openai-usage" />
+                <metadata name="request-id" value="@(context.RequestId.ToString())" />
+                <metadata name="timestamp" value="@(DateTime.UtcNow.ToString("o"))" />
+                <!-- Subscription & Product Info -->
+                <metadata name="subscription-id" value="@(context.Subscription?.Id ?? "Portal-Admin")" />
+                <metadata name="subscription-name" value="@(context.Subscription?.Name ?? "Portal-Admin")" />
+                <metadata name="product-name" value="@(context.Product?.Name ?? "Portal-Admin")" />
+                <!-- Tenant Info -->
+                <metadata name="tenant-id" value="@(context.Request.Headers.GetValueOrDefault("X-Tenant-Id", "unknown"))" />
+                <metadata name="api-id" value="@(context.Api?.Id ?? "unknown")" />
+                <metadata name="api-name" value="@(context.Api?.Name ?? "unknown")" />
+                <!-- Operation Info -->
+                <metadata name="operation-id" value="@(context.Operation?.Id ?? "unknown")" />
+                <metadata name="operation-name" value="@(context.Operation?.Name ?? "unknown")" />
+                <!-- Routing Info -->
+                <metadata name="backend-id" value="@(context.Variables.GetValueOrDefault<string>("backendId", "unknown"))" />
+                <metadata name="route-location" value="@(context.Variables.GetValueOrDefault<string>("routeLocation", "unknown"))" />
+                <metadata name="route-name" value="@(context.Variables.GetValueOrDefault<string>("routeName", "unknown"))" />
+                <metadata name="deployment-name" value="@(context.Variables.GetValueOrDefault<string>("deploymentName", "unknown"))" />
+                <!-- Gateway Info -->
+                <metadata name="gateway-name" value="@(context.Deployment?.ServiceName ?? "unknown")" />
+                <metadata name="gateway-region" value="@(context.Deployment?.Region ?? "unknown")" />
+                <!-- Client Info -->
+                <metadata name="client-ip" value="@(context.Request.IpAddress)" />
+                <!-- Model & Token Usage -->
+                <metadata name="model" value="@{
+                    var responseBody = (JObject)context.Variables["responseBody"];
+                    return responseBody?["model"]?.ToString() ?? "unknown";
+                }" />
+                <metadata name="target-service" value="@{
+                    var responseBody = (JObject)context.Variables["responseBody"];
+                    return responseBody?["object"]?.ToString() ?? "unknown";
+                }" />
+                <metadata name="prompt-tokens" value="@{
+                    var responseBody = (JObject)context.Variables["responseBody"];
+                    return responseBody?["usage"]?["prompt_tokens"]?.Value<int>().ToString() ?? "0";
+                }" />
+                <metadata name="completion-tokens" value="@{
+                    var responseBody = (JObject)context.Variables["responseBody"];
+                    return responseBody?["usage"]?["completion_tokens"]?.Value<int>().ToString() ?? "0";
+                }" />
+                <metadata name="total-tokens" value="@{
+                    var responseBody = (JObject)context.Variables["responseBody"];
+                    return responseBody?["usage"]?["total_tokens"]?.Value<int>().ToString() ?? "0";
+                }" />
+                <!-- Session/User tracking (if provided by client) -->
+                <metadata name="session-id" value="@(context.Request.Headers.GetValueOrDefault("X-Session-Id", "N/A"))" />
+                <metadata name="end-user-id" value="@(context.Request.Headers.GetValueOrDefault("X-End-User-Id", "N/A"))" />
+                <metadata name="app-id" value="@(context.Request.Headers.GetValueOrDefault("X-App-Id", "N/A"))" />
+            </trace>
+        </when>
+    </choose>
+</fragment>

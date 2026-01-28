@@ -58,6 +58,24 @@ output "log_analytics_workspace_id" {
 }
 
 # =============================================================================
+# LANGUAGE SERVICE OUTPUTS (shared PII detection)
+# =============================================================================
+output "language_service_id" {
+  description = "Resource ID of the Language Service (for PII detection)"
+  value       = var.shared_config.language_service.enabled ? azurerm_cognitive_account.language_service[0].id : null
+}
+
+output "language_service_name" {
+  description = "Name of the Language Service"
+  value       = var.shared_config.language_service.enabled ? azurerm_cognitive_account.language_service[0].name : null
+}
+
+output "language_service_endpoint" {
+  description = "Endpoint of the Language Service"
+  value       = var.shared_config.language_service.enabled ? azurerm_cognitive_account.language_service[0].endpoint : null
+}
+
+# =============================================================================
 # APIM OUTPUTS
 # =============================================================================
 output "apim_gateway_url" {

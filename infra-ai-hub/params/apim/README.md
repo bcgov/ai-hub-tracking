@@ -87,12 +87,53 @@ Each route uses `include-fragment` to include the appropriate authentication:
 
 Reusable fragments in `fragments/` directory enable code reuse across tenant policies:
 
+### Authentication Fragments
+
 | Fragment | Resource | Resource Scope | Use Case |
 |----------|----------|-----------------|----------|
 | `cognitive-services-auth.xml` | OpenAI, Document Intelligence, AI Search | `https://cognitiveservices.azure.com` | Language models, document processing, semantic search |
 | `storage-auth.xml` | Azure Blob Storage | `https://storage.azure.com/` | Blob uploads/downloads |
 | `cosmosdb-auth.xml` | Cosmos DB | `https://cosmos.azure.com` | NoSQL document database |
 | `keyvault-auth.xml` | Azure Key Vault | `https://vault.azure.net` | Secrets management |
+
+### Usage Logging & Metrics Fragments
+
+| Fragment | Purpose | Use Case |
+|----------|---------|----------|
+| `openai-usage-logging.xml` | Logs detailed OpenAI usage to Application Insights | Cost allocation, chargeback, audit trails |
+| `openai-streaming-metrics.xml` | Emits token metrics for streaming requests | Accurate streaming token counting, real-time monitoring |
+| `tracking-dimensions.xml` | Extracts session/user/app IDs from headers | Per-user analytics, debugging, chargeback |
+
+These fragments log:
+- Token usage (prompt, completion, total)
+- Routing info (backend, region, deployment)
+- Subscription/product context
+- Session/user tracking (via headers)
+
+### Content Safety Fragments
+
+| Fragment | Purpose | Use Case |
+|----------|---------|----------|
+| `pii-anonymization.xml` | Azure Language Service PII detection | Enterprise PII redaction with ML-based detection |
+
+PII anonymization features:
+- Calls Azure Language Service API for ML-based entity detection
+- Configurable confidence threshold (default: 0.8)
+- Entity category exclusions (e.g., skip Organization names)
+- Custom regex patterns for domain-specific PII
+- Falls back to regex-only when Language Service unavailable
+
+### Routing Fragments
+
+| Fragment | Purpose | Use Case |
+|----------|---------|----------|
+| `intelligent-routing.xml` | Priority-based backend selection | Load balancing, failover, throttle avoidance |
+
+Intelligent routing features:
+- Priority-based backend selection
+- Throttling awareness (avoids throttled backends)
+- Load balancing across same-priority backends
+- Automatic failover to secondary regions
 
 ### Fragment Pattern
 
@@ -115,6 +156,9 @@ Use `<include-fragment>` in tenant API policies:
 <policies>
     <inbound>
         <base />
+        <!-- Include tracking dimensions for analytics -->
+        <include-fragment fragment-id="tracking-dimensions" />
+        
         <when condition="@(context.Request.Path.Contains('/storage'))">
             <include-fragment fragment-id="storage-auth" />
         </when>

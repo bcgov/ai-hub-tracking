@@ -190,6 +190,13 @@ variable "shared_config" {
       sku                   = optional(string, "standard")
       public_network_access = optional(string, "Disabled")
     }), { enabled = false })
+
+    # Language Service settings (for PII detection via Azure AI Language)
+    language_service = optional(object({
+      enabled                       = bool
+      sku                           = optional(string, "S")
+      public_network_access_enabled = optional(bool, false)
+    }), { enabled = false })
   })
 }
 
@@ -284,6 +291,17 @@ variable "tenants" {
       }))
     })
 
+    # Speech Services configuration
+    speech_services = optional(object({
+      enabled = bool
+      sku     = optional(string, "S0")
+      diagnostics = optional(object({
+        log_groups        = optional(list(string), [])
+        log_categories    = optional(list(string), [])
+        metric_categories = optional(list(string), [])
+      }))
+    }), { enabled = false })
+
     # OpenAI configuration
     openai = object({
       enabled = bool
@@ -326,8 +344,26 @@ variable "tenants" {
     # These are enabled by default at the global level; set to false to opt-out
     content_safety = optional(object({
       # Redact PII (emails, phone numbers, addresses, etc.) from requests/responses
+      # When enabled, uses Azure Language Service for ML-based PII detection
+      # Falls back to regex patterns if Language Service is unavailable
       pii_redaction_enabled = optional(bool, true)
-    }), { pii_redaction_enabled = true })
+      # Minimum confidence score for PII detection (0.0 to 1.0)
+      pii_confidence_threshold = optional(number, 0.8)
+      # Comma-separated list of PII categories to exclude from redaction
+      # e.g., "Organization,Quantity" - see Azure Language Service docs
+      pii_entity_exclusions = optional(string, "")
+      # Language for PII detection (ISO 639-1 code)
+      pii_detection_language = optional(string, "en")
+      # Use Azure Language Service API (true) or regex-only (false)
+      # Regex-only is faster but less accurate
+      pii_use_language_service = optional(bool, true)
+      }), {
+      pii_redaction_enabled    = true
+      pii_confidence_threshold = 0.8
+      pii_entity_exclusions    = ""
+      pii_detection_language   = "en"
+      pii_use_language_service = true
+    })
 
     # Per-tenant APIM Diagnostics configuration (optional)
     # Overrides default diagnostic settings for this tenant's API

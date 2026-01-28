@@ -111,6 +111,16 @@ shared_config = {
     sku                   = "standard"
     public_network_access = "Disabled"
   }
+
+  # ---------------------------------------------------------------------------
+  # Language Service (for PII Detection)
+  # ---------------------------------------------------------------------------
+  # Azure AI Language Service for enterprise PII detection via APIM policies.
+  language_service = {
+    enabled                       = true
+    sku                           = "S"
+    public_network_access_enabled = false
+  }
 }
 
 # =============================================================================

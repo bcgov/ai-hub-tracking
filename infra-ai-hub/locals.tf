@@ -75,9 +75,17 @@ locals {
     if try(config.content_safety.pii_redaction_enabled, true) == false
   ]
 
+  # Tenants that use Language Service for PII (vs regex-only)
+  pii_use_language_service_tenants = [
+    for key, config in local.enabled_tenants : key
+    if try(config.content_safety.pii_use_language_service, true) == true &&
+    try(config.content_safety.pii_redaction_enabled, true) == true
+  ]
+
   # Load global policy from template (PII redaction)
   apim_global_policy_xml = templatefile("${path.module}/params/apim/global_policy.xml", {
-    pii_redaction_opt_out_tenants = local.pii_redaction_opt_out_tenants
+    pii_redaction_opt_out_tenants    = local.pii_redaction_opt_out_tenants
+    pii_use_language_service_tenants = local.pii_use_language_service_tenants
   })
 
   # Load tenant-specific API policies from files (if they exist)
@@ -127,13 +135,17 @@ locals {
     for key, policy in local.tenant_api_policies : key => {
       has_policy = policy != null
       # Check which service endpoints are referenced in the policy
-      references_openai  = policy != null ? can(regex("\\{\\{[^}]*-openai-endpoint\\}\\}", policy)) : false
-      references_docint  = policy != null ? can(regex("\\{\\{[^}]*-docint-endpoint\\}\\}", policy)) : false
-      references_storage = policy != null ? can(regex("\\{\\{[^}]*-storage-endpoint\\}\\}", policy)) : false
+      references_openai    = policy != null ? can(regex("\\{\\{[^}]*-openai-endpoint\\}\\}", policy)) : false
+      references_docint    = policy != null ? can(regex("\\{\\{[^}]*-docint-endpoint\\}\\}", policy)) : false
+      references_storage   = policy != null ? can(regex("\\{\\{[^}]*-storage-endpoint\\}\\}", policy)) : false
+      references_ai_search = policy != null ? can(regex("\\{\\{[^}]*-ai-search-endpoint\\}\\}", policy)) : false
+      references_cosmos    = policy != null ? can(regex("\\{\\{[^}]*-cosmos-endpoint\\}\\}", policy)) : false
       # Check if the referenced services are enabled for this tenant
-      openai_enabled  = lookup(local.enabled_tenants[key].openai, "enabled", false)
-      docint_enabled  = lookup(local.enabled_tenants[key].document_intelligence, "enabled", false)
-      storage_enabled = lookup(local.enabled_tenants[key].storage_account, "enabled", false)
+      openai_enabled    = lookup(local.enabled_tenants[key].openai, "enabled", false)
+      docint_enabled    = lookup(local.enabled_tenants[key].document_intelligence, "enabled", false)
+      storage_enabled   = lookup(local.enabled_tenants[key].storage_account, "enabled", false)
+      ai_search_enabled = lookup(local.enabled_tenants[key].ai_search, "enabled", false)
+      cosmos_enabled    = lookup(local.enabled_tenants[key].cosmos_db, "enabled", false)
     } if contains(keys(local.enabled_tenants), key)
   }
 
@@ -144,13 +156,17 @@ locals {
       missing = compact([
         v.references_openai && !v.openai_enabled ? "openai" : "",
         v.references_docint && !v.docint_enabled ? "document_intelligence" : "",
-        v.references_storage && !v.storage_enabled ? "storage_account" : ""
+        v.references_storage && !v.storage_enabled ? "storage_account" : "",
+        v.references_ai_search && !v.ai_search_enabled ? "ai_search" : "",
+        v.references_cosmos && !v.cosmos_enabled ? "cosmos_db" : ""
       ])
     }
     if length(compact([
       v.references_openai && !v.openai_enabled ? "openai" : "",
       v.references_docint && !v.docint_enabled ? "document_intelligence" : "",
-      v.references_storage && !v.storage_enabled ? "storage_account" : ""
+      v.references_storage && !v.storage_enabled ? "storage_account" : "",
+      v.references_ai_search && !v.ai_search_enabled ? "ai_search" : "",
+      v.references_cosmos && !v.cosmos_enabled ? "cosmos_db" : ""
     ])) > 0
   ]
 
@@ -203,7 +219,7 @@ locals {
   # APIM requires explicit HTTP methods - wildcard (*) doesn't match all requests
   # =============================================================================
   # HTTP methods needed for OpenAI/Azure AI APIs
-  api_methods = ["POST", "GET", "PUT", "DELETE", "PATCH"]
+  api_methods = ["POST", "GET", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"]
 
   # Create a map of tenant + method combinations
   tenant_api_operations = {

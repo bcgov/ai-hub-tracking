@@ -1,13 +1,39 @@
 <policies>
     <inbound>
+        <!-- ================================================================== -->
+        <!-- SUBSCRIPTION KEY NORMALIZATION                                    -->
+        <!-- Allows clients to use api-key or x-api-key headers                -->
+        <!-- in addition to the standard Ocp-Apim-Subscription-Key             -->
+        <!-- ================================================================== -->
+        <choose>
+            <!-- If Ocp-Apim-Subscription-Key is not set, check for alternatives -->
+            <when condition="@(!context.Request.Headers.ContainsKey("Ocp-Apim-Subscription-Key") || string.IsNullOrEmpty(context.Request.Headers.GetValueOrDefault("Ocp-Apim-Subscription-Key", "")))">
+                <choose>
+                    <!-- Try api-key header first -->
+                    <when condition="@(context.Request.Headers.ContainsKey("api-key") && !string.IsNullOrEmpty(context.Request.Headers.GetValueOrDefault("api-key", "")))">
+                        <set-header name="Ocp-Apim-Subscription-Key" exists-action="override">
+                            <value>@(context.Request.Headers.GetValueOrDefault("api-key", ""))</value>
+                        </set-header>
+                    </when>
+                    <!-- Try x-api-key header -->
+                    <when condition="@(context.Request.Headers.ContainsKey("x-api-key") && !string.IsNullOrEmpty(context.Request.Headers.GetValueOrDefault("x-api-key", "")))">
+                        <set-header name="Ocp-Apim-Subscription-Key" exists-action="override">
+                            <value>@(context.Request.Headers.GetValueOrDefault("x-api-key", ""))</value>
+                        </set-header>
+                    </when>
+                </choose>
+            </when>
+        </choose>
+
         <!-- Set correlation ID for request tracing -->
         <set-header name="x-ms-correlation-request-id" exists-action="skip">
             <value>@(context.RequestId.ToString())</value>
         </set-header>
         
         <!-- ================================================================== -->
-        <!-- CONTENT SAFETY: PII Redaction                                   -->
-        <!-- Applied globally - tenant opt-out resolved at deploy time        -->
+        <!-- CONTENT SAFETY: PII Redaction                                     -->
+        <!-- Applied globally - tenant opt-out resolved at deploy time         -->
+        <!-- Supports: Regex-only (fast) or Language Service API (accurate)    -->
         <!-- ================================================================== -->
 
         <!-- Determine if this tenant opted out of PII redaction -->
@@ -25,25 +51,104 @@
 %{ endif ~}
         }" />
 
-        <!-- PII Redaction: Mask sensitive data in LLM requests/responses -->
-        <!-- Skipped if tenant opted out in params/{env}/tenants.tfvars -->
+        <!-- Determine if this tenant uses Language Service for PII detection -->
+        <set-variable name="pii-use-language-service" value="@{
+            var path = context.Request.Url.Path.ToLower().Trim('/');
+            var apiPath = context.Api != null ? context.Api.Path?.ToLower() : null;
+            var tenant = !string.IsNullOrEmpty(apiPath)
+                ? apiPath.Trim('/')
+                : (path.Contains("/") ? path.Split('/')[0] : path);
+%{ if length(pii_use_language_service_tenants) > 0 ~}
+            var useLangService = new [] { ${join(", ", [for t in pii_use_language_service_tenants : "\"${t}\""])} };
+            return useLangService.Contains(tenant) ? "true" : "false";
+%{ else ~}
+            return "false";
+%{ endif ~}
+        }" />
+
+        <!-- PII Redaction for OpenAI requests -->
+        <!-- Uses either Language Service API (accurate) or regex (fast) -->
         <choose>
             <when condition="@(context.Request.Url.Path.ToLower().Contains("openai") && context.Variables.GetValueOrDefault<string>("pii-redaction-skip", "false") != "true")">
                 <set-variable name="pii-redaction-applied" value="true" />
-                <set-body>@{
-                    var body = context.Request.Body.As<string>(preserveContent: true);
-                    if (string.IsNullOrEmpty(body)) {
-                        return body;
-                    }
-                    body = System.Text.RegularExpressions.Regex.Replace(body, @"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "[REDACTED_EMAIL]", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(\+?\d{1,3}[\s\.-]?)?(\(?\d{3}\)?[\s\.-]?){1}\d{3}[\s\.-]?\d{4}\b", "[REDACTED_PHONE]");
-                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b\d{3}-\d{2}-\d{4}\b", "[REDACTED_SSN]");
-                    body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(?:\d[ -]*?){13,16}\b", "[REDACTED_CC]");
-                    return body;
-                }</set-body>
+                
+                <!-- Language Service PII Detection (when enabled and configured) -->
+                <!-- Note: Requires pii-service-url named value to be configured -->
+                <choose>
+                    <when condition="@(context.Variables.GetValueOrDefault<string>("pii-use-language-service", "false") == "true")">
+                        <!-- Extract message content for PII analysis -->
+                        <set-variable name="piiInputContent" value="@{
+                            try {
+                                var body = context.Request.Body.As<JObject>(preserveContent: true);
+                                var messages = body?["messages"] as JArray;
+                                if (messages != null) {
+                                    var contentParts = new List<string>();
+                                    foreach (var msg in messages) {
+                                        var content = msg?["content"]?.ToString();
+                                        if (!string.IsNullOrEmpty(content)) {
+                                            contentParts.Add(content);
+                                        }
+                                    }
+                                    return string.Join(" ", contentParts);
+                                }
+                                return body?.ToString() ?? "";
+                            } catch {
+                                return context.Request.Body.As<string>(preserveContent: true) ?? "";
+                            }
+                        }" />
+                        <set-variable name="piiAnonymizationEnabled" value="true" />
+                        <set-variable name="piiConfidenceThreshold" value="0.8" />
+                        
+                        <!-- Include PII anonymization fragment -->
+                        <include-fragment fragment-id="pii-anonymization" />
+                        
+                        <!-- Update request body with anonymized content -->
+                        <set-body>@{
+                            var anonymizedContent = context.Variables.GetValueOrDefault<string>("piiAnonymizedContent", "");
+                            if (string.IsNullOrEmpty(anonymizedContent)) {
+                                return context.Request.Body.As<string>(preserveContent: true);
+                            }
+                            try {
+                                var body = context.Request.Body.As<JObject>(preserveContent: true);
+                                var messages = body?["messages"] as JArray;
+                                if (messages != null && messages.Count > 0) {
+                                    // Replace content in the last user message
+                                    for (int i = messages.Count - 1; i >= 0; i--) {
+                                        if (messages[i]?["role"]?.ToString() == "user") {
+                                            messages[i]["content"] = anonymizedContent;
+                                            break;
+                                        }
+                                    }
+                                    body["messages"] = messages;
+                                }
+                                return body.ToString();
+                            } catch {
+                                return context.Request.Body.As<string>(preserveContent: true);
+                            }
+                        }</set-body>
+                        
+                        <set-variable name="pii-redaction-method" value="language-service" />
+                    </when>
+                    <otherwise>
+                        <!-- Fallback: Regex-based PII redaction (fast but less accurate) -->
+                        <set-body>@{
+                            var body = context.Request.Body.As<string>(preserveContent: true);
+                            if (string.IsNullOrEmpty(body)) {
+                                return body;
+                            }
+                            body = System.Text.RegularExpressions.Regex.Replace(body, @"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "[REDACTED_EMAIL]", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                            body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(\+?\d{1,3}[\s\.-]?)?(\(?\d{3}\)?[\s\.-]?){1}\d{3}[\s\.-]?\d{4}\b", "[REDACTED_PHONE]");
+                            body = System.Text.RegularExpressions.Regex.Replace(body, @"\b\d{3}-\d{2}-\d{4}\b", "[REDACTED_SSN]");
+                            body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(?:\d[ -]*?){13,16}\b", "[REDACTED_CC]");
+                            return body;
+                        }</set-body>
+                        <set-variable name="pii-redaction-method" value="regex" />
+                    </otherwise>
+                </choose>
             </when>
             <otherwise>
                 <set-variable name="pii-redaction-applied" value="false" />
+                <set-variable name="pii-redaction-method" value="disabled" />
             </otherwise>
         </choose>
         
@@ -75,6 +180,7 @@
                     if (string.IsNullOrEmpty(body)) {
                         return body;
                     }
+                    // Always use regex on responses for performance
                     body = System.Text.RegularExpressions.Regex.Replace(body, @"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", "[REDACTED_EMAIL]", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
                     body = System.Text.RegularExpressions.Regex.Replace(body, @"\b(\+?\d{1,3}[\s\.-]?)?(\(?\d{3}\)?[\s\.-]?){1}\d{3}[\s\.-]?\d{4}\b", "[REDACTED_PHONE]");
                     body = System.Text.RegularExpressions.Regex.Replace(body, @"\b\d{3}-\d{2}-\d{4}\b", "[REDACTED_SSN]");
@@ -87,26 +193,66 @@
         <set-header name="x-content-safety-pii" exists-action="override">
             <value>@(context.Variables.GetValueOrDefault<string>("pii-redaction-applied", "unknown"))</value>
         </set-header>
+        <set-header name="x-content-safety-pii-method" exists-action="override">
+            <value>@(context.Variables.GetValueOrDefault<string>("pii-redaction-method", "unknown"))</value>
+        </set-header>
     </outbound>
     <on-error>
-        <!-- Return consistent error format with correlation ID -->
-        <return-response>
-            <set-status code="@(context.Response.StatusCode)" reason="@(context.Response.StatusReason)" />
-            <set-header name="x-ms-request-id" exists-action="override">
-                <value>@(context.RequestId.ToString())</value>
-            </set-header>
-            <set-header name="Content-Type" exists-action="override">
-                <value>application/json</value>
-            </set-header>
-            <set-body>@{
-                return new JObject(
-                    new JProperty("error", new JObject(
-                        new JProperty("code", context.Response.StatusCode.ToString()),
-                        new JProperty("message", context.Response.StatusReason),
-                        new JProperty("requestId", context.RequestId.ToString())
-                    ))
-                ).ToString();
-            }</set-body>
-        </return-response>
+        <!-- ================================================================== -->
+        <!-- THROTTLING HANDLING                                               -->
+        <!-- Preserve Retry-After headers from backend for 429 responses       -->
+        <!-- Helps clients implement proper backoff strategies                 -->
+        <!-- ================================================================== -->
+        <choose>
+            <when condition="@(context.Response.StatusCode == 429)">
+                <return-response>
+                    <set-status code="429" reason="Too Many Requests" />
+                    <set-header name="x-ms-request-id" exists-action="override">
+                        <value>@(context.RequestId.ToString())</value>
+                    </set-header>
+                    <set-header name="Retry-After" exists-action="override">
+                        <value>@(context.Response.Headers.GetValueOrDefault("Retry-After", "30"))</value>
+                    </set-header>
+                    <set-header name="x-ratelimit-remaining-tokens" exists-action="override">
+                        <value>@(context.Response.Headers.GetValueOrDefault("x-ratelimit-remaining-tokens", "0"))</value>
+                    </set-header>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@{
+                        var retryAfter = context.Response.Headers.GetValueOrDefault("Retry-After", "30");
+                        return new JObject(
+                            new JProperty("error", new JObject(
+                                new JProperty("code", "429"),
+                                new JProperty("message", "Too Many Requests - Rate limit exceeded"),
+                                new JProperty("retryAfter", retryAfter),
+                                new JProperty("requestId", context.RequestId.ToString())
+                            ))
+                        ).ToString();
+                    }</set-body>
+                </return-response>
+            </when>
+            <otherwise>
+                <!-- Return consistent error format with correlation ID -->
+                <return-response>
+                    <set-status code="@(context.Response.StatusCode)" reason="@(context.Response.StatusReason)" />
+                    <set-header name="x-ms-request-id" exists-action="override">
+                        <value>@(context.RequestId.ToString())</value>
+                    </set-header>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@{
+                        return new JObject(
+                            new JProperty("error", new JObject(
+                                new JProperty("code", context.Response.StatusCode.ToString()),
+                                new JProperty("message", context.Response.StatusReason),
+                                new JProperty("requestId", context.RequestId.ToString())
+                            ))
+                        ).ToString();
+                    }</set-body>
+                </return-response>
+            </otherwise>
+        </choose>
     </on-error>
 </policies>

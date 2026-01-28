@@ -35,7 +35,7 @@ tenant = {
   }
 
   ai_search = {
-    enabled            = false
+    enabled            = true
     sku                = "basic"
     replica_count      = 1
     partition_count    = 1
@@ -44,7 +44,7 @@ tenant = {
   }
 
   cosmos_db = {
-    enabled                      = false
+    enabled                      = true
     offer_type                   = "Standard"
     kind                         = "GlobalDocumentDB"
     consistency_level            = "Session"
@@ -53,6 +53,8 @@ tenant = {
     geo_redundant_backup_enabled = false
     automatic_failover_enabled   = false
     total_throughput_limit       = 1000
+    database_name                = "default"
+    container_name               = "cosmosContainer"
   }
 
   document_intelligence = {
@@ -64,6 +66,11 @@ tenant = {
       log_categories    = []
       metric_categories = ["AllMetrics"]
     }
+  }
+
+  # Speech Services - disabled by default, enable for text-to-speech/speech-to-text capabilities
+  speech_services = {
+    enabled = false
   }
 
   log_analytics = {

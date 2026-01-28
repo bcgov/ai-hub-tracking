@@ -58,6 +58,11 @@ tenant = {
     }
   }
 
+  # Speech Services - disabled by default, enable for text-to-speech/speech-to-text capabilities
+  speech_services = {
+    enabled = false
+  }
+
   log_analytics = {
     enabled        = true
     retention_days = 30

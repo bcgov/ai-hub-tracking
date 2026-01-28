@@ -6,6 +6,24 @@
             <value>sdpr-invoice-automation</value>
         </set-header>
 
+        <!-- ================================================================== -->
+        <!-- TRACKING DIMENSIONS                                               -->
+        <!-- Extract session, user, and app IDs for analytics                 -->
+        <!-- ================================================================== -->
+        <include-fragment fragment-id="tracking-dimensions" />
+
+        <!-- Detect streaming mode for OpenAI requests -->
+        <set-variable name="isStream" value="@{
+            var stream = context.Request.Url.Query.GetValueOrDefault("stream", "");
+            if (string.IsNullOrEmpty(stream)) {
+                try {
+                    var body = context.Request.Body?.As<JObject>(preserveContent: true);
+                    stream = body?["stream"]?.ToString() ?? "false";
+                } catch { stream = "false"; }
+            }
+            return stream.ToLower();
+        }" />
+
         <!-- Token rate limiting: 10,000 TPM per subscription for this tenant -->
         <!-- Protects backend from token exhaustion, returns 429 when exceeded -->
         <llm-token-limit
@@ -21,6 +39,10 @@
             <!-- Document Intelligence requests: match documentintelligence, formrecognizer, or documentModels in path -->
             <when condition="@(context.Request.Url.Path.ToLower().Contains("documentintelligence") || context.Request.Url.Path.ToLower().Contains("formrecognizer") || context.Request.Url.Path.ToLower().Contains("documentmodels"))">
                 <set-backend-service backend-id="sdpr-invoice-automation-docint" />
+                <set-variable name="backendId" value="sdpr-invoice-automation-docint" />
+                <set-variable name="routeLocation" value="canadacentral" />
+                <set-variable name="routeName" value="document-intelligence" />
+                <set-variable name="deploymentName" value="docint" />
                 <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
                 <set-header name="Authorization" exists-action="override">
                     <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
@@ -29,7 +51,36 @@
             </when>
             <!-- OpenAI requests: /openai/* -->
             <when condition="@(context.Request.Url.Path.ToLower().Contains("openai"))">
+                <!-- ============================================================ -->
+                <!-- INTELLIGENT ROUTING (when multiple backends available)       -->
+                <!-- Uncomment below to enable priority-based routing             -->
+                <!-- ============================================================ -->
+                <!--
+                <set-variable name="routes" value="@{
+                    return new JArray(
+                        new JObject {
+                            [\"name\"] = \"canadacentral-primary\",
+                            [\"backend-id\"] = \"sdpr-invoice-automation-openai\",
+                            [\"location\"] = \"canadacentral\",
+                            [\"priority\"] = 1,
+                            [\"isThrottling\"] = false
+                        }
+                    );
+                }" />
+                <include-fragment fragment-id="intelligent-routing" />
+                <set-backend-service backend-id="@((string)context.Variables[\"backendId\"])" />
+                -->
+                
+                <!-- Single backend configuration (current) -->
                 <set-backend-service backend-id="sdpr-invoice-automation-openai" />
+                <set-variable name="backendId" value="sdpr-invoice-automation-openai" />
+                <set-variable name="routeLocation" value="canadacentral" />
+                <set-variable name="routeName" value="openai" />
+                <set-variable name="deploymentName" value="@{
+                    var path = context.Request.Url.Path;
+                    var match = System.Text.RegularExpressions.Regex.Match(path, @"/deployments/([^/]+)/");
+                    return match.Success ? match.Groups[1].Value : "unknown";
+                }" />
                 <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
                 <set-header name="Authorization" exists-action="override">
                     <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
@@ -53,6 +104,22 @@
     </backend>
     <outbound>
         <base />
+        <!-- OpenAI usage logging and streaming metrics -->
+        <choose>
+            <when condition="@(context.Request.Url.Path.ToLower().Contains("openai") && context.Response.StatusCode == 200)">
+                <!-- For non-streaming: capture response body and log usage -->
+                <choose>
+                    <when condition="@(context.Variables.GetValueOrDefault<string>("isStream", "false") != "true")">
+                        <set-variable name="responseBody" value="@(context.Response.Body.As<JObject>(preserveContent: true))" />
+                        <include-fragment fragment-id="openai-usage-logging" />
+                    </when>
+                    <otherwise>
+                        <!-- Streaming: use streaming metrics fragment -->
+                        <include-fragment fragment-id="openai-streaming-metrics" />
+                    </otherwise>
+                </choose>
+            </when>
+        </choose>
     </outbound>
     <on-error>
         <base />

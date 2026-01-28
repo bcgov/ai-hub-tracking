@@ -1,0 +1,97 @@
+<fragment>
+    <!-- ================================================================== -->
+    <!-- Intelligent Backend Routing                                        -->
+    <!-- Priority-based routing with throttling awareness                   -->
+    <!-- Automatically avoids throttled backends and load balances          -->
+    <!-- ================================================================== -->
+    <!-- 
+        Prerequisites - Set these variables before including this fragment:
+        - routes: JArray of route objects with structure:
+          [
+            {
+              "name": "canadacentral-primary",
+              "backend-id": "tenant-openai-canadacentral",
+              "location": "canadacentral",
+              "priority": 1,
+              "isThrottling": false
+            },
+            {
+              "name": "eastus-secondary", 
+              "backend-id": "tenant-openai-eastus",
+              "location": "eastus",
+              "priority": 2,
+              "isThrottling": false
+            }
+          ]
+        
+        Output variables:
+        - selectedRouteIndex: Index of selected route
+        - backendId: Selected backend ID
+        - routeLocation: Selected route location
+        - routeName: Selected route name
+        
+        Usage: Include after setting up routes array, before set-backend-service
+    -->
+    
+    <!-- Select optimal route based on priority and throttling status -->
+    <set-variable name="selectedRouteIndex" value="@{
+        JArray routes = (JArray)context.Variables["routes"];
+        int selectedPriority = Int32.MaxValue;
+        List<int> availableRoutesIndexes = new List<int>();
+        
+        // First pass: find lowest priority among non-throttling routes
+        for (int i = 0; i < routes.Count; i++) {
+            JObject route = (JObject)routes[i];
+            bool isThrottling = route.Value<bool>("isThrottling");
+            
+            if (!isThrottling) {
+                int routePriority = route.Value<int>("priority");
+                if (routePriority < selectedPriority) {
+                    selectedPriority = routePriority;
+                    availableRoutesIndexes.Clear();
+                    availableRoutesIndexes.Add(i);
+                } else if (routePriority == selectedPriority) {
+                    // Multiple routes with same priority - add for load balancing
+                    availableRoutesIndexes.Add(i);
+                }
+            }
+        }
+        
+        if (availableRoutesIndexes.Count > 0) {
+            // Random selection among routes with same priority (load balancing)
+            return availableRoutesIndexes[new Random().Next(0, availableRoutesIndexes.Count)];
+        } else {
+            // All routes throttling - fall back to first route
+            return 0;
+        }
+    }" />
+    
+    <!-- Extract route details from selected route -->
+    <set-variable name="backendId" value="@{
+        JArray routes = (JArray)context.Variables["routes"];
+        int index = (int)context.Variables["selectedRouteIndex"];
+        return ((JObject)routes[index]).Value<string>("backend-id");
+    }" />
+    
+    <set-variable name="routeLocation" value="@{
+        JArray routes = (JArray)context.Variables["routes"];
+        int index = (int)context.Variables["selectedRouteIndex"];
+        return ((JObject)routes[index]).Value<string>("location");
+    }" />
+    
+    <set-variable name="routeName" value="@{
+        JArray routes = (JArray)context.Variables["routes"];
+        int index = (int)context.Variables["selectedRouteIndex"];
+        return ((JObject)routes[index]).Value<string>("name");
+    }" />
+    
+    <!-- Log route selection for debugging -->
+    <trace source="route-selection" severity="verbose">
+        <message>Backend Route Selected</message>
+        <metadata name="selected-backend" value="@((string)context.Variables["backendId"])" />
+        <metadata name="selected-location" value="@((string)context.Variables["routeLocation"])" />
+        <metadata name="selected-route" value="@((string)context.Variables["routeName"])" />
+        <metadata name="route-index" value="@(((int)context.Variables["selectedRouteIndex"]).ToString())" />
+        <metadata name="total-routes" value="@(((JArray)context.Variables["routes"]).Count.ToString())" />
+    </trace>
+</fragment>

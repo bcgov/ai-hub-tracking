@@ -159,4 +159,17 @@ shared_config = {
     # Public access for dev debugging; disable in prod
     public_network_access = "Disabled"
   }
+
+  # ---------------------------------------------------------------------------
+  # Language Service (for PII Detection)
+  # ---------------------------------------------------------------------------
+  # Azure AI Language Service for enterprise PII detection via APIM policies.
+  # Used by pii-anonymization.xml fragment to detect and redact sensitive data.
+  language_service = {
+    enabled = true
+    sku     = "S" # Options: F0 (free), S (standard)
+
+    # Keep disabled - access via private endpoint only
+    public_network_access_enabled = false
+  }
 }
