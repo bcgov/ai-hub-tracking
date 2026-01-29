@@ -51,7 +51,15 @@
     <li>A tenant request arrives at APIM.</li>
     <li>The tenant API policy (generated from <code>api_policy.xml.tftpl</code>) routes the request to the correct backend based on path (for example <code>openai</code>, <code>documentintelligence</code>, <code>ai-search</code>, <code>storage</code>).</li>
     <li>For OpenAI requests, when PII redaction is enabled, the policy extracts the request body as text and sets it to <code>piiInputContent</code>.</li>
-    <li>The policy includes the <code>pii-anonymization</code> policy fragment.</li>
+    <li>The tenant policy sets configuration variables from the tenant's <code>apim_policies.pii_redaction</code> settings:
+        <ul>
+            <li><code>piiExcludedCategories</code> - Categories to exclude from detection</li>
+            <li><code>piiDetectionLanguage</code> - Language code for detection accuracy</li>
+            <li><code>piiPreserveJsonStructure</code> - Whether to restore structural JSON values</li>
+            <li><code>piiStructuralWhitelist</code> - Additional values to preserve</li>
+        </ul>
+    </li>
+    <li>The policy includes the <code>pii-anonymization</code> policy fragment, which uses these configuration variables.</li>
     <li>The fragment:
         <ul>
             <li>Obtains an AAD token via <code>&lt;authentication-managed-identity&gt;</code> for <code>https://cognitiveservices.azure.com</code>.</li>
@@ -88,7 +96,19 @@
 <pre><code># Example tenant policy flags
 apim_policies {
   pii_redaction {
-    enabled = true
+    enabled                 = true
+
+    # Optional: Exclude specific PII categories from detection
+    excluded_categories     = ["PhoneNumber", "Address"]
+
+    # Optional: Language for detection (default: "en")
+    detection_language      = "en"
+
+    # Optional: Preserve JSON structure (default: true)
+    preserve_json_structure = true
+
+    # Optional: Additional values to preserve (whitelist)
+    structural_whitelist    = ["customRole", "metadata"]
   }
   rate_limiting {
     enabled = true
@@ -105,6 +125,51 @@ apim_policies {
   }
 }
 </code></pre>
+
+<h4>PII Redaction Configuration Options</h4>
+
+<table>
+    <thead>
+        <tr>
+            <th>Option</th>
+            <th>Type</th>
+            <th>Default</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>enabled</code></td>
+            <td>boolean</td>
+            <td>false</td>
+            <td>Enable or disable PII redaction for this tenant</td>
+        </tr>
+        <tr>
+            <td><code>excluded_categories</code></td>
+            <td>list(string)</td>
+            <td>[]</td>
+            <td>PII categories to exclude from detection (e.g., ["PhoneNumber", "Address"]). See <a href="https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/concepts/entity-categories">Microsoft Learn</a> for available categories.</td>
+        </tr>
+        <tr>
+            <td><code>detection_language</code></td>
+            <td>string</td>
+            <td>"en"</td>
+            <td>Language code for PII detection. Controls detection accuracy for language-specific entities.</td>
+        </tr>
+        <tr>
+            <td><code>preserve_json_structure</code></td>
+            <td>boolean</td>
+            <td>true</td>
+            <td>Restore structural JSON values after redaction to prevent breaking JSON structure (e.g., "user", "system", "assistant" roles in OpenAI messages)</td>
+        </tr>
+        <tr>
+            <td><code>structural_whitelist</code></td>
+            <td>list(string)</td>
+            <td>[]</td>
+            <td>Additional quoted string values to preserve beyond default whitelist (OpenAI roles). Use for custom structural fields that shouldn't be redacted.</td>
+        </tr>
+    </tbody>
+</table>
 
 <div class="card card-gold">
     <h3 style="margin-top: 0;">Flexible Tenant Control</h3>
@@ -230,7 +295,28 @@ apim_policies {
 <details>
     <summary><strong>Can I customize which entity types are redacted?</strong></summary>
     <div class="accordion-content">
-        <p>The current implementation redacts all detected PII entity types. Customization of entity type filtering can be configured in the <code>pii-anonymization.xml</code> fragment by modifying the Language Service API request parameters.</p>
+        <p>Yes. Use the <code>excluded_categories</code> setting in <code>apim_policies.pii_redaction</code> to specify PII categories that should not be detected or redacted. For example:</p>
+        <pre><code>pii_redaction {
+  enabled = true
+  excluded_categories = ["PhoneNumber", "Address"]
+}</code></pre>
+        <p>See <a href="https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/concepts/entity-categories">Microsoft Learn: PII Entity Categories</a> for the full list of available categories.</p>
+    </div>
+</details>
+
+<details>
+    <summary><strong>How does "preserve JSON structure" work?</strong></summary>
+    <div class="accordion-content">
+        <p>The <code>preserve_json_structure</code> feature (enabled by default) uses a heuristic post-processing step to restore certain quoted string values that were masked by Language Service but are actually structural JSON fields rather than PII.</p>
+        <p><strong>How it works:</strong></p>
+        <ul>
+            <li>After Language Service redacts the content (replacing PII with <code>#####</code> patterns), the fragment identifies masked values that match known structural patterns</li>
+            <li>Default whitelist includes OpenAI message roles: <code>"user"</code>, <code>"system"</code>, <code>"assistant"</code>, <code>"function"</code>, <code>"tool"</code></li>
+            <li>Custom values can be added via <code>structural_whitelist</code> configuration</li>
+            <li>Restoration matches based on the length of the <code>####</code> pattern (e.g., <code>"####"</code> could restore to <code>"user"</code>)</li>
+        </ul>
+        <p><strong>Example:</strong> If Language Service masks <code>"role": "user"</code> as <code>"role": "####"</code>, the post-processing step restores it to <code>"role": "user"</code> because <code>"user"</code> is in the default whitelist.</p>
+        <p><strong>Caution:</strong> This is a heuristic approach based on pattern matching. It reduces false positives on structural fields but could theoretically restore a value that happens to match both the pattern length and whitelist entry. For strict PII protection requirements, consider setting <code>preserve_json_structure = false</code>.</p>
     </div>
 </details>
 

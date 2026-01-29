@@ -29,21 +29,27 @@ params/apim/
 
 The global policy is applied at the APIM service level and provides base functionality for all API calls:
 
-### Subscription Key Normalization
+### Subscription Key Header (SDK Compatibility)
 
-Supports multiple header formats for API authentication:
-- `Ocp-Apim-Subscription-Key` - Standard APIM subscription key header (primary)
-- `api-key` - Alternative header name (falls back if primary missing)
-- `x-api-key` - Common REST API header convention (lowest priority)
+**Primary Header: `api-key`**
 
-The policy checks headers in order and normalizes to `Ocp-Apim-Subscription-Key` for internal routing:
-```
-if Ocp-Apim-Subscription-Key is empty:
-  use api-key header value
-  else use x-api-key header value
-```
+Tenant APIs are configured to use `api-key` as the subscription key header name and query parameter name (instead of APIM defaults like `Ocp-Apim-Subscription-Key` or `subscription-key`).
 
-This allows clients to use their preferred header format without code changes.
+**Why `api-key`:**
+- Compatibility with OpenAI SDK and other AI service client libraries that expect `api-key` header
+- Simplifies integration for developers familiar with Azure OpenAI SDK patterns
+- Reduces confusion about which header to use
+
+**Supported authentication methods:**
+- Header: `api-key: <subscription-key>`
+- Query parameter: `?api-key=<subscription-key>`
+
+**Fallback support:**
+The global policy still normalizes alternative header formats for backward compatibility:
+- `Ocp-Apim-Subscription-Key` - Standard APIM header (legacy)
+- `x-api-key` - Common REST API convention
+
+Clients should use `api-key` for consistency with Azure OpenAI SDK conventions.
 
 ### Request Correlation & Tracing
 
@@ -186,6 +192,64 @@ Each route uses `include-fragment` to include the appropriate authentication:
 - `X-Tenant-Id`: Identifies the tenant for downstream services and logging
 - `x-ratelimit-remaining-tokens`: Shows tokens remaining in rate limit window (when rate limiting enabled)
 - `x-tokens-consumed`: Shows tokens used in the request (when usage logging enabled)
+
+### Document Intelligence Async Operations (Operation-Location Header Rewrite)
+
+For Document Intelligence async operations that return `202 Accepted` responses, APIM automatically rewrites the `Operation-Location` header to route subsequent polling requests back through the APIM gateway.
+
+**Background:**
+- Document Intelligence async operations (e.g., document analysis, custom model training) return a `202 Accepted` status with an `Operation-Location` header
+- The header contains a polling URL to check operation status: `https://{resource}.cognitiveservices.azure.com/documentintelligence/...`
+- Clients (SDKs, custom code) automatically poll this URL until the operation completes
+
+**Problem without rewrite:**
+- If clients poll the direct `*.cognitiveservices.azure.com` URL, they bypass APIM
+- This breaks:
+  - Managed identity authentication (clients would need direct credentials)
+  - Consistent network routing (private endpoint access)
+  - APIM logging and monitoring
+  - Rate limiting and policy enforcement
+
+**APIM Solution:**
+The tenant policy template includes an `<outbound>` policy that rewrites the `Operation-Location` header when present:
+- Detects `Operation-Location` header in backend responses
+- Replaces the backend hostname (`{resource}.cognitiveservices.azure.com`) with the APIM gateway host
+- Preserves the request path (e.g., `/documentintelligence/documentModels/...`)
+- Inserts the tenant API path prefix (e.g., `/{tenant}`)
+
+**Example:**
+```
+Backend returns:
+  Operation-Location: https://tenant-docint.cognitiveservices.azure.com/documentintelligence/documentModels/prebuilt-read/analyzeResults/abc123
+
+APIM rewrites to:
+  Operation-Location: https://apim-gateway.azure-api.net/tenant/documentintelligence/documentModels/prebuilt-read/analyzeResults/abc123
+```
+
+**Client behavior:**
+- Clients continue polling the rewritten `Operation-Location` URL
+- All polling requests flow through APIM with the same authentication and policies
+- Transparent to the client - SDK polling logic works unchanged
+
+**Implementation:**
+```xml
+<outbound>
+    <base />
+    <!-- Rewrite Operation-Location header for Document Intelligence async operations -->
+    <choose>
+        <when condition="@(context.Response.Headers.ContainsKey("Operation-Location"))">
+            <set-header name="Operation-Location" exists-action="override">
+                <value>@{
+                    var originalLocation = context.Response.Headers.GetValueOrDefault("Operation-Location", "");
+                    var backendUrl = new Uri(originalLocation);
+                    var apimUrl = context.Request.OriginalUrl;
+                    return $"{apimUrl.Scheme}://{apimUrl.Host}/{tenant}{backendUrl.PathAndQuery}";
+                }</value>
+            </set-header>
+        </when>
+    </choose>
+</outbound>
+```
 
 ## Policy Fragments
 
@@ -363,6 +427,38 @@ These diagnostics enable monitoring of PII detection effectiveness, Language Ser
 - If PII anonymization is disabled, the fragment passes through the original `piiInputContent`
 - If the Language Service call fails or the response can't be parsed, the fragment returns the original input text (best-effort redaction)
 
+**Advanced PII Options:**
+
+The fragment supports additional configuration variables set by the tenant policy template based on `apim_policies.pii_redaction` settings:
+
+1. **`piiExcludedCategories`** (string, comma-separated list)
+   - Maps to Language Service `excludePiiCategories` parameter
+   - When non-empty, excludes specific PII categories from detection
+   - Example categories: `"PhoneNumber,Address,Email"`
+   - See [Microsoft Learn: PII Entity Categories](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/concepts/entity-categories)
+   - If empty or not set, all categories are detected
+
+2. **`piiDetectionLanguage`** (string, default `"en"`)
+   - Controls the `documents[0].language` field in the Language Service request
+   - Affects detection accuracy for language-specific PII entities
+   - Examples: `"en"`, `"fr"`, `"es"`
+
+3. **`piiPreserveJsonStructure`** (boolean, default `true`)
+   - Enables post-processing restoration of structural JSON values after redaction
+   - Prevents Language Service from masking common structural strings (e.g., OpenAI message roles like `"user"`, `"system"`, `"assistant"`)
+   - Works by pattern-matching masked values (e.g., `"####"` → `"user"`) against a whitelist
+
+4. **`piiStructuralWhitelist`** (string, comma-separated list)
+   - Additional quoted string values to preserve beyond the default whitelist
+   - Used in conjunction with `piiPreserveJsonStructure`
+   - Example: `"customRole,metadata,specialField"`
+   - Values are restored if they match the length of masked `#####` patterns
+
+**Request Structure Changes:**
+- When `piiExcludedCategories` is non-empty, the fragment conditionally includes the `excludePiiCategories` parameter in the Language Service API request body
+- The `documents[0].language` field is set from `piiDetectionLanguage`
+- Post-processing (if `piiPreserveJsonStructure` is true) restores whitelisted values after Language Service returns the redacted text
+
 ### Template Generation Mechanics: `api_policy.xml.tftpl`
 
 Tenant API policies are generated dynamically from `api_policy.xml.tftpl` using tenant configuration:
@@ -372,9 +468,14 @@ Tenant API policies are generated dynamically from `api_policy.xml.tftpl` using 
 **PII Redaction Flow (OpenAI Requests):**
 When PII redaction is enabled (`apim_policies.pii_redaction.enabled` is true AND `shared_config.language_service.enabled` is true), the tenant policy template:
 1. Extracts the request body as text and sets it to the `piiInputContent` variable
-2. Includes the `pii-anonymization` fragment, which calls Language Service and sets `piiAnonymizedContent`
-3. Explicitly applies the anonymized content back to the request body using `<set-body>` with `@((string)context.Variables["piiAnonymizedContent"])`
-4. Forwards the modified request to the OpenAI backend
+2. Sets PII configuration variables from tenant settings:
+   - `piiExcludedCategories` (from `apim_policies.pii_redaction.excluded_categories`)
+   - `piiDetectionLanguage` (from `apim_policies.pii_redaction.detection_language`, default `"en"`)
+   - `piiPreserveJsonStructure` (from `apim_policies.pii_redaction.preserve_json_structure`, default `true`)
+   - `piiStructuralWhitelist` (from `apim_policies.pii_redaction.structural_whitelist`)
+3. Includes the `pii-anonymization` fragment, which uses these variables to call Language Service and sets `piiAnonymizedContent`
+4. Explicitly applies the anonymized content back to the request body using `<set-body>` with `@((string)context.Variables["piiAnonymizedContent"])`
+5. Forwards the modified request to the OpenAI backend
 
 This explicit `set-body` step ensures the redacted content is written back to the request before backend routing.
 
@@ -580,7 +681,12 @@ Use the APIM Test tab in Azure Portal or call via API:
 # Test token rate limiting (should return remaining tokens header)
 curl -X POST "https://{apim-gateway}/tenant/openai/chat/completions" \
   -H "Content-Type: application/json" \
-  -H "Ocp-Apim-Subscription-Key: {key}" \
+  -H "api-key: {subscription-key}" \
+  -d '{"model": "gpt-4", "messages": [{"role": "user", "content": "Hello"}]}'
+
+# Alternative: Use query parameter
+curl -X POST "https://{apim-gateway}/tenant/openai/chat/completions?api-key={subscription-key}" \
+  -H "Content-Type: application/json" \
   -d '{"model": "gpt-4", "messages": [{"role": "user", "content": "Hello"}]}'
 
 # Check response headers for:
