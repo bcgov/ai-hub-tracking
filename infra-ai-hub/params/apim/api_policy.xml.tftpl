@@ -104,6 +104,29 @@
     </backend>
     <outbound>
         <base />
+%{ if document_intelligence_enabled ~}
+        <!-- Rewrite Operation-Location header to use APIM gateway URL instead of direct backend URL -->
+        <!-- This is critical for async operations (202 responses) to ensure clients poll through APIM -->
+        <choose>
+            <when condition="@(context.Response.Headers.ContainsKey(&quot;Operation-Location&quot;))">
+                <set-header name="Operation-Location" exists-action="override">
+                    <value>@{
+                        var operationLocation = context.Response.Headers.GetValueOrDefault("Operation-Location", "");
+                        if (!string.IsNullOrEmpty(operationLocation))
+                        {
+                            // Replace the direct backend URL with APIM gateway URL
+                            // Pattern: https://{backend}.cognitiveservices.azure.com/{path}
+                            // Replace with: https://{apim-gateway}/{tenant-api}/{path}
+                            var backendPattern = new System.Text.RegularExpressions.Regex(@"https://[^/]+\.cognitiveservices\.azure\.com/");
+                            var apimGateway = context.Request.OriginalUrl.Scheme + "://" + context.Request.OriginalUrl.Host + "/" + context.Api.Path.TrimStart('/') + "/";
+                            return backendPattern.Replace(operationLocation, apimGateway);
+                        }
+                        return operationLocation;
+                    }</value>
+                </set-header>
+            </when>
+        </choose>
+%{ endif ~}
 %{ if openai_enabled && usage_logging_enabled ~}
         <!-- OpenAI usage logging -->
         <choose>
