@@ -45,6 +45,11 @@
                 <!-- PII Anonymization via Azure Language Service -->
                 <set-variable name="piiAnonymizationEnabled" value="true" />
                 <set-variable name="piiInputContent" value="@(context.Request.Body.As&lt;string&gt;(preserveContent: true))" />
+                <!-- PII Configuration: excluded categories and structural preservation -->
+                <set-variable name="piiExcludedCategories" value="${jsonencode(pii_excluded_categories)}" />
+                <set-variable name="piiPreserveJsonStructure" value="${pii_preserve_json_structure}" />
+                <set-variable name="piiStructuralWhitelist" value="${jsonencode(pii_structural_whitelist)}" />
+                <set-variable name="piiDetectionLanguage" value="${pii_detection_language}" />
                 <include-fragment fragment-id="pii-anonymization" />
                 <!-- Apply the anonymized content back to the request body -->
                 <set-body>@((string)context.Variables["piiAnonymizedContent"])</set-body>

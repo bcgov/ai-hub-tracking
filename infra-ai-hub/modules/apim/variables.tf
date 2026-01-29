@@ -119,6 +119,12 @@ variable "apis" {
       content_format = string # swagger-json, swagger-link-json, openapi, openapi+json, openapi-link, wadl-xml, wadl-link-json, wsdl, wsdl-link
       content_value  = string
     }))
+    # Subscription key parameter names - customize header/query param names for API keys
+    # Enables SDK compatibility (e.g., Azure OpenAI SDK uses 'api-key' header)
+    subscription_key_parameter_names = optional(object({
+      header = string
+      query  = string
+    }))
   }))
   default = {}
 }

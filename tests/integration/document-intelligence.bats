@@ -21,7 +21,7 @@ docint_accessible() {
     
     local status
     status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${url}" \
-        -H "Ocp-Apim-Subscription-Key: ${subscription_key}" \
+        -H "api-key: ${subscription_key}" \
         -H "Content-Type: application/json" \
         --max-time 10 \
         -d '{"base64Source":"dGVzdA=="}' 2>/dev/null)
@@ -76,7 +76,7 @@ EOF
     # Capture headers with -i flag
     local full_response
     full_response=$(curl -s -i -X POST "${url}" \
-        -H "Ocp-Apim-Subscription-Key: ${subscription_key}" \
+        -H "api-key: ${subscription_key}" \
         -H "Content-Type: application/json" \
         -d "${body}" 2>/dev/null)
     
@@ -107,7 +107,7 @@ EOF
     # Capture headers with -i flag
     local full_response
     full_response=$(curl -s -i -X POST "${url}" \
-        -H "Ocp-Apim-Subscription-Key: ${subscription_key}" \
+        -H "api-key: ${subscription_key}" \
         -H "Content-Type: application/json" \
         -d "${body}" 2>/dev/null)
     
@@ -161,7 +161,7 @@ EOF
     # Capture headers with -i flag
     local full_response
     full_response=$(curl -s -i -X POST "${url}" \
-        -H "Ocp-Apim-Subscription-Key: ${subscription_key}" \
+        -H "api-key: ${subscription_key}" \
         -H "Content-Type: application/json" \
         -d "${body}" 2>/dev/null)
     
