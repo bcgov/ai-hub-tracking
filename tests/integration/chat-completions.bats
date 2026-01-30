@@ -88,7 +88,7 @@ EOF
     
     local response
     response=$(curl -s -i -X POST "${url}" \
-        -H "Ocp-Apim-Subscription-Key: ${subscription_key}" \
+        -H "api-key: ${subscription_key}" \
         -H "Content-Type: application/json" \
         --proxy "${HTTPS_PROXY:-}" \
         --max-time 60 \
@@ -161,7 +161,7 @@ EOF
     local url="${APIM_GATEWAY_URL}/wlrs-water-form-assistant/openai/deployments/${DEFAULT_MODEL}/chat/completions?api-version=${OPENAI_API_VERSION}"
     
     response=$(curl -s -w "\n%{http_code}" -X POST "${url}" \
-        -H "Ocp-Apim-Subscription-Key: invalid-key-12345" \
+        -H "api-key: invalid-key-12345" \
         -H "Content-Type: application/json" \
         --proxy "${HTTPS_PROXY:-}" \
         -d "${body}")
@@ -193,7 +193,7 @@ EOF
     local url="${APIM_GATEWAY_URL}/invalid-tenant/openai/deployments/${DEFAULT_MODEL}/chat/completions?api-version=${OPENAI_API_VERSION}"
     
     response=$(curl -s -w "\n%{http_code}" -X POST "${url}" \
-        -H "Ocp-Apim-Subscription-Key: ${subscription_key}" \
+        -H "api-key: ${subscription_key}" \
         -H "Content-Type: application/json" \
         --proxy "${HTTPS_PROXY:-}" \
         -d "${body}")

@@ -107,6 +107,11 @@ locals {
         usage_logging_enabled       = try(config.apim_policies.usage_logging.enabled, true)
         streaming_metrics_enabled   = try(config.apim_policies.streaming_metrics.enabled, true)
         tracking_dimensions_enabled = try(config.apim_policies.tracking_dimensions.enabled, true)
+        # PII Redaction advanced options
+        pii_excluded_categories     = try(config.apim_policies.pii_redaction.excluded_categories, [])
+        pii_preserve_json_structure = try(config.apim_policies.pii_redaction.preserve_json_structure, true)
+        pii_structural_whitelist    = try(config.apim_policies.pii_redaction.structural_whitelist, [])
+        pii_detection_language      = try(config.apim_policies.pii_redaction.detection_language, "en")
       }
     )
   }
@@ -176,6 +181,11 @@ locals {
       revision              = "1"
       service_url           = null # Set via policy routing
       import                = null
+      # Use 'api-key' header for SDK compatibility (Azure OpenAI SDK, Azure AI Search SDK)
+      subscription_key_parameter_names = {
+        header = "api-key"
+        query  = "api-key"
+      }
     }
   }
 

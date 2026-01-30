@@ -21,7 +21,7 @@ docint_accessible() {
     
     local status
     status=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${url}" \
-        -H "Ocp-Apim-Subscription-Key: ${subscription_key}" \
+        -H "api-key: ${subscription_key}" \
         -H "Content-Type: application/json" \
         --max-time 10 \
         -d '{"base64Source":"dGVzdA=="}' 2>/dev/null)
@@ -76,7 +76,7 @@ EOF
     # Capture headers with -i flag
     local full_response
     full_response=$(curl -s -i -X POST "${url}" \
-        -H "Ocp-Apim-Subscription-Key: ${subscription_key}" \
+        -H "api-key: ${subscription_key}" \
         -H "Content-Type: application/json" \
         -d "${body}" 2>/dev/null)
     
@@ -89,6 +89,111 @@ EOF
     local status
     status=$(echo "${full_response}" | head -1 | grep -o '[0-9]\{3\}')
     [[ "${status}" == "200" ]]
+}
+
+@test "WLRS: Operation-Location header uses APIM gateway URL not backend URL" {
+    skip_if_no_key "wlrs-water-form-assistant"
+    if ! docint_accessible "wlrs-water-form-assistant"; then
+        skip "Document Intelligence backend not accessible"
+    fi
+    
+    local subscription_key
+    subscription_key=$(get_subscription_key "wlrs-water-form-assistant")
+    
+    local body='{"base64Source": "'"${SAMPLE_PDF_BASE64}"'"}'
+    
+    local url="${APIM_GATEWAY_URL}/wlrs-water-form-assistant/documentintelligence/documentModels/prebuilt-layout:analyze?api-version=${DOCINT_API_VERSION}"
+    
+    # Capture headers with -i flag
+    local full_response
+    full_response=$(curl -s -i -X POST "${url}" \
+        -H "api-key: ${subscription_key}" \
+        -H "Content-Type: application/json" \
+        -d "${body}" 2>/dev/null)
+    
+    # Extract Operation-Location header value
+    local operation_location
+    operation_location=$(echo "${full_response}" | grep -i "operation-location" | head -1 | sed 's/^[^:]*: //' | tr -d '\r\n')
+    
+    # If no operation-location header, skip (might be a 200 direct response)
+    if [[ -z "${operation_location}" ]]; then
+        local status
+        status=$(echo "${full_response}" | head -1 | grep -o '[0-9]\{3\}')
+        if [[ "${status}" == "200" ]]; then
+            skip "Direct 200 response - no async operation"
+        fi
+        fail "Expected Operation-Location header in 202 response"
+    fi
+    
+    # Verify Operation-Location contains APIM gateway URL, not backend URL
+    # Should contain: ai-services-hub-test-apim.azure-api.net (APIM gateway)
+    # Should NOT contain: .cognitiveservices.azure.com (direct backend)
+    
+    if echo "${operation_location}" | grep -q "cognitiveservices.azure.com"; then
+        fail "Operation-Location contains direct backend URL: ${operation_location}"
+    fi
+    
+    if ! echo "${operation_location}" | grep -q "azure-api.net"; then
+        fail "Operation-Location does not contain APIM gateway URL: ${operation_location}"
+    fi
+    
+    # Verify it contains the tenant path
+    if ! echo "${operation_location}" | grep -q "wlrs-water-form-assistant"; then
+        fail "Operation-Location missing tenant path: ${operation_location}"
+    fi
+    
+    return 0
+}
+
+@test "SDPR: Operation-Location header uses APIM gateway URL not backend URL" {
+    skip_if_no_key "sdpr-invoice-automation"
+    if ! docint_accessible "sdpr-invoice-automation"; then
+        skip "Document Intelligence backend not accessible"
+    fi
+    
+    local subscription_key
+    subscription_key=$(get_subscription_key "sdpr-invoice-automation")
+    
+    local body='{"base64Source": "'"${SAMPLE_PDF_BASE64}"'"}'
+    
+    local url="${APIM_GATEWAY_URL}/sdpr-invoice-automation/documentintelligence/documentModels/prebuilt-invoice:analyze?api-version=${DOCINT_API_VERSION}"
+    
+    # Capture headers with -i flag
+    local full_response
+    full_response=$(curl -s -i -X POST "${url}" \
+        -H "api-key: ${subscription_key}" \
+        -H "Content-Type: application/json" \
+        -d "${body}" 2>/dev/null)
+    
+    # Extract Operation-Location header value
+    local operation_location
+    operation_location=$(echo "${full_response}" | grep -i "operation-location" | head -1 | sed 's/^[^:]*: //' | tr -d '\r\n')
+    
+    # If no operation-location header, skip (might be a 200 direct response)
+    if [[ -z "${operation_location}" ]]; then
+        local status
+        status=$(echo "${full_response}" | head -1 | grep -o '[0-9]\{3\}')
+        if [[ "${status}" == "200" ]]; then
+            skip "Direct 200 response - no async operation"
+        fi
+        fail "Expected Operation-Location header in 202 response"
+    fi
+    
+    # Verify Operation-Location contains APIM gateway URL, not backend URL
+    if echo "${operation_location}" | grep -q "cognitiveservices.azure.com"; then
+        fail "Operation-Location contains direct backend URL: ${operation_location}"
+    fi
+    
+    if ! echo "${operation_location}" | grep -q "azure-api.net"; then
+        fail "Operation-Location does not contain APIM gateway URL: ${operation_location}"
+    fi
+    
+    # Verify it contains the tenant path
+    if ! echo "${operation_location}" | grep -q "sdpr-invoice-automation"; then
+        fail "Operation-Location missing tenant path: ${operation_location}"
+    fi
+    
+    return 0
 }
 
 @test "WLRS: Document analysis accepts JSON input" {
@@ -210,6 +315,9 @@ EOF
 
 @test "Document analysis with invalid model returns 404" {
     skip_if_no_key "wlrs-water-form-assistant"
+    if ! docint_accessible "wlrs-water-form-assistant"; then
+        skip "Document Intelligence backend not accessible"
+    fi
     
     local body='{"base64Source": "'"${SAMPLE_PDF_BASE64}"'"}'
     

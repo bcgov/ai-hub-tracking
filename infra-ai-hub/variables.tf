@@ -359,9 +359,29 @@ variable "tenants" {
       pii_redaction = optional(object({
         enabled              = optional(bool, true)
         confidence_threshold = optional(number, 0.8)
-        entity_exclusions    = optional(string, "")
+        entity_exclusions    = optional(string, "") # Deprecated: use excluded_categories
         detection_language   = optional(string, "en")
-      }), { enabled = true, confidence_threshold = 0.8, entity_exclusions = "", detection_language = "en" })
+        # Option 2: Exclude certain PII categories from detection
+        # Available categories: Person, PersonType, Location, Organization, Email, PhoneNumber,
+        #                      Address, DateTime, Quantity, IPAddress, URL, SSN, CreditCardNumber, etc.
+        # Example: ["Person", "PersonType", "Organization"]
+        excluded_categories = optional(list(string), [])
+        # Option 3: Preserve JSON structure fields (restore after PII anonymization)
+        # Set to true to automatically restore common OpenAI structural values
+        # like "user", "system", "assistant" that may be incorrectly detected as PII
+        preserve_json_structure = optional(bool, true)
+        # Custom structural values to preserve (in addition to defaults)
+        # Default preserves: user, system, assistant, function, tool, developer
+        structural_whitelist = optional(list(string), [])
+        }), {
+        enabled                 = true
+        confidence_threshold    = 0.8
+        entity_exclusions       = ""
+        detection_language      = "en"
+        excluded_categories     = []
+        preserve_json_structure = true
+        structural_whitelist    = []
+      })
 
       # ---- Usage Logging ----
       # OpenAI token usage logging to App Insights
@@ -389,7 +409,7 @@ variable "tenants" {
 
       }), {
       rate_limiting       = { enabled = true, tokens_per_minute = 10000 }
-      pii_redaction       = { enabled = true, confidence_threshold = 0.8, entity_exclusions = "", detection_language = "en" }
+      pii_redaction       = { enabled = true, confidence_threshold = 0.8, entity_exclusions = "", detection_language = "en", excluded_categories = [], preserve_json_structure = true, structural_whitelist = [] }
       usage_logging       = { enabled = true }
       streaming_metrics   = { enabled = true }
       tracking_dimensions = { enabled = true }

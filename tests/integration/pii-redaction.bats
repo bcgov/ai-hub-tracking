@@ -195,7 +195,7 @@ TEST_CREDIT_CARD="4111-1111-1111-1111"
     local url="${APIM_GATEWAY_URL}/sdpr-invoice-automation/openai/deployments/${DEFAULT_MODEL}/chat/completions?api-version=${OPENAI_API_VERSION}"
     
     response=$(curl -s -w "\n%{http_code}" -X POST "${url}" \
-        -H "Ocp-Apim-Subscription-Key: ${wlrs_key}" \
+        -H "api-key: ${wlrs_key}" \
         -H "Content-Type: application/json" \
         -d "${body}")
     parse_response "${response}"
@@ -214,7 +214,7 @@ TEST_CREDIT_CARD="4111-1111-1111-1111"
     local url="${APIM_GATEWAY_URL}/wlrs-water-form-assistant/openai/deployments/${DEFAULT_MODEL}/chat/completions?api-version=${OPENAI_API_VERSION}"
     
     response=$(curl -s -w "\n%{http_code}" -X POST "${url}" \
-        -H "Ocp-Apim-Subscription-Key: ${sdpr_key}" \
+        -H "api-key: ${sdpr_key}" \
         -H "Content-Type: application/json" \
         -d "${body}")
     parse_response "${response}"

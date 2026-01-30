@@ -26,7 +26,7 @@ apim_request() {
     local curl_opts=(
         -s                                          # Silent
         -w "\n%{http_code}"                         # Append HTTP status code
-        -H "Ocp-Apim-Subscription-Key: ${subscription_key}"
+        -H "api-key: ${subscription_key}"           # APIM subscription key (SDK compatible)
         -H "Content-Type: application/json"
         -H "Accept: application/json"
         --max-time 60                               # 60 second timeout
