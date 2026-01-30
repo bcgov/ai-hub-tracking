@@ -89,6 +89,8 @@ apim_request_with_retry() {
 
 # Make a chat completion request (with retry for rate limiting)
 # Usage: chat_completion <tenant> <model> <message>
+# Note: GPT-5.x models require 'max_completion_tokens' instead of 'max_tokens'
+#       and do not support custom temperature values
 chat_completion() {
     local tenant="${1}"
     local model="${2}"
@@ -97,7 +99,26 @@ chat_completion() {
     
     local path="/openai/deployments/${model}/chat/completions?api-version=${OPENAI_API_VERSION}"
     local body
-    body=$(cat <<EOF
+    
+    # GPT-5 and newer models have different API requirements:
+    # - Use 'max_completion_tokens' instead of 'max_tokens'
+    # - Do not support custom temperature (only default value 1 is allowed)
+    # Pattern: gpt-5*, gpt-5.1*, etc.
+    if [[ "${model}" == gpt-5* ]]; then
+        body=$(cat <<EOF
+{
+    "messages": [
+        {
+            "role": "user",
+            "content": "${message}"
+        }
+    ],
+    "max_completion_tokens": ${max_tokens}
+}
+EOF
+)
+    else
+        body=$(cat <<EOF
 {
     "messages": [
         {
@@ -110,6 +131,7 @@ chat_completion() {
 }
 EOF
 )
+    fi
     
     apim_request_with_retry "POST" "${tenant}" "${path}" "${body}"
 }

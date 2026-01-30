@@ -99,14 +99,9 @@ resource "azurerm_role_assignment" "project_to_docint" {
   principal_id         = local.project_principal_id
 }
 
-# OpenAI access for AI Foundry Project
-resource "azurerm_role_assignment" "project_to_openai" {
-  count = var.openai.enabled ? 1 : 0
-
-  scope                = var.openai.resource_id
-  role_definition_name = "Cognitive Services OpenAI User"
-  principal_id         = local.project_principal_id
-}
+# NOTE: OpenAI/AI Foundry Hub role assignment is NOT needed here.
+# The project is a child of the Hub - it automatically inherits access to Hub resources.
+# Model deployments on the Hub are accessible to all projects under it.
 
 # =============================================================================
 # PROJECT CONNECTIONS
@@ -227,32 +222,53 @@ resource "azapi_resource" "connection_cosmos" {
   ]
 }
 
-# Connection to OpenAI
-resource "azapi_resource" "connection_openai" {
-  count = var.openai.enabled && var.project_connections.openai ? 1 : 0
+# NOTE: OpenAI/AI Model connection is NOT needed when models are deployed on the parent Hub
+# The project automatically inherits access to all model deployments on its parent Hub.
+# The connection_openai resource was for connecting to EXTERNAL OpenAI resources.
+# Since we now deploy models directly on the AI Foundry Hub, this connection is implicit.
 
-  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
-  name      = "openai-${local.name_prefix}"
-  parent_id = azapi_resource.project.id
+# =============================================================================
+# AI MODEL DEPLOYMENTS
+# Deploys AI models (GPT, embeddings, etc.) on the shared AI Foundry Hub
+# Uses azapi for latest API features matching the AVM pattern module
+# https://github.com/Azure/terraform-azurerm-avm-ptn-aiml-ai-foundry
+#
+# These are created as part of the foundry_project module (not tenant module)
+# so that all Hub-modifying resources are in one module that runs serially.
+# =============================================================================
+
+# Model deployments are created on the shared AI Foundry Hub
+# Deployment names are prefixed with tenant_name to avoid conflicts across tenants
+# Example: tenant "wlrs" with model "gpt-4.1-mini" -> deployment name "wlrs-gpt-4.1-mini"
+resource "azapi_resource" "ai_model_deployment" {
+  for_each = var.ai_model_deployments
+
+  # Prefix with tenant name to ensure uniqueness on shared Hub
+  name      = "${var.tenant_name}-${each.value.name}"
+  parent_id = var.ai_foundry_hub_id
+  type      = "Microsoft.CognitiveServices/accounts/deployments@2025-04-01-preview"
 
   body = {
     properties = {
-      authType      = "AAD"
-      category      = "AzureOpenAI"
-      target        = var.openai.resource_id
-      isSharedToAll = false
-      metadata = {
-        ApiType    = "Azure"
-        ApiVersion = "2024-06-01"
+      model = {
+        format  = each.value.model.format
+        name    = each.value.model.name
+        version = each.value.model.version
       }
+      raiPolicyName        = each.value.rai_policy_name
+      versionUpgradeOption = each.value.version_upgrade_option
+    }
+    sku = {
+      name     = each.value.scale.type
+      capacity = each.value.scale.capacity
     }
   }
 
   schema_validation_enabled = false
 
+  # Serialize after project creation to avoid ETag conflicts
   depends_on = [
-    azurerm_role_assignment.project_to_openai,
-    azapi_resource.connection_cosmos # Serialize connection operations
+    azapi_resource.project
   ]
 }
 
@@ -281,6 +297,6 @@ resource "azapi_resource" "connection_docint" {
 
   depends_on = [
     azurerm_role_assignment.project_to_docint,
-    azapi_resource.connection_openai # Serialize connection operations
+    azapi_resource.connection_cosmos # Serialize connection operations
   ]
 }

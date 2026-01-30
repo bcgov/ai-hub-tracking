@@ -9,7 +9,42 @@
         <set-header name="X-Tenant-Id" exists-action="override">
             <value>${tenant_name}</value>
         </set-header>
-%{ if rate_limiting_enabled ~}
+%{ if rate_limiting_enabled && length(model_deployments) > 0 ~}
+
+        <!-- Per-model token rate limiting based on tenant.tfvars model_deployments capacity -->
+        <!-- Each model has its own rate limit matching its Azure OpenAI deployment capacity -->
+        <!-- Extracts deployment name from URL: /openai/deployments/{deployment-name}/... -->
+        <set-variable name="deploymentName" value="@{
+            var path = context.Request.Url.Path;
+            var match = System.Text.RegularExpressions.Regex.Match(path, @&quot;/deployments/([^/]+)/&quot;);
+            return match.Success ? match.Groups[1].Value : &quot;unknown&quot;;
+        }" />
+        <choose>
+%{ for model in model_deployments ~}
+            <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;deploymentName&quot;, &quot;&quot;) == &quot;${model.name}&quot;)">
+                <!-- Rate limit for ${model.name}: ${model.capacity}k TPM (deployment capacity is in thousands of TPM) -->
+                <llm-token-limit
+                    counter-key="@(context.Subscription.Id + &quot;-${model.name}&quot;)"
+                    tokens-per-minute="${model.capacity * 1000}"
+                    estimate-prompt-tokens="true"
+                    remaining-tokens-variable-name="remainingTokens"
+                    remaining-tokens-header-name="x-ratelimit-remaining-tokens"
+                    tokens-consumed-variable-name="tokensConsumed" />
+            </when>
+%{ endfor ~}
+            <otherwise>
+                <!-- Fallback rate limit for unknown models: ${tokens_per_minute} TPM -->
+                <llm-token-limit
+                    counter-key="@(context.Subscription.Id + &quot;-unknown&quot;)"
+                    tokens-per-minute="${tokens_per_minute}"
+                    estimate-prompt-tokens="true"
+                    remaining-tokens-variable-name="remainingTokens"
+                    remaining-tokens-header-name="x-ratelimit-remaining-tokens"
+                    tokens-consumed-variable-name="tokensConsumed" />
+            </otherwise>
+        </choose>
+%{ endif ~}
+%{ if rate_limiting_enabled && length(model_deployments) == 0 ~}
 
         <!-- Token rate limiting: ${tokens_per_minute} TPM per subscription for this tenant -->
         <!-- Protects backend from token exhaustion, returns 429 when exceeded -->
@@ -36,9 +71,26 @@
             </when>
 %{ endif ~}
 %{ if openai_enabled ~}
-            <!-- OpenAI requests: /openai/* -->
+            <!-- OpenAI/AI Foundry requests: /openai/* -->
+            <!-- Routes to shared AI Foundry Hub - tenant model deployments are on the Hub -->
+            <!-- Deployment names on Hub are prefixed with tenant name (e.g., wlrs-gpt-4.1-mini) -->
             <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;))">
                 <set-backend-service backend-id="${tenant_name}-openai" />
+                <!-- Rewrite deployment name in URL to include tenant prefix -->
+                <!-- Client sends: /openai/deployments/gpt-4.1-mini/chat/completions -->
+                <!-- Backend receives: /openai/deployments/{tenant}-gpt-4.1-mini/chat/completions -->
+                <set-variable name="rewrittenPath" value="@{
+                    var path = context.Request.Url.Path;
+                    // Handle both with and without leading slash
+                    var match = System.Text.RegularExpressions.Regex.Match(path, @&quot;/?openai/deployments/([^/]+)/(.*)&quot;);
+                    if (match.Success) {
+                        var deploymentName = match.Groups[1].Value;
+                        var rest = match.Groups[2].Value;
+                        return &quot;/openai/deployments/${tenant_name}-&quot; + deploymentName + &quot;/&quot; + rest;
+                    }
+                    return &quot;/&quot; + path;
+                }" />
+                <rewrite-uri template="@((string)context.Variables[&quot;rewrittenPath&quot;])" copy-unmatched-params="true" />
                 <!-- Initialize isStream to false, will be updated at runtime -->
                 <set-variable name="isStream" value="@(false)" />
 %{ if pii_redaction_enabled ~}

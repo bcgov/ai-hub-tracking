@@ -94,37 +94,37 @@ tenant = {
         model_name    = "gpt-4.1-mini"
         model_version = "2025-04-14"
         scale_type    = "GlobalStandard"
-        capacity      = 10
+        capacity      = 30000
       },
-      # GPT-5 Series (No registration required)
+      # GPT-5 Series
       {
         name          = "gpt-5-mini"
         model_name    = "gpt-5-mini"
         model_version = "2025-08-07"
         scale_type    = "GlobalStandard"
-        capacity      = 10
+        capacity      = 2000
       },
       {
         name          = "gpt-5-nano"
         model_name    = "gpt-5-nano"
         model_version = "2025-08-07"
         scale_type    = "GlobalStandard"
-        capacity      = 10
+        capacity      = 30000
       },
-      # GPT-5.1 Series (No registration required)
+      # GPT-5.1 Series
       {
         name          = "gpt-5.1-chat"
         model_name    = "gpt-5.1-chat"
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
-        capacity      = 10
+        capacity      = 1000
       },
       {
         name          = "gpt-5.1-codex-mini"
         model_name    = "gpt-5.1-codex-mini"
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
-        capacity      = 10
+        capacity      = 2000
       },
       # Embeddings
       {
@@ -132,7 +132,7 @@ tenant = {
         model_name    = "text-embedding-ada-002"
         model_version = "2"
         scale_type    = "GlobalStandard"
-        capacity      = 10
+        capacity      = 2000
       }
     ]
   }
@@ -153,13 +153,13 @@ tenant = {
   apim_policies = {
     rate_limiting = {
       enabled           = true
-      tokens_per_minute = 10000 # Default TPM per subscription
+      tokens_per_minute = 1000
     }
     pii_redaction = {
       enabled = true # Redact emails, phone numbers, addresses, etc.
     }
     usage_logging = {
-      enabled = true # Log OpenAI token usage
+      enabled = true # Log AI model token usage
     }
     streaming_metrics = {
       enabled = true # Emit metrics for streaming requests

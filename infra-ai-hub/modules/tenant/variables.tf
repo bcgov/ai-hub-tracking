@@ -210,30 +210,12 @@ variable "speech_services" {
 }
 
 # -----------------------------------------------------------------------------
-# OpenAI Configuration
+# AI Foundry Hub Reference (for outputs)
 # -----------------------------------------------------------------------------
-variable "openai" {
-  description = "OpenAI configuration for the tenant"
-  type = object({
-    enabled = bool
-    sku     = optional(string, "S0")
-    model_deployments = optional(list(object({
-      name            = string
-      model_name      = string
-      model_version   = string
-      scale_type      = optional(string, "Standard")
-      capacity        = optional(number, 10)
-      rai_policy_name = optional(string) # Responsible AI policy name
-    })), [])
-    diagnostics = optional(object({
-      log_groups        = optional(list(string), [])
-      log_categories    = optional(list(string), [])
-      metric_categories = optional(list(string), [])
-    }))
-  })
-  default = {
-    enabled = false
-  }
+variable "ai_foundry_hub_id" {
+  description = "Resource ID of the shared AI Foundry Hub (for reference in outputs)"
+  type        = string
+  default     = null
 }
 
 variable "tags" {
@@ -242,49 +224,3 @@ variable "tags" {
   default     = {}
 }
 
-# -----------------------------------------------------------------------------
-# Role Assignments Configuration
-# Allows custom RBAC assignments to tenant resources
-# -----------------------------------------------------------------------------
-variable "role_assignments" {
-  description = "Custom role assignments for tenant resources"
-  type = object({
-    resource_group = optional(list(object({
-      principal_id         = string
-      role_definition_name = string
-      principal_type       = optional(string)
-      description          = optional(string)
-    })), [])
-    key_vault = optional(list(object({
-      principal_id         = string
-      role_definition_name = string
-      principal_type       = optional(string)
-      description          = optional(string)
-    })), [])
-    storage = optional(list(object({
-      principal_id         = string
-      role_definition_name = string
-      principal_type       = optional(string)
-      description          = optional(string)
-    })), [])
-    ai_search = optional(list(object({
-      principal_id         = string
-      role_definition_name = string
-      principal_type       = optional(string)
-      description          = optional(string)
-    })), [])
-    openai = optional(list(object({
-      principal_id         = string
-      role_definition_name = string
-      principal_type       = optional(string)
-      description          = optional(string)
-    })), [])
-    cosmos_db = optional(list(object({
-      principal_id         = string
-      role_definition_name = string
-      principal_type       = optional(string)
-      description          = optional(string)
-    })), [])
-  })
-  default = {}
-}

@@ -83,7 +83,7 @@ locals {
   # DYNAMIC TENANT API POLICIES (Generated from tenant config)
   # =============================================================================
   # Policies are dynamically generated from the template based on:
-  # - Enabled services (openai, document_intelligence, ai_search, storage)
+  # - Enabled services (openai/ai_model_deployments, document_intelligence, ai_search, storage)
   # - APIM policies config (pii_redaction, usage_logging, etc.)
   # - Token rate limits
   # 
@@ -96,8 +96,12 @@ locals {
       {
         tenant_name       = key
         tokens_per_minute = try(config.apim_policies.rate_limiting.tokens_per_minute, 10000)
+        # Model deployments for per-model rate limiting (from tenant.tfvars)
+        # Supports both legacy openai.model_deployments format and new ai_model_deployments format
+        model_deployments = try(config.openai.model_deployments, [])
         # Service routing - based on enabled services in tenant config
-        openai_enabled                = try(config.openai.enabled, false)
+        # OpenAI routing is enabled when there are model deployments (either format)
+        openai_enabled                = length(try(config.openai.model_deployments, [])) > 0
         document_intelligence_enabled = try(config.document_intelligence.enabled, false)
         ai_search_enabled             = try(config.ai_search.enabled, false)
         storage_enabled               = try(config.storage_account.enabled, false)
@@ -148,13 +152,14 @@ locals {
     for key, config in local.enabled_tenants : key => {
       has_policy = true
       # Services are auto-detected from tenant config, not parsed from XML
-      openai_enabled    = try(config.openai.enabled, false)
+      # OpenAI is enabled when there are model deployments
+      openai_enabled    = length(try(config.openai.model_deployments, [])) > 0
       docint_enabled    = try(config.document_intelligence.enabled, false)
       storage_enabled   = try(config.storage_account.enabled, false)
       ai_search_enabled = try(config.ai_search.enabled, false)
       cosmos_enabled    = try(config.cosmos_db.enabled, false)
       # No references to check - policy only includes enabled services
-      references_openai    = try(config.openai.enabled, false)
+      references_openai    = length(try(config.openai.model_deployments, [])) > 0
       references_docint    = try(config.document_intelligence.enabled, false)
       references_storage   = try(config.storage_account.enabled, false)
       references_ai_search = try(config.ai_search.enabled, false)

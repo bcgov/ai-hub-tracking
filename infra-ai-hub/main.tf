@@ -232,11 +232,25 @@ module "apim" {
 # Created separately to reference module.tenant outputs
 # -----------------------------------------------------------------------------
 
-# OpenAI endpoints
+# AI Foundry Hub endpoint (shared by all tenants with model deployments)
+resource "azurerm_api_management_named_value" "ai_foundry_endpoint" {
+  count = local.apim_config.enabled ? 1 : 0
+
+  name                = "ai-foundry-endpoint"
+  resource_group_name = azurerm_resource_group.main.name
+  api_management_name = module.apim[0].name
+  display_name        = "AI_Foundry_Endpoint"
+  value               = module.ai_foundry_hub.endpoint
+  secret              = false
+
+  depends_on = [module.apim, module.ai_foundry_hub]
+}
+
+# Per-tenant AI model endpoint references (all point to shared AI Foundry Hub)
 resource "azurerm_api_management_named_value" "openai_endpoint" {
   for_each = {
     for key, config in local.enabled_tenants : key => config
-    if config.openai.enabled && local.apim_config.enabled
+    if length(lookup(config.openai, "model_deployments", [])) > 0 && local.apim_config.enabled
   }
 
   name                = "${each.key}-openai-endpoint"
@@ -244,10 +258,11 @@ resource "azurerm_api_management_named_value" "openai_endpoint" {
   api_management_name = module.apim[0].name
   # display_name can only contain alphanumeric, periods, underscores, dashes
   display_name = "${local.sanitized_display_names[each.key]}_OpenAI_Endpoint"
-  value        = module.tenant[each.key].openai_endpoint
-  secret       = false
+  # All tenants share the AI Foundry Hub endpoint
+  value  = module.ai_foundry_hub.endpoint
+  secret = false
 
-  depends_on = [module.apim, module.tenant]
+  depends_on = [module.apim, module.ai_foundry_hub]
 }
 
 # Document Intelligence endpoints
@@ -344,24 +359,42 @@ resource "azurerm_api_management_named_value" "pii_service_url" {
 # in tenant API policies, not via Named Values
 # -----------------------------------------------------------------------------
 
-# OpenAI backends
+# AI Foundry Hub backend (shared by all tenants with model deployments)
+resource "azurerm_api_management_backend" "ai_foundry" {
+  count = local.apim_config.enabled ? 1 : 0
+
+  name                = "ai-foundry-hub"
+  resource_group_name = azurerm_resource_group.main.name
+  api_management_name = module.apim[0].name
+  protocol            = "http"
+  url                 = module.ai_foundry_hub.endpoint
+  description         = "Shared AI Foundry Hub backend for all tenant model deployments"
+
+  # Authentication handled via policy (authentication-managed-identity)
+  # No credentials block needed - managed identity token is set in policy
+
+  depends_on = [module.apim, module.ai_foundry_hub, azurerm_api_management_named_value.ai_foundry_endpoint]
+}
+
+# Per-tenant AI model backends (all point to shared AI Foundry Hub)
 resource "azurerm_api_management_backend" "openai" {
   for_each = {
     for key, config in local.enabled_tenants : key => config
-    if config.openai.enabled && local.apim_config.enabled
+    if length(lookup(config.openai, "model_deployments", [])) > 0 && local.apim_config.enabled
   }
 
   name                = "${each.key}-openai"
   resource_group_name = azurerm_resource_group.main.name
   api_management_name = module.apim[0].name
   protocol            = "http"
-  url                 = module.tenant[each.key].openai_endpoint
-  description         = "OpenAI backend for ${each.value.display_name}"
+  # All tenants share the AI Foundry Hub endpoint
+  url         = module.ai_foundry_hub.endpoint
+  description = "OpenAI backend for ${each.value.display_name} (via shared AI Foundry Hub)"
 
   # Authentication handled via policy (authentication-managed-identity)
   # No credentials block needed - managed identity token is set in policy
 
-  depends_on = [module.apim, module.tenant, azurerm_api_management_named_value.openai_endpoint]
+  depends_on = [module.apim, module.ai_foundry_hub, azurerm_api_management_named_value.openai_endpoint]
 }
 
 # Document Intelligence backends
@@ -765,18 +798,16 @@ resource "azurerm_api_management_api_policy" "tenant" {
 # Grants APIM system-assigned identity access to route requests
 # -----------------------------------------------------------------------------
 
-# Cognitive Services OpenAI User - for OpenAI endpoints
+# Cognitive Services OpenAI User - for shared AI Foundry Hub
+# All tenant model deployments are on the shared Hub, so only one role assignment is needed
 resource "azurerm_role_assignment" "apim_openai_user" {
-  for_each = {
-    for key, config in local.enabled_tenants : key => config
-    if config.openai.enabled && local.apim_config.enabled
-  }
+  count = local.apim_config.enabled ? 1 : 0
 
-  scope                = module.tenant[each.key].openai_id
+  scope                = module.ai_foundry_hub.id
   role_definition_name = "Cognitive Services OpenAI User"
   principal_id         = module.apim[0].principal_id
 
-  depends_on = [module.apim, module.tenant]
+  depends_on = [module.apim, module.ai_foundry_hub]
 }
 
 # Cognitive Services User - for Document Intelligence
@@ -990,6 +1021,11 @@ module "defender" {
 # -----------------------------------------------------------------------------
 # Tenant Resources (per tenant)
 # -----------------------------------------------------------------------------
+# CONCURRENCY NOTE: Tenant AI model deployments to the shared AI Foundry Hub 
+# can cause ETag conflicts (HTTP 409) when run in parallel. The deploy script
+# handles this by running the tenant module with -parallelism=1 during Phase 2.
+# See: scripts/deploy-terraform.sh apply-phased
+
 module "tenant" {
   source   = "./modules/tenant"
   for_each = local.enabled_tenants
@@ -1068,20 +1104,14 @@ module "tenant" {
     diagnostics = lookup(each.value.document_intelligence, "diagnostics", null)
   }
 
-  openai = {
-    enabled = lookup(each.value.openai, "enabled", false)
-    sku     = lookup(each.value.openai, "sku", "S0")
-    model_deployments = [
-      for deployment in lookup(each.value.openai, "model_deployments", []) : {
-        name          = deployment.name
-        model_name    = deployment.model_name
-        model_version = deployment.model_version
-        scale_type    = lookup(deployment, "scale_type", "Standard")
-        capacity      = lookup(deployment, "capacity", 10)
-      }
-    ]
-    diagnostics = lookup(each.value.openai, "diagnostics", null)
+  speech_services = {
+    enabled     = lookup(each.value.speech_services, "enabled", false)
+    sku         = lookup(each.value.speech_services, "sku", "S0")
+    diagnostics = lookup(each.value.speech_services, "diagnostics", null)
   }
+
+  # AI Foundry Hub ID (for reference in outputs)
+  ai_foundry_hub_id = module.ai_foundry_hub.id
 
   tags = merge(var.common_tags, lookup(each.value, "tags", {}))
 
@@ -1090,13 +1120,12 @@ module "tenant" {
 
 # -----------------------------------------------------------------------------
 # AI Foundry Projects (per tenant)
-# This module creates AI Foundry projects and their connections AFTER tenant
-# resources are ready. Projects all modify the shared AI Foundry hub.
+# This module creates AI Foundry projects, connections, AND model deployments.
+# All Hub-modifying resources are in this module so it can run serially.
 #
-# NOTE: With the current structure, all foundry projects may be created in parallel.
-# To avoid ETag conflicts, the connections within each project are serialized.
-# If ETag conflicts still occur across tenants, use -parallelism=1 for the targeted
-# apply: terraform apply -target=module.foundry_project -parallelism=1
+# CONCURRENCY NOTE: This module is applied with -parallelism=1 to avoid ETag
+# conflicts when multiple tenants modify the shared AI Foundry Hub.
+# See: scripts/deploy-terraform.sh apply-phased
 # -----------------------------------------------------------------------------
 module "foundry_project" {
   source   = "./modules/foundry-project"
@@ -1106,6 +1135,26 @@ module "foundry_project" {
   ai_foundry_hub_id = module.ai_foundry_hub.id
   location          = var.location
   ai_location       = var.shared_config.ai_foundry.ai_location
+
+  # AI Model Deployments (AVM-style map format)
+  # Convert from openai.model_deployments config format to ai_model_deployments map format
+  ai_model_deployments = {
+    for deployment in lookup(each.value.openai, "model_deployments", []) :
+    deployment.name => {
+      name                   = deployment.name
+      rai_policy_name        = lookup(deployment, "rai_policy_name", null)
+      version_upgrade_option = lookup(deployment, "version_upgrade_option", "OnceNewDefaultVersionAvailable")
+      model = {
+        format  = lookup(deployment, "model_format", "OpenAI")
+        name    = deployment.model_name
+        version = deployment.model_version
+      }
+      scale = {
+        type     = lookup(deployment, "scale_type", "Standard")
+        capacity = lookup(deployment, "capacity", 10)
+      }
+    }
+  }
 
   # Resource references from tenant module (for role assignments and connections)
   # Note: enabled flags come from config (not resource outputs) to ensure plan works
@@ -1132,10 +1181,6 @@ module "foundry_project" {
     database_name = lookup(each.value.cosmos_db, "database_name", "default")
   }
 
-  openai = {
-    enabled     = lookup(each.value.openai, "enabled", false)
-    resource_id = module.tenant[each.key].openai_id
-  }
 
   document_intelligence = {
     enabled     = lookup(each.value.document_intelligence, "enabled", false)

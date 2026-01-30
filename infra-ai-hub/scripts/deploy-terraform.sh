@@ -554,14 +554,18 @@ tf_apply() {
 }
 
 # =============================================================================
-# Two-Phase Apply
-# Phase 1: All modules EXCEPT foundry_project (parallel)
-# Phase 2: foundry_project module only (serial with parallelism=1)
+# Multi-Phase Apply
+# Phase 1: Core infrastructure + tenant resources (parallel)
+# Phase 2: AI Foundry projects + model deployments (parallelism=1)
+# Phase 3: APIM Backend and Policy Orchestration
+# Phase 4: Final apply (all remaining changes)
 # =============================================================================
 tf_apply_phased() {
     log_info "Starting phased apply..."
-    log_info "Phase 1: All modules except foundry_project (parallel)"
-    log_info "Phase 2: foundry_project module only (parallelism=1)"
+    log_info "Phase 1: Core infrastructure + tenants (parallel)"
+    log_info "Phase 2: AI Foundry projects + models (parallelism=1)"
+    log_info "Phase 3: APIM orchestration"
+    log_info "Phase 4: Final apply"
 
     if [[ "${CI:-false}" == "true" ]]; then
         tf_init
@@ -570,9 +574,12 @@ tf_apply_phased() {
     fi
     cd "$INFRA_DIR"
 
-    # Get list of all root modules except foundry_project
-    # We exclude foundry_project from phase 1 by targeting everything else
-    log_info "=== PHASE 1: Applying all modules except foundry_project ==="
+    # =========================================================================
+    # PHASE 1: Core infrastructure + tenant resources (parallel)
+    # Includes: network, hub, APIM, app gateway, defender, tenant resources
+    # NOTE: module.tenant no longer has model deployments (moved to foundry_project)
+    # =========================================================================
+    log_info "=== PHASE 1: Applying core infrastructure + tenants (parallel) ==="
     
     local phase1_args=("${TFVARS_ARGS[@]}")
     phase1_args+=("-input=false")
@@ -581,12 +588,8 @@ tf_apply_phased() {
         phase1_args+=("-auto-approve")
     fi
 
-    # Get all top-level modules and resources, excluding foundry_project
-    local targets=()
-    
-    # Parse terraform state/plan to get resources, or use known module list
-    # Using explicit targets for known infrastructure modules
-    targets+=(
+    # Target core infrastructure and tenant resources (no model deployments here)
+    local targets=(
         "-target=azurerm_resource_group.main"
         "-target=module.network"
         "-target=module.ai_foundry_hub"
@@ -601,8 +604,12 @@ tf_apply_phased() {
     run_terraform_with_retries apply "${phase1_args[@]}" "${targets[@]}" "$@"
     log_success "Phase 1 complete"
 
-    # Phase 2: Apply foundry_project module with parallelism=1
-    log_info "=== PHASE 2: Applying foundry_project module (parallelism=1) ==="
+    # =========================================================================
+    # PHASE 2: AI Foundry Projects + Model Deployments (serialized)
+    # Run with parallelism=1 to avoid ETag conflicts on shared AI Foundry Hub
+    # Model deployments are now in foundry_project module, not tenant module
+    # =========================================================================
+    log_info "=== PHASE 2: Applying AI Foundry projects + models (parallelism=1) ==="
     
     local phase2_args=("${TFVARS_ARGS[@]}")
     phase2_args+=("-input=false")
@@ -612,6 +619,7 @@ tf_apply_phased() {
         phase2_args+=("-auto-approve")
     fi
     
+    # Only foundry_project module - contains projects AND model deployments
     phase2_args+=("-target=module.foundry_project")
 
     run_terraform_with_retries apply "${phase2_args[@]}" "$@"
@@ -625,9 +633,9 @@ tf_apply_phased() {
     #
     # Strategy:
     # 1. Analyze plan to detect backend creations and deletions
-    # 2. If deletions exist: update policies FIRST (Phase 3a), then everything else in Phase 4
-    # 3. If only creations (no deletions): create backends FIRST (Phase 3a), then policies in Phase 4
-    # 4. If no backend changes: skip Phase 3 entirely
+    # 2. If deletions exist: update policies FIRST (Phase 4a), then everything else in Phase 5
+    # 3. If only creations (no deletions): create backends FIRST (Phase 4a), then policies in Phase 5
+    # 4. If no backend changes: skip Phase 4 entirely
     # ==========================================================================
 
     log_info "=== PHASE 3: APIM Policy and Backend Orchestration ==="
@@ -768,13 +776,13 @@ tf_destroy() {
 
 # =============================================================================
 # Two-Phase Destroy
-# Phase 1: Destroy foundry_project module first (serial with parallelism=1)
+# Phase 1: Destroy AI Foundry projects + model deployments (parallelism=1)
 # Phase 2: Destroy all remaining modules (parallel)
 # Reverse order of apply to respect dependencies
 # =============================================================================
 tf_destroy_phased() {
     log_info "Starting phased destroy..."
-    log_info "Phase 1: foundry_project module only (parallelism=1)"
+    log_info "Phase 1: AI Foundry projects + models (parallelism=1)"
     log_info "Phase 2: All remaining modules (parallel)"
 
     ensure_initialized
@@ -789,8 +797,9 @@ tf_destroy_phased() {
         fi
     fi
 
-    # Phase 1: Destroy foundry_project first with parallelism=1
-    log_info "=== PHASE 1: Destroying foundry_project module (parallelism=1) ==="
+    # Phase 1: Destroy foundry_project with parallelism=1
+    # This includes AI Foundry projects AND model deployments
+    log_info "=== PHASE 1: Destroying AI Foundry projects + models (parallelism=1) ==="
     
     local phase1_args=("${TFVARS_ARGS[@]}")
     phase1_args+=("-input=false")
@@ -804,7 +813,7 @@ tf_destroy_phased() {
     run_terraform_with_retries destroy "${phase1_args[@]}" "$@"
     log_success "Phase 1 destroy complete"
 
-    # Phase 2: Destroy all remaining resources
+    # Phase 2: Destroy all remaining resources (parallel)
     log_info "=== PHASE 2: Destroying all remaining modules (parallel) ==="
     
     local phase2_args=("${TFVARS_ARGS[@]}")

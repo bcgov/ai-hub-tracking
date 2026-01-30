@@ -84,7 +84,7 @@ tenant = {
         model_name    = "gpt-4.1-mini"
         model_version = "2025-04-14"
         scale_type    = "GlobalStandard"
-        capacity      = 10
+        capacity      = 7500
       },
       # GPT-5 Series
       {
@@ -92,14 +92,14 @@ tenant = {
         model_name    = "gpt-5-mini"
         model_version = "2025-08-07"
         scale_type    = "GlobalStandard"
-        capacity      = 10
+        capacity      = 500
       },
       {
         name          = "gpt-5-nano"
         model_name    = "gpt-5-nano"
         model_version = "2025-08-07"
         scale_type    = "GlobalStandard"
-        capacity      = 10
+        capacity      = 7500
       },
       # GPT-5.1 Series
       {
@@ -107,14 +107,14 @@ tenant = {
         model_name    = "gpt-5.1-chat"
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
-        capacity      = 10
+        capacity      = 250
       },
       {
         name          = "gpt-5.1-codex-mini"
         model_name    = "gpt-5.1-codex-mini"
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
-        capacity      = 10
+        capacity      = 500
       },
       # Embeddings
       {
@@ -122,7 +122,7 @@ tenant = {
         model_name    = "text-embedding-ada-002"
         model_version = "2"
         scale_type    = "GlobalStandard"
-        capacity      = 10
+        capacity      = 500
       }
     ]
   }
@@ -138,7 +138,7 @@ tenant = {
   apim_policies = {
     rate_limiting = {
       enabled           = true
-      tokens_per_minute = 10000
+      tokens_per_minute = 1000
     }
     pii_redaction = {
       enabled = false # Disabled - invoices need raw email/phone data

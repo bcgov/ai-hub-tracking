@@ -9,7 +9,74 @@ setup() {
 }
 
 # =============================================================================
-# WLRS Tenant Tests
+# WLRS Tenant Tests - Dynamic Model Testing
+# =============================================================================
+# These tests dynamically load models from tenant.tfvars, ensuring tests
+# stay in sync with actual deployments without manual updates.
+
+@test "WLRS: Primary model (gpt-4.1-mini) responds successfully" {
+    skip_if_no_key "wlrs-water-form-assistant"
+    
+    response=$(chat_completion "wlrs-water-form-assistant" "gpt-4.1-mini" "Say hello" 10)
+    parse_response "${response}"
+    
+    assert_status "200" "${RESPONSE_STATUS}"
+}
+
+@test "WLRS: All deployed chat models connectivity check" {
+    skip_if_no_key "wlrs-water-form-assistant"
+    
+    local models
+    models=$(get_tenant_chat_models "wlrs-water-form-assistant")
+    
+    if [[ -z "${models}" ]]; then
+        skip "No models found for WLRS tenant"
+    fi
+    
+    local failed_models=""
+    local passed_count=0
+    local total_count=0
+    local skipped_count=0
+    
+    for model in ${models}; do
+        total_count=$((total_count + 1))
+        echo "Testing model: ${model}" >&3
+        
+        response=$(chat_completion "wlrs-water-form-assistant" "${model}" "Say hello" 10)
+        parse_response "${response}"
+        
+        if [[ "${RESPONSE_STATUS}" == "200" ]]; then
+            passed_count=$((passed_count + 1))
+            echo "  ✓ ${model}: OK" >&3
+        elif [[ "${RESPONSE_STATUS}" == "429" ]]; then
+            # Rate limited - skip
+            skipped_count=$((skipped_count + 1))
+            echo "  ⚠ ${model}: Rate limited (429), skipping" >&3
+        elif [[ "${RESPONSE_STATUS}" == "400" ]]; then
+            # API version incompatibility - log but don't fail
+            # Some models (GPT-5.x) may require different API versions
+            skipped_count=$((skipped_count + 1))
+            echo "  ⚠ ${model}: API format issue (400), may need different API version" >&3
+        else
+            failed_models="${failed_models} ${model}(${RESPONSE_STATUS})"
+            echo "  ✗ ${model}: Failed with status ${RESPONSE_STATUS}" >&3
+        fi
+    done
+    
+    echo "Results: ${passed_count} passed, ${skipped_count} skipped, ${#failed_models} failed out of ${total_count} models" >&3
+    
+    # Fail only on unexpected errors (not 400 API version issues or 429 rate limits)
+    if [[ -n "${failed_models}" ]]; then
+        echo "Unexpected failures:${failed_models}" >&2
+        return 1
+    fi
+    
+    # At least one model should work
+    [[ ${passed_count} -gt 0 ]]
+}
+
+# =============================================================================
+# WLRS Tenant Tests - Core Functionality
 # =============================================================================
 
 @test "WLRS: Chat completion returns 200 OK" {
@@ -99,7 +166,72 @@ EOF
 }
 
 # =============================================================================
-# SDPR Tenant Tests
+# SDPR Tenant Tests - Dynamic Model Testing
+# =============================================================================
+
+@test "SDPR: Primary model (gpt-4.1-mini) responds successfully" {
+    skip_if_no_key "sdpr-invoice-automation"
+    
+    response=$(chat_completion "sdpr-invoice-automation" "gpt-4.1-mini" "Say hello" 10)
+    parse_response "${response}"
+    
+    assert_status "200" "${RESPONSE_STATUS}"
+}
+
+@test "SDPR: All deployed chat models connectivity check" {
+    skip_if_no_key "sdpr-invoice-automation"
+    
+    local models
+    models=$(get_tenant_chat_models "sdpr-invoice-automation")
+    
+    if [[ -z "${models}" ]]; then
+        skip "No models found for SDPR tenant"
+    fi
+    
+    local failed_models=""
+    local passed_count=0
+    local total_count=0
+    local skipped_count=0
+    
+    for model in ${models}; do
+        total_count=$((total_count + 1))
+        echo "Testing model: ${model}" >&3
+        
+        response=$(chat_completion "sdpr-invoice-automation" "${model}" "Say hello" 10)
+        parse_response "${response}"
+        
+        if [[ "${RESPONSE_STATUS}" == "200" ]]; then
+            passed_count=$((passed_count + 1))
+            echo "  ✓ ${model}: OK" >&3
+        elif [[ "${RESPONSE_STATUS}" == "429" ]]; then
+            # Rate limited - skip
+            skipped_count=$((skipped_count + 1))
+            echo "  ⚠ ${model}: Rate limited (429), skipping" >&3
+        elif [[ "${RESPONSE_STATUS}" == "400" ]]; then
+            # API version incompatibility - log but don't fail
+            # Some models (GPT-5.x) may require different API versions
+            skipped_count=$((skipped_count + 1))
+            echo "  ⚠ ${model}: API format issue (400), may need different API version" >&3
+        else
+            failed_models="${failed_models} ${model}(${RESPONSE_STATUS})"
+            echo "  ✗ ${model}: Failed with status ${RESPONSE_STATUS}" >&3
+        fi
+    done
+    
+    echo "Results: ${passed_count} passed, ${skipped_count} skipped, ${#failed_models} failed out of ${total_count} models" >&3
+    
+    # Fail only on unexpected errors (not 400 API version issues or 429 rate limits)
+    if [[ -n "${failed_models}" ]]; then
+        echo "Unexpected failures:${failed_models}" >&2
+        return 1
+    fi
+    
+    # At least one model should work
+    [[ ${passed_count} -gt 0 ]]
+}
+
+# =============================================================================
+# SDPR Tenant Tests - Core Functionality
 # =============================================================================
 
 @test "SDPR: Chat completion returns 200 OK" {

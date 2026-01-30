@@ -108,5 +108,62 @@ export DOCINT_API_VERSION="2024-11-30"
 # Tenants
 export TENANTS=("wlrs-water-form-assistant" "sdpr-invoice-automation")
 
-# Models available
+# Models available (default fallback)
 export DEFAULT_MODEL="gpt-4.1-mini"
+
+# =============================================================================
+# Dynamic Model Loading from tenant.tfvars
+# =============================================================================
+# Loads model deployment names from the tenant configuration files
+# This ensures tests stay in sync with actual deployments
+
+# Function to extract model names from a tenant.tfvars file
+# Usage: get_tenant_models <tenant>
+# Returns: space-separated list of model deployment names
+get_tenant_models() {
+    local tenant="${1}"
+    local tfvars_file="${SCRIPT_DIR}/../../infra-ai-hub/params/test/tenants/${tenant}/tenant.tfvars"
+    
+    if [[ ! -f "${tfvars_file}" ]]; then
+        echo "Warning: tenant.tfvars not found for ${tenant}, using DEFAULT_MODEL" >&2
+        echo "${DEFAULT_MODEL}"
+        return 0
+    fi
+    
+    # Extract model names from model_deployments array in tfvars
+    # Pattern: name = "model-name"
+    local models
+    models=$(grep -oP '^\s*name\s*=\s*"\K[^"]+' "${tfvars_file}" 2>/dev/null | tr '\n' ' ')
+    
+    if [[ -z "${models}" ]]; then
+        echo "Warning: No models found in ${tfvars_file}, using DEFAULT_MODEL" >&2
+        echo "${DEFAULT_MODEL}"
+        return 0
+    fi
+    
+    echo "${models}"
+}
+
+# Function to get chat completion models only (exclude embeddings and codex)
+# Usage: get_tenant_chat_models <tenant>
+# Returns: space-separated list of chat model names (excludes embedding and codex models)
+get_tenant_chat_models() {
+    local tenant="${1}"
+    local all_models
+    all_models=$(get_tenant_models "${tenant}")
+    
+    # Filter out models that don't support chat completions:
+    # - embedding models (they use embeddings API)
+    # - codex models (they use completions API, not chat/completions)
+    local chat_models=""
+    for model in ${all_models}; do
+        if [[ "${model}" != *"embedding"* ]] && [[ "${model}" != *"codex"* ]]; then
+            chat_models="${chat_models} ${model}"
+        fi
+    done
+    
+    echo "${chat_models}" | xargs  # Trim whitespace
+}
+
+# Export functions for use in bats tests
+export -f get_tenant_models get_tenant_chat_models

@@ -94,15 +94,32 @@ variable "document_intelligence" {
   }
 }
 
-variable "openai" {
-  description = "OpenAI configuration from tenant module"
-  type = object({
-    enabled     = bool
-    resource_id = optional(string)
-  })
-  default = {
-    enabled = false
-  }
+# NOTE: openai variable removed - model deployments are on the parent Hub
+# The project automatically inherits access to all models on its parent Hub.
+# No separate connection or role assignment is needed.
+
+# =============================================================================
+# AI MODEL DEPLOYMENTS
+# Model deployments are created on the parent AI Foundry Hub
+# =============================================================================
+
+variable "ai_model_deployments" {
+  description = "AI model deployments to create on the shared AI Foundry Hub (prefixed with tenant name)"
+  type = map(object({
+    name                   = string
+    rai_policy_name        = optional(string)
+    version_upgrade_option = optional(string, "OnceNewDefaultVersionAvailable")
+    model = object({
+      format  = optional(string, "OpenAI")
+      name    = string
+      version = string
+    })
+    scale = object({
+      type     = string
+      capacity = number
+    })
+  }))
+  default = {}
 }
 
 # =============================================================================
@@ -118,7 +135,7 @@ variable "project_connections" {
     ai_search             = optional(bool, true)
     cosmos_db             = optional(bool, true)
     document_intelligence = optional(bool, true)
-    openai                = optional(bool, true)
+    # openai toggle removed - models on Hub are implicitly accessible
   })
   default = {}
 }

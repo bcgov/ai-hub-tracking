@@ -147,26 +147,20 @@ output "speech_services_endpoint" {
 }
 
 # =============================================================================
-# OPENAI OUTPUTS
+# AI FOUNDRY HUB REFERENCE OUTPUTS
+# Model deployments are now in the foundry-project module
 # =============================================================================
-output "openai_id" {
-  description = "Resource ID of the OpenAI account"
-  value       = var.openai.enabled ? module.openai[0].resource_id : null
-}
 
-output "openai_name" {
-  description = "Name of the OpenAI account"
-  value       = var.openai.enabled ? module.openai[0].resource.name : null
-}
-
+# Legacy compatibility outputs (for APIM routing)
+# These point to the shared AI Foundry Hub endpoint
 output "openai_endpoint" {
-  description = "Endpoint of the OpenAI account"
-  value       = var.openai.enabled ? module.openai[0].resource.endpoint : null
+  description = "Endpoint for OpenAI-compatible API calls (shared AI Foundry Hub)"
+  value       = null # Endpoint comes from Hub, not tenant
 }
 
-output "openai_deployment_ids" {
-  description = "Map of OpenAI deployment names to their resource IDs"
-  value       = var.openai.enabled ? module.openai[0].resource_cognitive_deployment : {}
+output "openai_id" {
+  description = "Resource ID for AI models (points to AI Foundry Hub)"
+  value       = var.ai_foundry_hub_id
 }
 
 # =============================================================================
@@ -219,7 +213,6 @@ output "enabled_resources" {
     cosmos_db             = var.cosmos_db.enabled
     document_intelligence = var.document_intelligence.enabled
     speech_services       = var.speech_services.enabled
-    openai                = var.openai.enabled
     log_analytics         = var.log_analytics.enabled
   }
 }

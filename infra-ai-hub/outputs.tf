@@ -160,15 +160,27 @@ output "tenant_document_intelligence" {
   }
 }
 
-output "tenant_openai" {
-  description = "Map of tenant names to their OpenAI details (if enabled)"
+output "tenant_ai_model_deployments" {
+  description = "Map of tenant names to their AI Foundry model deployment details (if enabled)"
   value = {
-    for tenant_key, tenant in module.tenant : tenant_key => {
-      id             = tenant.openai_id
-      name           = tenant.openai_name
-      endpoint       = tenant.openai_endpoint
-      deployment_ids = tenant.openai_deployment_ids
-    } if tenant.openai_id != null
+    for project_key, project in module.foundry_project : project_key => {
+      hub_id             = module.ai_foundry_hub.id
+      deployment_ids     = project.ai_model_deployment_ids
+      deployment_names   = project.ai_model_deployment_names
+      deployment_mapping = project.ai_model_deployment_mapping
+      has_deployments    = project.has_model_deployments
+    } if project.has_model_deployments
+  }
+}
+
+# Legacy output for backwards compatibility
+output "tenant_openai" {
+  description = "DEPRECATED: Use tenant_ai_model_deployments instead. Map of tenant names to AI Foundry Hub reference."
+  value = {
+    for project_key, project in module.foundry_project : project_key => {
+      id       = module.ai_foundry_hub.id
+      endpoint = module.ai_foundry_hub.endpoint
+    } if project.has_model_deployments
   }
 }
 
