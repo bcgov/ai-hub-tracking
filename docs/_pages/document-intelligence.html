@@ -1,0 +1,263 @@
+<!-- TITLE: Document Intelligence Guide -->
+<!-- NAV: document-intelligence -->
+
+<h1>Document Intelligence Guide</h1>
+
+<p>This guide covers integration patterns and SDK configuration for Azure Document Intelligence through the APIM gateway.</p>
+
+<div class="alert alert-warning">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+    </div>
+    <div>
+        <strong>SDK Configuration Required</strong><br>
+        When using Azure Document Intelligence SDKs through APIM, you must configure the SDK to use <code>api-key</code> instead of the default <code>Ocp-Apim-Subscription-Key</code> header.
+    </div>
+</div>
+
+<h2>API Key Header Configuration</h2>
+
+<h3>Why <code>api-key</code>?</h3>
+
+<p>APIM is used as a unified gateway for multiple Azure AI services (OpenAI, Document Intelligence, AI Search, Storage). Azure's API Management can only be configured with a single subscription key header name across all APIs.</p>
+
+<p>The platform uses <code>api-key</code> because:</p>
+<ul>
+    <li><strong>SDK Compatibility:</strong> OpenAI SDK and other AI service libraries expect <code>api-key</code></li>
+    <li><strong>Industry Standard:</strong> <code>api-key</code> is a more widely recognized header name than APIM-specific headers</li>
+    <li><strong>Developer Experience:</strong> Reduces confusion by using a consistent, familiar header across all services</li>
+</ul>
+
+<div class="card">
+    <p><strong>Default Behavior vs Required Behavior:</strong></p>
+    <table>
+        <thead>
+            <tr>
+                <th>SDK</th>
+                <th>Default Header</th>
+                <th>APIM Expected Header</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Azure Document Intelligence SDK</td>
+                <td><code>Ocp-Apim-Subscription-Key</code></td>
+                <td><code>api-key</code></td>
+            </tr>
+            <tr>
+                <td>Azure OpenAI SDK</td>
+                <td><code>api-key</code></td>
+                <td><code>api-key</code> ✓</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<h2>SDK Configuration Examples</h2>
+
+<h3>JavaScript/TypeScript (<code>@azure-rest/ai-document-intelligence</code>)</h3>
+
+<p>When using the <code>@azure-rest/ai-document-intelligence</code> npm package, configure the client to use <code>api-key</code> header:</p>
+
+<pre><code>import DocumentIntelligence from "@azure-rest/ai-document-intelligence";
+
+const endpoint = "https://apim-gateway.azure-api.net/tenant/documentintelligence";
+const apiKey = "your-apim-subscription-key";
+
+// Configure client with custom API key header name
+const client = DocumentIntelligence(endpoint, { key: apiKey }, {
+  credentials: {
+    apiKeyHeaderName: "api-key",  // Override default "Ocp-Apim-Subscription-Key"
+  },
+});
+
+// Use the client normally
+const result = await client.path("/documentModels/{modelId}:analyze", "prebuilt-read")
+  .post({
+    contentType: "application/json",
+    body: {
+      urlSource: "https://example.com/document.pdf"
+    }
+  });
+</code></pre>
+
+<div class="alert alert-info">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+    </div>
+    <div>
+        <strong>Key Point</strong><br>
+        The <code>apiKeyHeaderName</code> configuration tells the SDK to send the subscription key using the <code>api-key</code> header instead of the default <code>Ocp-Apim-Subscription-Key</code>.
+    </div>
+</div>
+
+<h3>Python (<code>azure-ai-documentintelligence</code>)</h3>
+
+<pre><code>from azure.ai.documentintelligence import DocumentIntelligenceClient
+from azure.core.credentials import AzureKeyCredential
+from azure.core.pipeline.policies import HeadersPolicy
+
+endpoint = "https://apim-gateway.azure-api.net/tenant/documentintelligence"
+api_key = "your-apim-subscription-key"
+
+# Create custom headers policy to use api-key header
+headers_policy = HeadersPolicy()
+headers_policy.add_header("api-key", api_key)
+
+# Create client with custom policy
+client = DocumentIntelligenceClient(
+    endpoint=endpoint,
+    credential=AzureKeyCredential(api_key),
+    headers_policy=headers_policy
+)
+
+# Alternatively, use custom header directly in requests
+# Note: Some SDK versions may require different configuration approaches
+</code></pre>
+
+<div class="alert alert-warning">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+    </div>
+    <div>
+        <strong>Python SDK Note</strong><br>
+        The Python SDK's approach to custom headers may vary by version. Check the SDK documentation for your specific version. Some versions may require setting headers differently or may not support custom API key header names. In such cases, use direct REST API calls with the <code>requests</code> library.
+    </div>
+</div>
+
+<h3>.NET (<code>Azure.AI.DocumentIntelligence</code>)</h3>
+
+<pre><code>using Azure;
+using Azure.AI.DocumentIntelligence;
+using Azure.Core.Pipeline;
+
+string endpoint = "https://apim-gateway.azure-api.net/tenant/documentintelligence";
+string apiKey = "your-apim-subscription-key";
+
+// Create client options with custom header
+var options = new DocumentIntelligenceClientOptions();
+options.AddPolicy(new AddHeaderPolicy("api-key", apiKey), HttpPipelinePosition.PerCall);
+
+// Create client
+var client = new DocumentIntelligenceClient(
+    new Uri(endpoint),
+    new AzureKeyCredential(apiKey),
+    options
+);
+
+// Custom policy to add api-key header
+public class AddHeaderPolicy : HttpPipelineSynchronousPolicy
+{
+    private readonly string _headerName;
+    private readonly string _headerValue;
+
+    public AddHeaderPolicy(string headerName, string headerValue)
+    {
+        _headerName = headerName;
+        _headerValue = headerValue;
+    }
+
+    public override void OnSendingRequest(HttpMessage message)
+    {
+        message.Request.Headers.Add(_headerName, _headerValue);
+    }
+}
+</code></pre>
+
+<h3>Direct REST API (curl)</h3>
+
+<p>If SDK configuration is complex or unavailable, use direct REST API calls:</p>
+
+<pre><code># Analyze document with prebuilt-read model
+curl -X POST "https://apim-gateway.azure-api.net/tenant/documentintelligence/documentModels/prebuilt-read:analyze?api-version=2024-07-31-preview" \
+  -H "api-key: your-apim-subscription-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "urlSource": "https://example.com/document.pdf"
+  }'
+
+# Alternative: Use query parameter
+curl -X POST "https://apim-gateway.azure-api.net/tenant/documentintelligence/documentModels/prebuilt-read:analyze?api-version=2024-07-31-preview&api-key=your-apim-subscription-key" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "urlSource": "https://example.com/document.pdf"
+  }'
+</code></pre>
+
+<h2>Async Operations & Polling</h2>
+
+<p>Document Intelligence async operations (document analysis, model training) return a <code>202 Accepted</code> response with an <code>Operation-Location</code> header for status polling.</p>
+
+<div class="card card-gold">
+    <h3 style="margin-top: 0;">Automatic Header Rewrite</h3>
+    <p>APIM automatically rewrites the <code>Operation-Location</code> header to point back through the APIM gateway instead of directly to the Document Intelligence backend.</p>
+
+    <p><strong>Example transformation:</strong></p>
+    <pre><code>Backend returns:
+  Operation-Location: https://tenant-docint.cognitiveservices.azure.com/documentintelligence/documentModels/prebuilt-read/analyzeResults/abc123
+
+APIM rewrites to:
+  Operation-Location: https://apim-gateway.azure-api.net/tenant/documentintelligence/documentModels/prebuilt-read/analyzeResults/abc123
+</code></pre>
+
+    <p><strong>Why this matters:</strong></p>
+    <ul>
+        <li>SDKs automatically poll the <code>Operation-Location</code> URL</li>
+        <li>Polling continues through APIM with consistent authentication</li>
+        <li>No special SDK configuration needed for polling</li>
+        <li>Works transparently with Document Intelligence SDK polling logic</li>
+    </ul>
+</div>
+
+<h2>Troubleshooting</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Issue</th>
+            <th>Cause</th>
+            <th>Solution</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>401 Unauthorized</td>
+            <td>SDK sending <code>Ocp-Apim-Subscription-Key</code> instead of <code>api-key</code></td>
+            <td>Configure SDK to use <code>api-key</code> header as shown in examples above</td>
+        </tr>
+        <tr>
+            <td>403 Forbidden</td>
+            <td>Invalid or expired APIM subscription key</td>
+            <td>Verify subscription key is valid in APIM portal</td>
+        </tr>
+        <tr>
+            <td>Polling fails after initial request</td>
+            <td><code>Operation-Location</code> header not being rewritten (rare)</td>
+            <td>Verify tenant API policy includes <code>Operation-Location</code> rewrite logic in <code>&lt;outbound&gt;</code> section</td>
+        </tr>
+        <tr>
+            <td>SDK throws "Invalid endpoint" error</td>
+            <td>Endpoint URL must include <code>/tenant/documentintelligence</code> path</td>
+            <td>Use full APIM path: <code>https://apim-gateway.azure-api.net/tenant/documentintelligence</code></td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>Additional Resources</h2>
+
+<ul>
+    <li><a href="https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/">Azure Document Intelligence Documentation</a></li>
+    <li><a href="https://www.npmjs.com/package/@azure-rest/ai-document-intelligence">@azure-rest/ai-document-intelligence npm package</a></li>
+    <li><a href="https://pypi.org/project/azure-ai-documentintelligence/">azure-ai-documentintelligence Python package</a></li>
+    <li><a href="https://www.nuget.org/packages/Azure.AI.DocumentIntelligence">Azure.AI.DocumentIntelligence NuGet package</a></li>
+</ul>
+
+<div class="alert alert-info">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+    </div>
+    <div>
+        <strong>For APIM Technical Details</strong><br>
+        See the <a href="https://github.com/bcgov/ai-hub-tracking/blob/main/infra-ai-hub/params/apim/README.md">APIM Policy README</a> for information about Operation-Location header rewriting, subscription key normalization, and other APIM policy behaviors.
+    </div>
+</div>
