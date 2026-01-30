@@ -783,7 +783,8 @@ tf_destroy() {
 tf_destroy_phased() {
     log_info "Starting phased destroy..."
     log_info "Phase 1: AI Foundry projects + models (parallelism=1)"
-    log_info "Phase 2: All remaining modules (parallel)"
+    log_info "Phase 2: APIM policy/backend teardown (ordered)"
+    log_info "Phase 3: All remaining modules (parallel)"
 
     ensure_initialized
     cd "$INFRA_DIR"
@@ -813,8 +814,44 @@ tf_destroy_phased() {
     run_terraform_with_retries destroy "${phase1_args[@]}" "$@"
     log_success "Phase 1 destroy complete"
 
-    # Phase 2: Destroy all remaining resources (parallel)
-    log_info "=== PHASE 2: Destroying all remaining modules (parallel) ==="
+    # Phase 2: APIM policy/backend teardown (reverse of apply orchestration)
+    # Ensure policies are removed before backends to avoid APIM 400 errors
+    log_info "=== PHASE 2: APIM policy/backend teardown (ordered) ==="
+
+    local phase2a_args=("${TFVARS_ARGS[@]}")
+    phase2a_args+=("-input=false")
+
+    if [[ "${CI:-false}" == "true" ]]; then
+        phase2a_args+=("-auto-approve")
+    fi
+
+    # Destroy APIM API policies first
+    phase2a_args+=("-target=azurerm_api_management_api_policy.tenant")
+    run_terraform_with_retries destroy "${phase2a_args[@]}" "$@"
+    log_success "Phase 2a destroy (APIM API policies) complete"
+
+    # Then destroy APIM backends
+    local phase2b_args=("${TFVARS_ARGS[@]}")
+    phase2b_args+=("-input=false")
+
+    if [[ "${CI:-false}" == "true" ]]; then
+        phase2b_args+=("-auto-approve")
+    fi
+
+    phase2b_args+=(
+        "-target=azurerm_api_management_backend.ai_foundry"
+        "-target=azurerm_api_management_backend.openai"
+        "-target=azurerm_api_management_backend.docint"
+        "-target=azurerm_api_management_backend.storage"
+        "-target=azurerm_api_management_backend.ai_search"
+        "-target=azurerm_api_management_backend.speech_services"
+    )
+
+    run_terraform_with_retries destroy "${phase2b_args[@]}" "$@"
+    log_success "Phase 2b destroy (APIM backends) complete"
+
+    # Phase 3: Destroy all remaining resources (parallel)
+    log_info "=== PHASE 3: Destroying all remaining modules (parallel) ==="
     
     local phase2_args=("${TFVARS_ARGS[@]}")
     phase2_args+=("-input=false")
@@ -824,7 +861,7 @@ tf_destroy_phased() {
     fi
 
     run_terraform_with_retries destroy "${phase2_args[@]}" "$@"
-    log_success "Phase 2 destroy complete"
+    log_success "Phase 3 destroy complete"
     
     log_success "Phased destroy complete"
 }
