@@ -47,3 +47,4 @@ _bkp
 tfplan
 **/*.tfplan
 **/tfplan/**
+*.csr
