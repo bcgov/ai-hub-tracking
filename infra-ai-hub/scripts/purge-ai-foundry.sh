@@ -102,6 +102,7 @@ fi
 log_info "Waiting for soft-delete: name=$NAME location=$LOCATION timeout=$TIMEOUT interval=$INTERVAL"
 start_ts=$(date +%s)
 end_ts=$((start_ts + timeout_seconds))
+delete_requested=false
 
 while true; do
   if az cognitiveservices account show \
@@ -109,7 +110,33 @@ while true; do
       --resource-group "$RESOURCE_GROUP" \
       --subscription "$SUBSCRIPTION" \
       -o none 2>/dev/null; then
-    log_info "Account still active. Waiting..."
+    provisioning_state=$(az cognitiveservices account show \
+      --name "$NAME" \
+      --resource-group "$RESOURCE_GROUP" \
+      --subscription "$SUBSCRIPTION" \
+      --query "properties.provisioningState" \
+      -o tsv 2>/dev/null || echo "")
+
+    if [[ -n "$provisioning_state" ]]; then
+      log_info "Account still active (provisioningState=$provisioning_state). Waiting..."
+    else
+      log_info "Account still active. Waiting..."
+    fi
+
+    # If deletion has not started, request delete once to ensure it begins
+    if [[ "$delete_requested" == "false" && "$provisioning_state" != "Deleting" ]]; then
+      log_warning "Account still active and not deleting. Requesting delete..."
+      if az cognitiveservices account delete \
+          --name "$NAME" \
+          --resource-group "$RESOURCE_GROUP" \
+          --subscription "$SUBSCRIPTION" \
+          -o none 2>/dev/null; then
+        delete_requested=true
+        log_info "Delete request submitted. Waiting for soft-delete..."
+      else
+        log_warning "Delete request failed or is not permitted. Waiting for soft-delete..."
+      fi
+    fi
   else
     deleted_count=$(az cognitiveservices account list-deleted \
       --subscription "$SUBSCRIPTION" \
