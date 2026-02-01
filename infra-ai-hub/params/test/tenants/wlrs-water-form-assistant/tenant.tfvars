@@ -133,7 +133,14 @@ tenant = {
         model_version = "2"
         scale_type    = "GlobalStandard"
         capacity      = 2000
-      }
+      },
+      {
+        name          = "text-embedding-3-large"
+        model_name    = "text-embedding-3-large"
+        model_version = "1"
+        scale_type    = "GlobalStandard"
+        capacity      = 10000
+      },
     ]
   }
 

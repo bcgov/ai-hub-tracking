@@ -64,7 +64,7 @@ shared_config = {
   # Application Gateway (WAF)
   # ---------------------------------------------------------------------------
   app_gateway = {
-    enabled = false # Enabled in test to validate WAF rules
+    enabled = true # Enabled in test to validate WAF rules
 
     sku_name = "WAF_v2"
     sku_tier = "WAF_v2"

@@ -990,7 +990,7 @@ module "app_gateway" {
 
   # Backend pointing to APIM
   backend_apim = {
-    fqdn       = local.apim_config.enabled ? module.apim[0].gateway_url : ""
+    fqdn       = local.apim_config.enabled ? trimsuffix(replace(module.apim[0].gateway_url, "https://", ""), "/") : ""
     https_port = 443
     probe_path = "/status-0123456789abcdef"
   }
