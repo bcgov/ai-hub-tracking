@@ -1,0 +1,7 @@
+<fragment>
+    <!-- Managed Identity authentication for Azure Key Vault -->
+    <authentication-managed-identity 
+        resource="https://vault.azure.net" 
+        output-token-variable-name="msi-access-token" 
+        ignore-error="false" />
+</fragment>

@@ -28,9 +28,10 @@ replay_pid*
 .env.local
 .env.*.local
 *.secret.*
-*.tfvars
+terraform.tfvars
 .terraform/
 .terraform.lock.hcl
+.tenants-*.auto.tfvars
 crash.log
 _bkp
 *._bkp
@@ -42,3 +43,8 @@ _bkp
 *.ovpn
 *.sqlite
 *.db
+*.http
+tfplan
+**/*.tfplan
+**/tfplan/**
+*.csr

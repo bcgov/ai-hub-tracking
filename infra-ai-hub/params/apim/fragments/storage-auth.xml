@@ -1,0 +1,7 @@
+<fragment>
+    <!-- Managed Identity authentication for Azure Storage -->
+    <authentication-managed-identity 
+        resource="https://storage.azure.com/" 
+        output-token-variable-name="msi-access-token" 
+        ignore-error="false" />
+</fragment>

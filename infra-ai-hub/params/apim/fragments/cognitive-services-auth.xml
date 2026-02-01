@@ -1,0 +1,7 @@
+<fragment>
+    <!-- Managed Identity authentication for Azure Cognitive Services -->
+    <authentication-managed-identity 
+        resource="https://cognitiveservices.azure.com" 
+        output-token-variable-name="msi-access-token" 
+        ignore-error="false" />
+</fragment>

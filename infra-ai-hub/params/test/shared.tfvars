@@ -1,0 +1,139 @@
+# =============================================================================
+# SHARED CONFIGURATION - TEST ENVIRONMENT
+# =============================================================================
+# Test environment configuration - mirrors dev with adjustments for testing.
+# Used for integration testing and pre-production validation.
+# =============================================================================
+
+shared_config = {
+  # ---------------------------------------------------------------------------
+  # AI Foundry Hub Settings
+  # ---------------------------------------------------------------------------
+  ai_foundry = {
+    name_suffix = "foundry"
+    sku         = "S0" # Only valid SKU for AIServices kind
+
+    # Disabled in test to simulate prod-like environment
+    public_network_access_enabled = false
+    local_auth_enabled            = false
+
+    # Cross-region deployment: Canada East for model availability
+    # gpt-4.1-mini (2025-04-14) and text-embedding-ada-002 available in Canada East with GlobalStandard deployment
+    ai_location = "Canada East"
+    # Permanently purge AI Foundry account on destroy to avoid lingering resources
+    purge_on_destroy = true
+  }
+
+  # ---------------------------------------------------------------------------
+  # Log Analytics Workspace
+  # ---------------------------------------------------------------------------
+  log_analytics = {
+    enabled        = true
+    retention_days = 30
+    sku            = "PerGB2018"
+  }
+
+  # ---------------------------------------------------------------------------
+  # Private Endpoint DNS Wait Settings
+  # ---------------------------------------------------------------------------
+  private_endpoint_dns_wait = {
+    timeout       = "15m"
+    poll_interval = "10s"
+  }
+
+  # ---------------------------------------------------------------------------
+  # API Management (APIM)
+  # ---------------------------------------------------------------------------
+  apim = {
+    enabled  = true
+    sku_name = "StandardV2_1"
+
+    publisher_name  = "AI Hub Test"
+    publisher_email = "ai-hub-test@example.com"
+
+    # VNet integration required for outbound connectivity to private backends
+    # Backend services (OpenAI, DocInt, etc.) have public network access disabled
+    vnet_injection_enabled = true
+    subnet_name            = "apim-subnet"
+    subnet_prefix_length   = 27
+
+    private_dns_zone_ids = []
+  }
+
+  # ---------------------------------------------------------------------------
+  # Application Gateway (WAF)
+  # ---------------------------------------------------------------------------
+  app_gateway = {
+    enabled = true # Enabled in test to validate WAF rules
+
+    sku_name = "WAF_v2"
+    sku_tier = "WAF_v2"
+    capacity = 1
+
+    # Autoscale for test environment
+    autoscale = {
+      min_capacity = 1
+      max_capacity = 2
+    }
+
+    waf_enabled = true
+    waf_mode    = "Prevention" # Test WAF in Prevention mode
+
+    subnet_name          = "appgw-subnet"
+    subnet_prefix_length = 27
+
+    frontend_hostname = "api-test.example.com"
+  }
+
+  # ---------------------------------------------------------------------------
+  # Container Registry (ACR)
+  # ---------------------------------------------------------------------------
+  container_registry = {
+    enabled                       = true
+    sku                           = "Basic"
+    public_network_access_enabled = true
+    enable_trust_policy           = false
+  }
+
+  # ---------------------------------------------------------------------------
+  # Container App Environment
+  # ---------------------------------------------------------------------------
+  container_app_environment = {
+    enabled                 = true
+    zone_redundancy_enabled = false # Keep disabled for cost in test
+  }
+
+  # ---------------------------------------------------------------------------
+  # App Configuration
+  # ---------------------------------------------------------------------------
+  app_configuration = {
+    enabled               = true
+    sku                   = "standard"
+    public_network_access = "Disabled"
+  }
+
+  # ---------------------------------------------------------------------------
+  # Language Service (for PII Detection)
+  # ---------------------------------------------------------------------------
+  # Azure AI Language Service for enterprise PII detection via APIM policies.
+  language_service = {
+    enabled                       = true
+    sku                           = "S"
+    public_network_access_enabled = false
+  }
+}
+
+# =============================================================================
+# DEFENDER FOR CLOUD
+# =============================================================================
+# Only manage Defender plans NOT already enabled by central team/Azure Policy.
+# Plans already enabled (managed externally): SqlServers, StorageAccounts,
+# SqlServerVirtualMachines, KeyVaults, Arm, CosmosDbs, Discovery, FoundationalCspm
+#
+# Add new plans here only if you want to enable something not already active.
+# Note: "AI" plan protects Azure OpenAI and Azure AI Model Inference services
+defender_enabled = true
+defender_resource_types = {
+  "AI"  = { subplan = null }
+  "Api" = { subplan = "P1" }
+}

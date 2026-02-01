@@ -1,0 +1,1193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LanguageServicePIIDetection | AI Hub Tracking</title>
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <style>
+        :root {
+            --bc-blue: #003366;
+            --bc-gold: #fcba19;
+            --bc-blue-dark: #002244;
+            --bc-blue-light: #1a5a96;
+            --text-primary: #313132;
+            --text-secondary: #606060;
+            --bg-light: #f2f2f2;
+            --white: #ffffff;
+            --gradient-hero: linear-gradient(135deg, #003366 0%, #1a5a96 50%, #003366 100%);
+            --shadow-sm: 0 2px 4px rgba(0,0,0,0.08);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.12);
+            --shadow-lg: 0 8px 24px rgba(0,0,0,0.16);
+            --transition: all 0.3s ease;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'BC Sans', 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+            color: var(--text-primary);
+            background: var(--bg-light);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .bc-header {
+            background: var(--gradient-hero);
+            border-bottom: 4px solid var(--bc-gold);
+            padding: 0.5rem 2rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 1rem;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: var(--shadow-md);
+        }
+
+        .bc-header-brand {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            text-decoration: none;
+        }
+
+        .bc-header-logo {
+            height: 36px;
+            width: auto;
+            border-radius: 4px;
+        }
+
+        .bc-header-title {
+            color: var(--white);
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .bc-header-subtitle {
+            color: var(--bc-gold);
+            font-size: 0.875rem;
+        }
+
+        /* Navigation with Dropdowns */
+        .bc-nav {
+            display: flex;
+            gap: 0.25rem;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .bc-nav > a,
+        .nav-dropdown > .nav-trigger {
+            color: var(--white);
+            text-decoration: none;
+            padding: 0.6rem 1rem;
+            border-radius: 4px;
+            font-size: 0.9rem;
+            transition: var(--transition);
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            border: none;
+            background: transparent;
+            font-family: inherit;
+        }
+
+        .bc-nav > a:hover,
+        .nav-dropdown:hover > .nav-trigger {
+            background: rgba(255,255,255,0.15);
+        }
+
+        .bc-nav > a.active {
+            background: var(--bc-gold);
+            color: var(--bc-blue);
+            font-weight: 600;
+        }
+
+        /* Dropdown */
+        .nav-dropdown {
+            position: relative;
+        }
+
+        .nav-trigger::after {
+            content: '';
+            border: solid currentColor;
+            border-width: 0 2px 2px 0;
+            display: inline-block;
+            padding: 3px;
+            transform: rotate(45deg);
+            margin-top: -3px;
+            transition: transform 0.2s;
+        }
+
+        .nav-dropdown:hover .nav-trigger::after {
+            transform: rotate(-135deg);
+            margin-top: 3px;
+        }
+
+        .nav-dropdown-menu {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: var(--white);
+            border-radius: 8px;
+            box-shadow: var(--shadow-lg);
+            min-width: 220px;
+            opacity: 0;
+            visibility: hidden;
+            transform: translateY(-10px);
+            transition: var(--transition);
+            overflow: hidden;
+            margin-top: 0.5rem;
+        }
+
+        .nav-dropdown:hover .nav-dropdown-menu {
+            opacity: 1;
+            visibility: visible;
+            transform: translateY(0);
+        }
+
+        .nav-dropdown-menu a {
+            display: block;
+            padding: 0.75rem 1rem;
+            color: var(--text-primary);
+            text-decoration: none;
+            transition: var(--transition);
+            border-left: 3px solid transparent;
+        }
+
+        .nav-dropdown-menu a:hover {
+            background: var(--bg-light);
+            border-left-color: var(--bc-gold);
+            color: var(--bc-blue);
+        }
+
+        .nav-dropdown-menu a small {
+            display: block;
+            color: var(--text-secondary);
+            font-size: 0.75rem;
+            margin-top: 0.2rem;
+        }
+
+        /* Main Content */
+        main {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            flex: 1;
+            width: 100%;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: var(--gradient-hero);
+            color: var(--white);
+            padding: 3rem 2rem;
+            border-radius: 12px;
+            margin-bottom: 2rem;
+            text-align: center;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .hero h1 {
+            color: var(--white);
+            border: none;
+            font-size: 2.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        /* Typography */
+        h1 {
+            color: var(--bc-blue);
+            font-size: 2.25rem;
+            margin-bottom: 1rem;
+            border-bottom: 3px solid var(--bc-gold);
+            padding-bottom: 0.5rem;
+        }
+
+        h2 {
+            color: var(--bc-blue);
+            font-size: 1.5rem;
+            margin: 2rem 0 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        h2::before {
+            content: '';
+            width: 4px;
+            height: 1.5rem;
+            background: var(--bc-gold);
+            border-radius: 2px;
+        }
+
+        h3 {
+            color: var(--bc-blue-light);
+            font-size: 1.25rem;
+            margin: 1.5rem 0 0.75rem;
+        }
+
+        p {
+            margin-bottom: 1rem;
+        }
+
+        /* Cards - Enhanced */
+        .card {
+            background: var(--white);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+            border-left: 4px solid var(--bc-blue);
+            transition: var(--transition);
+        }
+
+        .card:hover {
+            box-shadow: var(--shadow-md);
+            transform: translateY(-2px);
+        }
+
+        .card-gold {
+            border-left-color: var(--bc-gold);
+        }
+
+        .card h3 {
+            margin-top: 0;
+        }
+
+        /* Clickable Cards */
+        a.card-link {
+            display: block;
+            text-decoration: none;
+            color: inherit;
+        }
+
+        a.card-link .card {
+            cursor: pointer;
+        }
+
+        a.card-link .card:hover {
+            border-left-width: 6px;
+        }
+
+        .card-arrow {
+            color: var(--bc-blue-light);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+            transition: var(--transition);
+        }
+
+        a.card-link:hover .card-arrow {
+            gap: 0.75rem;
+            color: var(--bc-blue);
+        }
+
+        /* Feature Cards */
+        .feature-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+        }
+
+        .feature-icon.gold { background: rgba(252, 186, 25, 0.15); }
+        .feature-icon.blue { background: rgba(0, 51, 102, 0.1); }
+        .feature-icon.green { background: rgba(34, 197, 94, 0.1); }
+        .feature-icon.purple { background: rgba(139, 92, 246, 0.1); }
+
+        /* Stats */
+        .stat-number {
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--bc-gold);
+            line-height: 1;
+        }
+
+        .stat-label {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Code blocks */
+        pre {
+            background: var(--bc-blue-dark);
+            color: #e2e8f0;
+            padding: 1.25rem;
+            border-radius: 8px;
+            overflow-x: auto;
+            margin: 1rem 0;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            font-size: 0.875rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        code {
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace;
+            background: #e2e8f0;
+            padding: 0.2rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+
+        pre code {
+            background: none;
+            padding: 0;
+        }
+
+        /* Tables */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1rem 0;
+            background: var(--white);
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+
+        th {
+            background: var(--bc-blue);
+            color: var(--white);
+            padding: 0.875rem 1rem;
+            text-align: left;
+            font-weight: 600;
+        }
+
+        td {
+            padding: 0.875rem 1rem;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        tr:hover {
+            background: #f8fafc;
+        }
+
+        tr:last-child td {
+            border-bottom: none;
+        }
+
+        /* Lists */
+        ul, ol {
+            margin: 1rem 0;
+            padding-left: 1.5rem;
+        }
+
+        li {
+            margin-bottom: 0.5rem;
+        }
+
+        /* Links */
+        a {
+            color: var(--bc-blue-light);
+            transition: var(--transition);
+        }
+
+        a:hover {
+            color: var(--bc-blue);
+        }
+
+        /* Grid */
+        .grid {
+            display: grid;
+            gap: 1.5rem;
+        }
+
+        .grid-2 {
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        }
+
+        .grid-3 {
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+        }
+
+        .grid-4 {
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        }
+
+        /* Alerts */
+        .alert {
+            padding: 1rem 1.25rem;
+            border-radius: 8px;
+            margin: 1rem 0;
+            display: flex;
+            align-items: flex-start;
+            gap: 0.75rem;
+        }
+
+        .alert > * {
+            min-width: 0;
+        }
+
+        .alert-icon {
+            font-size: 1.25rem;
+            flex-shrink: 0;
+        }
+
+        .alert-info {
+            background: linear-gradient(135deg, #e0f2fe 0%, #bae6fd 100%);
+            border-left: 4px solid #0ea5e9;
+        }
+
+        .alert-warning {
+            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            border-left: 4px solid var(--bc-gold);
+        }
+
+        .alert-success {
+            background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%);
+            border-left: 4px solid #22c55e;
+        }
+
+        /* Image containers */
+        .img-container {
+            margin: 1.5rem 0;
+            text-align: center;
+        }
+
+        .img-container img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 12px;
+            box-shadow: var(--shadow-lg);
+        }
+
+        /* Badge */
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-gold {
+            background: var(--bc-gold);
+            color: var(--bc-blue);
+        }
+
+        .badge-blue {
+            background: var(--bc-blue);
+            color: var(--white);
+        }
+
+        /* Accordion / Collapsible */
+        details {
+            background: var(--white);
+            border-radius: 8px;
+            margin-bottom: 0.75rem;
+            box-shadow: var(--shadow-sm);
+            border-left: 4px solid var(--bc-blue);
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        details:hover {
+            box-shadow: var(--shadow-md);
+        }
+
+        details[open] {
+            border-left-color: var(--bc-gold);
+        }
+
+        summary {
+            padding: 1rem 1.25rem;
+            cursor: pointer;
+            font-weight: 600;
+            color: var(--bc-blue);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            list-style: none;
+            user-select: none;
+            transition: var(--transition);
+        }
+
+        summary::-webkit-details-marker {
+            display: none;
+        }
+
+        summary::after {
+            content: '';
+            border: solid var(--bc-blue-light);
+            border-width: 0 2px 2px 0;
+            display: inline-block;
+            padding: 4px;
+            transform: rotate(-45deg);
+            transition: transform 0.2s ease;
+            flex-shrink: 0;
+            margin-left: 1rem;
+        }
+
+        details[open] summary::after {
+            transform: rotate(45deg);
+        }
+
+        summary:hover {
+            background: var(--bg-light);
+        }
+
+        details[open] summary {
+            border-bottom: 1px solid #e2e8f0;
+            background: var(--bg-light);
+        }
+
+        .accordion-content {
+            padding: 1rem 1.25rem;
+        }
+
+        .accordion-content p:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Accordion with badge */
+        summary .badge {
+            margin-left: auto;
+            margin-right: 1rem;
+        }
+
+        /* Accordion group */
+        .accordion-group {
+            margin: 1rem 0;
+        }
+
+        .accordion-group details:last-child {
+            margin-bottom: 0;
+        }
+
+        /* Footer */
+        .site-footer {
+            background: var(--bc-blue);
+            color: var(--white);
+            padding: 3rem 2rem;
+            margin-top: auto;
+        }
+
+        .footer-content {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 2rem;
+        }
+
+        .footer-brand h4,
+        .footer-links h4 {
+            color: var(--bc-gold);
+            margin-bottom: 0.75rem;
+            font-size: 1rem;
+        }
+
+        .footer-brand p {
+            color: #94a3b8;
+            font-size: 0.875rem;
+            margin: 0;
+        }
+
+        .footer-links ul {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .footer-links li {
+            margin-bottom: 0.5rem;
+        }
+
+        .footer-links a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-size: 0.875rem;
+            transition: var(--transition);
+        }
+
+        .footer-links a:hover {
+            color: var(--bc-gold);
+        }
+
+        .footer-copyright {
+            text-align: right;
+        }
+
+        .footer-copyright p {
+            color: #64748b;
+            font-size: 0.75rem;
+            margin: 0;
+        }
+
+        .footer-meta {
+            margin-top: 0.5rem !important;
+            opacity: 0.7;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .bc-header {
+                flex-direction: column;
+                text-align: center;
+                padding: 1rem;
+            }
+
+            .bc-nav {
+                justify-content: center;
+            }
+
+            .nav-dropdown-menu {
+                position: fixed;
+                left: 1rem;
+                right: 1rem;
+                width: auto;
+            }
+
+            main {
+                padding: 1rem;
+            }
+
+            h1 {
+                font-size: 1.75rem;
+            }
+
+            .hero {
+                padding: 2rem 1rem;
+            }
+
+            .hero h1 {
+                font-size: 1.75rem;
+            }
+
+            .footer-content {
+                text-align: center;
+            }
+
+            .footer-copyright {
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+    <header class="bc-header">
+        <a href="index.html" class="bc-header-brand">
+            <img src="assets/bc_citz_logo.jpg" alt="BC Government" class="bc-header-logo">
+            <div>
+                <div class="bc-header-title">AI Hub Tracking</div>
+                <div class="bc-header-subtitle">Azure Landing Zone Infrastructure</div>
+            </div>
+        </a>
+        <nav class="bc-nav">
+            <a href="index.html" class="">Home</a>
+            <div class="nav-dropdown">
+                <span class="nav-trigger">Guides</span>
+                <div class="nav-dropdown-menu">
+                    <a href="oidc-setup.html">
+                        OIDC Setup
+                        <small>GitHub to Azure authentication</small>
+                    </a>
+                    <a href="terraform.html">
+                        Terraform Modules
+                        <small>Network, Bastion, Runners, Proxy</small>
+                    </a>
+                    <a href="language-service-pii.html">
+                        Language Service PII
+                        <small>ML-based PII detection & APIM</small>
+                    </a>
+                    <a href="document-intelligence.html">
+                        Document Intelligence
+                        <small>SDK configuration & APIM integration</small>
+                    </a>
+                    <a href="workflows.html">
+                        GitHub Workflows
+                        <small>CI/CD automation</small>
+                    </a>
+                    <a href="terraform-reference.html">
+                        TF Reference
+                        <small>Auto-generated from code</small>
+                    </a>
+                </div>
+            </div>
+            <a href="diagrams.html" class="">Diagrams</a>
+            <a href="playbooks.html" class="">Playbooks</a>
+            <a href="decisions.html" class="">ADRs</a>
+            <a href="cost.html" class="">Cost</a>
+            <a href="faq.html" class="">FAQ</a>
+        </nav>
+    </header>
+    <main>
+
+<h1>Language Service PII Detection</h1>
+
+<p>This system supports tenant-controlled PII anonymization by calling Azure AI Language Service (Text Analytics) from Azure API Management (APIM) policies. The goal is to mask sensitive data before it is forwarded to downstream backends such as OpenAI.</p>
+
+<div class="alert alert-info">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+    </div>
+    <div>
+        <strong>Enterprise-grade PII Protection</strong><br>
+        Azure AI Language Service provides ML-based entity recognition that enables accurate detection and redaction of sensitive information including names, addresses, financial data, and medical terms.
+    </div>
+</div>
+
+<h2>Overview</h2>
+
+<p>The system uses Azure AI Language Service PII entity recognition to identify and redact sensitive information in requests. This ML-based approach provides broad entity coverage, context-aware detection, and machine learning accuracy for enterprise-grade PII protection.</p>
+
+<h3>Supported Entity Types</h3>
+<p>Azure AI Language Service can detect and redact a wide range of PII entity types:</p>
+<ul>
+    <li><strong>Personal Identifiers:</strong> Names, email addresses, phone numbers</li>
+    <li><strong>Financial Data:</strong> Credit card numbers, bank account numbers</li>
+    <li><strong>Government IDs:</strong> Social Security Numbers, passport numbers, driver's license numbers</li>
+    <li><strong>Location Data:</strong> Physical addresses, GPS coordinates</li>
+    <li><strong>Medical Information:</strong> Medical record numbers, health insurance information</li>
+</ul>
+
+<h2>Architecture</h2>
+
+<p>Requests enter APIM, tenant API policies decide whether to apply PII anonymization, and when enabled, APIM calls the shared Language Service endpoint using managed identity. The Language Service endpoint is provided to APIM policies via an APIM Named Value: <code>piiServiceUrl</code>.</p>
+
+<div class="card">
+    <h3 style="margin-top: 0;">Request Flow</h3>
+    <ol>
+        <li>Client request arrives at APIM with sensitive content</li>
+        <li>Tenant API policy extracts request body content</li>
+        <li>PII anonymization fragment calls Language Service via managed identity</li>
+        <li>Language Service analyzes and redacts PII entities</li>
+        <li>APIM replaces request body with redacted content</li>
+        <li>Request forwards to backend (OpenAI, Document Intelligence, etc.)</li>
+    </ol>
+</div>
+
+<h2>How It Works</h2>
+
+<ol>
+    <li>A tenant request arrives at APIM.</li>
+    <li>The tenant API policy (generated from <code>api_policy.xml.tftpl</code>) routes the request to the correct backend based on path (for example <code>openai</code>, <code>documentintelligence</code>, <code>ai-search</code>, <code>storage</code>).</li>
+    <li>For OpenAI requests, when PII redaction is enabled, the policy extracts the request body as text and sets it to <code>piiInputContent</code>.</li>
+    <li>The tenant policy sets configuration variables from the tenant's <code>apim_policies.pii_redaction</code> settings:
+        <ul>
+            <li><code>piiExcludedCategories</code> - Categories to exclude from detection</li>
+            <li><code>piiDetectionLanguage</code> - Language code for detection accuracy</li>
+            <li><code>piiPreserveJsonStructure</code> - Whether to restore structural JSON values</li>
+            <li><code>piiStructuralWhitelist</code> - Additional values to preserve</li>
+        </ul>
+    </li>
+    <li>The policy includes the <code>pii-anonymization</code> policy fragment, which uses these configuration variables.</li>
+    <li>The fragment:
+        <ul>
+            <li>Obtains an AAD token via <code>&lt;authentication-managed-identity&gt;</code> for <code>https://cognitiveservices.azure.com</code>.</li>
+            <li>Calls Language Service <code>/language/:analyze-text?api-version=2025-11-15-preview</code> with request kind <code>PiiEntityRecognition</code>.</li>
+            <li>Uses a CharacterMask redaction policy (mask character <code>#</code>).</li>
+            <li>Extracts <code>results.documents[0].redactedText</code> into <code>piiAnonymizedContent</code>.</li>
+            <li>Emits diagnostics including status code, entity count, entity types, and whether content changed.</li>
+        </ul>
+    </li>
+    <li>The tenant policy explicitly applies the anonymized content back to the request body using <code>&lt;set-body&gt;</code> and forwards the request.</li>
+</ol>
+
+<div class="alert alert-warning">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
+    </div>
+    <div>
+        <strong>Example Redaction</strong><br>
+        Input: "My email is alice@example.com and my SSN is 123-45-6789"<br>
+        Output: "My email is ##################### and my SSN is ###########"
+    </div>
+</div>
+
+<h2>Configuration Guide</h2>
+
+<h3>Shared Configuration (All Environments)</h3>
+
+<p>PII detection depends on the shared Language Service being enabled via <code>shared_config.language_service.enabled</code> and integrated into APIM via <code>piiServiceUrl</code>. Language Service is configured for private access (no public network access) and is connected through a private endpoint.</p>
+
+<h3>Per-Tenant Configuration</h3>
+
+<p>PII anonymization is controlled per tenant via APIM policy settings (<code>apim_policies.pii_redaction.enabled</code>). The tenant API policy generation includes PII only when tenant PII redaction is enabled and the shared Language Service is enabled.</p>
+
+<pre><code># Example tenant policy flags
+apim_policies {
+  pii_redaction {
+    enabled                 = true
+
+    # Optional: Exclude specific PII categories from detection
+    excluded_categories     = ["PhoneNumber", "Address"]
+
+    # Optional: Language for detection (default: "en")
+    detection_language      = "en"
+
+    # Optional: Preserve JSON structure (default: true)
+    preserve_json_structure = true
+
+    # Optional: Additional values to preserve (whitelist)
+    structural_whitelist    = ["customRole", "metadata"]
+  }
+  rate_limiting {
+    enabled = true
+    tokens_per_minute = 10000
+  }
+  usage_logging {
+    enabled = true
+  }
+  streaming_metrics {
+    enabled = true
+  }
+  tracking_dimensions {
+    enabled = true
+  }
+}
+</code></pre>
+
+<h4>PII Redaction Configuration Options</h4>
+
+<table>
+    <thead>
+        <tr>
+            <th>Option</th>
+            <th>Type</th>
+            <th>Default</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>enabled</code></td>
+            <td>boolean</td>
+            <td>false</td>
+            <td>Enable or disable PII redaction for this tenant</td>
+        </tr>
+        <tr>
+            <td><code>excluded_categories</code></td>
+            <td>list(string)</td>
+            <td>[]</td>
+            <td>PII categories to exclude from detection (e.g., ["PhoneNumber", "Address"]). See <a href="https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/concepts/entity-categories">Microsoft Learn</a> for available categories.</td>
+        </tr>
+        <tr>
+            <td><code>detection_language</code></td>
+            <td>string</td>
+            <td>"en"</td>
+            <td>Language code for PII detection. Controls detection accuracy for language-specific entities.</td>
+        </tr>
+        <tr>
+            <td><code>preserve_json_structure</code></td>
+            <td>boolean</td>
+            <td>true</td>
+            <td>Restore structural JSON values after redaction to prevent breaking JSON structure (e.g., "user", "system", "assistant" roles in OpenAI messages)</td>
+        </tr>
+        <tr>
+            <td><code>structural_whitelist</code></td>
+            <td>list(string)</td>
+            <td>[]</td>
+            <td>Additional quoted string values to preserve beyond default whitelist (OpenAI roles). Use for custom structural fields that shouldn't be redacted.</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="card card-gold">
+    <h3 style="margin-top: 0;">Flexible Tenant Control</h3>
+    <p>Each tenant can independently enable or disable PII redaction based on their specific requirements. This allows for granular control over data privacy settings while sharing the same infrastructure.</p>
+</div>
+
+<h2>Security Model</h2>
+
+<div class="grid grid-2">
+    <div class="card">
+        <h3 style="margin-top: 0;">Managed Identity Authentication</h3>
+        <p>Language Service uses managed identity only (<code>local_auth_enabled = false</code>) rather than API keys. This eliminates the need for credential rotation and follows Azure security best practices.</p>
+    </div>
+    <div class="card">
+        <h3 style="margin-top: 0;">Private Network Access</h3>
+        <p>Language Service network ACLs default to deny and it is accessed via a private endpoint. APIM is granted access via RBAC (<code>Cognitive Services User</code> role).</p>
+    </div>
+</div>
+
+<p>APIM policy calls use AAD tokens (Authorization Bearer) and remove any <code>api-key</code> header before calling Cognitive Services APIs.</p>
+
+<h2>Observability</h2>
+
+<h3>PII Detection Diagnostics</h3>
+
+<p>The <code>pii-anonymization</code> fragment emits rich diagnostic traces to Application Insights, including:</p>
+
+<ul>
+    <li><strong>pii-status-code:</strong> HTTP response status from Language Service API call</li>
+    <li><strong>pii-entity-count:</strong> Number of PII entities detected in the request</li>
+    <li><strong>pii-entity-types:</strong> Comma-separated list of entity categories found (e.g., "Email,SSN,CreditCard")</li>
+    <li><strong>pii-content-changed:</strong> Boolean flag indicating whether any redaction occurred</li>
+    <li><strong>request-id:</strong> Correlation ID for tracing the request across services</li>
+    <li><strong>tenant-id:</strong> Tenant identifier for per-tenant analytics</li>
+</ul>
+
+<p>These diagnostics enable monitoring of PII detection effectiveness, understanding which entity types are most commonly detected, and tracking Language Service API health.</p>
+
+<h3>OpenAI Usage Logging</h3>
+
+<p>For OpenAI requests, the tenant policy template sets routing metadata variables before including the <code>openai-usage-logging</code> fragment:</p>
+
+<ul>
+    <li><strong>backendId:</strong> APIM backend identifier (e.g., <code>tenant-openai</code>)</li>
+    <li><strong>routeLocation:</strong> Azure region for the backend (single-backend for now)</li>
+    <li><strong>routeName:</strong> Route identifier for future intelligent routing</li>
+    <li><strong>deploymentName:</strong> Extracted from the URL path (e.g., <code>gpt-4</code>)</li>
+</ul>
+
+<p>These dimensions are logged to Application Insights along with token usage data, enabling detailed cost allocation, chargeback analytics, and deployment-level monitoring even in the current single-backend setup.</p>
+
+<h3>Additional Monitoring Fragments</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th>Fragment</th>
+            <th>Purpose</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>tracking-dimensions</code></td>
+            <td>Extract session, user, app, and correlation IDs from headers</td>
+            <td>Active</td>
+        </tr>
+        <tr>
+            <td><code>openai-usage-logging</code></td>
+            <td>Detailed usage tracking to Application Insights with routing metadata</td>
+            <td>Active</td>
+        </tr>
+        <tr>
+            <td><code>openai-streaming-metrics</code></td>
+            <td>Token metrics for streaming responses</td>
+            <td>Reserved for future use</td>
+        </tr>
+        <tr>
+            <td><code>intelligent-routing</code></td>
+            <td>Priority-based multi-backend selection</td>
+            <td>Reserved for future use</td>
+        </tr>
+    </tbody>
+</table>
+
+<h2>Frequently Asked Questions</h2>
+
+<details>
+    <summary><strong>What kinds of entities are supported?</strong></summary>
+    <div class="accordion-content">
+        <p>The PII fragment is designed for enterprise PII detection and supports names, addresses, SSN, medical terms, financial data, and many other entity types. Azure Language Service uses machine learning to detect entities based on context.</p>
+    </div>
+</details>
+
+<details>
+    <summary><strong>What happens if Language Service fails?</strong></summary>
+    <div class="accordion-content">
+        <p>PII redaction operates on a <strong>best-effort basis</strong>. The Language Service call uses <code>ignore-error="true"</code>, which means:</p>
+        <ul>
+            <li>If the Language Service returns a non-200 response, the original content is passed through</li>
+            <li>If the response cannot be parsed, the original content is passed through</li>
+            <li>If the Language Service is temporarily unavailable, requests continue to flow without redaction</li>
+            <li>All failures are logged in diagnostics with appropriate status codes and error details</li>
+        </ul>
+        <p>This design prioritizes service availability over PII protection. If strict PII redaction is required with no fallback, the fragment behavior would need to be modified to fail requests when Language Service is unavailable.</p>
+    </div>
+</details>
+
+<details>
+    <summary><strong>Does this apply to all requests?</strong></summary>
+    <div class="accordion-content">
+        <p>PII anonymization is tenant-controlled and is applied (in the current routing) for OpenAI requests when enabled via <code>apim_policies.pii_redaction.enabled</code>.</p>
+    </div>
+</details>
+
+<details>
+    <summary><strong>What is the performance impact?</strong></summary>
+    <div class="accordion-content">
+        <p>PII anonymization adds an extra network call from APIM to Language Service for requests where it is enabled. The Language Service call uses a fixed timeout of 20 seconds. For most requests, the latency impact is minimal (typically under 500ms).</p>
+    </div>
+</details>
+
+<details>
+    <summary><strong>Can I customize which entity types are redacted?</strong></summary>
+    <div class="accordion-content">
+        <p>Yes. Use the <code>excluded_categories</code> setting in <code>apim_policies.pii_redaction</code> to specify PII categories that should not be detected or redacted. For example:</p>
+        <pre><code>pii_redaction {
+  enabled = true
+  excluded_categories = ["PhoneNumber", "Address"]
+}</code></pre>
+        <p>See <a href="https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/concepts/entity-categories">Microsoft Learn: PII Entity Categories</a> for the full list of available categories.</p>
+    </div>
+</details>
+
+<details>
+    <summary><strong>How does "preserve JSON structure" work?</strong></summary>
+    <div class="accordion-content">
+        <p>The <code>preserve_json_structure</code> feature (enabled by default) uses a heuristic post-processing step to restore certain quoted string values that were masked by Language Service but are actually structural JSON fields rather than PII.</p>
+        <p><strong>How it works:</strong></p>
+        <ul>
+            <li>After Language Service redacts the content (replacing PII with <code>#####</code> patterns), the fragment identifies masked values that match known structural patterns</li>
+            <li>Default whitelist includes OpenAI message roles: <code>"user"</code>, <code>"system"</code>, <code>"assistant"</code>, <code>"function"</code>, <code>"tool"</code></li>
+            <li>Custom values can be added via <code>structural_whitelist</code> configuration</li>
+            <li>Restoration matches based on the length of the <code>####</code> pattern (e.g., <code>"####"</code> could restore to <code>"user"</code>)</li>
+        </ul>
+        <p><strong>Example:</strong> If Language Service masks <code>"role": "user"</code> as <code>"role": "####"</code>, the post-processing step restores it to <code>"role": "user"</code> because <code>"user"</code> is in the default whitelist.</p>
+        <p><strong>Caution:</strong> This is a heuristic approach based on pattern matching. It reduces false positives on structural fields but could theoretically restore a value that happens to match both the pattern length and whitelist entry. For strict PII protection requirements, consider setting <code>preserve_json_structure = false</code>.</p>
+    </div>
+</details>
+
+<h2>Troubleshooting</h2>
+
+<table>
+    <thead>
+        <tr>
+            <th>Issue</th>
+            <th>Cause</th>
+            <th>Solution</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>401/403 calling Language Service</td>
+            <td>Missing or incorrect RBAC permissions</td>
+            <td>Verify APIM managed identity has the <code>Cognitive Services User</code> role assignment on the Language Service resource</td>
+        </tr>
+        <tr>
+            <td>DNS / private endpoint not ready</td>
+            <td>Private DNS zone integration incomplete</td>
+            <td>Deployment includes a DNS wait step; ensure private DNS zone integration is complete before testing</td>
+        </tr>
+        <tr>
+            <td>Transient failures after deploy</td>
+            <td>Role assignment propagation delay</td>
+            <td>Role assignment propagation can cause temporary failures until RBAC takes effect (typically 5-10 minutes)</td>
+        </tr>
+        <tr>
+            <td>No redaction occurring</td>
+            <td>PII detection not enabled</td>
+            <td>Confirm tenant <code>apim_policies.pii_redaction.enabled</code> is true and shared <code>language_service.enabled</code> is true</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="alert alert-info">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+    </div>
+    <div>
+        <strong>For Technical Details</strong><br>
+        See the <a href="https://github.com/bcgov/ai-hub-tracking/blob/main/infra-ai-hub/params/apim/README.md">APIM Policy README</a> for deep technical documentation on policy fragments, infrastructure components, and configuration schema.
+    </div>
+</div>
+    </main>
+    <footer class="site-footer">
+        <div class="footer-content">
+            <div class="footer-brand">
+                <h4>AI Hub Tracking</h4>
+                <p>Infrastructure as Code for Azure Landing Zone deployments</p>
+            </div>
+            <div class="footer-links">
+                <h4>Resources</h4>
+                <ul>
+                    <li><a href="https://github.com/bcgov/ai-hub-tracking">GitHub Repository</a></li>
+                    <li><a href="assets/azure-oidc-complete-guide.svg" target="_blank">Architecture Diagram</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>BC Government</h4>
+                <ul>
+                    <li><a href="https://www2.gov.bc.ca">gov.bc.ca</a></li>
+                    <li><a href="https://digital.gov.bc.ca">Digital Office</a></li>
+                </ul>
+            </div>
+            <div class="footer-copyright">
+                <p>&copy; 2026 Province of British Columbia</p>
+                <p class="footer-meta">Built with zero dependencies</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        (function () {
+            function scrollToWithHeaderOffset(el) {
+                if (!el) return;
+                const header = document.querySelector('.bc-header');
+                const offset = (header ? header.getBoundingClientRect().height : 0) + 16;
+
+                const top = el.getBoundingClientRect().top + window.scrollY - offset;
+                window.scrollTo({ top: Math.max(0, top) });
+            }
+
+            function openDetailsFromHash() {
+                const hash = window.location.hash;
+                if (!hash || hash.length < 2) return;
+
+                const id = hash.substring(1);
+                const el = document.getElementById(id);
+                if (el && el.tagName && el.tagName.toLowerCase() === 'details') {
+                    el.open = true;
+                    // Opening can change layout; adjust scroll after paint so the
+                    // sticky header doesn't cover the <summary> title.
+                    requestAnimationFrame(function () {
+                        requestAnimationFrame(function () {
+                            scrollToWithHeaderOffset(el);
+                        });
+                    });
+                }
+            }
+
+            document.addEventListener('DOMContentLoaded', function () {
+                openDetailsFromHash();
+            });
+
+            window.addEventListener('hashchange', function () {
+                openDetailsFromHash();
+            });
+
+            // If user clicks the same #hash twice, hashchange won't fire.
+            // This ensures ADR links always expand.
+            document.addEventListener('click', function (e) {
+                const link = e.target.closest && e.target.closest('a[href^="#"]');
+                if (!link) return;
+
+                const href = link.getAttribute('href');
+                if (!href || href.length < 2) return;
+
+                const id = href.substring(1);
+                const el = document.getElementById(id);
+                if (el && el.tagName && el.tagName.toLowerCase() === 'details') {
+                    el.open = true;
+                    requestAnimationFrame(function () {
+                        requestAnimationFrame(function () {
+                            scrollToWithHeaderOffset(el);
+                        });
+                    });
+                }
+            });
+        })();
+    </script>
+</body>
+</html>

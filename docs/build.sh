@@ -50,6 +50,8 @@ for page in "$PAGES_DIR"/*.html; do
         header="${header//\{\{NAV_INDEX\}\}/}"
         header="${header//\{\{NAV_OIDC\}\}/}"
         header="${header//\{\{NAV_TERRAFORM\}\}/}"
+        header="${header//\{\{NAV_LANGUAGE-SERVICE-PII\}\}/}"
+        header="${header//\{\{NAV_DOCUMENT-INTELLIGENCE\}\}/}"
         header="${header//\{\{NAV_WORKFLOWS\}\}/}"
         header="${header//\{\{NAV_DIAGRAMS\}\}/}"
         header="${header//\{\{NAV_TERRAFORM-REFERENCE\}\}/}"

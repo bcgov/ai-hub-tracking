@@ -2,11 +2,13 @@
 variable "app_env" {
   description = "Application environment (dev, test, prod)"
   type        = string
+  nullable    = false
 }
 
 variable "app_name" {
   description = "Name of the application"
   type        = string
+  nullable    = false
 }
 variable "common_tags" {
   description = "Common tags to apply to all resources"
@@ -20,6 +22,7 @@ variable "location" {
 variable "resource_group_name" {
   description = "Name of the resource group"
   type        = string
+  nullable    = false
 }
 
 variable "subscription_id" {
@@ -151,7 +154,7 @@ variable "azure_proxy_image" {
 variable "app_service_sku_name_azure_proxy" {
   description = "The SKU name for the azure proxy App Service plan."
   type        = string
-  default     = "B1"
+  default     = "P0v4"
 }
 variable "enable_azure_proxy" {
   description = "Enable deployment of the Azure Proxy App Service"

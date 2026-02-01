@@ -14,11 +14,24 @@ on:
       command:
         description: "The Terraform command to run"
         required: true
-        default: "apply"
+        default: "plan"
         type: choice
         options:
+          - plan
           - apply
           - destroy
+      terraform_log_level:
+        description: "The Terraform logging level"
+        required: false
+        default: "ERROR"
+        type: choice
+        options:
+          - TRACE
+          - DEBUG
+          - INFO
+          - WARN
+          - ERROR
+
 permissions:
   id-token: write # This is required for requesting the JWT
   contents: write # This is required for actions/checkout
@@ -34,6 +47,7 @@ jobs:
       command: apply
       target_module: azure_proxy
       tag: latest
+      terraform_log_level: ${{ inputs.terraform_log_level }}
     secrets: inherit
   deploy-to-environment:
     name: Deploy to ${{ inputs.environment }} Environment
@@ -45,14 +59,5 @@ jobs:
       proxy_url: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_url }}
       proxy_auth: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_auth }}
       tag: latest
-    secrets: inherit
-  destroy-proxy-in-tools-environment:
-    name: Destroy Proxy in 'tools' Environment
-    needs: deploy-to-environment
-    uses: ./.github/workflows/.deployer.yml
-    with:
-      environment_name: tools
-      command: destroy
-      target_module: azure_proxy
-      tag: latest
+      terraform_log_level: ${{ inputs.terraform_log_level }}
     secrets: inherit

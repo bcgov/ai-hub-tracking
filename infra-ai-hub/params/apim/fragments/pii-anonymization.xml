@@ -1,0 +1,204 @@
+<fragment>
+    <!-- ================================================================== -->
+    <!-- PII Anonymization via Azure Language Service                       -->
+    <!-- Enterprise-grade PII detection using Azure AI Language API         -->
+    <!-- Supports: Names, addresses, SSN, medical terms, financial data     -->
+    <!-- ================================================================== -->
+    <!-- 
+        Prerequisites - Set these variables before including this fragment:
+        - piiInputContent: The text content to analyze (request body messages)
+        - piiAnonymizationEnabled: "true" or "false" based on tenant config
+        
+        Optional configuration variables:
+        - piiExcludedCategories: JSON array of PII categories to exclude
+        - piiPreserveJsonStructure: "true" to restore structural values
+        - piiStructuralWhitelist: JSON array of additional values to preserve
+        - piiDetectionLanguage: Language code for detection (default: "en")
+        
+        Required Named Value:
+        - piiServiceUrl: The Language Service endpoint URL (set in APIM Named Values)
+
+        Output:
+        - piiAnonymizedContent: The anonymized text (with redactionCharacter masking)
+
+        Usage: Include after extracting text from request body
+    -->
+    <choose>
+        <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnonymizationEnabled&quot;, &quot;false&quot;) == &quot;true&quot;)">
+            <!-- Get MSI token for Cognitive Services -->
+            <authentication-managed-identity
+                resource="https://cognitiveservices.azure.com"
+                output-token-variable-name="pii-msi-access-token"
+                ignore-error="false" />
+
+            <!-- Call Azure Language Service PII API -->
+            <!-- See: https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/how-to/redact-text-pii -->
+            <send-request mode="new" response-variable-name="piiAnalysisResponse" timeout="20" ignore-error="true">
+                <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                <set-method>POST</set-method>
+                <set-header name="Content-Type" exists-action="override">
+                    <value>application/json</value>
+                </set-header>
+                <set-header name="Authorization" exists-action="override">
+                    <value>@("Bearer " + (string)context.Variables["pii-msi-access-token"])</value>
+                </set-header>
+                <set-body>@{
+                    var inputText = context.Variables.GetValueOrDefault&lt;string&gt;("piiInputContent", "");
+                    var language = context.Variables.GetValueOrDefault&lt;string&gt;("piiDetectionLanguage", "en");
+                    
+                    // Parse excluded categories from config (Option 2)
+                    var excludedCategoriesJson = context.Variables.GetValueOrDefault&lt;string&gt;("piiExcludedCategories", "[]");
+                    JArray excludedCategories;
+                    try {
+                        excludedCategories = JArray.Parse(excludedCategoriesJson);
+                    } catch {
+                        excludedCategories = new JArray();
+                    }
+                    
+                    var request = new JObject();
+                    request["kind"] = "PiiEntityRecognition";
+                    
+                    var parameters = new JObject {
+                        {"modelVersion", "latest"},
+                        {"redactionPolicy", new JObject {
+                            {"policyKind", "CharacterMask"},
+                            {"redactionCharacter", "#"}
+                        }}
+                    };
+                    
+                    // Add excluded categories if specified
+                    if (excludedCategories.Count > 0) {
+                        parameters["excludePiiCategories"] = excludedCategories;
+                    }
+                    
+                    request["parameters"] = parameters;
+                    request["analysisInput"] = new JObject {
+                        {"documents", new JArray {
+                            new JObject {
+                                {"text", inputText},
+                                {"id", "1"},
+                                {"language", language}
+                            }
+                        }}
+                    };
+                    return request.ToString();
+                }</set-body>
+            </send-request>
+            
+            <!-- Extract redacted text and apply structural preservation -->
+            <set-variable name="piiAnonymizedContent" value="@{
+                try {
+                    var response = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiAnalysisResponse&quot;);
+                    if (response == null || response.StatusCode != 200) {
+                        // Fallback to original content on error
+                        return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
+                    }
+                    
+                    var responseBody = JObject.Parse(response.Body.As&lt;string&gt;());
+                    var redactedText = responseBody.SelectToken(&quot;$.results.documents[0].redactedText&quot;);
+                    if (redactedText == null) {
+                        return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
+                    }
+                    
+                    var result = redactedText.ToString();
+                    
+                    // Preserve JSON structure - restore common structural values
+                    var preserveStructure = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiPreserveJsonStructure&quot;, &quot;true&quot;);
+                    if (preserveStructure.ToLower() == &quot;true&quot;) {
+                        // Default structural values to preserve (OpenAI message roles and common JSON keys)
+                        var defaultWhitelist = new System.Collections.Generic.List&lt;string&gt; {
+                            &quot;user&quot;, &quot;system&quot;, &quot;assistant&quot;, &quot;function&quot;, &quot;tool&quot;, &quot;developer&quot;,
+                            &quot;role&quot;, &quot;content&quot;, &quot;messages&quot;, &quot;name&quot;, &quot;model&quot;
+                        };
+                        
+                        // Add custom whitelist values from config
+                        var customWhitelistJson = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiStructuralWhitelist&quot;, &quot;[]&quot;);
+                        try {
+                            var customWhitelist = JArray.Parse(customWhitelistJson);
+                            foreach (var item in customWhitelist) {
+                                var value = item.ToString();
+                                if (!string.IsNullOrEmpty(value) &amp;&amp; !defaultWhitelist.Contains(value)) {
+                                    defaultWhitelist.Add(value);
+                                }
+                            }
+                        } catch { }
+                        
+                        // Restore whitelisted values that may have been anonymized
+                        // Pattern: replace sequences of # that match the length of whitelisted values
+                        foreach (var structuralValue in defaultWhitelist) {
+                            // Create a pattern of # characters matching the value length
+                            var maskPattern = new string('#', structuralValue.Length);
+                            
+                            // Only replace if the mask appears in a JSON value context
+                            // Look for pattern: "####" (quoted mask) and restore to original value
+                            var quotedMask = &quot;\&quot;&quot; + maskPattern + &quot;\&quot;&quot;;
+                            var quotedValue = &quot;\&quot;&quot; + structuralValue + &quot;\&quot;&quot;;
+                            
+                            if (result.Contains(quotedMask)) {
+                                result = result.Replace(quotedMask, quotedValue);
+                            }
+                        }
+                    }
+                    
+                    return result;
+                } catch {
+                    // Fallback to original content on any error
+                    return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
+                }
+            }" />
+            
+            <!-- Extract non-PII diagnostics from Language Service response -->
+            <set-variable name="piiDetectionStatusCode" value="@{
+                var response = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiAnalysisResponse&quot;);
+                return response != null ? ((int)response.StatusCode).ToString() : &quot;no-response&quot;;
+            }" />
+            <set-variable name="piiEntityCount" value="@{
+                try {
+                    var response = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiAnalysisResponse&quot;);
+                    if (response == null || response.StatusCode != 200) { return &quot;0&quot;; }
+                    var responseBody = JObject.Parse(response.Body.As&lt;string&gt;(preserveContent: true));
+                    var entities = responseBody.SelectToken(&quot;$.results.documents[0].entities&quot;) as JArray;
+                    return (entities?.Count ?? 0).ToString();
+                } catch { return &quot;error&quot;; }
+            }" />
+            <set-variable name="piiEntityTypes" value="@{
+                try {
+                    var response = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiAnalysisResponse&quot;);
+                    if (response == null || response.StatusCode != 200) { return &quot;none&quot;; }
+                    var responseBody = JObject.Parse(response.Body.As&lt;string&gt;(preserveContent: true));
+                    var entities = responseBody.SelectToken(&quot;$.results.documents[0].entities&quot;) as JArray;
+                    if (entities == null || entities.Count == 0) { return &quot;none&quot;; }
+                    var categories = new System.Collections.Generic.HashSet&lt;string&gt;();
+                    foreach (var entity in entities) {
+                        var category = entity[&quot;category&quot;];
+                        if (category != null) { categories.Add(category.ToString()); }
+                    }
+                    return string.Join(&quot;,&quot;, categories);
+                } catch { return &quot;error&quot;; }
+            }" />
+            <set-variable name="piiContentChanged" value="@{
+                var inputText = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
+                var anonymized = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnonymizedContent&quot;, &quot;&quot;);
+                return (!string.Equals(inputText, anonymized, System.StringComparison.Ordinal)).ToString();
+            }" />
+            
+            <!-- Log PII detection to App Insights with diagnostics -->
+            <trace source="pii-anonymization" severity="information">
+                <message>PII Anonymization Applied</message>
+                <metadata name="event-type" value="pii-anonymization" />
+                <metadata name="request-id" value="@(context.RequestId.ToString())" />
+                <metadata name="tenant-id" value="@(context.Request.Headers.GetValueOrDefault(&quot;X-Tenant-Id&quot;, &quot;unknown&quot;))" />
+                <metadata name="pii-status-code" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;unknown&quot;))" />
+                <metadata name="pii-entity-count" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiEntityCount&quot;, &quot;0&quot;))" />
+                <metadata name="pii-entity-types" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiEntityTypes&quot;, &quot;none&quot;))" />
+                <metadata name="pii-content-changed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiContentChanged&quot;, &quot;unknown&quot;))" />
+                <metadata name="pii-preserve-structure" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiPreserveJsonStructure&quot;, &quot;true&quot;))" />
+            </trace>
+        </when>
+        <otherwise>
+            <!-- PII anonymization disabled - pass through original content -->
+            <set-variable name="piiAnonymizedContent" 
+                value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;))" />
+        </otherwise>
+    </choose>
+</fragment>

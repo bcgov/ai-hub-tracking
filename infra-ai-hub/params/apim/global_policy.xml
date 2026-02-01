@@ -1,0 +1,117 @@
+<policies>
+    <inbound>
+        <!-- ================================================================== -->
+        <!-- SUBSCRIPTION KEY NORMALIZATION                                    -->
+        <!-- Allows clients to use api-key or x-api-key headers                -->
+        <!-- in addition to the standard Ocp-Apim-Subscription-Key             -->
+        <!-- ================================================================== -->
+        <choose>
+            <!-- If Ocp-Apim-Subscription-Key is not set, check for alternatives -->
+            <when condition="@(!context.Request.Headers.ContainsKey("Ocp-Apim-Subscription-Key") || string.IsNullOrEmpty(context.Request.Headers.GetValueOrDefault("Ocp-Apim-Subscription-Key", "")))">
+                <choose>
+                    <!-- Try api-key header first -->
+                    <when condition="@(context.Request.Headers.ContainsKey("api-key") && !string.IsNullOrEmpty(context.Request.Headers.GetValueOrDefault("api-key", "")))">
+                        <set-header name="Ocp-Apim-Subscription-Key" exists-action="override">
+                            <value>@(context.Request.Headers.GetValueOrDefault("api-key", ""))</value>
+                        </set-header>
+                    </when>
+                    <!-- Try x-api-key header -->
+                    <when condition="@(context.Request.Headers.ContainsKey("x-api-key") && !string.IsNullOrEmpty(context.Request.Headers.GetValueOrDefault("x-api-key", "")))">
+                        <set-header name="Ocp-Apim-Subscription-Key" exists-action="override">
+                            <value>@(context.Request.Headers.GetValueOrDefault("x-api-key", ""))</value>
+                        </set-header>
+                    </when>
+                </choose>
+            </when>
+        </choose>
+
+        <!-- Set correlation ID for request tracing -->
+        <set-header name="x-ms-correlation-request-id" exists-action="skip">
+            <value>@(context.RequestId.ToString())</value>
+        </set-header>
+        
+        <!-- Emit LLM token metrics for AI service requests -->
+        <!-- Tracks: Total Tokens, Prompt Tokens, Completion Tokens -->
+        <!-- Note: azure-openai-emit-token-metric requires requests to OpenAI endpoints -->
+        <choose>
+            <when condition="@(context.Request.Url.Path.ToLower().Contains("openai"))">
+                <azure-openai-emit-token-metric namespace="AIHub">
+                    <dimension name="API ID" />
+                    <dimension name="Subscription ID" />
+                    <dimension name="Tenant" value="@(context.Request.Headers.GetValueOrDefault("X-Tenant-Id", "unknown"))" />
+                </azure-openai-emit-token-metric>
+            </when>
+        </choose>
+    </inbound>
+    <backend>
+        <forward-request buffer-request-body="true" />
+    </backend>
+    <outbound>
+        <!-- Add request tracing headers to response -->
+        <set-header name="x-ms-request-id" exists-action="override">
+            <value>@(context.RequestId.ToString())</value>
+        </set-header>
+        <!-- Add remaining tokens header for rate limit visibility -->
+        <set-header name="x-ratelimit-remaining-tokens" exists-action="override">
+            <value>@(context.Variables.ContainsKey("remainingTokens") ? ((int)context.Variables["remainingTokens"]).ToString() : "N/A")</value>
+        </set-header>
+    </outbound>
+    <on-error>
+        <!-- ================================================================== -->
+        <!-- THROTTLING HANDLING                                               -->
+        <!-- Preserve Retry-After headers from backend for 429 responses       -->
+        <!-- Helps clients implement proper backoff strategies                 -->
+        <!-- ================================================================== -->
+        <choose>
+            <when condition="@(context.Response.StatusCode == 429)">
+                <return-response>
+                    <set-status code="429" reason="Too Many Requests" />
+                    <set-header name="x-ms-request-id" exists-action="override">
+                        <value>@(context.RequestId.ToString())</value>
+                    </set-header>
+                    <set-header name="Retry-After" exists-action="override">
+                        <value>@(context.Response.Headers.GetValueOrDefault("Retry-After", "30"))</value>
+                    </set-header>
+                    <set-header name="x-ratelimit-remaining-tokens" exists-action="override">
+                        <value>@(context.Response.Headers.GetValueOrDefault("x-ratelimit-remaining-tokens", "0"))</value>
+                    </set-header>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@{
+                        var retryAfter = context.Response.Headers.GetValueOrDefault("Retry-After", "30");
+                        return new JObject(
+                            new JProperty("error", new JObject(
+                                new JProperty("code", "429"),
+                                new JProperty("message", "Too Many Requests - Rate limit exceeded"),
+                                new JProperty("retryAfter", retryAfter),
+                                new JProperty("requestId", context.RequestId.ToString())
+                            ))
+                        ).ToString();
+                    }</set-body>
+                </return-response>
+            </when>
+            <otherwise>
+                <!-- Return consistent error format with correlation ID -->
+                <return-response>
+                    <set-status code="@(context.Response.StatusCode)" reason="@(context.Response.StatusReason)" />
+                    <set-header name="x-ms-request-id" exists-action="override">
+                        <value>@(context.RequestId.ToString())</value>
+                    </set-header>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@{
+                        return new JObject(
+                            new JProperty("error", new JObject(
+                                new JProperty("code", context.Response.StatusCode.ToString()),
+                                new JProperty("message", context.Response.StatusReason),
+                                new JProperty("requestId", context.RequestId.ToString())
+                            ))
+                        ).ToString();
+                    }</set-body>
+                </return-response>
+            </otherwise>
+        </choose>
+    </on-error>
+</policies>
