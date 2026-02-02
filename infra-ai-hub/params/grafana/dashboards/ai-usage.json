@@ -1,0 +1,102 @@
+{
+  "schemaVersion": 38,
+  "version": 1,
+  "title": "AI Usage (App Insights)",
+  "tags": ["ai", "usage", "appinsights"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "grafana-azure-monitor-datasource",
+        "current": { "text": "Azure Monitor", "value": "Azure Monitor" }
+      },
+      {
+        "name": "appinsights",
+        "type": "constant",
+        "label": "App Insights Resource ID",
+        "query": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.Insights/components/<name>"
+      },
+      {
+        "name": "tenant",
+        "type": "textbox",
+        "label": "Tenant (X-Tenant-Id)",
+        "query": ""
+      },
+      {
+        "name": "api",
+        "type": "textbox",
+        "label": "API Name",
+        "query": ""
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Request Rate (5m)",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": "$datasource",
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Log Analytics",
+          "azureLogAnalytics": {
+            "resource": "$appinsights",
+            "query": "requests\n| where (isempty('${tenant}') or tostring(customDimensions['X-Tenant-Id']) == '${tenant}')\n| where (isempty('${api}') or tostring(name) contains '${api}')\n| summarize Requests=count() by bin(timestamp, 5m)\n| order by timestamp asc"
+          }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tokens Consumed (5m)",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": "$datasource",
+      "targets": [
+        {
+          "refId": "B",
+          "queryType": "Azure Log Analytics",
+          "azureLogAnalytics": {
+            "resource": "$appinsights",
+            "query": "requests\n| extend Tokens=todouble(customDimensions['x-tokens-consumed'])\n| where isnotempty(Tokens)\n| summarize Tokens=sum(Tokens) by bin(timestamp, 5m)\n| order by timestamp asc"
+          }
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Avg Duration (ms)",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 6 },
+      "datasource": "$datasource",
+      "targets": [
+        {
+          "refId": "C",
+          "queryType": "Azure Log Analytics",
+          "azureLogAnalytics": {
+            "resource": "$appinsights",
+            "query": "requests\n| summarize AvgDuration=avg(duration)"
+          }
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "P95 Duration (ms)",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 6 },
+      "datasource": "$datasource",
+      "targets": [
+        {
+          "refId": "D",
+          "queryType": "Azure Log Analytics",
+          "azureLogAnalytics": {
+            "resource": "$appinsights",
+            "query": "requests\n| summarize P95Duration=percentile(duration, 95)"
+          }
+        }
+      ]
+    }
+  ]
+}

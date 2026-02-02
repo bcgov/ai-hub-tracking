@@ -101,7 +101,7 @@ Commands:
     init        Initialize Terraform (download providers, configure backend)
     plan        Create execution plan
     apply       Apply changes (all modules in parallel)
-    apply-phased Apply in two phases: 1) all except foundry_project, 2) foundry_project with parallelism=1
+    apply-phased Apply in four phases: 1) core infra, 2) foundry_project, 3) APIM, 4) final
     destroy     Destroy infrastructure (all modules in parallel)
     destroy-phased Destroy in two phases: 1) foundry_project with parallelism=1, 2) all remaining
     validate    Validate configuration
@@ -116,6 +116,7 @@ Environments:
 Options:
     -target=<resource>    Target specific resource
     --auto-approve        Skip confirmation prompts
+    --start-phase=N       (apply-phased only) Start from phase N (1-4), skipping earlier phases
 
 Environment:
     CI=true               Enable CI mode (auto-approve, less verbose)
@@ -561,6 +562,27 @@ tf_apply() {
 # Phase 4: Final apply (all remaining changes)
 # =============================================================================
 tf_apply_phased() {
+    # Parse --start-phase option
+    local start_phase=1
+    local remaining_args=()
+    
+    for arg in "$@"; do
+        case "$arg" in
+            --start-phase=*)
+                start_phase="${arg#--start-phase=}"
+                if ! [[ "$start_phase" =~ ^[1-4]$ ]]; then
+                    log_error "Invalid start phase: $start_phase. Must be 1-4."
+                    exit 1
+                fi
+                log_info "Starting from phase $start_phase (skipping earlier phases)"
+                ;;
+            *)
+                remaining_args+=("$arg")
+                ;;
+        esac
+    done
+    set -- "${remaining_args[@]}"
+
     log_info "Starting phased apply..."
     log_info "Phase 1: Core infrastructure + tenants (parallel)"
     log_info "Phase 2: AI Foundry projects + models (parallelism=1)"
@@ -579,51 +601,59 @@ tf_apply_phased() {
     # Includes: network, hub, APIM, app gateway, defender, tenant resources
     # NOTE: module.tenant no longer has model deployments (moved to foundry_project)
     # =========================================================================
-    log_info "=== PHASE 1: Applying core infrastructure + tenants (parallel) ==="
-    
-    local phase1_args=("${TFVARS_ARGS[@]}")
-    phase1_args+=("-input=false")
-    
-    if [[ "${CI:-false}" == "true" ]]; then
-        phase1_args+=("-auto-approve")
+    if [[ $start_phase -le 1 ]]; then
+        log_info "=== PHASE 1: Applying core infrastructure + tenants (parallel) ==="
+        
+        local phase1_args=("${TFVARS_ARGS[@]}")
+        phase1_args+=("-input=false")
+        
+        if [[ "${CI:-false}" == "true" ]]; then
+            phase1_args+=("-auto-approve")
+        fi
+
+        # Target core infrastructure and tenant resources (no model deployments here)
+        local targets=(
+            "-target=azurerm_resource_group.main"
+            "-target=module.network"
+            "-target=module.ai_foundry_hub"
+            "-target=module.apim"
+            "-target=module.app_gateway"
+            "-target=module.defender"
+            "-target=module.tenant"
+        )
+
+        log_info "Phase 1 targets: ${targets[*]}"
+
+        run_terraform_with_retries apply "${phase1_args[@]}" "${targets[@]}" "$@"
+        log_success "Phase 1 complete"
+    else
+        log_info "=== PHASE 1: Skipped (--start-phase=$start_phase) ==="
     fi
-
-    # Target core infrastructure and tenant resources (no model deployments here)
-    local targets=(
-        "-target=azurerm_resource_group.main"
-        "-target=module.network"
-        "-target=module.ai_foundry_hub"
-        "-target=module.apim"
-        "-target=module.app_gateway"
-        "-target=module.defender"
-        "-target=module.tenant"
-    )
-
-    log_info "Phase 1 targets: ${targets[*]}"
-
-    run_terraform_with_retries apply "${phase1_args[@]}" "${targets[@]}" "$@"
-    log_success "Phase 1 complete"
 
     # =========================================================================
     # PHASE 2: AI Foundry Projects + Model Deployments (serialized)
     # Run with parallelism=1 to avoid ETag conflicts on shared AI Foundry Hub
     # Model deployments are now in foundry_project module, not tenant module
     # =========================================================================
-    log_info "=== PHASE 2: Applying AI Foundry projects + models (parallelism=1) ==="
-    
-    local phase2_args=("${TFVARS_ARGS[@]}")
-    phase2_args+=("-input=false")
-    phase2_args+=("-parallelism=1")
-    
-    if [[ "${CI:-false}" == "true" ]]; then
-        phase2_args+=("-auto-approve")
-    fi
-    
-    # Only foundry_project module - contains projects AND model deployments
-    phase2_args+=("-target=module.foundry_project")
+    if [[ $start_phase -le 2 ]]; then
+        log_info "=== PHASE 2: Applying AI Foundry projects + models (parallelism=1) ==="
+        
+        local phase2_args=("${TFVARS_ARGS[@]}")
+        phase2_args+=("-input=false")
+        phase2_args+=("-parallelism=1")
+        
+        if [[ "${CI:-false}" == "true" ]]; then
+            phase2_args+=("-auto-approve")
+        fi
+        
+        # Only foundry_project module - contains projects AND model deployments
+        phase2_args+=("-target=module.foundry_project")
 
-    run_terraform_with_retries apply "${phase2_args[@]}" "$@"
-    log_success "Phase 2 complete"
+        run_terraform_with_retries apply "${phase2_args[@]}" "$@"
+        log_success "Phase 2 complete"
+    else
+        log_info "=== PHASE 2: Skipped (--start-phase=$start_phase) ==="
+    fi
 
     # Phase 3: APIM Backend and Policy Orchestration
     # ==========================================================================
@@ -638,110 +668,116 @@ tf_apply_phased() {
     # 4. If no backend changes: skip Phase 4 entirely
     # ==========================================================================
 
-    log_info "=== PHASE 3: APIM Policy and Backend Orchestration ==="
-    
-    # Generate a plan to detect what's changing
-    local plan_file="${INFRA_DIR}/.phase3-plan"
-    local plan_json="${INFRA_DIR}/.phase3-plan.json"
-    
-    log_info "Analyzing Terraform plan for APIM changes..."
-    terraform plan "${TFVARS_ARGS[@]}" -input=false -out="$plan_file" > /dev/null 2>&1 || true
-    terraform show -json "$plan_file" > "$plan_json" 2>/dev/null || true
-    
-    # Check for backend creations and deletions
-    local backends_to_create=""
-    local backends_to_destroy=""
-    
-    if [[ -f "$plan_json" ]]; then
-        backends_to_create=$(jq -r '
-            .resource_changes[]? 
-            | select(.type == "azurerm_api_management_backend") 
-            | select(.change.actions | contains(["create"]))
-            | .address
-        ' "$plan_json" 2>/dev/null | grep -v '^$' || true)
+    if [[ $start_phase -le 3 ]]; then
+        log_info "=== PHASE 3: APIM Policy and Backend Orchestration ==="
         
-        backends_to_destroy=$(jq -r '
-            .resource_changes[]? 
-            | select(.type == "azurerm_api_management_backend") 
-            | select(.change.actions | contains(["delete"]))
-            | .address
-        ' "$plan_json" 2>/dev/null | grep -v '^$' || true)
-    fi
-    
-    # Priority: Handle deletions first (policy update must happen before backend deletion)
-    if [[ -n "$backends_to_destroy" ]]; then
-        log_info "Detected backends scheduled for destruction:"
-        echo "$backends_to_destroy" | while read -r addr; do
-            [[ -n "$addr" ]] && log_info "  - $addr"
-        done
+        # Generate a plan to detect what's changing
+        local plan_file="${INFRA_DIR}/.phase3-plan"
+        local plan_json="${INFRA_DIR}/.phase3-plan.json"
         
-        # Phase 3a: Update policies FIRST to remove stale backend references
-        log_info "Updating APIM policies before backend deletion..."
+        log_info "Analyzing Terraform plan for APIM changes..."
+        terraform plan "${TFVARS_ARGS[@]}" -input=false -out="$plan_file" > /dev/null 2>&1 || true
+        terraform show -json "$plan_file" > "$plan_json" 2>/dev/null || true
         
-        local phase3a_args=("${TFVARS_ARGS[@]}")
-        phase3a_args+=("-input=false")
+        # Check for backend creations and deletions
+        local backends_to_create=""
+        local backends_to_destroy=""
         
-        if [[ "${CI:-false}" == "true" ]]; then
-            phase3a_args+=("-auto-approve")
+        if [[ -f "$plan_json" ]]; then
+            backends_to_create=$(jq -r '
+                .resource_changes[]? 
+                | select(.type == "azurerm_api_management_backend") 
+                | select(.change.actions | contains(["create"]))
+                | .address
+            ' "$plan_json" 2>/dev/null | grep -v '^$' || true)
+            
+            backends_to_destroy=$(jq -r '
+                .resource_changes[]? 
+                | select(.type == "azurerm_api_management_backend") 
+                | select(.change.actions | contains(["delete"]))
+                | .address
+            ' "$plan_json" 2>/dev/null | grep -v '^$' || true)
         fi
         
-        # Target only policy resources - no depends_on to backends means this won't trigger backend deletion
-        phase3a_args+=("-target=azurerm_api_management_api_policy.tenant")
-        
-        if ! run_terraform_with_retries apply "${phase3a_args[@]}"; then
-            log_warning "Policy update had issues, continuing with full apply..."
+        # Priority: Handle deletions first (policy update must happen before backend deletion)
+        if [[ -n "$backends_to_destroy" ]]; then
+            log_info "Detected backends scheduled for destruction:"
+            echo "$backends_to_destroy" | while read -r addr; do
+                [[ -n "$addr" ]] && log_info "  - $addr"
+            done
+            
+            # Phase 3a: Update policies FIRST to remove stale backend references
+            log_info "Updating APIM policies before backend deletion..."
+            
+            local phase3a_args=("${TFVARS_ARGS[@]}")
+            phase3a_args+=("-input=false")
+            
+            if [[ "${CI:-false}" == "true" ]]; then
+                phase3a_args+=("-auto-approve")
+            fi
+            
+            # Target only policy resources - no depends_on to backends means this won't trigger backend deletion
+            phase3a_args+=("-target=azurerm_api_management_api_policy.tenant")
+            
+            if ! run_terraform_with_retries apply "${phase3a_args[@]}"; then
+                log_warning "Policy update had issues, continuing with full apply..."
+            fi
+            log_success "Phase 3a (policy update for backend deletion) complete"
+            
+        elif [[ -n "$backends_to_create" ]]; then
+            # Only creations, no deletions - create backends first
+            log_info "Detected backends scheduled for creation (no deletions):"
+            echo "$backends_to_create" | while read -r addr; do
+                [[ -n "$addr" ]] && log_info "  - $addr"
+            done
+            
+            log_info "Creating new APIM backends before policy application..."
+            
+            local phase3a_args=("${TFVARS_ARGS[@]}")
+            phase3a_args+=("-input=false")
+            
+            if [[ "${CI:-false}" == "true" ]]; then
+                phase3a_args+=("-auto-approve")
+            fi
+            
+            # Target backend resources for creation
+            phase3a_args+=(
+                "-target=azurerm_api_management_backend.openai"
+                "-target=azurerm_api_management_backend.docint"
+                "-target=azurerm_api_management_backend.storage"
+                "-target=azurerm_api_management_backend.ai_search"
+                "-target=azurerm_api_management_backend.speech_services"
+            )
+            
+            if ! run_terraform_with_retries apply "${phase3a_args[@]}"; then
+                log_warning "Backend creation had issues, continuing..."
+            fi
+            log_success "Phase 3a (backend creation) complete"
+        else
+            log_info "No APIM backend changes detected, skipping Phase 3a"
         fi
-        log_success "Phase 3a (policy update for backend deletion) complete"
         
-    elif [[ -n "$backends_to_create" ]]; then
-        # Only creations, no deletions - create backends first
-        log_info "Detected backends scheduled for creation (no deletions):"
-        echo "$backends_to_create" | while read -r addr; do
-            [[ -n "$addr" ]] && log_info "  - $addr"
-        done
-        
-        log_info "Creating new APIM backends before policy application..."
-        
-        local phase3a_args=("${TFVARS_ARGS[@]}")
-        phase3a_args+=("-input=false")
-        
-        if [[ "${CI:-false}" == "true" ]]; then
-            phase3a_args+=("-auto-approve")
-        fi
-        
-        # Target backend resources for creation
-        phase3a_args+=(
-            "-target=azurerm_api_management_backend.openai"
-            "-target=azurerm_api_management_backend.docint"
-            "-target=azurerm_api_management_backend.storage"
-            "-target=azurerm_api_management_backend.ai_search"
-            "-target=azurerm_api_management_backend.speech_services"
-        )
-        
-        if ! run_terraform_with_retries apply "${phase3a_args[@]}"; then
-            log_warning "Backend creation had issues, continuing..."
-        fi
-        log_success "Phase 3a (backend creation) complete"
+        rm -f "$plan_file" "$plan_json"
+        log_success "Phase 3 complete"
     else
-        log_info "No APIM backend changes detected, skipping Phase 3a"
+        log_info "=== PHASE 3: Skipped (--start-phase=$start_phase) ==="
     fi
-    
-    rm -f "$plan_file" "$plan_json"
-    log_success "Phase 3 complete"
 
     # Phase 4: Final apply for all remaining resources
     # Now that policies no longer reference stale backends, backend destruction is safe
-    log_info "=== PHASE 4: Final apply (all remaining changes) ==="
-    
-    local phase4_args=("${TFVARS_ARGS[@]}")
-    phase4_args+=("-input=false")
-    
-    if [[ "${CI:-false}" == "true" ]]; then
-        phase4_args+=("-auto-approve")
-    fi
+    if [[ $start_phase -le 4 ]]; then
+        log_info "=== PHASE 4: Final apply (all remaining changes) ==="
+        
+        local phase4_args=("${TFVARS_ARGS[@]}")
+        phase4_args+=("-input=false")
+        
+        if [[ "${CI:-false}" == "true" ]]; then
+            phase4_args+=("-auto-approve")
+        fi
 
-    run_terraform_with_retries apply "${phase4_args[@]}" "$@"
-    log_success "Phase 4 complete"
+        run_terraform_with_retries apply "${phase4_args[@]}" "$@"
+        log_success "Phase 4 complete"
+    fi
     
     log_success "Phased apply complete"
 }

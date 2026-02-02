@@ -89,6 +89,19 @@ output "apim_name" {
 }
 
 # =============================================================================
+# GRAFANA OUTPUTS
+# =============================================================================
+output "grafana_endpoint" {
+  description = "Grafana endpoint URL"
+  value       = var.shared_config.grafana.enabled ? module.grafana[0].grafana_endpoint : null
+}
+
+output "grafana_dashboard_blob_urls" {
+  description = "Grafana dashboard JSON blob URLs"
+  value       = var.shared_config.grafana.enabled ? module.grafana[0].dashboard_blob_urls : null
+}
+
+# =============================================================================
 # TENANT OUTPUTS
 # =============================================================================
 output "tenant_projects" {

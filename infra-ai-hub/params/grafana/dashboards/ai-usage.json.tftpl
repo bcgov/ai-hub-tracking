@@ -1,0 +1,271 @@
+{
+  "schemaVersion": 38,
+  "version": 2,
+  "title": "AI Usage & Token Consumption (${environment})",
+  "description": "Monitor AI/OpenAI token consumption and usage patterns.",
+  "tags": ["ai", "openai", "tokens", "${environment}"],
+  "timezone": "browser",
+  "refresh": "1m",
+  "time": { "from": "now-7d", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "tenant",
+        "type": "query",
+        "label": "Tenant / API",
+        "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+        "definition": "",
+        "query": {
+          "refId": "A",
+          "queryType": "Azure Log Analytics",
+          "azureLogAnalytics": {
+            "resources": ["${log_analytics_workspace_id}"],
+            "query": "ApiManagementGatewayLogs | where isnotempty(TraceRecords) and isnotempty(ApiId) | extend t = parse_json(TraceRecords) | mv-expand t | where tostring(t.source) == 'openai-usage' | distinct ApiId | order by ApiId asc"
+          }
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": "ALL",
+        "multi": false,
+        "sort": 1
+      },
+      {
+        "name": "model",
+        "type": "query",
+        "label": "Model",
+        "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+        "definition": "",
+        "query": {
+          "refId": "A",
+          "queryType": "Azure Log Analytics",
+          "azureLogAnalytics": {
+            "resources": ["${log_analytics_workspace_id}"],
+            "query": "ApiManagementGatewayLogs | where isnotempty(TraceRecords) | extend t = parse_json(TraceRecords) | mv-expand t | where tostring(t.source) == 'openai-usage' | extend m = tostring(t.metadata['model']) | where isnotempty(m) | distinct m | order by m asc"
+          }
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": "ALL",
+        "multi": false,
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Token Usage Summary",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Total Tokens",
+      "description": "Total tokens consumed",
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+          "unit": "short"
+        }
+      },
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(TraceRecords) and isnotempty(ApiId)\n| extend t = parse_json(TraceRecords)\n| mv-expand t\n| where tostring(t.source) == 'openai-usage'\n| where \"$${tenant}\" == \"ALL\" or ApiId == \"$${tenant}\"\n| where \"$${model}\" == \"ALL\" or tostring(t.metadata['model']) == \"$${model}\"\n| extend tokens = toint(t.metadata['total-tokens'])\n| summarize Total=sum(tokens)"
+        }
+      }]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Prompt Tokens",
+      "description": "Input tokens",
+      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "purple", "value": null }] },
+          "unit": "short"
+        }
+      },
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(TraceRecords) and isnotempty(ApiId)\n| extend t = parse_json(TraceRecords)\n| mv-expand t\n| where tostring(t.source) == 'openai-usage'\n| where \"$${tenant}\" == \"ALL\" or ApiId == \"$${tenant}\"\n| where \"$${model}\" == \"ALL\" or tostring(t.metadata['model']) == \"$${model}\"\n| extend tokens = toint(t.metadata['prompt-tokens'])\n| summarize Total=sum(tokens)"
+        }
+      }]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Completion Tokens",
+      "description": "Output tokens",
+      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "orange", "value": null }] },
+          "unit": "short"
+        }
+      },
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(TraceRecords) and isnotempty(ApiId)\n| extend t = parse_json(TraceRecords)\n| mv-expand t\n| where tostring(t.source) == 'openai-usage'\n| where \"$${tenant}\" == \"ALL\" or ApiId == \"$${tenant}\"\n| where \"$${model}\" == \"ALL\" or tostring(t.metadata['model']) == \"$${model}\"\n| extend tokens = toint(t.metadata['completion-tokens'])\n| summarize Total=sum(tokens)"
+        }
+      }]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "AI Requests",
+      "description": "Number of OpenAI API calls",
+      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] },
+          "unit": "short"
+        }
+      },
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(TraceRecords) and isnotempty(ApiId)\n| extend t = parse_json(TraceRecords)\n| mv-expand t\n| where tostring(t.source) == 'openai-usage'\n| where \"$${tenant}\" == \"ALL\" or ApiId == \"$${tenant}\"\n| where \"$${model}\" == \"ALL\" or tostring(t.metadata['model']) == \"$${model}\"\n| summarize Requests=count()"
+        }
+      }]
+    },
+    {
+      "type": "row",
+      "title": "Token Consumption Over Time",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Token Usage Over Time",
+      "description": "Tokens consumed per hour",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "bars", "fillOpacity": 80, "lineWidth": 1, "showPoints": "never" },
+          "unit": "short"
+        }
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single" } },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(TraceRecords) and isnotempty(ApiId)\n| extend t = parse_json(TraceRecords)\n| mv-expand t\n| where tostring(t.source) == 'openai-usage'\n| where \"$${tenant}\" == \"ALL\" or ApiId == \"$${tenant}\"\n| where \"$${model}\" == \"ALL\" or tostring(t.metadata['model']) == \"$${model}\"\n| extend tokens = toint(t.metadata['total-tokens'])\n| summarize Tokens=sum(tokens) by bin(TimeGenerated, 1h)\n| order by TimeGenerated asc"
+        }
+      }]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Prompt vs Completion Tokens",
+      "description": "Input vs Output breakdown",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "fillOpacity": 30, "lineWidth": 2, "showPoints": "never", "stacking": { "mode": "normal" } },
+          "unit": "short"
+        }
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(TraceRecords) and isnotempty(ApiId)\n| extend t = parse_json(TraceRecords)\n| mv-expand t\n| where tostring(t.source) == 'openai-usage'\n| where \"$${tenant}\" == \"ALL\" or ApiId == \"$${tenant}\"\n| where \"$${model}\" == \"ALL\" or tostring(t.metadata['model']) == \"$${model}\"\n| extend prompt = toint(t.metadata['prompt-tokens']), completion = toint(t.metadata['completion-tokens'])\n| summarize Prompt=sum(prompt), Completion=sum(completion) by bin(TimeGenerated, 1h)\n| order by TimeGenerated asc"
+        }
+      }]
+    },
+    {
+      "type": "row",
+      "title": "Usage Breakdown",
+      "gridPos": { "x": 0, "y": 14, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 7,
+      "type": "piechart",
+      "title": "Tokens by Model",
+      "description": "Token distribution across AI models",
+      "gridPos": { "x": 0, "y": 15, "w": 8, "h": 8 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } } },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "values": ["value", "percent"] }, "pieType": "donut", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(TraceRecords) and isnotempty(ApiId)\n| extend t = parse_json(TraceRecords)\n| mv-expand t\n| where tostring(t.source) == 'openai-usage'\n| where \"$${tenant}\" == \"ALL\" or ApiId == \"$${tenant}\"\n| extend model = tostring(t.metadata['model']), tokens = toint(t.metadata['total-tokens'])\n| summarize Tokens=sum(tokens) by model"
+        }
+      }]
+    },
+    {
+      "id": 8,
+      "type": "piechart",
+      "title": "Tokens by Tenant",
+      "description": "Token distribution across applications",
+      "gridPos": { "x": 8, "y": 15, "w": 8, "h": 8 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "fieldConfig": { "defaults": { "color": { "mode": "palette-classic" } } },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "values": ["value", "percent"] }, "pieType": "donut", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(TraceRecords)\n| extend t = parse_json(TraceRecords)\n| mv-expand t\n| where tostring(t.source) == 'openai-usage'\n| extend tokens = toint(t.metadata['total-tokens'])\n| summarize Tokens=sum(tokens) by ApiId"
+        }
+      }]
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Daily Usage",
+      "description": "Token usage by day, tenant, and model",
+      "gridPos": { "x": 16, "y": 15, "w": 8, "h": 8 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "options": { "showHeader": true, "sortBy": [{ "displayName": "Tokens", "desc": true }] },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(TraceRecords) and isnotempty(ApiId)\n| extend t = parse_json(TraceRecords)\n| mv-expand t\n| where tostring(t.source) == 'openai-usage'\n| where \"$${tenant}\" == \"ALL\" or ApiId == \"$${tenant}\"\n| where \"$${model}\" == \"ALL\" or tostring(t.metadata['model']) == \"$${model}\"\n| extend Day = format_datetime(TimeGenerated, 'yyyy-MM-dd'), model = tostring(t.metadata['model']), tokens = toint(t.metadata['total-tokens'])\n| summarize Tokens=sum(tokens), Calls=count() by Day, ApiId, model\n| order by Day desc, Tokens desc\n| take 15"
+        }
+      }]
+    }
+  ]
+}

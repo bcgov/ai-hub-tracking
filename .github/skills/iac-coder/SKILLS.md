@@ -111,6 +111,9 @@ env:
 ```
 
 ## Bash Script Conventions
+- NO Python. Bash only.
+- NO inline scripts. Always use a script file.
+- ALWAYS place scripts under the appropriate scripts/ folder and invoke the file.
 - Required header:
 	```bash
 	#!/bin/bash

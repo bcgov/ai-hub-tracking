@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 38,
+  "version": 1,
+  "title": "APIM Gateway Overview",
+  "tags": ["apim", "gateway", "azure"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "templating": {
+    "list": [
+      {
+        "name": "datasource",
+        "type": "datasource",
+        "query": "grafana-azure-monitor-datasource",
+        "current": { "text": "Azure Monitor", "value": "Azure Monitor" }
+      },
+      {
+        "name": "workspace",
+        "type": "constant",
+        "label": "Log Analytics Workspace Resource ID",
+        "query": "/subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.OperationalInsights/workspaces/<name>"
+      },
+      {
+        "name": "tenant",
+        "type": "textbox",
+        "label": "Tenant (X-Tenant-Id)",
+        "query": ""
+      },
+      {
+        "name": "api",
+        "type": "textbox",
+        "label": "API Name",
+        "query": ""
+      },
+      {
+        "name": "env",
+        "type": "constant",
+        "label": "Environment",
+        "query": "${ENV}"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Requests (5m)",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 8 },
+      "datasource": "$datasource",
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "Azure Log Analytics",
+          "azureLogAnalytics": {
+            "resource": "$workspace",
+            "query": "AzureDiagnostics\n| where ResourceProvider == 'MICROSOFT.APIMANAGEMENT'\n| where (isempty('${tenant}') or tostring(customDimensions['X-Tenant-Id']) == '${tenant}')\n| where (isempty('${api}') or tostring(ApiId_s) contains '${api}')\n| summarize Requests=count() by bin(TimeGenerated, 5m)\n| order by TimeGenerated asc"
+          }
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "4xx/5xx Rate (5m)",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
+      "datasource": "$datasource",
+      "targets": [
+        {
+          "refId": "B",
+          "queryType": "Azure Log Analytics",
+          "azureLogAnalytics": {
+            "resource": "$workspace",
+            "query": "AzureDiagnostics\n| where ResourceProvider == 'MICROSOFT.APIMANAGEMENT'\n| where (isempty('${tenant}') or tostring(customDimensions['X-Tenant-Id']) == '${tenant}')\n| summarize Total=count(), Errors=countif(toint(ResponseCode_d) >= 400) by bin(TimeGenerated, 5m)\n| extend ErrorRate = todouble(Errors) / iif(Total==0, 1, Total)\n| order by TimeGenerated asc"
+          }
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Backend Time (avg ms)",
+      "gridPos": { "x": 0, "y": 8, "w": 12, "h": 6 },
+      "datasource": "$datasource",
+      "targets": [
+        {
+          "refId": "C",
+          "queryType": "Azure Log Analytics",
+          "azureLogAnalytics": {
+            "resource": "$workspace",
+            "query": "AzureDiagnostics\n| where ResourceProvider == 'MICROSOFT.APIMANAGEMENT'\n| summarize AvgBackendTime=avg(BackendTime_d)"
+          }
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "P95 Latency (ms)",
+      "gridPos": { "x": 12, "y": 8, "w": 12, "h": 6 },
+      "datasource": "$datasource",
+      "targets": [
+        {
+          "refId": "D",
+          "queryType": "Azure Log Analytics",
+          "azureLogAnalytics": {
+            "resource": "$workspace",
+            "query": "AzureDiagnostics\n| where ResourceProvider == 'MICROSOFT.APIMANAGEMENT'\n| summarize P95Latency=percentile(DurationMs_d, 95)"
+          }
+        }
+      ]
+    }
+  ]
+}

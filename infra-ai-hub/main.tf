@@ -1008,6 +1008,44 @@ module "app_gateway" {
   depends_on = [module.network, module.apim]
 }
 
+# -----------------------------------------------------------------------------
+# Grafana Dashboards (Azure Managed Grafana)
+# -----------------------------------------------------------------------------
+module "grafana" {
+  source = "./modules/grafana"
+  count  = var.shared_config.grafana.enabled ? 1 : 0
+
+  name                = var.shared_config.grafana.name
+  resource_group_name = var.shared_config.grafana.resource_group_name
+  location            = var.location
+  tags                = var.common_tags
+  environment         = var.app_env
+
+  grafana_major_version         = lookup(var.shared_config.grafana, "grafana_major_version", "12")
+  sku                           = lookup(var.shared_config.grafana, "sku", "Standard")
+  public_network_access_enabled = false
+  api_key_enabled               = lookup(var.shared_config.grafana, "api_key_enabled", true)
+
+  private_endpoint_subnet_id = module.network.private_endpoint_subnet_id
+  private_endpoint_dns_wait = {
+    timeout       = var.shared_config.private_endpoint_dns_wait.timeout
+    poll_interval = var.shared_config.private_endpoint_dns_wait.poll_interval
+  }
+  scripts_dir = "${path.module}/scripts"
+
+  dashboards_enabled             = var.shared_config.grafana.dashboards.enabled
+  dashboards_path                = "${path.module}/params/grafana/dashboards"
+  storage_account_name           = lookup(var.shared_config.grafana.dashboards, "storage_account_name", null)
+  dashboard_container_name       = lookup(var.shared_config.grafana.dashboards, "container_name", "grafana-dashboards")
+  enable_log_analytics_dashboard = lookup(var.shared_config.grafana.dashboards, "log_analytics_enabled", true) && module.ai_foundry_hub.log_analytics_workspace_id != null
+  enable_app_insights_dashboard  = lookup(var.shared_config.grafana.dashboards, "app_insights_enabled", true) && module.ai_foundry_hub.application_insights_id != null
+
+  log_analytics_workspace_id = module.ai_foundry_hub.log_analytics_workspace_id
+  application_insights_id    = module.ai_foundry_hub.application_insights_id
+
+  depends_on = [azurerm_resource_group.main, module.ai_foundry_hub]
+}
+
 # ------------------------------------------------------------------------------
 # Defender for Cloud
 # ------------------------------------------------------------------------------

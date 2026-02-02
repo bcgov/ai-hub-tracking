@@ -197,6 +197,24 @@ variable "shared_config" {
       sku                           = optional(string, "S")
       public_network_access_enabled = optional(bool, false)
     }), { enabled = false })
+
+    # Grafana dashboards (Azure Managed Grafana)
+    grafana = optional(object({
+      enabled                       = bool
+      name                          = string
+      resource_group_name           = string
+      sku                           = optional(string, "Standard")
+      grafana_major_version         = optional(string, "10")
+      public_network_access_enabled = optional(bool, true)
+      api_key_enabled               = optional(bool, false)
+      dashboards = object({
+        enabled               = bool
+        storage_account_name  = optional(string)
+        container_name        = optional(string, "grafana-dashboards")
+        log_analytics_enabled = optional(bool, true)
+        app_insights_enabled  = optional(bool, true)
+      })
+    }), { enabled = false, name = "", resource_group_name = "", dashboards = { enabled = false } })
   })
 }
 

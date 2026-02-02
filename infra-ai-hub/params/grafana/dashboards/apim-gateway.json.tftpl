@@ -1,0 +1,266 @@
+{
+  "schemaVersion": 38,
+  "version": 2,
+  "title": "APIM Gateway Overview (${environment})",
+  "description": "Monitor API Management gateway performance, request volumes, and error rates.",
+  "tags": ["apim", "gateway", "azure", "${environment}"],
+  "timezone": "browser",
+  "refresh": "1m",
+  "time": { "from": "now-24h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "tenant",
+        "type": "query",
+        "label": "Tenant / API",
+        "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+        "definition": "",
+        "query": {
+          "refId": "A",
+          "queryType": "Azure Log Analytics",
+          "azureLogAnalytics": {
+            "resources": ["${log_analytics_workspace_id}"],
+            "query": "ApiManagementGatewayLogs | where isnotempty(ApiId) | distinct ApiId | order by ApiId asc"
+          }
+        },
+        "refresh": 2,
+        "includeAll": true,
+        "allValue": "ALL",
+        "multi": false,
+        "sort": 1
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "Overview",
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Total Requests",
+      "description": "Total API requests in selected time range",
+      "gridPos": { "x": 0, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] },
+          "unit": "short"
+        }
+      },
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(ApiId)\n| where \"$${tenant}\" == \"ALL\" or ApiId == \"$${tenant}\"\n| summarize Total=count()"
+        }
+      }]
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Success Rate (%)",
+      "description": "Percentage of 2xx/3xx responses",
+      "gridPos": { "x": 6, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }, { "color": "yellow", "value": 95 }, { "color": "green", "value": 99 }] },
+          "unit": "percent", "min": 0, "max": 100
+        }
+      },
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(ApiId)\n| where \"$${tenant}\" == \"ALL\" or ApiId == \"$${tenant}\"\n| summarize Total=count(), Success=countif(toint(ResponseCode) < 400)\n| extend Rate = round(100.0 * Success / Total, 1)\n| project Rate"
+        }
+      }]
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Avg Response (ms)",
+      "description": "Average total response time",
+      "gridPos": { "x": 12, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 500 }, { "color": "red", "value": 1000 }] },
+          "unit": "ms"
+        }
+      },
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(ApiId)\n| where \"$${tenant}\" == \"ALL\" or ApiId == \"$${tenant}\"\n| summarize Avg=round(avg(TotalTime), 0)"
+        }
+      }]
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "P95 Response (ms)",
+      "description": "95th percentile response time",
+      "gridPos": { "x": 18, "y": 1, "w": 6, "h": 4 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 1000 }, { "color": "red", "value": 2000 }] },
+          "unit": "ms"
+        }
+      },
+      "options": { "colorMode": "value", "graphMode": "none", "justifyMode": "center", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(ApiId)\n| where \"$${tenant}\" == \"ALL\" or ApiId == \"$${tenant}\"\n| summarize P95=round(percentile(TotalTime, 95), 0)"
+        }
+      }]
+    },
+    {
+      "type": "row",
+      "title": "Request Volume & Errors",
+      "gridPos": { "x": 0, "y": 5, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 5,
+      "type": "timeseries",
+      "title": "Requests Over Time",
+      "description": "Request count per 5-minute interval",
+      "gridPos": { "x": 0, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "bars", "fillOpacity": 80, "lineWidth": 1, "showPoints": "never", "stacking": { "mode": "none" } },
+          "unit": "short"
+        }
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single" } },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(ApiId)\n| where \"$${tenant}\" == \"ALL\" or ApiId == \"$${tenant}\"\n| summarize Requests=count() by bin(TimeGenerated, 5m)\n| order by TimeGenerated asc"
+        }
+      }]
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "Error Rate Over Time (%)",
+      "description": "Percentage of 4xx/5xx errors",
+      "gridPos": { "x": 12, "y": 6, "w": 12, "h": 8 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "yellow", "value": 5 }, { "color": "red", "value": 10 }] },
+          "custom": { "drawStyle": "line", "fillOpacity": 20, "lineWidth": 2, "showPoints": "never" },
+          "unit": "percent", "min": 0
+        }
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "single" } },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(ApiId)\n| where \"$${tenant}\" == \"ALL\" or ApiId == \"$${tenant}\"\n| summarize Total=count(), Errors=countif(toint(ResponseCode) >= 400) by bin(TimeGenerated, 5m)\n| extend ErrorRate = round(100.0 * Errors / Total, 1)\n| project TimeGenerated, ErrorRate"
+        }
+      }]
+    },
+    {
+      "type": "row",
+      "title": "Performance",
+      "gridPos": { "x": 0, "y": 14, "w": 24, "h": 1 },
+      "collapsed": false
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Response Time Over Time",
+      "description": "Average and P95 latency",
+      "gridPos": { "x": 0, "y": 15, "w": 12, "h": 8 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "fillOpacity": 10, "lineWidth": 2, "showPoints": "never" },
+          "unit": "ms"
+        }
+      },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(ApiId)\n| where \"$${tenant}\" == \"ALL\" or ApiId == \"$${tenant}\"\n| summarize Avg=round(avg(TotalTime), 0), P95=round(percentile(TotalTime, 95), 0) by bin(TimeGenerated, 5m)\n| project TimeGenerated, Avg, P95"
+        }
+      }]
+    },
+    {
+      "id": 8,
+      "type": "piechart",
+      "title": "Response Codes",
+      "description": "Distribution of HTTP status codes",
+      "gridPos": { "x": 12, "y": 15, "w": 6, "h": 8 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "palette-classic" } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "2xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "green", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "4xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "orange", "mode": "fixed" } }] },
+          { "matcher": { "id": "byName", "options": "5xx" }, "properties": [{ "id": "color", "value": { "fixedColor": "red", "mode": "fixed" } }] }
+        ]
+      },
+      "options": { "legend": { "displayMode": "table", "placement": "right", "showLegend": true, "values": ["value", "percent"] }, "pieType": "donut", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "", "values": false } },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(ApiId)\n| where \"$${tenant}\" == \"ALL\" or ApiId == \"$${tenant}\"\n| extend Status = case(toint(ResponseCode) < 300, '2xx', toint(ResponseCode) < 400, '3xx', toint(ResponseCode) < 500, '4xx', '5xx')\n| summarize Count=count() by Status"
+        }
+      }]
+    },
+    {
+      "id": 9,
+      "type": "table",
+      "title": "Top Endpoints",
+      "description": "Most called API operations",
+      "gridPos": { "x": 18, "y": 15, "w": 6, "h": 8 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "azure-monitor-oob" },
+      "fieldConfig": { "defaults": {}, "overrides": [{ "matcher": { "id": "byName", "options": "Avg" }, "properties": [{ "id": "unit", "value": "ms" }] }] },
+      "options": { "showHeader": true, "sortBy": [{ "displayName": "Count", "desc": true }] },
+      "targets": [{
+        "refId": "A",
+        "queryType": "Azure Log Analytics",
+        "azureLogAnalytics": {
+          "resources": ["${log_analytics_workspace_id}"],
+          "query": "ApiManagementGatewayLogs\n| where isnotempty(ApiId)\n| where \"$${tenant}\" == \"ALL\" or ApiId == \"$${tenant}\"\n| summarize Count=count(), Avg=round(avg(TotalTime), 0) by OperationId\n| top 10 by Count desc"
+        }
+      }]
+    }
+  ]
+}

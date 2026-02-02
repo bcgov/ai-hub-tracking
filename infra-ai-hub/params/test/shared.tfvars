@@ -121,6 +121,25 @@ shared_config = {
     sku                           = "S"
     public_network_access_enabled = false
   }
+
+  # ---------------------------------------------------------------------------
+  # Grafana Dashboards (Azure Managed Grafana)
+  # ---------------------------------------------------------------------------
+  grafana = {
+    enabled                       = true
+    name                          = "aihub-test-grafana"
+    resource_group_name           = "ai-services-hub-test-dashboards"
+    public_network_access_enabled = false
+    grafana_major_version         = "11"
+
+    dashboards = {
+      enabled               = true
+      storage_account_name  = null
+      container_name        = "grafana-dashboards"
+      log_analytics_enabled = true
+      app_insights_enabled  = true
+    }
+  }
 }
 
 # =============================================================================

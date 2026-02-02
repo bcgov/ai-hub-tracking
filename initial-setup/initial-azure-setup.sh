@@ -655,6 +655,35 @@ check_prerequisites() {
     log_success "Prerequisites check passed"
 }
 
+# =============================================================================
+# Register required Azure resource providers
+# =============================================================================
+register_resource_providers() {
+    local providers=(
+        "Microsoft.Dashboard"
+    )
+
+    for provider in "${providers[@]}"; do
+        log_info "Ensuring resource provider '$provider' is registered..."
+
+        if [[ "$DRY_RUN" == "true" ]]; then
+            log_info "[DRY-RUN] Would register provider '$provider'"
+            continue
+        fi
+
+        local status
+        status=$(az provider show --namespace "$provider" --query "registrationState" --output tsv 2>/dev/null || echo "")
+
+        if [[ "$status" == "Registered" ]]; then
+            log_success "Provider '$provider' is already registered"
+            continue
+        fi
+
+        execute_command "az provider register --namespace $provider" \
+            "Registering resource provider '$provider'"
+    done
+}
+
 # ================================================================================
 # Verify that the specified Azure resource group exists and is accessible
 # ================================================================================
@@ -1487,6 +1516,9 @@ main() {
     # Step 1: Validate prerequisites and environment
     check_prerequisites
     check_resource_group
+
+    # Step 1b: Register required Azure resource providers
+    register_resource_providers
 
     # Step 2: Generate storage account name if storage creation is requested
     if [[ "$CREATE_STORAGE" == "true" ]]; then

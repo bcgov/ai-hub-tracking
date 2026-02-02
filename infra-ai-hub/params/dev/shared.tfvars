@@ -172,4 +172,23 @@ shared_config = {
     # Keep disabled - access via private endpoint only
     public_network_access_enabled = false
   }
+
+  # ---------------------------------------------------------------------------
+  # Grafana Dashboards (Azure Managed Grafana)
+  # ---------------------------------------------------------------------------
+  grafana = {
+    enabled                       = false
+    name                          = "aihub-dev-grafana"
+    resource_group_name           = "ai-services-hub-dev-dashboards"
+    public_network_access_enabled = false
+    grafana_major_version         = "11"
+
+    dashboards = {
+      enabled               = false
+      storage_account_name  = null
+      container_name        = "grafana-dashboards"
+      log_analytics_enabled = true
+      app_insights_enabled  = true
+    }
+  }
 }
