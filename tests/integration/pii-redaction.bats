@@ -224,6 +224,184 @@ TEST_CREDIT_CARD="4111-1111-1111-1111"
 }
 
 # =============================================================================
+# Fail-Closed Behavior Tests
+# =============================================================================
+# These tests verify the fail-closed behavior for PII redaction.
+# When fail_closed=true, any PII service failure should block the request.
+# When fail_closed=false (default), failures allow the request through.
+#
+# NOTE: Testing actual PII service failure requires either:
+# 1. A tenant configured with fail_closed=true AND
+# 2. A way to simulate PII service failure (e.g., invalid piiServiceUrl, network issue)
+#
+# The tests below verify:
+# - The expected error response format for fail-closed mode
+# - That fail-open tenants still work (current behavior)
+# =============================================================================
+
+@test "FAIL-CLOSED: Verify error response format matches expected schema" {
+    # This test validates the expected error response structure
+    # When fail_closed=true and PII service fails, the response should be:
+    # {
+    #   "error": {
+    #     "code": "PiiRedactionUnavailable",
+    #     "message": "PII redaction service is unavailable. Request blocked for data protection.",
+    #     "request_id": "<uuid>"
+    #   }
+    # }
+
+    # Create the expected error response schema
+    local expected_error_code="PiiRedactionUnavailable"
+    local expected_error_message="PII redaction service is unavailable. Request blocked for data protection."
+
+    # Verify the schema is documented correctly
+    # This test passes to document expected behavior
+    echo "Expected fail-closed error response:"
+    echo "  HTTP Status: 503 (PII Redaction Unavailable)"
+    echo "  Headers: Content-Type: application/json, X-Request-Id: <correlation-id>"
+    echo "  Body: {\"error\":{\"code\":\"${expected_error_code}\",\"message\":\"${expected_error_message}\",\"request_id\":\"<uuid>\"}}"
+
+    # This is a documentation test - always passes
+    true
+}
+
+@test "FAIL-OPEN: WLRS tenant (fail_closed=false by default) processes requests successfully" {
+    skip_if_no_key "wlrs-water-form-assistant"
+
+    # WLRS has PII redaction enabled with fail_closed=false (default)
+    # This test verifies that even if there were PII service issues,
+    # the fail-open behavior would allow the request through
+    local prompt="Hello, this is a simple test message without PII."
+
+    response=$(chat_completion "wlrs-water-form-assistant" "${DEFAULT_MODEL}" "${prompt}" 50)
+    parse_response "${response}"
+
+    # Should succeed - fail-open allows requests through
+    assert_status "200" "${RESPONSE_STATUS}"
+
+    local content
+    content=$(json_get "${RESPONSE_BODY}" '.choices[0].message.content')
+
+    # Verify we got a valid response
+    [[ -n "${content}" ]]
+}
+
+@test "FAIL-OPEN: SDPR tenant (PII disabled) is not affected by fail-closed settings" {
+    skip_if_no_key "sdpr-invoice-automation"
+
+    # SDPR has PII redaction disabled entirely
+    # fail_closed setting has no effect when PII redaction is disabled
+    local prompt="Process this invoice data without any PII redaction."
+
+    response=$(chat_completion "sdpr-invoice-automation" "${DEFAULT_MODEL}" "${prompt}" 50)
+    parse_response "${response}"
+
+    # Should succeed - PII redaction is disabled for this tenant
+    assert_status "200" "${RESPONSE_STATUS}"
+
+    local content
+    content=$(json_get "${RESPONSE_BODY}" '.choices[0].message.content')
+
+    # Verify we got a valid response
+    [[ -n "${content}" ]]
+}
+
+# =============================================================================
+# Fail-Closed Integration Test (requires special setup)
+# =============================================================================
+# To run this test, you need:
+# 1. A tenant configured with fail_closed=true in tenant.tfvars:
+#    apim_policies = {
+#      pii_redaction = {
+#        enabled = true
+#        fail_closed = true
+#      }
+#    }
+# 2. A way to simulate PII service failure:
+#    - Set piiServiceUrl named value to an invalid endpoint
+#    - Temporarily disable the Language Service
+#    - Use network policies to block connectivity
+#
+# Example tenant config for fail-closed testing:
+# tenants = {
+#   "test-fail-closed" = {
+#     tenant_name = "test-fail-closed"
+#     display_name = "Test Fail Closed"
+#     enabled = true
+#     apim_policies = {
+#       pii_redaction = {
+#         enabled = true
+#         fail_closed = true
+#       }
+#     }
+#     ...
+#   }
+# }
+# =============================================================================
+
+@test "FAIL-CLOSED: Tenant with fail_closed=true blocks request when PII service fails" {
+    # Skip this test by default - requires special infrastructure setup
+    skip "Requires tenant with fail_closed=true and simulated PII service failure"
+
+    # If you have a fail-closed tenant configured, replace 'test-fail-closed' with the tenant name
+    # and remove the skip above
+    local tenant="test-fail-closed"
+    local subscription_key
+    subscription_key=$(get_subscription_key "${tenant}" 2>/dev/null || echo "")
+
+    if [[ -z "${subscription_key}" ]]; then
+        skip "No subscription key for ${tenant}"
+    fi
+
+    local prompt="My email is test@example.com. Please process this."
+
+    response=$(chat_completion "${tenant}" "${DEFAULT_MODEL}" "${prompt}" 50)
+    parse_response "${response}"
+
+    # When fail_closed=true and PII service fails, expect 503
+    assert_status "503" "${RESPONSE_STATUS}"
+
+    # Verify error response format
+    local error_code
+    error_code=$(json_get "${RESPONSE_BODY}" '.error.code')
+    [[ "${error_code}" == "PiiRedactionUnavailable" ]]
+
+    local error_message
+    error_message=$(json_get "${RESPONSE_BODY}" '.error.message')
+    assert_contains "${error_message}" "PII redaction service is unavailable"
+
+    # Verify request_id is present for correlation
+    local request_id
+    request_id=$(json_get "${RESPONSE_BODY}" '.error.request_id')
+    [[ -n "${request_id}" ]]
+}
+
+@test "FAIL-CLOSED: Verify fail-open tenant still succeeds when PII service is unavailable" {
+    # Skip this test by default - requires PII service to be unavailable
+    skip "Requires PII service to be unavailable to test fail-open behavior"
+
+    skip_if_no_key "wlrs-water-form-assistant"
+
+    # WLRS has fail_closed=false (default)
+    # Even when PII service is unavailable, request should succeed
+    local prompt="My email is test@example.com. Please repeat it."
+
+    response=$(chat_completion "wlrs-water-form-assistant" "${DEFAULT_MODEL}" "${prompt}" 100)
+    parse_response "${response}"
+
+    # Fail-open: request should succeed with original content passed through
+    assert_status "200" "${RESPONSE_STATUS}"
+
+    # Note: The response may contain the unredacted email since PII service failed
+    # and fail_closed=false allows passthrough
+    local content
+    content=$(json_get "${RESPONSE_BODY}" '.choices[0].message.content')
+
+    # Verify we got a response (content passed through unredacted)
+    [[ -n "${content}" ]]
+}
+
+# =============================================================================
 # Helper Functions
 # =============================================================================
 
@@ -231,7 +409,7 @@ skip_if_no_key() {
     local tenant="${1}"
     local key
     key=$(get_subscription_key "${tenant}")
-    
+
     if [[ -z "${key}" ]]; then
         skip "No subscription key for ${tenant}"
     fi

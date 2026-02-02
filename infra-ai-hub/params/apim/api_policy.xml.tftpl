@@ -102,6 +102,8 @@
                 <set-variable name="piiPreserveJsonStructure" value="${pii_preserve_json_structure}" />
                 <set-variable name="piiStructuralWhitelist" value="${jsonencode(pii_structural_whitelist)}" />
                 <set-variable name="piiDetectionLanguage" value="${pii_detection_language}" />
+                <!-- PII Fail-closed: block request if redaction fails (default: false = fail-open) -->
+                <set-variable name="piiFailClosed" value="${pii_fail_closed}" />
                 <include-fragment fragment-id="pii-anonymization" />
                 <!-- Apply the anonymized content back to the request body -->
                 <set-body>@((string)context.Variables["piiAnonymizedContent"])</set-body>
