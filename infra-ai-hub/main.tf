@@ -337,6 +337,7 @@ resource "azurerm_api_management_named_value" "speech_services_endpoint" {
   depends_on = [module.apim, module.tenant]
 }
 
+
 # Language Service endpoint (shared - for PII detection)
 resource "azurerm_api_management_named_value" "pii_service_url" {
   count = var.shared_config.language_service.enabled && local.apim_config.enabled ? 1 : 0
@@ -448,21 +449,69 @@ resource "azurerm_api_management_backend" "ai_search" {
   depends_on = [module.apim, module.tenant, azurerm_api_management_named_value.ai_search_endpoint]
 }
 
-# Speech Services backends
-resource "azurerm_api_management_backend" "speech_services" {
+# Speech Services backends (using tenant's custom subdomain endpoint)
+# Speech Services with private endpoints require using the custom subdomain endpoint
+# Regional endpoints (*.stt.speech.microsoft.com) won't work with private endpoints
+resource "azurerm_api_management_backend" "speech_services_stt" {
   for_each = {
     for key, config in local.enabled_tenants : key => config
-    if config.speech_services.enabled && local.apim_config.enabled && module.tenant[key].speech_services_endpoint != null
+    if config.speech_services.enabled && local.apim_config.enabled
   }
 
-  name                = "${each.key}-speech"
+  name                = "${each.key}-speech-stt"
   resource_group_name = azurerm_resource_group.main.name
   api_management_name = module.apim[0].name
   protocol            = "http"
-  url                 = module.tenant[each.key].speech_services_endpoint
-  description         = "Speech Services backend for ${each.value.display_name}"
+  url                 = trimsuffix(module.tenant[each.key].speech_services_endpoint, "/")
+  description         = "Speech Services STT backend for ${each.value.display_name}"
 
-  depends_on = [module.apim, module.tenant, azurerm_api_management_named_value.speech_services_endpoint]
+  credentials {
+    header = {
+      "Ocp-Apim-Subscription-Key" = format("{{%s-speech-key}}", each.key)
+    }
+  }
+
+  depends_on = [module.apim, module.tenant, azurerm_api_management_named_value.speech_services_key]
+}
+
+resource "azurerm_api_management_backend" "speech_services_tts" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.speech_services.enabled && local.apim_config.enabled
+  }
+
+  name                = "${each.key}-speech-tts"
+  resource_group_name = azurerm_resource_group.main.name
+  api_management_name = module.apim[0].name
+  protocol            = "http"
+  url                 = trimsuffix(module.tenant[each.key].speech_services_endpoint, "/")
+  description         = "Speech Services TTS backend for ${each.value.display_name}"
+
+  credentials {
+    header = {
+      "Ocp-Apim-Subscription-Key" = format("{{%s-speech-key}}", each.key)
+    }
+  }
+
+  depends_on = [module.apim, module.tenant, azurerm_api_management_named_value.speech_services_key]
+}
+
+# Speech Services keys (for Speech REST/WS auth)
+resource "azurerm_api_management_named_value" "speech_services_key" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if config.speech_services.enabled && local.apim_config.enabled
+  }
+
+  name                = "${each.key}-speech-key"
+  resource_group_name = azurerm_resource_group.main.name
+  api_management_name = module.apim[0].name
+  # display_name can only contain alphanumeric, periods, underscores, dashes
+  display_name = "${replace(local.sanitized_display_names[each.key], "-", "_")}_Speech_Services_Key"
+  value        = module.tenant[each.key].speech_services_primary_key
+  secret       = true
+
+  depends_on = [module.apim, module.tenant]
 }
 
 # -----------------------------------------------------------------------------
@@ -782,6 +831,7 @@ resource "azurerm_api_management_api_policy" "tenant" {
     azurerm_api_management_named_value.docint_endpoint,
     azurerm_api_management_named_value.storage_endpoint,
     azurerm_api_management_named_value.speech_services_endpoint,
+    azurerm_api_management_named_value.speech_services_key,
     azurerm_api_management_policy_fragment.cognitive_services_auth,
     azurerm_api_management_policy_fragment.storage_auth,
     azurerm_api_management_policy_fragment.keyvault_auth,
