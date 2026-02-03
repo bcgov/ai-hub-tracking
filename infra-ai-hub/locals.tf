@@ -104,6 +104,7 @@ locals {
         openai_enabled                = length(try(config.openai.model_deployments, [])) > 0
         document_intelligence_enabled = try(config.document_intelligence.enabled, false)
         ai_search_enabled             = try(config.ai_search.enabled, false)
+        speech_services_enabled       = try(config.speech_services.enabled, false)
         storage_enabled               = try(config.storage_account.enabled, false)
         # APIM Policies - feature flags from apim_policies config
         rate_limiting_enabled       = try(config.apim_policies.rate_limiting.enabled, true)

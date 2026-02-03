@@ -113,6 +113,47 @@
                 <set-header name="api-key" exists-action="delete" />
             </when>
 %{ endif ~}
+%{ if speech_services_enabled ~}
+            <!-- Speech Services requests: TTS and STT via custom subdomain -->
+            <!-- Custom subdomain endpoints require service-specific path prefixes (/tts/, /stt/) -->
+            <!-- Routes: /cognitiveservices/voices/list, /cognitiveservices/v1, speech/synthesis, speech/recognition -->
+            <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;cognitiveservices/voices&quot;) || context.Request.Url.Path.ToLower().Contains(&quot;cognitiveservices/v1&quot;) || context.Request.Url.Path.ToLower().Contains(&quot;speech/synthesis&quot;) || context.Request.Url.Path.ToLower().Contains(&quot;speech/recognition&quot;))">
+                <!-- Determine backend (TTS or STT) and path prefix based on request path -->
+                <set-variable name="speechBackendId" value="@{
+                    var pathLower = context.Request.Url.Path.ToLower();
+                    if (pathLower.Contains(&quot;speech/recognition&quot;) || pathLower.Contains(&quot;/stt/&quot;)) {
+                        return &quot;${tenant_name}-speech-stt&quot;;
+                    }
+                    return &quot;${tenant_name}-speech-tts&quot;;
+                }" />
+                <set-backend-service backend-id="@((string)context.Variables[&quot;speechBackendId&quot;])" />
+                <!-- Rewrite URI for custom subdomain: add /tts/ or /stt/ prefix -->
+                <!-- TTS paths: /cognitiveservices/voices/list, /cognitiveservices/v1 (synthesis) -->
+                <!-- STT paths: speech/recognition -->
+                <set-variable name="rewrittenSpeechPath" value="@{
+                    var path = context.Request.Url.Path;
+                    var pathLower = path.ToLower();
+                    
+                    // Determine service prefix based on path
+                    string servicePrefix;
+                    if (pathLower.Contains(&quot;speech/recognition&quot;) || pathLower.Contains(&quot;/stt/&quot;)) {
+                        servicePrefix = &quot;/stt/&quot;;
+                    } else {
+                        servicePrefix = &quot;/tts/&quot;;  // TTS for voices list and synthesis
+                    }
+                    
+                    // Add prefix to path only if it doesn't already start with it
+                    if (pathLower.StartsWith(servicePrefix)) {
+                        return path;
+                    }
+                    return servicePrefix + path.TrimStart('/');
+                }" />
+                <rewrite-uri template="@((string)context.Variables[&quot;rewrittenSpeechPath&quot;])" copy-unmatched-params="true" />
+                <!-- Backend has credentials configured - remove any incoming api-key/auth -->
+                <set-header name="Authorization" exists-action="delete" />
+                <set-header name="api-key" exists-action="delete" />
+            </when>
+%{ endif ~}
 %{ if ai_search_enabled ~}
             <!-- AI Search requests: /ai-search/* -->
             <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;ai-search&quot;))">
@@ -157,7 +198,15 @@
         </choose>
     </inbound>
     <backend>
-        <base />
+        <!-- Selective buffering: buffer only OpenAI requests for PII redaction and token inspection -->
+        <choose>
+            <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;))">
+                <forward-request buffer-request-body="true" />
+            </when>
+            <otherwise>
+                <forward-request buffer-request-body="false" />
+            </otherwise>
+        </choose>
     </backend>
     <outbound>
         <base />
