@@ -146,6 +146,12 @@ output "speech_services_endpoint" {
   value       = var.speech_services.enabled ? module.speech_services[0].resource.endpoint : null
 }
 
+output "speech_services_primary_key" {
+  description = "Primary access key for the Speech Services account"
+  value       = var.speech_services.enabled ? module.speech_services[0].primary_access_key : null
+  sensitive   = true
+}
+
 # =============================================================================
 # AI FOUNDRY HUB REFERENCE OUTPUTS
 # Model deployments are now in the foundry-project module

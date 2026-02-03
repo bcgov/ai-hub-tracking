@@ -44,7 +44,7 @@
         </choose>
     </inbound>
     <backend>
-        <forward-request buffer-request-body="true" />
+        <forward-request buffer-request-body="false" />
     </backend>
     <outbound>
         <!-- Add request tracing headers to response -->
