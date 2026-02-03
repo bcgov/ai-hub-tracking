@@ -117,7 +117,6 @@ locals {
         pii_preserve_json_structure = try(config.apim_policies.pii_redaction.preserve_json_structure, true)
         pii_structural_whitelist    = try(config.apim_policies.pii_redaction.structural_whitelist, [])
         pii_detection_language      = try(config.apim_policies.pii_redaction.detection_language, "en")
-        speech_key_named_value      = "${key}-speech-key"
       }
     )
   }

@@ -142,7 +142,10 @@
                         servicePrefix = &quot;/tts/&quot;;  // TTS for voices list and synthesis
                     }
                     
-                    // Add prefix to path
+                    // Add prefix to path only if it doesn't already start with it
+                    if (pathLower.StartsWith(servicePrefix)) {
+                        return path;
+                    }
                     return servicePrefix + path.TrimStart('/');
                 }" />
                 <rewrite-uri template="@((string)context.Variables[&quot;rewrittenSpeechPath&quot;])" copy-unmatched-params="true" />

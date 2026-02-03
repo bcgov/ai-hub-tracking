@@ -830,7 +830,6 @@ resource "azurerm_api_management_api_policy" "tenant" {
     azurerm_api_management_named_value.openai_endpoint,
     azurerm_api_management_named_value.docint_endpoint,
     azurerm_api_management_named_value.storage_endpoint,
-    azurerm_api_management_named_value.speech_services_endpoint,
     azurerm_api_management_named_value.speech_services_key,
     azurerm_api_management_policy_fragment.cognitive_services_auth,
     azurerm_api_management_policy_fragment.storage_auth,
