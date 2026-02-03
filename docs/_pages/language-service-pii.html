@@ -98,6 +98,11 @@ apim_policies {
   pii_redaction {
     enabled                 = true
 
+    # Optional: Fail-closed mode (default: false)
+    # When true: blocks requests with 503 if Language Service fails
+    # When false: passes through unredacted content on failure (fail-open)
+    fail_closed             = false
+
     # Optional: Exclude specific PII categories from detection
     excluded_categories     = ["PhoneNumber", "Address"]
 
@@ -143,6 +148,12 @@ apim_policies {
             <td>boolean</td>
             <td>false</td>
             <td>Enable or disable PII redaction for this tenant</td>
+        </tr>
+        <tr>
+            <td><code>fail_closed</code></td>
+            <td>boolean</td>
+            <td>false</td>
+            <td>Controls failure behavior when Language Service is unavailable. When <code>true</code>, blocks requests with HTTP 503 error if PII service fails (fail-closed mode). When <code>false</code> (default), allows requests through with unredacted content on failure (fail-open mode). See FAQ below for details on choosing between modes.</td>
         </tr>
         <tr>
             <td><code>excluded_categories</code></td>
@@ -267,14 +278,33 @@ apim_policies {
 <details>
     <summary><strong>What happens if Language Service fails?</strong></summary>
     <div class="accordion-content">
-        <p>PII redaction operates on a <strong>best-effort basis</strong>. The Language Service call uses <code>ignore-error="true"</code>, which means:</p>
+        <p>Failure behavior is controlled by the <code>fail_closed</code> configuration setting:</p>
+
+        <h4>Fail-Open Mode (fail_closed = false, default)</h4>
+        <p>PII redaction operates on a <strong>best-effort basis</strong>. If Language Service fails:</p>
         <ul>
-            <li>If the Language Service returns a non-200 response, the original content is passed through</li>
-            <li>If the response cannot be parsed, the original content is passed through</li>
+            <li>If the Language Service returns a non-200 response, the original unredacted content is passed through</li>
+            <li>If the response cannot be parsed, the original unredacted content is passed through</li>
             <li>If the Language Service is temporarily unavailable, requests continue to flow without redaction</li>
             <li>All failures are logged in diagnostics with appropriate status codes and error details</li>
         </ul>
-        <p>This design prioritizes service availability over PII protection. If strict PII redaction is required with no fallback, the fragment behavior would need to be modified to fail requests when Language Service is unavailable.</p>
+        <p><strong>Use when:</strong> Service availability is prioritized over PII protection, or when PII redaction is a defense-in-depth measure rather than a strict requirement.</p>
+
+        <h4>Fail-Closed Mode (fail_closed = true)</h4>
+        <p>PII redaction is <strong>strictly enforced</strong>. If Language Service fails:</p>
+        <ul>
+            <li>If the Language Service returns a non-200 response, the request is blocked with HTTP 503</li>
+            <li>If the response cannot be parsed, the request is blocked with HTTP 503</li>
+            <li>If the Language Service is unavailable, all requests are blocked until service is restored</li>
+            <li>Clients receive a JSON error response with code <code>PiiRedactionUnavailable</code></li>
+        </ul>
+        <p><strong>Use when:</strong> Strict PII protection is required and no unredacted content should reach downstream services. Ensures that sensitive data is never exposed, even during service outages.</p>
+
+        <p><strong>Configuration example:</strong></p>
+        <pre><code>pii_redaction {
+  enabled     = true
+  fail_closed = true  # Block requests if PII service fails
+}</code></pre>
     </div>
 </details>
 

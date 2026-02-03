@@ -108,8 +108,20 @@ tenant = {
     store_in_keyvault = false
   }
 
-  content_safety = {
-    pii_redaction_enabled = true
+  # APIM Policies Configuration
+  apim_policies = {
+    pii_redaction = {
+      enabled     = true   # Enable PII detection and redaction
+      fail_closed = false  # When true: blocks requests (503) if Language Service fails
+                           # When false (default): passes through unredacted content on failure
+    }
+    rate_limiting = {
+      enabled           = true
+      tokens_per_minute = 1000
+    }
+    usage_logging = {
+      enabled = true
+    }
   }
 
   apim_diagnostics = {

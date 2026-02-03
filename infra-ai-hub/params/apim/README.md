@@ -423,9 +423,20 @@ The fragment emits a `trace` event (source `pii-anonymization`) to Application I
 
 These diagnostics enable monitoring of PII detection effectiveness, Language Service API health, and understanding which entity types are most commonly detected across tenants.
 
+**Fail-Closed Mode:**
+The fragment now supports configurable failure handling via the `piiFailClosed` variable:
+
+- **Fail-Closed (`piiFailClosed = "true"`)**: When the Language Service is unavailable, returns an error (HTTP 503) or the response is invalid (non-200 status, missing `redactedText`), APIM blocks the request with:
+  - HTTP Status: `503 Service Unavailable`
+  - Response Body: `{"error": {"code": "PiiRedactionUnavailable", "message": "PII redaction service is unavailable. Request blocked for data protection.", "request_id": "<uuid>"}}`
+  - Custom Header: `X-Request-Id: <correlation-id>`
+  - Trace Event: `pii-anonymization-blocked` with metadata for monitoring
+
+- **Fail-Open (`piiFailClosed = "false"`, default)**: If the Language Service call fails or the response can't be parsed, the fragment returns the original input text (best-effort redaction). This maintains backward compatibility with existing behavior.
+
 **Fallback Behavior:**
-- If PII anonymization is disabled, the fragment passes through the original `piiInputContent`
-- If the Language Service call fails or the response can't be parsed, the fragment returns the original input text (best-effort redaction)
+- If PII anonymization is disabled (`piiAnonymizationEnabled = "false"`), the fragment passes through the original `piiInputContent` unchanged, regardless of `piiFailClosed` setting
+- When fail-open mode is active and Language Service fails, original content is passed through unredacted
 
 **Advanced PII Options:**
 
@@ -628,7 +639,9 @@ apim_policies = {
   
   # PII anonymization via Azure Language Service
   pii_redaction = {
-    enabled = true  # Set to false to disable PII detection
+    enabled     = true   # Set to false to disable PII detection
+    fail_closed = false  # When true, blocks requests (503) if Language Service fails
+                         # When false (default), allows requests through with unredacted content
   }
   
   # OpenAI token usage logging to Application Insights
