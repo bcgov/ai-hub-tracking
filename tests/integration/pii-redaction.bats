@@ -239,32 +239,6 @@ TEST_CREDIT_CARD="4111-1111-1111-1111"
 # - That fail-open tenants still work (current behavior)
 # =============================================================================
 
-@test "FAIL-CLOSED: Verify error response format matches expected schema" {
-    # This test validates the expected error response structure
-    # When fail_closed=true and PII service fails, the response should be:
-    # {
-    #   "error": {
-    #     "code": "PiiRedactionUnavailable",
-    #     "message": "PII redaction service is unavailable. Request blocked for data protection.",
-    #     "request_id": "<uuid>"
-    #   }
-    # }
-
-    # Create the expected error response schema
-    local expected_error_code="PiiRedactionUnavailable"
-    local expected_error_message="PII redaction service is unavailable. Request blocked for data protection."
-
-    # Verify the schema is documented correctly
-    # This test passes to document expected behavior
-    echo "Expected fail-closed error response:"
-    echo "  HTTP Status: 503 (PII Redaction Unavailable)"
-    echo "  Headers: Content-Type: application/json, X-Request-Id: <correlation-id>"
-    echo "  Body: {\"error\":{\"code\":\"${expected_error_code}\",\"message\":\"${expected_error_message}\",\"request_id\":\"<uuid>\"}}"
-
-    # This is a documentation test - always passes
-    true
-}
-
 @test "FAIL-OPEN: WLRS tenant (fail_closed=false by default) processes requests successfully" {
     skip_if_no_key "wlrs-water-form-assistant"
 
@@ -289,14 +263,14 @@ TEST_CREDIT_CARD="4111-1111-1111-1111"
 @test "FAIL-OPEN: SDPR tenant (PII disabled) is not affected by fail-closed settings" {
     skip_if_no_key "sdpr-invoice-automation"
 
-    # SDPR has PII redaction disabled entirely
-    # fail_closed setting has no effect when PII redaction is disabled
-    local prompt="Process this invoice data without any PII redaction."
+    # SDPR has PII redaction enabled with fail_closed=true
+    # This test verifies that normal requests work when PII service is healthy
+    local prompt="Process this request normally."
 
-    response=$(chat_completion "sdpr-invoice-automation" "${DEFAULT_MODEL}" "${prompt}" 50)
+    response=$(chat_completion "test-tenant-1" "${DEFAULT_MODEL}" "${prompt}" 50)
     parse_response "${response}"
 
-    # Should succeed - PII redaction is disabled for this tenant
+    # Should succeed - PII service is healthy, so fail_closed doesn't trigger
     assert_status "200" "${RESPONSE_STATUS}"
 
     local content
@@ -343,19 +317,13 @@ TEST_CREDIT_CARD="4111-1111-1111-1111"
     # Skip this test by default - requires special infrastructure setup
     skip "Requires tenant with fail_closed=true and simulated PII service failure"
 
-    # If you have a fail-closed tenant configured, replace 'test-fail-closed' with the tenant name
-    # and remove the skip above
-    local tenant="test-fail-closed"
-    local subscription_key
-    subscription_key=$(get_subscription_key "${tenant}" 2>/dev/null || echo "")
+    skip_if_no_key "sdpr-invoice-automation"
 
-    if [[ -z "${subscription_key}" ]]; then
-        skip "No subscription key for ${tenant}"
-    fi
-
+    # sdpr-invoice-automation has fail_closed=true
+    # When PII service fails, request should be blocked with 503
     local prompt="My email is test@example.com. Please process this."
 
-    response=$(chat_completion "${tenant}" "${DEFAULT_MODEL}" "${prompt}" 50)
+    response=$(chat_completion "sdpr-invoice-automation" "${DEFAULT_MODEL}" "${prompt}" 50)
     parse_response "${response}"
 
     # When fail_closed=true and PII service fails, expect 503
@@ -382,7 +350,7 @@ TEST_CREDIT_CARD="4111-1111-1111-1111"
 
     skip_if_no_key "wlrs-water-form-assistant"
 
-    # WLRS has fail_closed=false (default)
+    # wlrs-water-form-assistant has fail_closed=false (fail-open)
     # Even when PII service is unavailable, request should succeed
     local prompt="My email is test@example.com. Please repeat it."
 

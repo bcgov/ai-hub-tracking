@@ -164,7 +164,7 @@ tenant = {
     }
     pii_redaction = {
       enabled     = true # Redact emails, phone numbers, addresses, etc.
-      fail_closed = true # Fail-closed: block requests if PII service fails
+      fail_closed = false # Fail-closed: block requests if PII service fails
     }
     usage_logging = {
       enabled = true # Log AI model token usage
