@@ -64,10 +64,11 @@ shared_config = {
     publisher_name  = "AI Hub Dev"
     publisher_email = "ai-hub-dev@example.com"
 
-    # VNet injection (Premium v2 only) - leave false for Standard_v2
-    vnet_injection_enabled = false
-    subnet_name            = "apim-subnet" # Only used if vnet_injection_enabled
-    subnet_prefix_length   = 27            # /27 = 32 IPs
+    # VNet integration required for outbound connectivity to private backends
+    # Backend services (OpenAI, DocInt, etc.) have public network access disabled
+    vnet_injection_enabled = true
+    subnet_name            = "apim-subnet"
+    subnet_prefix_length   = 27 # /27 = 32 IPs
 
     # Private DNS zone IDs for private endpoints
     # Leave empty to let Azure Policy manage DNS (Landing Zone pattern)
