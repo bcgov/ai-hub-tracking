@@ -239,10 +239,10 @@ TEST_CREDIT_CARD="4111-1111-1111-1111"
 # - That fail-open tenants still work (current behavior)
 # =============================================================================
 
-@test "FAIL-OPEN: WLRS tenant (fail_closed=false by default) processes requests successfully" {
+@test "FAIL-OPEN: wlrs-water-form-assistant processes requests successfully" {
     skip_if_no_key "wlrs-water-form-assistant"
 
-    # WLRS has PII redaction enabled with fail_closed=false (default)
+    # wlrs-water-form-assistant has PII redaction enabled with fail_closed=false (default)
     # This test verifies that even if there were PII service issues,
     # the fail-open behavior would allow the request through
     local prompt="Hello, this is a simple test message without PII."
@@ -260,14 +260,14 @@ TEST_CREDIT_CARD="4111-1111-1111-1111"
     [[ -n "${content}" ]]
 }
 
-@test "FAIL-OPEN: SDPR tenant (PII disabled) is not affected by fail-closed settings" {
+@test "FAIL-CLOSED: sdpr-invoice-automation succeeds when PII service is healthy" {
     skip_if_no_key "sdpr-invoice-automation"
 
-    # SDPR has PII redaction enabled with fail_closed=true
+    # sdpr-invoice-automation has PII redaction enabled with fail_closed=true
     # This test verifies that normal requests work when PII service is healthy
     local prompt="Process this request normally."
 
-    response=$(chat_completion "test-tenant-1" "${DEFAULT_MODEL}" "${prompt}" 50)
+    response=$(chat_completion "sdpr-invoice-automation" "${DEFAULT_MODEL}" "${prompt}" 50)
     parse_response "${response}"
 
     # Should succeed - PII service is healthy, so fail_closed doesn't trigger
@@ -313,61 +313,8 @@ TEST_CREDIT_CARD="4111-1111-1111-1111"
 # }
 # =============================================================================
 
-@test "FAIL-CLOSED: Tenant with fail_closed=true blocks request when PII service fails" {
-    # Skip this test by default - requires special infrastructure setup
-    skip "Requires tenant with fail_closed=true and simulated PII service failure"
-
-    skip_if_no_key "sdpr-invoice-automation"
-
-    # sdpr-invoice-automation has fail_closed=true
-    # When PII service fails, request should be blocked with 503
-    local prompt="My email is test@example.com. Please process this."
-
-    response=$(chat_completion "sdpr-invoice-automation" "${DEFAULT_MODEL}" "${prompt}" 50)
-    parse_response "${response}"
-
-    # When fail_closed=true and PII service fails, expect 503
-    assert_status "503" "${RESPONSE_STATUS}"
-
-    # Verify error response format
-    local error_code
-    error_code=$(json_get "${RESPONSE_BODY}" '.error.code')
-    [[ "${error_code}" == "PiiRedactionUnavailable" ]]
-
-    local error_message
-    error_message=$(json_get "${RESPONSE_BODY}" '.error.message')
-    assert_contains "${error_message}" "PII redaction service is unavailable"
-
-    # Verify request_id is present for correlation
-    local request_id
-    request_id=$(json_get "${RESPONSE_BODY}" '.error.request_id')
-    [[ -n "${request_id}" ]]
-}
-
-@test "FAIL-CLOSED: Verify fail-open tenant still succeeds when PII service is unavailable" {
-    # Skip this test by default - requires PII service to be unavailable
-    skip "Requires PII service to be unavailable to test fail-open behavior"
-
-    skip_if_no_key "wlrs-water-form-assistant"
-
-    # wlrs-water-form-assistant has fail_closed=false (fail-open)
-    # Even when PII service is unavailable, request should succeed
-    local prompt="My email is test@example.com. Please repeat it."
-
-    response=$(chat_completion "wlrs-water-form-assistant" "${DEFAULT_MODEL}" "${prompt}" 100)
-    parse_response "${response}"
-
-    # Fail-open: request should succeed with original content passed through
-    assert_status "200" "${RESPONSE_STATUS}"
-
-    # Note: The response may contain the unredacted email since PII service failed
-    # and fail_closed=false allows passthrough
-    local content
-    content=$(json_get "${RESPONSE_BODY}" '.choices[0].message.content')
-
-    # Verify we got a response (content passed through unredacted)
-    [[ -n "${content}" ]]
-}
+# Fail-closed and fail-open behavior tests have been moved to pii-failure.bats
+# These tests require temporarily disabling the PII service via Azure CLI
 
 # =============================================================================
 # Helper Functions
