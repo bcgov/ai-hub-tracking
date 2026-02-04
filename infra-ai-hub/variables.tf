@@ -373,6 +373,10 @@ variable "tenants" {
         # Custom structural values to preserve (in addition to defaults)
         # Default preserves: user, system, assistant, function, tool, developer
         structural_whitelist = optional(list(string), [])
+        # Fail-closed behavior: if true, block requests when PII redaction fails
+        # (Language Service unavailable, non-200 response, or invalid response body)
+        # Default: false (fail-open - allows requests through with original content on error)
+        fail_closed = optional(bool, false)
         }), {
         enabled                 = true
         confidence_threshold    = 0.8
@@ -381,6 +385,7 @@ variable "tenants" {
         excluded_categories     = []
         preserve_json_structure = true
         structural_whitelist    = []
+        fail_closed             = false
       })
 
       # ---- Usage Logging ----
@@ -409,7 +414,7 @@ variable "tenants" {
 
       }), {
       rate_limiting       = { enabled = true, tokens_per_minute = 10000 }
-      pii_redaction       = { enabled = true, confidence_threshold = 0.8, entity_exclusions = "", detection_language = "en", excluded_categories = [], preserve_json_structure = true, structural_whitelist = [] }
+      pii_redaction       = { enabled = true, confidence_threshold = 0.8, entity_exclusions = "", detection_language = "en", excluded_categories = [], preserve_json_structure = true, structural_whitelist = [], fail_closed = false }
       usage_logging       = { enabled = true }
       streaming_metrics   = { enabled = true }
       tracking_dimensions = { enabled = true }

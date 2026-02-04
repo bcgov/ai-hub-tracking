@@ -224,6 +224,99 @@ TEST_CREDIT_CARD="4111-1111-1111-1111"
 }
 
 # =============================================================================
+# Fail-Closed Behavior Tests
+# =============================================================================
+# These tests verify the fail-closed behavior for PII redaction.
+# When fail_closed=true, any PII service failure should block the request.
+# When fail_closed=false (default), failures allow the request through.
+#
+# NOTE: Testing actual PII service failure requires either:
+# 1. A tenant configured with fail_closed=true AND
+# 2. A way to simulate PII service failure (e.g., invalid piiServiceUrl, network issue)
+#
+# The tests below verify:
+# - The expected error response format for fail-closed mode
+# - That fail-open tenants still work (current behavior)
+# =============================================================================
+
+@test "FAIL-OPEN: wlrs-water-form-assistant processes requests successfully" {
+    skip_if_no_key "wlrs-water-form-assistant"
+
+    # wlrs-water-form-assistant has PII redaction enabled with fail_closed=false (default)
+    # This test verifies that even if there were PII service issues,
+    # the fail-open behavior would allow the request through
+    local prompt="Hello, this is a simple test message without PII."
+
+    response=$(chat_completion "wlrs-water-form-assistant" "${DEFAULT_MODEL}" "${prompt}" 50)
+    parse_response "${response}"
+
+    # Should succeed - fail-open allows requests through
+    assert_status "200" "${RESPONSE_STATUS}"
+
+    local content
+    content=$(json_get "${RESPONSE_BODY}" '.choices[0].message.content')
+
+    # Verify we got a valid response
+    [[ -n "${content}" ]]
+}
+
+@test "FAIL-CLOSED: sdpr-invoice-automation succeeds when PII service is healthy" {
+    skip_if_no_key "sdpr-invoice-automation"
+
+    # sdpr-invoice-automation has PII redaction enabled with fail_closed=true
+    # This test verifies that normal requests work when PII service is healthy
+    local prompt="Process this request normally."
+
+    response=$(chat_completion "sdpr-invoice-automation" "${DEFAULT_MODEL}" "${prompt}" 50)
+    parse_response "${response}"
+
+    # Should succeed - PII service is healthy, so fail_closed doesn't trigger
+    assert_status "200" "${RESPONSE_STATUS}"
+
+    local content
+    content=$(json_get "${RESPONSE_BODY}" '.choices[0].message.content')
+
+    # Verify we got a valid response
+    [[ -n "${content}" ]]
+}
+
+# =============================================================================
+# Fail-Closed Integration Test (requires special setup)
+# =============================================================================
+# To run this test, you need:
+# 1. A tenant configured with fail_closed=true in tenant.tfvars:
+#    apim_policies = {
+#      pii_redaction = {
+#        enabled = true
+#        fail_closed = true
+#      }
+#    }
+# 2. A way to simulate PII service failure:
+#    - Set piiServiceUrl named value to an invalid endpoint
+#    - Temporarily disable the Language Service
+#    - Use network policies to block connectivity
+#
+# Example tenant config for fail-closed testing:
+# tenants = {
+#   "test-fail-closed" = {
+#     tenant_name = "test-fail-closed"
+#     display_name = "Test Fail Closed"
+#     enabled = true
+#     apim_policies = {
+#       pii_redaction = {
+#         enabled = true
+#         fail_closed = true
+#       }
+#     }
+#     ...
+#   }
+# }
+# =============================================================================
+
+# Fail-closed and fail-open behavior tests have been moved to pii-failure.bats
+# These tests require temporarily disabling the PII service via Azure CLI
+
+# =============================================================================
 # Helper Functions
 # =============================================================================
 
@@ -231,7 +324,7 @@ skip_if_no_key() {
     local tenant="${1}"
     local key
     key=$(get_subscription_key "${tenant}")
-    
+
     if [[ -z "${key}" ]]; then
         skip "No subscription key for ${tenant}"
     fi

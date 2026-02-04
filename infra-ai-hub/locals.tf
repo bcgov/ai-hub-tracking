@@ -117,6 +117,7 @@ locals {
         pii_preserve_json_structure = try(config.apim_policies.pii_redaction.preserve_json_structure, true)
         pii_structural_whitelist    = try(config.apim_policies.pii_redaction.structural_whitelist, [])
         pii_detection_language      = try(config.apim_policies.pii_redaction.detection_language, "en")
+        pii_fail_closed             = try(config.apim_policies.pii_redaction.fail_closed, false)
       }
     )
   }

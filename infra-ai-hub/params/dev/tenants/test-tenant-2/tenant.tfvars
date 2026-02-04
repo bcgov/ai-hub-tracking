@@ -136,7 +136,8 @@ tenant = {
       tokens_per_minute = 1000
     }
     pii_redaction = {
-      enabled = false # Disabled - invoices need raw email/phone data
+      enabled     = true  # Enabled for testing fail-open behavior
+      fail_closed = false # Allow requests through if PII service fails (fail-open)
     }
     usage_logging = {
       enabled = true
