@@ -1376,3 +1376,346 @@ flowchart TB
 In this infrastructure:
 - **AI Foundry Hub** = Shared, deployed to Canada East for model availability
 - **Per-tenant OpenAI** = Dedicated `kind: OpenAI` accounts for isolation
+
+---
+
+## Local Development Deployment
+
+This guide explains how to deploy infrastructure from your local machine to the **dev environment only**. This workflow allows platform maintainers to iterate quickly on infrastructure changes in the dev environment. Promotions to test and prod happen exclusively through GitHub Actions after gated review and approval.
+
+### Why This Workflow Exists
+
+**Private Endpoints Block Public Access**: This infrastructure uses private endpoints for all Azure PaaS services (Key Vault, Storage, AI services, etc.). While GitHub Actions can deploy control plane resources (creating VMs, networks, etc.) using OIDC authentication, they **cannot access the data plane** (reading secrets, uploading blobs) when private endpoints are enabled.
+
+**Chisel Provides Network Access**: By establishing a secure tunnel through the Chisel proxy server (deployed in the VNet), your local machine can reach private endpoints as if it were inside the Azure VNet. This enables Terraform to perform data plane operations like reading Key Vault secrets during deployment.
+
+**Dev-Only Local Deployments**: Local deployments are restricted to the **dev environment only**. Once the infrastructure is stable, dev deployments can also be triggered via GitHub Actions workflow dispatch. Promotions to test and prod environments happen exclusively through GitHub Actions workflows after gated review and approval.
+
+For a detailed technical explanation, see the [Technical Deep Dive: Control vs Data Plane](../docs/technical-deep-dive.html).
+
+---
+
+### Prerequisites
+
+Before starting, ensure you have:
+
+- **Docker** installed and running on your local machine
+- **Azure CLI** authenticated (`az login`)
+- **Terraform** >= 1.12.0 installed
+- **Chisel credentials** from the platform team or Terraform outputs
+- **Appropriate Azure permissions** (Contributor or Owner on the subscription)
+
+---
+
+### Architecture Overview
+
+```
+Local Machine (Terraform)
+        ↓
+HTTP Proxy (Privoxy on localhost:8118)
+        ↓
+SOCKS5 Proxy (Chisel on localhost:18080)
+        ↓
+HTTPS Tunnel to Azure
+        ↓
+Chisel Server (App Service in VNet)
+        ↓
+Private Endpoints (Key Vault, Storage, AI Services, etc.)
+```
+
+The workflow uses two Docker containers:
+1. **Chisel Client** - Creates a SOCKS5 tunnel to Azure
+2. **Privoxy** - Converts the SOCKS5 proxy to HTTP/HTTPS proxy (Terraform-compatible)
+
+---
+
+### Step 1: Get Chisel Credentials
+
+The Chisel proxy is deployed in the **tools subscription** (`da4cf6-tools - AI Services Hub`). Retrieve the credentials using Azure CLI:
+
+```bash
+# Switch to tools subscription
+az account set --subscription "da4cf6-tools - AI Services Hub"
+
+# Get the authentication credentials
+CHISEL_AUTH=$(az webapp config appsettings list \
+  --name ai-hub-tools-azure-proxy \
+  --resource-group ai-hub-tools \
+  --query "[?name=='CHISEL_AUTH'].value" -o tsv)
+
+# Get the proxy URL
+CHISEL_URL="https://$(az webapp show \
+  --name ai-hub-tools-azure-proxy \
+  --resource-group ai-hub-tools \
+  --query defaultHostName -o tsv)"
+
+# Display credentials
+echo "Proxy URL: $CHISEL_URL"
+echo "Auth: $CHISEL_AUTH"
+
+# Switch back to your working subscription (e.g., dev)
+az account set --subscription "da4cf6-dev - AI Services Hub"
+```
+
+**Expected output**:
+```
+Proxy URL: https://ai-hub-tools-azure-proxy.azurewebsites.net
+Auth: username:password
+```
+
+**Alternative**: Contact the platform team if you don't have access to the tools subscription.
+
+**Note**: Do not commit these credentials to version control.
+
+---
+
+### Step 2: Start Chisel Tunnel (SOCKS5 Proxy)
+
+Open a terminal and run the Chisel client using the credentials from Step 1:
+
+```bash
+docker run --rm -it -p 18080:1080 jpillora/chisel:latest client \
+  --auth "$CHISEL_AUTH" \
+  $CHISEL_URL \
+  0.0.0.0:1080:socks
+```
+
+**Or with credentials directly** (if you didn't set environment variables):
+
+```bash
+docker run --rm -it -p 18080:1080 jpillora/chisel:latest client \
+  --auth "username:password" \
+  https://ai-hub-tools-azure-proxy.azurewebsites.net \
+  0.0.0.0:1080:socks
+```
+
+**Command breakdown**:
+- `-p 18080:1080` - Map local port 18080 to container's SOCKS5 port 1080
+- `--auth "$CHISEL_AUTH"` - Use the authentication credentials from the App Service
+- `$CHISEL_URL` - The proxy URL (ai-hub-tools-azure-proxy.azurewebsites.net)
+- `0.0.0.0:1080:socks` - Start SOCKS5 proxy on all interfaces
+
+Leave this terminal running. You should see:
+```
+[client] Connected (Latency XXXms)
+```
+
+---
+
+### Step 3: Build and Start Privoxy (HTTP Proxy)
+
+Privoxy converts the SOCKS5 proxy to an HTTP/HTTPS proxy that Terraform can use.
+
+**First time only** - Build the Privoxy image:
+
+```bash
+cd azure-proxy/privoxy
+docker build -t local/privoxy-socks-bridge:latest .
+```
+
+**Start Privoxy** (in a new terminal):
+
+```bash
+docker run --rm -d --name privoxy \
+  --network host \
+  -e SOCKS_HOST=127.0.0.1 \
+  -e SOCKS_PORT=18080 \
+  local/privoxy-socks-bridge:latest
+```
+
+**Command breakdown**:
+- `--network host` - Use host networking to access localhost:18080
+- `-e SOCKS_HOST=127.0.0.1` - Point to Chisel SOCKS5 proxy
+- `-e SOCKS_PORT=18080` - Chisel's SOCKS5 port
+- `-d` - Run in detached mode
+
+Privoxy will now be listening on `localhost:8118`.
+
+**Verify it's running**:
+```bash
+docker ps | grep privoxy
+```
+
+---
+
+### Step 4: Configure Environment Variables and terraform.tfvars
+
+#### A. Set Environment Variables
+
+Set up backend configuration for the dev environment:
+
+```bash
+export BACKEND_RESOURCE_GROUP="da4cf6-dev-networking"
+export BACKEND_STORAGE_ACCOUNT="tfdevaihubtracking"
+export ENVIRONMENT="dev"
+```
+
+#### B. Configure terraform.tfvars
+
+The `infra-ai-hub/terraform.tfvars` file contains dev environment configuration. **This file is git-ignored** and must be obtained from another developer or configured manually.
+
+**Location**: `infra-ai-hub/terraform.tfvars`
+
+**Sample configuration** (replace placeholder values with actual values from your team):
+
+```hcl
+app_env             = "dev"
+app_name            = "ai-services-hub"
+resource_group_name = "ai-services-hub-dev"
+location            = "Canada Central"
+common_tags = {
+  environment = "dev"
+  repo_name   = "ai-hub-tracking"
+  app_env     = "dev"
+}
+subscription_id            = "$dev_subscription_id"
+tenant_id                  = "$tenant_id"
+client_id                  = ""
+use_oidc                   = false
+vnet_name                  = "$licenseplate-dev-vwan-spoke"
+vnet_resource_group_name   = "$licenseplate-dev-networking"
+target_vnet_address_spaces = ["$dev_address_space"]
+source_vnet_address_space  = "$source_address_space"
+```
+
+**Placeholder values to replace**:
+- `$dev_subscription_id` - Your dev Azure subscription ID
+- `$tenant_id` - Your Azure AD tenant ID
+- `$licenseplate` - Your license plate (e.g., `da4cf6`)
+- `$dev_address_space` - Dev VNet address space
+- `$source_address_space` - Source VNet address space
+
+**Important Notes**:
+- This file is **not committed to git** (listed in `.gitignore`)
+- Obtain a copy from another developer on your team with actual values filled in
+- This configuration is for **dev environment only** - test and prod are deployed via GitHub Actions
+
+---
+
+### Step 5: Preview Changes (Terraform Plan)
+
+Run a Terraform plan to preview what changes will be made:
+
+```bash
+cd /home/alstruk/GitHub/ai-hub-tracking/infra-ai-hub && \
+HTTP_PROXY="http://127.0.0.1:8118" \
+HTTPS_PROXY="http://127.0.0.1:8118" \
+NO_PROXY="management.azure.com,login.microsoftonline.com,graph.microsoft.com,registry.terraform.io,releases.hashicorp.com,github.com,objects.githubusercontent.com" \
+CI="true" \
+BACKEND_RESOURCE_GROUP="${BACKEND_RESOURCE_GROUP}" \
+BACKEND_STORAGE_ACCOUNT="${BACKEND_STORAGE_ACCOUNT}" \
+./scripts/deploy-terraform.sh plan ${ENVIRONMENT}
+```
+
+**Environment variables explained**:
+- `HTTP_PROXY` / `HTTPS_PROXY` - Route traffic through Privoxy (which routes through Chisel)
+- `NO_PROXY` - Bypass proxy for Azure control plane and Terraform registry (these are publicly accessible)
+- `CI="true"` - Enables non-interactive mode in the deployment script
+- `BACKEND_RESOURCE_GROUP` - Resource group containing Terraform state storage
+- `BACKEND_STORAGE_ACCOUNT` - Storage account for Terraform state
+
+---
+
+### Step 6: Deploy Infrastructure (Terraform Apply)
+
+Deploy using the phased strategy to avoid ETag conflicts:
+
+```bash
+cd /home/alstruk/GitHub/ai-hub-tracking/infra-ai-hub && \
+HTTP_PROXY="http://127.0.0.1:8118" \
+HTTPS_PROXY="http://127.0.0.1:8118" \
+NO_PROXY="management.azure.com,login.microsoftonline.com,graph.microsoft.com,registry.terraform.io,releases.hashicorp.com,github.com,objects.githubusercontent.com" \
+CI="true" \
+BACKEND_RESOURCE_GROUP="${BACKEND_RESOURCE_GROUP}" \
+BACKEND_STORAGE_ACCOUNT="${BACKEND_STORAGE_ACCOUNT}" \
+./scripts/deploy-terraform.sh apply-phased ${ENVIRONMENT} --auto-approve
+```
+
+The `apply-phased` command automatically handles the three-phase deployment:
+1. **Phase 1**: Deploy all modules except `foundry_project` (parallelism=10)
+2. **Phase 2**: Deploy `foundry_project` modules only (parallelism=1 to avoid ETag conflicts)
+3. **Phase 3**: Final validation apply to catch any drift
+
+---
+
+### Step 7: Run Integration Tests (Optional)
+
+Test the deployed infrastructure using the integration test suite:
+
+```bash
+cd tests/integration
+
+# Run all tests against your environment
+TEST_ENV=${ENVIRONMENT} ./run-tests.sh
+
+# Run a single test file
+TEST_ENV=${ENVIRONMENT} ./run-tests.sh pii-redaction.bats
+```
+
+The tests validate:
+- API routing through APIM
+- PII redaction functionality
+- Tenant isolation
+- Service connectivity
+
+---
+
+### Step 8: Destroy Landing Zone (Cost Savings)
+
+**⚠️ DEV ENVIRONMENT ONLY**: This destroy operation should **only** be performed on the dev environment to save costs when not actively developing. **Never destroy test or prod environments** - they are managed through GitHub Actions and should remain persistent.
+
+When you're done working in dev, destroy the infrastructure to avoid accruing charges:
+
+```bash
+cd /home/alstruk/GitHub/ai-hub-tracking/infra-ai-hub && \
+HTTP_PROXY="http://127.0.0.1:8118" \
+HTTPS_PROXY="http://127.0.0.1:8118" \
+NO_PROXY="management.azure.com,login.microsoftonline.com,graph.microsoft.com,registry.terraform.io,releases.hashicorp.com,github.com,objects.githubusercontent.com" \
+CI="true" \
+BACKEND_RESOURCE_GROUP="${BACKEND_RESOURCE_GROUP}" \
+BACKEND_STORAGE_ACCOUNT="${BACKEND_STORAGE_ACCOUNT}" \
+./scripts/deploy-terraform.sh destroy-phased ${ENVIRONMENT} --auto-approve
+```
+
+**Important**:
+- The `destroy-phased` command reverses the deployment phases to cleanly remove all resources
+- This is a cost-saving measure for dev environments only
+- Test and prod environments are persistent and managed through CI/CD pipelines
+
+---
+
+### Environment Promotion Strategy
+
+This project follows a strict environment promotion workflow:
+
+**Dev Environment** (Local or GitHub Actions):
+- Multiple developers can work in parallel locally using this guide
+- Can also be triggered via GitHub Actions workflow dispatch for remote deployment
+- Used for rapid iteration and testing infrastructure changes
+- Resources can be destroyed when not in use to save costs
+
+**Test Environment** (GitHub Actions Only):
+- **Never deployed from local machines**
+- Automatically promoted from dev via GitHub Actions after code review
+- Requires pull request approval and successful CI checks
+- Used for integration testing and validation before production
+- Persistent infrastructure (not destroyed)
+
+**Prod Environment** (GitHub Actions Only):
+- **Never deployed from local machines**
+- Automatically promoted from test via GitHub Actions after gated approval
+- Requires additional approvals and release gates
+- Production-grade infrastructure with full monitoring and SLAs
+- Persistent infrastructure (not destroyed)
+
+**Deployment Flow**:
+```
+Local Dev → Push to branch → PR Review → Merge to main → Deploy to Test → Approval → Deploy to Prod
+```
+
+Each environment has:
+- **Separate Terraform state** - Stored in environment-specific storage accounts
+- **Separate Azure resources** - Deployed to environment-specific resource groups
+- **Separate configuration** - Using environment-specific `params/{env}/` files
+- **Separate access controls** - RBAC permissions per environment
+

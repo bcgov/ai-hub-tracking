@@ -6,6 +6,11 @@ This is the central repo to track overall project with issues and github project
 
 Comprehensive guides for OIDC setup, Terraform deployments, and Azure Landing Zone architecture.
 
+**Quick Links**:
+- [Local Development Deployment Guide](infra-ai-hub/README.md#local-development-deployment) - Deploy from your local machine using Chisel tunnel
+- [Operational Playbooks](https://bcgov.github.io/ai-hub-tracking/playbooks.html) - Troubleshooting and runbooks
+- [Terraform Modules](https://bcgov.github.io/ai-hub-tracking/terraform.html) - Terraform modules overview
+
 ## Tools & Installation
 
 **Supported Platforms:** Linux and macOS
