@@ -1381,13 +1381,15 @@ In this infrastructure:
 
 ## Local Development Deployment
 
-This guide explains how to deploy infrastructure from your local machine to a development or test environment. This is essential for platform maintainers who need to work in parallel (e.g., one person in `dev`, another in `test`) or test changes locally before pushing to CI/CD.
+This guide explains how to deploy infrastructure from your local machine to the **dev environment only**. This workflow allows platform maintainers to iterate quickly on infrastructure changes in the dev environment. Promotions to test and prod happen exclusively through GitHub Actions after gated review and approval.
 
 ### Why This Workflow Exists
 
 **Private Endpoints Block Public Access**: This infrastructure uses private endpoints for all Azure PaaS services (Key Vault, Storage, AI services, etc.). While GitHub Actions can deploy control plane resources (creating VMs, networks, etc.) using OIDC authentication, they **cannot access the data plane** (reading secrets, uploading blobs) when private endpoints are enabled.
 
 **Chisel Provides Network Access**: By establishing a secure tunnel through the Chisel proxy server (deployed in the VNet), your local machine can reach private endpoints as if it were inside the Azure VNet. This enables Terraform to perform data plane operations like reading Key Vault secrets during deployment.
+
+**Dev-Only Local Deployments**: Local deployments are restricted to the **dev environment only**. Once the infrastructure is stable, dev deployments can also be triggered via GitHub Actions workflow dispatch. Promotions to test and prod environments happen exclusively through GitHub Actions workflows after gated review and approval.
 
 For a detailed technical explanation, see the [Technical Deep Dive: Control vs Data Plane](../docs/technical-deep-dive.html).
 
@@ -1540,9 +1542,7 @@ docker ps | grep privoxy
 
 #### A. Set Environment Variables
 
-Set up backend configuration for your target environment:
-
-**For dev environment**:
+Set up backend configuration for the dev environment:
 
 ```bash
 export BACKEND_RESOURCE_GROUP="da4cf6-dev-networking"
@@ -1550,43 +1550,15 @@ export BACKEND_STORAGE_ACCOUNT="tfdevaihubtracking"
 export ENVIRONMENT="dev"
 ```
 
-**For test environment**:
-
-```bash
-export BACKEND_RESOURCE_GROUP="da4cf6-test-networking"
-export BACKEND_STORAGE_ACCOUNT="tftestaihubtracking"
-export ENVIRONMENT="test"
-```
-
 #### B. Configure terraform.tfvars
 
-The `infra-ai-hub/terraform.tfvars` file contains environment-specific configuration. **This file is git-ignored** and must be obtained from another developer or configured manually.
+The `infra-ai-hub/terraform.tfvars` file contains dev environment configuration. **This file is git-ignored** and must be obtained from another developer or configured manually.
 
 **Location**: `infra-ai-hub/terraform.tfvars`
 
 **Sample configuration** (replace placeholder values with actual values from your team):
 
 ```hcl
-### TEST secret configs ###
-# app_env             = "test"
-# app_name            = "ai-services-hub"
-# resource_group_name = "ai-services-hub-test"
-# location            = "Canada Central"
-# common_tags = {
-#  environment = "test"
-#  repo_name   = "ai-hub-tracking"
-#  app_env     = "test"
-# }
-# subscription_id            = "$test_subscription_id"
-# tenant_id                  = "$tenant_id"
-# client_id                  = ""
-# use_oidc                   = false
-# vnet_name                  = "$licenseplate-test-vwan-spoke"
-# vnet_resource_group_name   = "$licenseplate-test-networking"
-# target_vnet_address_spaces = ["$test_address_space_1", "$test_address_space_2"]
-# source_vnet_address_space  = "$source_address_space"
-
-# DEV SECRET VARS
 app_env             = "dev"
 app_name            = "ai-services-hub"
 resource_group_name = "ai-services-hub-dev"
@@ -1608,23 +1580,15 @@ source_vnet_address_space  = "$source_address_space"
 
 **Placeholder values to replace**:
 - `$dev_subscription_id` - Your dev Azure subscription ID
-- `$test_subscription_id` - Your test Azure subscription ID
 - `$tenant_id` - Your Azure AD tenant ID
 - `$licenseplate` - Your license plate (e.g., `da4cf6`)
 - `$dev_address_space` - Dev VNet address space
-- `$test_address_space_1` - Test VNet primary address space
-- `$test_address_space_2` - Test VNet secondary address space
 - `$source_address_space` - Source VNet address space
-
-**Switching between environments**:
-- **For dev**: Comment out TEST section, uncomment DEV section
-- **For test**: Comment out DEV section, uncomment TEST section
 
 **Important Notes**:
 - This file is **not committed to git** (listed in `.gitignore`)
-- Obtain a copy from another developer on your team with actual values
-- Update the active environment by commenting/uncommenting the appropriate section
-- The `subscription_id` must match the subscription you're deploying to
+- Obtain a copy from another developer on your team with actual values filled in
+- This configuration is for **dev environment only** - test and prod are deployed via GitHub Actions
 
 ---
 
@@ -1698,7 +1662,9 @@ The tests validate:
 
 ### Step 8: Destroy Landing Zone (Cost Savings)
 
-When you're done working, destroy the infrastructure to avoid accruing charges:
+**⚠️ DEV ENVIRONMENT ONLY**: This destroy operation should **only** be performed on the dev environment to save costs when not actively developing. **Never destroy test or prod environments** - they are managed through GitHub Actions and should remain persistent.
+
+When you're done working in dev, destroy the infrastructure to avoid accruing charges:
 
 ```bash
 cd /home/alstruk/GitHub/ai-hub-tracking/infra-ai-hub && \
@@ -1711,88 +1677,45 @@ BACKEND_STORAGE_ACCOUNT="${BACKEND_STORAGE_ACCOUNT}" \
 ./scripts/deploy-terraform.sh destroy-phased ${ENVIRONMENT} --auto-approve
 ```
 
-**Important**: The `destroy-phased` command reverses the deployment phases to cleanly remove all resources.
+**Important**:
+- The `destroy-phased` command reverses the deployment phases to cleanly remove all resources
+- This is a cost-saving measure for dev environments only
+- Test and prod environments are persistent and managed through CI/CD pipelines
 
 ---
 
-### Working with Multiple Environments
+### Environment Promotion Strategy
 
-This workflow enables multiple developers to work in parallel by deploying to separate environments (dev, test, prod).
+This project follows a strict environment promotion workflow:
 
-**Scenario**: Developer A works in `dev`, Developer B works in `test`
+**Dev Environment** (Local or GitHub Actions):
+- Multiple developers can work in parallel locally using this guide
+- Can also be triggered via GitHub Actions workflow dispatch for remote deployment
+- Used for rapid iteration and testing infrastructure changes
+- Resources can be destroyed when not in use to save costs
 
-**Developer A (dev environment)**:
-```bash
-export BACKEND_RESOURCE_GROUP="da4cf6-dev-networking"
-export BACKEND_STORAGE_ACCOUNT="tfdevaihubtracking"
-export ENVIRONMENT="dev"
-# ... run plan/apply commands
+**Test Environment** (GitHub Actions Only):
+- **Never deployed from local machines**
+- Automatically promoted from dev via GitHub Actions after code review
+- Requires pull request approval and successful CI checks
+- Used for integration testing and validation before production
+- Persistent infrastructure (not destroyed)
+
+**Prod Environment** (GitHub Actions Only):
+- **Never deployed from local machines**
+- Automatically promoted from test via GitHub Actions after gated approval
+- Requires additional approvals and release gates
+- Production-grade infrastructure with full monitoring and SLAs
+- Persistent infrastructure (not destroyed)
+
+**Deployment Flow**:
 ```
-
-**Developer B (test environment)**:
-```bash
-export BACKEND_RESOURCE_GROUP="da4cf6-test-networking"
-export BACKEND_STORAGE_ACCOUNT="tftestaihubtracking"
-export ENVIRONMENT="test"
-# ... run plan/apply commands
+Local Dev → Push to branch → PR Review → Merge to main → Deploy to Test → Approval → Deploy to Prod
 ```
 
 Each environment has:
-- **Separate Terraform state** - Stored in different storage accounts
-- **Separate Azure resources** - Deployed to different resource groups
+- **Separate Terraform state** - Stored in environment-specific storage accounts
+- **Separate Azure resources** - Deployed to environment-specific resource groups
 - **Separate configuration** - Using environment-specific `params/{env}/` files
+- **Separate access controls** - RBAC permissions per environment
 
----
-
-### Switching Terraform State Between Environments
-
-When you need to switch from one environment to another (e.g., from `test` to `dev`), you must perform **two critical steps**:
-
-1. **Update `terraform.tfvars`** - Switch the active environment configuration
-2. **Migrate Terraform state** - Point to the new backend
-
-#### Step 1: Update terraform.tfvars
-
-Edit `infra-ai-hub/terraform.tfvars` and comment/uncomment the appropriate environment section as shown in [Step 4B](#step-4-configure-environment-variables-and-terraformtfvars).
-
-**Switch from test to dev**:
-- Comment out the entire TEST section (add `#` at the start of each line)
-- Uncomment the entire DEV section (remove `#` from the start of each line)
-
-**Switch from dev to test**:
-- Comment out the entire DEV section
-- Uncomment the entire TEST section
-
-#### Step 2: Migrate Terraform State
-
-After updating `terraform.tfvars`, migrate the Terraform backend:
-
-**Switch from test to dev**:
-
-```bash
-cd /home/alstruk/GitHub/ai-hub-tracking/infra-ai-hub
-
-BACKEND_RESOURCE_GROUP="da4cf6-dev-networking" \
-BACKEND_STORAGE_ACCOUNT="tfdevaihubtracking" \
-./scripts/deploy-terraform.sh init dev -migrate-state
-```
-
-**Switch from dev to test**:
-
-```bash
-cd /home/alstruk/GitHub/ai-hub-tracking/infra-ai-hub
-
-BACKEND_RESOURCE_GROUP="da4cf6-test-networking" \
-BACKEND_STORAGE_ACCOUNT="tftestaihubtracking" \
-./scripts/deploy-terraform.sh init test -migrate-state
-```
-
-**What happens during migration**:
-1. Terraform reads the current backend configuration from `.terraform/terraform.tfstate`
-2. Connects to the **new** backend (specified by `BACKEND_RESOURCE_GROUP` and `BACKEND_STORAGE_ACCOUNT`)
-3. Asks for confirmation to migrate state
-4. Updates `.terraform/terraform.tfstate` to point to the new backend
-
-**Critical**: You **must** update both `terraform.tfvars` AND run `init -migrate-state` when switching environments. If you skip either step:
-- Skipping `terraform.tfvars` update → Terraform will deploy to the wrong environment
-- Skipping `init -migrate-state` → Terraform will use the wrong state, leading to errors or unintended changes
