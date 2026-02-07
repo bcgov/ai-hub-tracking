@@ -323,6 +323,38 @@ resource "azurerm_network_security_group" "appgw" {
 }
 
 # App Gateway subnet
+#
+# IMPORTANT: In VWAN spoke VNets with useRemoteGateways=true, a route table with
+# 0.0.0.0/0 → Internet is REQUIRED. Without it, the VWAN hub's default route
+# causes asymmetric routing: inbound traffic arrives at the App GW public IP
+# directly, but return traffic goes through the VWAN hub, and gets dropped.
+# See: https://learn.microsoft.com/en-us/azure/application-gateway/configuration-infrastructure#virtual-network-and-dedicated-subnet
+
+resource "azurerm_route_table" "appgw" {
+  count = var.appgw_subnet.enabled ? 1 : 0
+
+  name                = "${var.name_prefix}-appgw-rt"
+  location            = var.location
+  resource_group_name = var.vnet_resource_group_name
+
+  tags = var.common_tags
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
+}
+
+resource "azurerm_route" "appgw_internet" {
+  count = var.appgw_subnet.enabled ? 1 : 0
+
+  name                = "default-internet"
+  resource_group_name = var.vnet_resource_group_name
+  route_table_name    = azurerm_route_table.appgw[0].name
+
+  address_prefix = "0.0.0.0/0"
+  next_hop_type  = "Internet"
+}
+
 resource "azapi_resource" "appgw_subnet" {
   count = var.appgw_subnet.enabled ? 1 : 0
 
@@ -337,6 +369,10 @@ resource "azapi_resource" "appgw_subnet" {
 
       networkSecurityGroup = {
         id = azurerm_network_security_group.appgw[0].id
+      }
+
+      routeTable = {
+        id = azurerm_route_table.appgw[0].id
       }
     }
   }

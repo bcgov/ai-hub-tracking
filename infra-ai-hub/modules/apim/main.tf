@@ -17,6 +17,9 @@ module "apim" {
 
   sku_name = var.sku_name
 
+  # Public network access - set to false to restrict to private endpoints only
+  public_network_access_enabled = var.public_network_access_enabled
+
   # VNet integration for outbound connectivity to private backends
   # StandardV2/PremiumV2 use "External" type with subnet for outbound VNet injection
   virtual_network_type = var.enable_vnet_integration ? "External" : "None"

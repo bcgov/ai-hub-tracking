@@ -59,16 +59,24 @@ variable "waf_mode" {
 }
 
 variable "ssl_certificates" {
-  description = "SSL certificates from Key Vault"
+  description = "SSL certificates — from Key Vault (key_vault_secret_id) or direct PFX upload (data+password). Certificates can also be uploaded via Azure Portal; Terraform will ignore changes to ssl_certificate blocks."
   type = map(object({
     name                = string
-    key_vault_secret_id = string
+    key_vault_secret_id = optional(string)
+    data                = optional(string)
+    password            = optional(string)
   }))
   default = {}
 }
 
+variable "ssl_certificate_name" {
+  description = "Name of an SSL certificate already on the App Gateway (uploaded via CLI/portal). When set, enables HTTPS listener and HTTP→HTTPS redirect. Only set after the cert has been uploaded to the App Gateway."
+  type        = string
+  default     = null
+}
+
 variable "backend_apim" {
-  description = "APIM backend configuration"
+  description = "APIM backend configuration. The FQDN resolves to the PE private IP via private DNS zone linked to the App GW VNet."
   type = object({
     fqdn        = string
     http_port   = optional(number, 80)
@@ -83,6 +91,12 @@ variable "frontend_hostname" {
   type        = string
 }
 
+variable "enable_diagnostics" {
+  description = "Whether to enable diagnostic settings (use static bool to avoid count unknown at plan time)"
+  type        = bool
+  default     = false
+}
+
 variable "log_analytics_workspace_id" {
   description = "Log Analytics Workspace ID for diagnostics"
   type        = string
@@ -95,16 +109,21 @@ variable "key_vault_id" {
   default     = null
 }
 
+variable "public_ip_resource_id" {
+  description = "Resource ID of a pre-created static Public IP for the App Gateway. When set, App GW uses this instead of creating its own PIP. Typically provided by the dns-zone module."
+  type        = string
+  default     = null
+
+  validation {
+    condition     = var.public_ip_resource_id == null || can(regex("^/subscriptions/", var.public_ip_resource_id))
+    error_message = "public_ip_resource_id must be a valid Azure resource ID (starting with /subscriptions/) or null"
+  }
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)
   default     = {}
-}
-
-variable "enable_telemetry" {
-  description = "Enable AVM telemetry"
-  type        = bool
-  default     = false
 }
 
 variable "zones" {

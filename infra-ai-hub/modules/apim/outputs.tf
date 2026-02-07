@@ -42,3 +42,8 @@ output "principal_id" {
   description = "Principal ID of the APIM managed identity"
   value       = try(module.apim.resource.identity[0].principal_id, null)
 }
+
+output "private_endpoint_ip" {
+  description = "Private IP address of the APIM private endpoint"
+  value       = try(module.apim.private_endpoints["primary"].private_service_connection[0].private_ip_address, null)
+}

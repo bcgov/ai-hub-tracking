@@ -48,3 +48,8 @@ tfplan
 **/*.tfplan
 **/tfplan/**
 *.csr
+*.bak
+*.backup
+*.swp
+*.bkp
+*.der
