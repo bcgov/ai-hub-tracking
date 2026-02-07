@@ -190,17 +190,19 @@ if [[ "$INTERACTIVE" == true ]]; then
 fi
 
 # ─── Validate prerequisites ─────────────────────────────────────────────────
+# Use -legacy to ensure compatibility with PKCS#12 bundles using legacy algorithms on OpenSSL 3.x
+OPENSSL_PKCS12="openssl pkcs12 -legacy"
 info "Validating PFX file..."
 PFX_PASS_ARG="pass:${PFX_PASSWORD}"
-if ! openssl pkcs12 -in "$PFX_FILE" -info -nokeys -passin "$PFX_PASS_ARG" >/dev/null 2>&1; then
+if ! $OPENSSL_PKCS12 -in "$PFX_FILE" -info -nokeys -passin "$PFX_PASS_ARG" >/dev/null 2>&1; then
   err "Failed to read PFX file. Check the file and password."
   exit 1
 fi
 ok "PFX file is valid."
 
-CERT_SUBJECT=$(openssl pkcs12 -in "$PFX_FILE" -clcerts -nokeys -passin "$PFX_PASS_ARG" 2>/dev/null | \
+CERT_SUBJECT=$($OPENSSL_PKCS12 -in "$PFX_FILE" -clcerts -nokeys -passin "$PFX_PASS_ARG" 2>/dev/null | \
   openssl x509 -noout -subject 2>/dev/null | sed 's/subject=//') || true
-CERT_EXPIRY=$(openssl pkcs12 -in "$PFX_FILE" -clcerts -nokeys -passin "$PFX_PASS_ARG" 2>/dev/null | \
+CERT_EXPIRY=$($OPENSSL_PKCS12 -in "$PFX_FILE" -clcerts -nokeys -passin "$PFX_PASS_ARG" 2>/dev/null | \
   openssl x509 -noout -enddate 2>/dev/null | sed 's/notAfter=//') || true
 info "Certificate subject: ${CERT_SUBJECT:-unknown}"
 info "Certificate expires: ${CERT_EXPIRY:-unknown}"
