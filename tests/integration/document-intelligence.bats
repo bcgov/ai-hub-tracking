@@ -125,16 +125,21 @@ EOF
         fail "Expected Operation-Location header in 202 response"
     fi
     
-    # Verify Operation-Location contains APIM gateway URL, not backend URL
-    # Should contain: ai-services-hub-test-apim.azure-api.net (APIM gateway)
+    # Verify Operation-Location contains App Gateway URL, not backend URL
+    # Should contain: test.aihub.gov.bc.ca (App Gateway)
     # Should NOT contain: .cognitiveservices.azure.com (direct backend)
+    # Should NOT contain: azure-api.net (direct APIM - must go through App Gateway)
     
     if echo "${operation_location}" | grep -q "cognitiveservices.azure.com"; then
         fail "Operation-Location contains direct backend URL: ${operation_location}"
     fi
     
-    if ! echo "${operation_location}" | grep -q "azure-api.net"; then
-        fail "Operation-Location does not contain APIM gateway URL: ${operation_location}"
+    if echo "${operation_location}" | grep -q "azure-api.net"; then
+        fail "Operation-Location contains APIM URL (should be App Gateway): ${operation_location}"
+    fi
+    
+    if ! echo "${operation_location}" | grep -q "${APPGW_HOSTNAME}"; then
+        fail "Operation-Location does not contain App Gateway hostname (${APPGW_HOSTNAME}): ${operation_location}"
     fi
     
     # Verify it contains the tenant path
@@ -179,13 +184,17 @@ EOF
         fail "Expected Operation-Location header in 202 response"
     fi
     
-    # Verify Operation-Location contains APIM gateway URL, not backend URL
+    # Verify Operation-Location contains App Gateway URL, not backend URL
     if echo "${operation_location}" | grep -q "cognitiveservices.azure.com"; then
         fail "Operation-Location contains direct backend URL: ${operation_location}"
     fi
     
-    if ! echo "${operation_location}" | grep -q "azure-api.net"; then
-        fail "Operation-Location does not contain APIM gateway URL: ${operation_location}"
+    if echo "${operation_location}" | grep -q "azure-api.net"; then
+        fail "Operation-Location contains APIM URL (should be App Gateway): ${operation_location}"
+    fi
+    
+    if ! echo "${operation_location}" | grep -q "${APPGW_HOSTNAME}"; then
+        fail "Operation-Location does not contain App Gateway hostname (${APPGW_HOSTNAME}): ${operation_location}"
     fi
     
     # Verify it contains the tenant path

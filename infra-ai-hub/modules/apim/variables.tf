@@ -34,6 +34,12 @@ variable "publisher_email" {
   type        = string
 }
 
+variable "public_network_access_enabled" {
+  description = "Whether public network access is enabled for APIM. Set to false to restrict access to private endpoints only."
+  type        = bool
+  default     = true
+}
+
 variable "enable_private_endpoint" {
   description = "Whether to create a private endpoint for APIM inbound access. Must be set explicitly to avoid plan-time evaluation issues."
   type        = bool

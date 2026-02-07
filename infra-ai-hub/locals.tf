@@ -20,8 +20,9 @@ locals {
   }
 
   # APIM and App GW configuration shortcuts
-  apim_config  = var.shared_config.apim
-  appgw_config = var.shared_config.app_gateway
+  apim_config     = var.shared_config.apim
+  appgw_config    = var.shared_config.app_gateway
+  dns_zone_config = var.shared_config.dns_zone
 
   # Application Insights enabled flag - use input variable directly for count expressions
   # This avoids "count depends on resource attributes" errors during destroy

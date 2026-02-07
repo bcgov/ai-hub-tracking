@@ -1,29 +1,29 @@
 output "id" {
   description = "Resource ID of the Application Gateway"
-  value       = module.app_gateway.resource_id
+  value       = azurerm_application_gateway.this.id
 }
 
 output "name" {
   description = "Name of the Application Gateway"
-  value       = module.app_gateway.application_gateway_name
+  value       = azurerm_application_gateway.this.name
 }
 
 output "public_ip_address" {
-  description = "Public IP address of the Application Gateway"
-  value       = module.app_gateway.new_public_ip_address
+  description = "Public IP address of the Application Gateway. Returns null - get this from the dns_zone module output instead (dns_zone_public_ip) to avoid data source lookup failures during first deployment."
+  value       = null
 }
 
 output "public_ip_id" {
   description = "Public IP resource ID"
-  value       = module.app_gateway.public_ip_id
+  value       = var.public_ip_resource_id
 }
 
 output "backend_address_pools" {
   description = "Backend address pools"
-  value       = module.app_gateway.backend_address_pools
+  value       = azurerm_application_gateway.this.backend_address_pool
 }
 
 output "principal_id" {
-  description = "Principal ID of the App Gateway managed identity"
-  value       = try(module.app_gateway.resource.identity[0].principal_id, null)
+  description = "Principal ID of the App Gateway managed identity (user-assigned)"
+  value       = try(azurerm_user_assigned_identity.appgw[0].principal_id, null)
 }

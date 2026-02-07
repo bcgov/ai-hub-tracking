@@ -185,6 +185,32 @@ output "tenant_openai" {
 }
 
 # =============================================================================
+# APP GATEWAY OUTPUTS
+# =============================================================================
+output "appgw_url" {
+  description = "App Gateway frontend URL (custom domain). Use this for API calls routed through App GW."
+  value       = local.appgw_config.enabled ? "https://${lookup(local.appgw_config, "frontend_hostname", "")}" : null
+}
+
+# =============================================================================
+# DNS ZONE OUTPUTS
+# =============================================================================
+output "dns_zone_name_servers" {
+  description = "NS records for the DNS zone. Delegate these to the parent zone (one-time setup)."
+  value       = local.dns_zone_config.enabled ? module.dns_zone[0].name_servers : null
+}
+
+output "dns_zone_name" {
+  description = "DNS zone name"
+  value       = local.dns_zone_config.enabled ? module.dns_zone[0].dns_zone_name : null
+}
+
+output "dns_zone_public_ip" {
+  description = "Static public IP address for the App Gateway (from DNS zone module)"
+  value       = local.dns_zone_config.enabled ? module.dns_zone[0].public_ip_address : null
+}
+
+# =============================================================================
 # CONFIGURATION OUTPUTS (for debugging/visibility)
 # =============================================================================
 output "enabled_tenants" {

@@ -213,8 +213,9 @@
     <outbound>
         <base />
 %{ if document_intelligence_enabled ~}
-        <!-- Rewrite Operation-Location header to use APIM gateway URL instead of direct backend URL -->
-        <!-- This is critical for async operations (202 responses) to ensure clients poll through APIM -->
+        <!-- Rewrite Operation-Location header to use App Gateway URL instead of direct backend URL -->
+        <!-- This is critical for async operations (202 responses) to ensure clients poll through App Gateway -->
+        <!-- Uses X-Forwarded-Host header from App Gateway if present (original client hostname) -->
         <choose>
             <when condition="@(context.Response.Headers.ContainsKey(&quot;Operation-Location&quot;))">
                 <set-header name="Operation-Location" exists-action="override">
@@ -222,12 +223,15 @@
                         var operationLocation = context.Response.Headers.GetValueOrDefault("Operation-Location", "");
                         if (!string.IsNullOrEmpty(operationLocation))
                         {
-                            // Replace the direct backend URL with APIM gateway URL
+                            // Replace the direct backend URL with gateway URL
                             // Pattern: https://{backend}.cognitiveservices.azure.com/{path}
-                            // Replace with: https://{apim-gateway}/{tenant-api}/{path}
+                            // Replace with: https://{gateway-host}/{tenant-api}/{path}
                             var backendPattern = new System.Text.RegularExpressions.Regex(@"https://[^/]+\.cognitiveservices\.azure\.com/");
-                            var apimGateway = context.Request.OriginalUrl.Scheme + "://" + context.Request.OriginalUrl.Host + "/" + context.Api.Path.TrimStart('/') + "/";
-                            return backendPattern.Replace(operationLocation, apimGateway);
+                            
+                            // Use X-Forwarded-Host if present (from App Gateway), otherwise fall back to OriginalUrl.Host (direct APIM)
+                            var gatewayHost = context.Request.Headers.GetValueOrDefault("X-Forwarded-Host", context.Request.OriginalUrl.Host);
+                            var gatewayUrl = context.Request.OriginalUrl.Scheme + "://" + gatewayHost + "/" + context.Api.Path.TrimStart('/') + "/";
+                            return backendPattern.Replace(operationLocation, gatewayUrl);
                         }
                         return operationLocation;
                     }</value>
