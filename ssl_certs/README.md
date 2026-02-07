@@ -12,7 +12,9 @@ Scripts and documentation for SSL certificate management for the AI Hub vanity d
 
 | Script | Purpose |
 |--------|---------|
-| `csr-gen.sh` | Generates CSR for SSL certificate requests (BC Gov internal process) || `create-pfx.sh` | Creates PFX bundle from PEM cert files + private key (passwordless for KV) || `upload-cert-direct.sh` | Uploads PFX directly to App Gateway (no Key Vault) |
+| `csr-gen.sh` | Generates CSR for SSL certificate requests (BC Gov internal process) |
+| `create-pfx.sh` | Creates PFX bundle from PEM cert files + private key (passwordless for KV) |
+| `upload-cert-direct.sh` | Uploads PFX directly to App Gateway (no Key Vault) |
 | `upload-cert-keyvault.sh` | Imports PFX into Key Vault, configures RBAC, attaches to App Gateway |
 
 All scripts support `--help`, `-i` (interactive mode), `--dry-run`, and CLI parameters.
