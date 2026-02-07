@@ -255,14 +255,30 @@ if ! openssl rsa -in "$KEY_FILE" -check -noout >/dev/null 2>&1; then
 fi
 ok "Private key is valid."
 
-# Verify key matches server cert
-CERT_MOD=$(openssl x509 -in "$SERVER_CERT" -noout -modulus 2>/dev/null | md5sum | awk '{print $1}') || true
-KEY_MOD=$(openssl rsa -in "$KEY_FILE" -noout -modulus 2>/dev/null | md5sum | awk '{print $1}') || true
-if [[ -n "$CERT_MOD" && -n "$KEY_MOD" && "$CERT_MOD" != "$KEY_MOD" ]]; then
-  err "Private key does NOT match server certificate!"
-  err "  Cert modulus hash: $CERT_MOD"
-  err "  Key modulus hash:  $KEY_MOD"
-  exit 1
+# Verify key matches server cert (key-type agnostic check)
+CERT_PUB_HASH=$(openssl x509 -in "$SERVER_CERT" -noout -pubkey 2>/dev/null \
+  | openssl pkey -pubin -outform pem 2>/dev/null \
+  | md5sum | awk '{print $1}') || true
+KEY_PUB_HASH=$(openssl pkey -in "$KEY_FILE" -pubout -outform pem 2>/dev/null \
+  | md5sum | awk '{print $1}') || true
+
+if [[ -n "$CERT_PUB_HASH" && -n "$KEY_PUB_HASH" ]]; then
+  if [[ "$CERT_PUB_HASH" != "$KEY_PUB_HASH" ]]; then
+    err "Private key does NOT match server certificate (public keys differ)!"
+    err "  Cert public key hash: $CERT_PUB_HASH"
+    err "  Key public key hash:  $KEY_PUB_HASH"
+    exit 1
+  fi
+else
+  # Fallback: RSA modulus comparison (for environments without 'openssl pkey')
+  CERT_MOD=$(openssl x509 -in "$SERVER_CERT" -noout -modulus 2>/dev/null | md5sum | awk '{print $1}') || true
+  KEY_MOD=$(openssl rsa -in "$KEY_FILE" -noout -modulus 2>/dev/null | md5sum | awk '{print $1}') || true
+  if [[ -n "$CERT_MOD" && -n "$KEY_MOD" && "$CERT_MOD" != "$KEY_MOD" ]]; then
+    err "Private key does NOT match server certificate!"
+    err "  Cert modulus hash: $CERT_MOD"
+    err "  Key modulus hash:  $KEY_MOD"
+    exit 1
+  fi
 fi
 ok "Private key matches server certificate."
 

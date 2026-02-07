@@ -3,7 +3,7 @@ set -euo nounset
 
 # Custom Domain Helper
 #
-# Usage: ./csr_generator.sh [options] [DOMAIN] [PRIVATE_KEY]
+# Usage: ./csr-gen.sh [options] [DOMAIN] [PRIVATE_KEY]
 #
 # Options:
 #   -i, --interactive    Run in interactive mode
@@ -68,7 +68,7 @@ if [[ -z "${DOMAIN}" ]]; then
     exit 1
   fi
   echo "Enter the fully qualified domain name (FQDN) name for the certificate:"
-  read DOMAIN
+  read -r DOMAIN
 fi
 echo -e "\nDomain: ${DOMAIN}"
 
@@ -81,10 +81,10 @@ if [[ -n "${PRIVATE_KEY}" ]]; then
 # Only ask about private key in interactive mode
 elif [[ "$INTERACTIVE" = true ]]; then
   echo -e "\nDo you want to use an existing private key? [y/n]"
-  read USE_EXISTING
+  read -r USE_EXISTING
   if [[ "${USE_EXISTING}" =~ [Yy] ]]; then
     echo "Enter the path to the existing private key file:"
-    read PRIVATE_KEY
+    read -r PRIVATE_KEY
     
     if [[ ! -f "${PRIVATE_KEY}" ]]; then
       echo "Error: Private key file ${PRIVATE_KEY} not found"
@@ -100,9 +100,9 @@ echo -e "\nSubject: $SUBJECT"
 # Accept or create a new subject only in interactive mode
 if [[ "$INTERACTIVE" = true ]]; then
   echo "Accept subject? [y/n]"
-  read ACCEPT
+  read -r ACCEPT
   if [[ ! "${ACCEPT}" =~ [Yy] ]]; then
-    echo "Subject: " && read SUBJECT
+    echo "Subject: " && read -r SUBJECT
   fi
 fi
 
@@ -150,7 +150,7 @@ echo "- Attach the newly generated CSR file only"
 # Open JIRA - optional, only in interactive mode
 if [[ "$INTERACTIVE" = true ]]; then
   echo -e "\nWould you like to be redirected to Natural Resources JIRA? [y/n]"
-  read ACCEPT
+  read -r ACCEPT
   if [[ "${ACCEPT}" =~ [Yy] ]]; then
     xdg-open 'https://apps.nrs.gov.bc.ca/int/jira/secure/CreateIssue!default.jspa'
   fi

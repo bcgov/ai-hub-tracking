@@ -2,7 +2,6 @@
 # Uses native azurerm_application_gateway for full lifecycle control
 # (AVM does not expose lifecycle ignore_changes, needed for portal SSL cert uploads)
 
-
 # =============================================================================
 # USER-ASSIGNED MANAGED IDENTITY FOR KEY VAULT ACCESS
 # Created before App Gateway so we can grant KV access and use SSL certs
@@ -70,12 +69,16 @@ resource "azurerm_application_gateway" "this" {
     subnet_id = var.subnet_id
   }
 
-  # --- Frontend IP configuration (public IP from dns_zone module) -----------
+  # --- Frontend IP configuration (public or private) ------------------------
   frontend_ip_configuration {
-    name                 = local.frontend_ip_config_name
-    public_ip_address_id = var.public_ip_resource_id
-    # If no public IP provided, this creates a private-only frontend
-    # (required for the block to be syntactically valid even if public_ip_resource_id is null)
+    name = local.frontend_ip_config_name
+
+    # When a public IP is provided, configure a public frontend.
+    public_ip_address_id = var.public_ip_resource_id != null ? var.public_ip_resource_id : null
+
+    # When no public IP is provided, configure a private-only frontend using the gateway subnet.
+    subnet_id                     = var.public_ip_resource_id == null ? var.subnet_id : null
+    private_ip_address_allocation = var.public_ip_resource_id == null ? "Dynamic" : null
   }
 
   # --- Frontend ports --------------------------------------------------------

@@ -158,16 +158,23 @@ if [[ "$INTERACTIVE" == true ]]; then
 fi
 
 # ─── Validate prerequisites ─────────────────────────────────────────────────
+
+# Detect whether openssl pkcs12 supports the -legacy flag (needed for some PFX files with OpenSSL 3.x)
+PKCS12_LEGACY_FLAG=""
+if openssl pkcs12 -help 2>&1 | grep -q -- "-legacy"; then
+  PKCS12_LEGACY_FLAG="-legacy"
+fi
+
 info "Validating PFX file..."
-if ! openssl pkcs12 -in "$PFX_FILE" -info -nokeys -passin "pass:${PFX_PASSWORD}" >/dev/null 2>&1; then
+if ! openssl pkcs12 ${PKCS12_LEGACY_FLAG} -in "$PFX_FILE" -info -nokeys -passin "pass:${PFX_PASSWORD}" >/dev/null 2>&1; then
   err "Failed to read PFX file. Check the file and password."
   exit 1
 fi
 ok "PFX file is valid."
 
-CERT_SUBJECT=$(openssl pkcs12 -in "$PFX_FILE" -clcerts -nokeys -passin "pass:${PFX_PASSWORD}" 2>/dev/null | \
+CERT_SUBJECT=$(openssl pkcs12 ${PKCS12_LEGACY_FLAG} -in "$PFX_FILE" -clcerts -nokeys -passin "pass:${PFX_PASSWORD}" 2>/dev/null | \
   openssl x509 -noout -subject 2>/dev/null | sed 's/subject=//')
-CERT_EXPIRY=$(openssl pkcs12 -in "$PFX_FILE" -clcerts -nokeys -passin "pass:${PFX_PASSWORD}" 2>/dev/null | \
+CERT_EXPIRY=$(openssl pkcs12 ${PKCS12_LEGACY_FLAG} -in "$PFX_FILE" -clcerts -nokeys -passin "pass:${PFX_PASSWORD}" 2>/dev/null | \
   openssl x509 -noout -enddate 2>/dev/null | sed 's/notAfter=//')
 info "Certificate subject: $CERT_SUBJECT"
 info "Certificate expires: $CERT_EXPIRY"

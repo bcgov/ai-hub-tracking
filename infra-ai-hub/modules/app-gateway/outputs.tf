@@ -9,8 +9,8 @@ output "name" {
 }
 
 output "public_ip_address" {
-  description = "Public IP address of the Application Gateway (from the PIP assigned to frontend)"
-  value       = var.public_ip_resource_id != null ? null : null # Use dns_zone module output instead
+  description = "Public IP address of the Application Gateway. Returns null - get this from the dns_zone module output instead (dns_zone_public_ip) to avoid data source lookup failures during first deployment."
+  value       = null
 }
 
 output "public_ip_id" {

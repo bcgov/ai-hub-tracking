@@ -67,6 +67,24 @@ variable "ssl_certificates" {
     password            = optional(string)
   }))
   default = {}
+
+  validation {
+    condition = alltrue([
+      for cert_name, cert in var.ssl_certificates :
+      (
+        cert.key_vault_secret_id != null && cert.key_vault_secret_id != "" &&
+        (cert.data == null || cert.data == "") &&
+        (cert.password == null || cert.password == "")
+      )
+      ||
+      (
+        cert.data != null && cert.data != "" &&
+        cert.password != null && cert.password != "" &&
+        (cert.key_vault_secret_id == null || cert.key_vault_secret_id == "")
+      )
+    ])
+    error_message = "Each ssl_certificates entry must use exactly one mode: (a) key_vault_secret_id set, with data and password unset; or (b) data and password set, with key_vault_secret_id unset."
+  }
 }
 
 variable "ssl_certificate_name" {
@@ -110,7 +128,7 @@ variable "key_vault_id" {
 }
 
 variable "public_ip_resource_id" {
-  description = "Resource ID of a pre-created static Public IP for the App Gateway. When set, App GW uses this instead of creating its own PIP. Typically provided by the dns-zone module."
+  description = "Resource ID of a pre-created static Public IP for the App Gateway. When set, App GW uses this existing PIP. When null, this module does not create or associate any Public IP, and you must ensure a suitable frontend configuration (for example, a private frontend or an externally managed PIP). Typically provided by the dns-zone module."
   type        = string
   default     = null
 
