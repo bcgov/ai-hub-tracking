@@ -169,7 +169,12 @@ info "Identity:       $IDENTITY_NAME"
 info "Key Vault:      $VAULT_NAME"
 info "Cert Name:      $CERT_NAME"
 info "PFX File:       $PFX_FILE"
-info "PFX Password:   ${PFX_PASSWORD:+(set)}${PFX_PASSWORD:-(empty/passwordless)}"
+if [[ -n "$PFX_PASSWORD" ]]; then
+  PFX_PASSWORD_STATUS="(set)"
+else
+  PFX_PASSWORD_STATUS="(empty/passwordless)"
+fi
+info "PFX Password:   $PFX_PASSWORD_STATUS"
 info "Skip RBAC:      $SKIP_RBAC"
 info "Setup HTTPS:    $SETUP_HTTPS"
 info "Dry Run:        $DRY_RUN"
