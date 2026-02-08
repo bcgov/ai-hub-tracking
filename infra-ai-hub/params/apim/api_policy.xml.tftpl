@@ -201,12 +201,13 @@
     </inbound>
     <backend>
         <!-- Selective buffering: buffer only OpenAI requests for PII redaction and token inspection -->
+        <!-- Timeout with tenant-specific backend overrides, https://learn.microsoft.com/en-us/azure/api-management/forward-request-policy#attributes -->
         <choose>
             <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;))">
-                <forward-request buffer-request-body="true" />
+                <forward-request buffer-request-body="true" timeout="${backend_timeout_seconds}" />
             </when>
             <otherwise>
-                <forward-request buffer-request-body="false" />
+                <forward-request buffer-request-body="false" timeout="${backend_timeout_seconds}" />
             </otherwise>
         </choose>
     </backend>

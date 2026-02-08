@@ -112,6 +112,7 @@ locals {
         usage_logging_enabled       = try(config.apim_policies.usage_logging.enabled, true)
         streaming_metrics_enabled   = try(config.apim_policies.streaming_metrics.enabled, true)
         tracking_dimensions_enabled = try(config.apim_policies.tracking_dimensions.enabled, true)
+        backend_timeout_seconds     = try(config.apim_policies.backend_timeout_seconds, 300)
         # PII Redaction advanced options
         pii_excluded_categories     = try(config.apim_policies.pii_redaction.excluded_categories, [])
         pii_preserve_json_structure = try(config.apim_policies.pii_redaction.preserve_json_structure, true)
