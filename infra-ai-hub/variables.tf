@@ -373,6 +373,10 @@ variable "tenants" {
         tokens_per_minute = optional(number, 10000)
       }), { enabled = true, tokens_per_minute = 10000 })
 
+      # ---- Backend Timeout ----
+      # Timeout (seconds) for backend requests via APIM forward-request
+      backend_timeout_seconds = optional(number, 300)
+
       # ---- Content Safety ----
       # PII redaction using Azure Language Service
       pii_redaction = optional(object({
@@ -432,12 +436,13 @@ variable "tenants" {
       }), { enabled = false })
 
       }), {
-      rate_limiting       = { enabled = true, tokens_per_minute = 10000 }
-      pii_redaction       = { enabled = true, confidence_threshold = 0.8, entity_exclusions = "", detection_language = "en", excluded_categories = [], preserve_json_structure = true, structural_whitelist = [], fail_closed = false }
-      usage_logging       = { enabled = true }
-      streaming_metrics   = { enabled = true }
-      tracking_dimensions = { enabled = true }
-      intelligent_routing = { enabled = false }
+      rate_limiting           = { enabled = true, tokens_per_minute = 10000 }
+      pii_redaction           = { enabled = true, confidence_threshold = 0.8, entity_exclusions = "", detection_language = "en", excluded_categories = [], preserve_json_structure = true, structural_whitelist = [], fail_closed = false }
+      usage_logging           = { enabled = true }
+      streaming_metrics       = { enabled = true }
+      tracking_dimensions     = { enabled = true }
+      intelligent_routing     = { enabled = false }
+      backend_timeout_seconds = 300
     })
 
     # Per-tenant APIM Diagnostics configuration (optional)
@@ -468,6 +473,13 @@ variable "tenants" {
       }))
     }))
   }))
+  validation {
+    condition = alltrue([
+      for key, config in var.tenants :
+      try(config.apim_policies.backend_timeout_seconds, 300) <= 300
+    ])
+    error_message = "apim_policies.backend_timeout_seconds must be <= 300 seconds for all tenants."
+  }
   default = {}
 }
 
