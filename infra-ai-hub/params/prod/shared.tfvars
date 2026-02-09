@@ -84,7 +84,7 @@ shared_config = {
     request_body_check               = true
     request_body_enforcement         = false
     request_body_inspect_limit_in_kb = 128
-    max_request_body_size_kb         = 2048 # 2MB
+    max_request_body_size_kb         = 2000 # ~2MB (provider max)
     file_upload_limit_mb             = 100
 
     subnet_name          = "appgw-subnet"

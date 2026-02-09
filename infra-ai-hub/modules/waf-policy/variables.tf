@@ -49,7 +49,7 @@ variable "request_body_inspect_limit_in_kb" {
 }
 
 variable "max_request_body_size_kb" {
-  description = "Maximum request body size in KB (up to 2048 for CRS 3.2+)"
+  description = "Maximum request body size in KB (8-2000)"
   type        = number
   default     = 128
 }
