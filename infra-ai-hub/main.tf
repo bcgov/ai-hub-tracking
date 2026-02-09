@@ -1037,11 +1037,13 @@ module "waf_policy" {
   resource_group_name = azurerm_resource_group.main.name
   location            = var.location
 
-  enabled                  = lookup(local.appgw_config, "waf_enabled", true)
-  mode                     = lookup(local.appgw_config, "waf_mode", "Prevention")
-  request_body_check       = true
-  max_request_body_size_kb = 128
-  file_upload_limit_mb     = 100
+  enabled                          = lookup(local.appgw_config, "waf_enabled", true)
+  mode                             = lookup(local.appgw_config, "waf_mode", "Prevention")
+  request_body_check               = lookup(local.appgw_config, "request_body_check", true)
+  request_body_enforcement         = lookup(local.appgw_config, "request_body_enforcement", true)
+  request_body_inspect_limit_in_kb = lookup(local.appgw_config, "request_body_inspect_limit_in_kb", 128)
+  max_request_body_size_kb         = lookup(local.appgw_config, "max_request_body_size_kb", 128)
+  file_upload_limit_mb             = lookup(local.appgw_config, "file_upload_limit_mb", 100)
 
   # Rule set overrides for API gateway use case
   # Default OWASP 3.2 + Bot Manager rules trigger false positives on JSON API bodies
@@ -1117,8 +1119,8 @@ module "app_gateway" {
     max_capacity = local.appgw_config.autoscale.max_capacity
   } : null
 
-  waf_enabled  = lookup(local.appgw_config, "waf_policy_enabled", true) ? false : lookup(local.appgw_config, "waf_enabled", true)
-  waf_mode     = lookup(local.appgw_config, "waf_mode", "Prevention")
+  waf_enabled   = lookup(local.appgw_config, "waf_policy_enabled", true) ? false : lookup(local.appgw_config, "waf_enabled", true)
+  waf_mode      = lookup(local.appgw_config, "waf_mode", "Prevention")
   waf_policy_id = lookup(local.appgw_config, "waf_policy_enabled", true) && length(module.waf_policy) > 0 ? module.waf_policy[0].resource_id : null
 
   # SSL certificate name for HTTPS listener (cert uploaded via CLI/portal)

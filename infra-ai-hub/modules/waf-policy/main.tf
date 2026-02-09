@@ -11,12 +11,17 @@ resource "azurerm_web_application_firewall_policy" "this" {
   location            = var.location
 
   # Policy settings
+  # CRS 3.2+ supports independent body enforcement control:
+  #   request_body_enforcement=false lets large payloads through while still inspecting
+  #   up to request_body_inspect_limit_in_kb for threats (SQL injection, XSS, etc.)
   policy_settings {
-    enabled                     = var.enabled
-    mode                        = var.mode
-    request_body_check          = var.request_body_check
-    max_request_body_size_in_kb = var.max_request_body_size_kb
-    file_upload_limit_in_mb     = var.file_upload_limit_mb
+    enabled                          = var.enabled
+    mode                             = var.mode
+    request_body_check               = var.request_body_check
+    request_body_enforcement         = var.request_body_enforcement
+    request_body_inspect_limit_in_kb = var.request_body_inspect_limit_in_kb
+    max_request_body_size_in_kb      = var.max_request_body_size_kb
+    file_upload_limit_in_mb          = var.file_upload_limit_mb
   }
 
   # Managed rule sets (OWASP, Microsoft Bot Manager, etc.)

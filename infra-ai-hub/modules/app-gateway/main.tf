@@ -316,13 +316,18 @@ resource "azurerm_application_gateway" "this" {
 
 # =============================================================================
 # DIAGNOSTIC SETTINGS (separate resource, not inline)
+# NOTE: Azure does not reliably switch log routing when
+#       log_analytics_destination_type is changed in-place.
+#       The lifecycle block below forces recreation to guarantee
+#       logs land in resource-specific tables (AGWAccessLogs, etc.).
 # =============================================================================
 resource "azurerm_monitor_diagnostic_setting" "appgw" {
   count = var.enable_diagnostics ? 1 : 0
 
-  name                       = "${var.name}-diag"
-  target_resource_id         = azurerm_application_gateway.this.id
-  log_analytics_workspace_id = var.log_analytics_workspace_id
+  name                           = "${var.name}-diag"
+  target_resource_id             = azurerm_application_gateway.this.id
+  log_analytics_workspace_id     = var.log_analytics_workspace_id
+  log_analytics_destination_type = "Dedicated"
 
   enabled_log {
     category_group = "allLogs"
@@ -330,5 +335,20 @@ resource "azurerm_monitor_diagnostic_setting" "appgw" {
 
   enabled_metric {
     category = "AllMetrics"
+  }
+
+  lifecycle {
+    replace_triggered_by = [null_resource.diag_destination_type_trigger[0]]
+  }
+}
+
+# Trigger recreation of diagnostic setting when destination type changes.
+# This works around an Azure API bug where in-place updates to
+# log_analytics_destination_type silently fail after a few days.
+resource "null_resource" "diag_destination_type_trigger" {
+  count = var.enable_diagnostics ? 1 : 0
+
+  triggers = {
+    destination_type = "Dedicated"
   }
 }

@@ -36,8 +36,20 @@ variable "request_body_check" {
   default     = true
 }
 
+variable "request_body_enforcement" {
+  description = "Enforce max request body size limit. When false, WAF inspects up to inspect_limit but does not reject oversized requests. Requires OWASP CRS 3.2+"
+  type        = bool
+  default     = true
+}
+
+variable "request_body_inspect_limit_in_kb" {
+  description = "How deep into a request body the WAF inspects and applies rules (KB). Only used with CRS 3.2+"
+  type        = number
+  default     = 128
+}
+
 variable "max_request_body_size_kb" {
-  description = "Maximum request body size in KB"
+  description = "Maximum request body size in KB (up to 2048 for CRS 3.2+)"
   type        = number
   default     = 128
 }

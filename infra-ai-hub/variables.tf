@@ -162,13 +162,19 @@ variable "shared_config" {
         min_capacity = number
         max_capacity = number
       }))
-      waf_enabled          = optional(bool, true)
-      waf_mode             = optional(string, "Prevention")
-      waf_policy_enabled   = optional(bool, true)
-      subnet_name          = optional(string, "appgw-subnet")
-      subnet_prefix_length = optional(number, 27)
-      frontend_hostname    = optional(string, "api.example.com")
-      ssl_certificate_name = optional(string)
+      waf_enabled        = optional(bool, true)
+      waf_mode           = optional(string, "Prevention")
+      waf_policy_enabled = optional(bool, true)
+      # WAF body inspection settings (CRS 3.2+)
+      request_body_check               = optional(bool, true)
+      request_body_enforcement         = optional(bool, true)  # false = allow oversized requests through
+      request_body_inspect_limit_in_kb = optional(number, 128) # WAF inspects up to this depth
+      max_request_body_size_kb         = optional(number, 128) # Hard limit when enforcement=true
+      file_upload_limit_mb             = optional(number, 100)
+      subnet_name                      = optional(string, "appgw-subnet")
+      subnet_prefix_length             = optional(number, 27)
+      frontend_hostname                = optional(string, "api.example.com")
+      ssl_certificate_name             = optional(string)
       ssl_certificates = optional(map(object({
         name                = string
         key_vault_secret_id = optional(string)

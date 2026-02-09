@@ -249,6 +249,56 @@ is_redacted() {
     return 1
 }
 
+# Make a document intelligence analyze request by reading a file, base64-encoding it,
+# and sending as JSON. Returns full response with headers (uses -i flag).
+# Note: Binary upload (application/octet-stream) is blocked by the App Gateway WAF.
+# Usage: docint_analyze_file <tenant> <model> <file_path>
+docint_analyze_file() {
+    local tenant="${1}"
+    local model="${2:-prebuilt-layout}"
+    local file_path="${3}"
+
+    if [[ ! -f "${file_path}" ]]; then
+        echo "Error: File not found: ${file_path}" >&2
+        return 1
+    fi
+
+    local subscription_key
+    subscription_key=$(get_subscription_key "${tenant}")
+
+    local url="${APIM_GATEWAY_URL}/${tenant}/documentintelligence/documentModels/${model}:analyze?api-version=${DOCINT_API_VERSION}"
+
+    # Base64-encode the file and wrap in JSON (WAF blocks raw binary uploads)
+    local b64_content
+    b64_content=$(base64 -w0 "${file_path}")
+
+    local tmpfile
+    tmpfile=$(mktemp)
+    echo "{\"base64Source\": \"${b64_content}\"}" > "${tmpfile}"
+
+    curl -s -i -X POST "${url}" \
+        -H "api-key: ${subscription_key}" \
+        -H "Content-Type: application/json" \
+        --max-time 120 \
+        -d "@${tmpfile}" 2>/dev/null
+
+    local rc=$?
+    rm -f "${tmpfile}"
+    return ${rc}
+}
+
+# Extract relative operation path from a full Operation-Location URL
+# Strips the APIM gateway URL and tenant prefix to produce a path usable with apim_request
+# Usage: extract_operation_path <tenant> <full_operation_location_url>
+extract_operation_path() {
+    local tenant="${1}"
+    local operation_url="${2}"
+
+    # Strip the base URL prefix (e.g. https://test.aihub.gov.bc.ca/wlrs-water-form-assistant)
+    local prefix="${APIM_GATEWAY_URL}/${tenant}"
+    echo "${operation_url}" | sed "s|${prefix}||"
+}
+
 # Wait for async operation (for Document Intelligence)
 # Usage: wait_for_operation <tenant> <operation_location> <max_wait_seconds>
 wait_for_operation() {
@@ -305,5 +355,6 @@ setup_test_suite() {
 
 # Export functions
 export -f apim_request apim_request_with_retry parse_response chat_completion docint_analyze
+export -f docint_analyze_file extract_operation_path
 export -f assert_status assert_contains assert_not_contains json_get
 export -f looks_like_pii is_redacted wait_for_operation setup_test_suite

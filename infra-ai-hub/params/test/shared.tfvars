@@ -83,6 +83,15 @@ shared_config = {
     waf_enabled = true
     waf_mode    = "Prevention" # Test WAF in Prevention mode
 
+    # WAF body inspection (CRS 3.2+)
+    # enforcement=false lets large payloads through (Doc Intelligence SDK sends multi-MB base64 JSON)
+    # WAF still inspects first 128KB for SQLi/XSS threats
+    request_body_check               = true
+    request_body_enforcement         = false
+    request_body_inspect_limit_in_kb = 128
+    max_request_body_size_kb         = 2048 # 2MB
+    file_upload_limit_mb             = 100
+
     subnet_name          = "appgw-subnet"
     subnet_prefix_length = 27
 
