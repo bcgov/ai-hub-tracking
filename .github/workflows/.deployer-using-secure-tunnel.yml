@@ -192,18 +192,29 @@ jobs:
           APIM_GATEWAY_URL=$(echo "$TF_OUTPUT" | jq -r '.apim_gateway_url.value')
           APIM_NAME=$(echo "$TF_OUTPUT" | jq -r '.apim_name.value')
 
+          # Prefer App Gateway URL (routes through WAF + custom domain) over direct APIM
+          APPGW_URL=$(echo "$TF_OUTPUT" | jq -r '.appgw_url.value // empty')
+          if [[ -n "$APPGW_URL" && "$APPGW_URL" != "null" ]]; then
+            echo "Using App Gateway URL: $APPGW_URL"
+            APIM_GATEWAY_URL="$APPGW_URL"
+          fi
+
           SUBSCRIPTIONS=$(echo "$TF_OUTPUT" | jq -r '.apim_tenant_subscriptions.value')
           WLRS_SUBSCRIPTION_KEY=$(echo "$SUBSCRIPTIONS" | jq -r '.["wlrs-water-form-assistant"].primary_key')
           SDPR_SUBSCRIPTION_KEY=$(echo "$SUBSCRIPTIONS" | jq -r '.["sdpr-invoice-automation"].primary_key')
 
-          echo "APIM Gateway: $APIM_GATEWAY_URL"
+          echo "API Gateway: $APIM_GATEWAY_URL"
           echo "WLRS Key: ****${WLRS_SUBSCRIPTION_KEY: -4}"
           echo "SDPR Key: ****${SDPR_SUBSCRIPTION_KEY: -4}"
 
           echo "=== Running Integration Tests ==="
           cd ../tests/integration
 
+          # Extract hostname from App GW URL for Operation-Location header validation
+          APPGW_HOSTNAME="${APIM_GATEWAY_URL#https://}"
+
           APIM_GATEWAY_URL="$APIM_GATEWAY_URL" \
+          APPGW_HOSTNAME="$APPGW_HOSTNAME" \
           APIM_NAME="$APIM_NAME" \
           WLRS_SUBSCRIPTION_KEY="$WLRS_SUBSCRIPTION_KEY" \
           SDPR_SUBSCRIPTION_KEY="$SDPR_SUBSCRIPTION_KEY" \
