@@ -1151,6 +1151,30 @@ module "app_gateway" {
     forward_original_host = {
       name = "forward-original-host"
       rewrite_rules = {
+        map_ocp_apim_key_to_api_key = {
+          name          = "map-ocp-apim-key-to-api-key"
+          rule_sequence = 90
+          conditions = {
+            path_contains_openai_or_docint = {
+              variable    = "var_uri_path"
+              pattern     = ".*(openai|documentintelligence).*"
+              ignore_case = true
+              negate      = false
+            }
+            ocp_apim_subscription_key_present = {
+              variable    = "http_req_Ocp-Apim-Subscription-Key"
+              pattern     = ".+"
+              ignore_case = false
+              negate      = false
+            }
+          }
+          request_header_configurations = {
+            api_key = {
+              header_name  = "api-key"
+              header_value = "{http_req_Ocp-Apim-Subscription-Key}"
+            }
+          }
+        }
         add_x_forwarded_host = {
           name          = "add-x-forwarded-host"
           rule_sequence = 100
