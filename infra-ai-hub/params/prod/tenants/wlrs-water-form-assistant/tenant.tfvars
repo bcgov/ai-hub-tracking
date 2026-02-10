@@ -115,4 +115,18 @@ tenant = {
     mode              = "subscription_key"
     store_in_keyvault = false
   }
+
+  # Tenant user management (applies across environments)
+  user_management = {
+    seed_members = {
+      admin = [
+        "tim.csaky@gov.bc.ca",
+        "shabari.kunnumel@gov.bc.ca",
+        "jatinder.singh@gov.bc.ca",
+        "jeff.card@gov.bc.ca",
+        "abin.1.antony@gov.bc.ca",
+        "andrew.schwenker@gov.bc.ca"
+      ]
+    }
+  }
 }

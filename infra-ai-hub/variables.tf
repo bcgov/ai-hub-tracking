@@ -358,6 +358,25 @@ variable "tenants" {
       }), {})
     }), { mode = "subscription_key", store_in_keyvault = false })
 
+    # Tenant user management (Entra groups + custom RBAC roles)
+    user_management = optional(object({
+      enabled      = optional(bool, true)
+      group_prefix = optional(string, "ai-hub")
+      mail_enabled = optional(bool, false)
+      existing_group_ids = optional(object({
+        admin = optional(string)
+        write = optional(string)
+        read  = optional(string)
+      }), {})
+      seed_members = optional(object({
+        admin = optional(list(string), [])
+        write = optional(list(string), [])
+        read  = optional(list(string), [])
+      }), {})
+      # If omitted or empty, owners default to the admin seed members list
+      owner_members = optional(list(string))
+    }), {})
+
     # ==========================================================================
     # APIM POLICIES CONFIGURATION
     # ==========================================================================
