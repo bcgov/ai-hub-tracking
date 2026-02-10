@@ -133,15 +133,24 @@ variable "shared_config" {
 
     # API Management settings
     apim = object({
-      enabled                = bool
-      sku_name               = optional(string, "StandardV2_1")
-      publisher_name         = optional(string, "AI Hub")
-      publisher_email        = optional(string, "admin@example.com")
-      vnet_injection_enabled = optional(bool, false)
-      subnet_name            = optional(string, "apim-subnet")
-      subnet_prefix_length   = optional(number, 27)
-      private_dns_zone_ids   = optional(list(string), [])
+      enabled                       = bool
+      sku_name                      = optional(string, "StandardV2_1")
+      publisher_name                = optional(string, "AI Hub")
+      publisher_email               = optional(string, "admin@example.com")
+      public_network_access_enabled = optional(bool, true)
+      vnet_injection_enabled        = optional(bool, false)
+      subnet_name                   = optional(string, "apim-subnet")
+      subnet_prefix_length          = optional(number, 27)
+      private_dns_zone_ids          = optional(list(string), [])
     })
+
+    # DNS Zone settings (vanity domain + static PIP for App Gateway)
+    dns_zone = optional(object({
+      enabled             = bool
+      zone_name           = string
+      resource_group_name = string
+      a_record_ttl        = optional(number, 3600)
+    }), { enabled = false, zone_name = "", resource_group_name = "" })
 
     # Application Gateway settings
     app_gateway = object({
@@ -153,14 +162,24 @@ variable "shared_config" {
         min_capacity = number
         max_capacity = number
       }))
-      waf_enabled          = optional(bool, true)
-      waf_mode             = optional(string, "Prevention")
-      subnet_name          = optional(string, "appgw-subnet")
-      subnet_prefix_length = optional(number, 27)
-      frontend_hostname    = optional(string, "api.example.com")
+      waf_enabled        = optional(bool, true)
+      waf_mode           = optional(string, "Prevention")
+      waf_policy_enabled = optional(bool, true)
+      # WAF body inspection settings (CRS 3.2+)
+      request_body_check               = optional(bool, true)
+      request_body_enforcement         = optional(bool, true)  # false = allow oversized requests through
+      request_body_inspect_limit_in_kb = optional(number, 128) # WAF inspects up to this depth
+      max_request_body_size_kb         = optional(number, 128) # Hard limit when enforcement=true (8-2000)
+      file_upload_limit_mb             = optional(number, 100)
+      subnet_name                      = optional(string, "appgw-subnet")
+      subnet_prefix_length             = optional(number, 27)
+      frontend_hostname                = optional(string, "api.example.com")
+      ssl_certificate_name             = optional(string)
       ssl_certificates = optional(map(object({
         name                = string
-        key_vault_secret_id = string
+        key_vault_secret_id = optional(string)
+        data                = optional(string)
+        password            = optional(string)
       })), {})
       key_vault_id = optional(string)
     })

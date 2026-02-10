@@ -87,17 +87,23 @@ load_config() {
     fi
     
     # Extract values
+    # Prefer App GW URL (custom domain, end-to-end through WAF)
+    local appgw_url
+    appgw_url=$(echo "${tf_output}" | jq -r '.appgw_url.value // empty')
     export APIM_GATEWAY_URL=$(echo "${tf_output}" | jq -r '.apim_gateway_url.value // empty')
     export APIM_NAME=$(echo "${tf_output}" | jq -r '.apim_name.value // empty')
     
-    if [[ -z "${APIM_GATEWAY_URL}" ]]; then
-        log_error "apim_gateway_url not found in terraform output"
+    if [[ -n "${appgw_url}" ]]; then
+        export APIM_GATEWAY_URL="${appgw_url}"
+        log_success "Using App GW URL: ${appgw_url}"
+    elif [[ -n "${APIM_GATEWAY_URL}" ]]; then
+        log_warn "App GW URL not available, using direct APIM: ${APIM_GATEWAY_URL}"
+    else
+        log_error "Neither appgw_url nor apim_gateway_url found in terraform output"
         log_info "Available outputs:"
         echo "${tf_output}" | jq -r 'keys[]'
         exit 1
     fi
-    
-    log_success "APIM Gateway URL: ${APIM_GATEWAY_URL}"
     
     # Extract subscription keys (sensitive)
     local subscriptions

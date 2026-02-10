@@ -96,6 +96,13 @@ shared_config = {
     waf_enabled = true
     waf_mode    = "Detection" # Detection only in dev; Prevention in prod
 
+    # WAF body inspection (CRS 3.2+)
+    request_body_check               = true
+    request_body_enforcement         = false # Allow large Doc Intelligence payloads
+    request_body_inspect_limit_in_kb = 128
+    max_request_body_size_kb         = 2000 # ~2MB (provider max)
+    file_upload_limit_mb             = 100
+
     # Subnet settings
     subnet_name          = "appgw-subnet"
     subnet_prefix_length = 27 # /27 = 32 IPs

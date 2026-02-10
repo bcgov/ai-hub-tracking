@@ -27,13 +27,23 @@ load_terraform_config() {
         return 1
     fi
     
-    # Extract APIM gateway URL
+    # Extract App Gateway URL (custom domain — preferred for end-to-end testing)
+    APPGW_URL=$(echo "${tf_output}" | jq -r '.appgw_url.value // empty')
+    export APPGW_URL
+
+    # Extract APIM gateway URL (direct APIM — fallback)
     APIM_GATEWAY_URL=$(echo "${tf_output}" | jq -r '.apim_gateway_url.value // empty')
-    if [[ -z "${APIM_GATEWAY_URL}" ]]; then
-        echo "Error: apim_gateway_url not found in terraform output" >&2
+    if [[ -z "${APIM_GATEWAY_URL}" ]] && [[ -z "${APPGW_URL}" ]]; then
+        echo "Error: Neither appgw_url nor apim_gateway_url found in terraform output" >&2
         return 1
     fi
     export APIM_GATEWAY_URL
+
+    # Prefer App GW URL for API calls (routes through WAF + custom domain)
+    if [[ -n "${APPGW_URL}" ]]; then
+        APIM_GATEWAY_URL="${APPGW_URL}"
+        export APIM_GATEWAY_URL
+    fi
     
     # Extract APIM name
     APIM_NAME=$(echo "${tf_output}" | jq -r '.apim_name.value // empty')
@@ -50,7 +60,8 @@ load_terraform_config() {
     fi
     
     echo "Configuration loaded successfully:" >&2
-    echo "  APIM Gateway URL: ${APIM_GATEWAY_URL}" >&2
+    echo "  API Base URL: ${APIM_GATEWAY_URL}" >&2
+    echo "  App GW URL: ${APPGW_URL:-not set}" >&2
     echo "  APIM Name: ${APIM_NAME}" >&2
     echo "  WLRS Key: ${WLRS_SUBSCRIPTION_KEY:+********}" >&2
     echo "  SDPR Key: ${SDPR_SUBSCRIPTION_KEY:+********}" >&2
@@ -98,8 +109,14 @@ check_prerequisites() {
 export -f get_subscription_key config_loaded check_prerequisites
 
 # Default values if terraform output is not available (for testing)
-: "${APIM_GATEWAY_URL:=https://ai-services-hub-test-apim.azure-api.net}"
+# Prefer App GW custom domain (end-to-end through WAF) over direct APIM
+: "${APIM_GATEWAY_URL:=https://test.aihub.gov.bc.ca}"
 export APIM_GATEWAY_URL
+
+# App Gateway hostname (for Operation-Location header validation)
+# This is the external-facing hostname that clients use
+: "${APPGW_HOSTNAME:=test.aihub.gov.bc.ca}"
+export APPGW_HOSTNAME
 
 # API versions
 export OPENAI_API_VERSION="2024-10-21"

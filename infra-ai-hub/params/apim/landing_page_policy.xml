@@ -1,0 +1,263 @@
+<policies>
+  <inbound>
+    <!-- No <base /> needed — skip global policy for static landing page -->
+    <return-response>
+      <set-status code="200" reason="OK" />
+      <set-header name="Content-Type" exists-action="override">
+        <value>text/html; charset=utf-8</value>
+      </set-header>
+      <set-header name="Cache-Control" exists-action="override">
+        <value>public, max-age=3600</value>
+      </set-header>
+      <set-body>@{
+    var host = context.Request.Headers.GetValueOrDefault("X-Original-Host",
+               context.Request.Headers.GetValueOrDefault("X-Forwarded-Host",
+               context.Request.OriginalUrl.Host));
+    var env = host.Contains("test") ? "Test"
+            : host.Contains("dev")  ? "Development"
+            : "Production";
+    var html = @"<!DOCTYPE html>
+<html lang=""en"">
+<head>
+  <meta charset=""UTF-8"">
+  <meta name=""viewport"" content=""width=device-width, initial-scale=1.0"">
+  <title>AI Services Hub - Province of British Columbia</title>
+  <link rel=""icon"" type=""image/x-icon"" href=""https://www2.gov.bc.ca/StaticWebResources/static/favicon.ico"">
+  <link rel=""stylesheet"" href=""https://unpkg.com/@bcgov/bc-sans@2.1.0/css/BC_Sans.css"">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'BC Sans', 'Noto Sans', Verdana, Arial, sans-serif;
+      background: #F8F8F8;
+      color: #313132;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
+    .bcgov-header {
+      background: #FFFFFF;
+      padding: 0;
+      border-top: 2px solid #FCBA19;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    .bcgov-header .header-content {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1.25rem 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .bcgov-logo {
+      height: 44px;
+      width: auto;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 1.5rem 1rem;
+      flex: 1;
+    }
+    .hero {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      padding: 1.5rem 1.5rem;
+      background: #003366;
+      border-radius: 8px;
+      border: none;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    }
+    .hero h2 {
+      font-size: 2.25rem;
+      font-weight: 700;
+      color: #FFFFFF;
+      margin-bottom: 0.5rem;
+      line-height: 1.2;
+    }
+    .hero .subtitle {
+      font-size: 1.125rem;
+      color: #FFFFFF;
+      margin-bottom: 1.25rem;
+      font-weight: 400;
+    }
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      background: #FFFFFF;
+      border: 1px solid #FCBA19;
+      border-radius: 4px;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.875rem;
+      color: #2D4821;
+      font-weight: 700;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #2D4821;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .info-card {
+      background: #FFFFFF;
+      border: none;
+      border-radius: 8px;
+      padding: 1.5rem 1.25rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+      transition: box-shadow 0.2s;
+    }
+    .info-card:hover {
+      box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+    }
+    .info-card h3 {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: #606060;
+      margin-bottom: 0.75rem;
+      font-weight: 700;
+    }
+    .info-card p {
+      font-size: 1.125rem;
+      color: #313132;
+      font-weight: 400;
+      word-break: break-word;
+      line-height: 1.5;
+    }
+    .services-section {
+      background: #FFFFFF;
+      border: none;
+      border-radius: 8px;
+      padding: 1.5rem 1.5rem;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+    .services-section h3 {
+      font-size: 1.375rem;
+      color: #003366;
+      margin-bottom: 1rem;
+      font-weight: 700;
+    }
+    .services {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+    }
+    .service-tag {
+      background: #E9ECEF;
+      border: 1px solid #606060;
+      border-radius: 4px;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.875rem;
+      color: #313132;
+      font-weight: 400;
+    }
+    .footer {
+      background: #FFFFFF;
+      border: none;
+      border-radius: 8px;
+      padding: 1.5rem 1.25rem;
+      text-align: center;
+      font-size: 0.9375rem;
+      color: #606060;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.12);
+    }
+    .footer strong {
+      color: #313132;
+      font-weight: 700;
+    }
+    .footer a {
+      color: #003366;
+      text-decoration: underline;
+      font-weight: 400;
+    }
+    .footer a:hover {
+      color: #FCBA19;
+    }
+    @media (max-width: 768px) {
+      .info-grid { grid-template-columns: 1fr; }
+      .hero h2 { font-size: 1.5rem; }
+      .container { padding: 1rem 0.75rem; }
+      .bcgov-header .header-content { padding: 0.75rem 1rem; }
+      .bcgov-logo { height: 36px; }
+    }
+  </style>
+</head>
+<body>
+  <header class=""bcgov-header"">
+    <div class=""header-content"">
+      <img src=""https://www2.gov.bc.ca/images/BCID_H_rgb_pos.png"" alt=""Government of British Columbia"" class=""bcgov-logo"">
+    </div>
+  </header>
+
+  <main class=""container"">
+    <div class=""hero"">
+      <h2>🤖 AI Services Hub</h2>
+      <p class=""subtitle"">Azure AI API Gateway</p>
+      <div class=""status-badge"">
+        <span class=""status-dot""></span>
+        Operational
+      </div>
+    </div>
+
+    <div class=""info-grid"">
+      <div class=""info-card"">
+        <h3>Environment</h3>
+        <p>%%ENVIRONMENT%%</p>
+      </div>
+      <div class=""info-card"">
+        <h3>Endpoint</h3>
+        <p>%%ENDPOINT%%</p>
+      </div>
+      <div class=""info-card"">
+        <h3>Authentication</h3>
+        <p>API Key (api-key header)</p>
+      </div>
+      <div class=""info-card"">
+        <h3>Protection</h3>
+        <p>WAF + PII Redaction</p>
+      </div>
+    </div>
+
+    <div class=""services-section"">
+      <h3>Available Services</h3>
+      <div class=""services"">
+        <span class=""service-tag"">Azure OpenAI</span>
+        <span class=""service-tag"">Document Intelligence</span>
+        <span class=""service-tag"">AI Search</span>
+        <span class=""service-tag"">Speech Services</span>
+        <span class=""service-tag"">Blob Storage</span>
+      </div>
+    </div>
+
+    <div class=""footer"">
+      <strong>Access Required:</strong> This API gateway requires a valid subscription key.
+      <br /><br />
+      <a href=""https://bcgov.github.io/ai-hub-tracking/"">Technical Documentation &amp; Architecture</a>
+    </div>
+  </main>
+</body>
+</html>";
+    return html.Replace("%%ENVIRONMENT%%", env).Replace("%%ENDPOINT%%", host);
+}</set-body>
+    </return-response>
+  </inbound>
+  <backend>
+    <!-- No backend needed — response is returned from inbound -->
+  </backend>
+  <outbound />
+  <on-error>
+    <base />
+  </on-error>
+</policies>

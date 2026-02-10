@@ -193,6 +193,9 @@ module "apim" {
   publisher_name  = lookup(local.apim_config, "publisher_name", "AI Hub")
   publisher_email = lookup(local.apim_config, "publisher_email", "admin@example.com")
 
+  # Public network access - disabled to enforce private endpoint only access
+  public_network_access_enabled = lookup(local.apim_config, "public_network_access_enabled", true)
+
   # VNet integration for outbound connectivity to private backends
   # Required because backend services (OpenAI, DocInt, etc.) have public network access disabled
   enable_vnet_integration    = lookup(local.apim_config, "vnet_injection_enabled", false)
@@ -323,7 +326,7 @@ resource "azurerm_api_management_named_value" "ai_search_endpoint" {
 resource "azurerm_api_management_named_value" "speech_services_endpoint" {
   for_each = {
     for key, config in local.enabled_tenants : key => config
-    if config.speech_services.enabled && local.apim_config.enabled && module.tenant[key].speech_services_endpoint != null
+    if config.speech_services.enabled && local.apim_config.enabled
   }
 
   name                = "${each.key}-speech-endpoint"
@@ -919,7 +922,7 @@ resource "azurerm_role_assignment" "apim_search_service_contributor" {
 resource "azurerm_role_assignment" "apim_speech_services_user" {
   for_each = {
     for key, config in local.enabled_tenants : key => config
-    if config.speech_services.enabled && local.apim_config.enabled && module.tenant[key].speech_services_id != null
+    if config.speech_services.enabled && local.apim_config.enabled
   }
 
   scope                = module.tenant[each.key].speech_services_id
@@ -1002,8 +1005,98 @@ resource "azurerm_key_vault_secret" "apim_subscription_secondary_key" {
 # -----------------------------------------------------------------------------
 
 # -----------------------------------------------------------------------------
+# DNS Zone (vanity domain + static Public IP for App Gateway)
+# Creates DNS zone and static PIP in a separate resource group.
+# All resources have prevent_destroy — safe from terraform destroy.
+# The static PIP is injected into App Gateway so DNS never breaks.
+# -----------------------------------------------------------------------------
+module "dns_zone" {
+  source = "./modules/dns-zone"
+  count  = local.dns_zone_config.enabled ? 1 : 0
+
+  name_prefix         = "${var.app_name}-${var.app_env}"
+  location            = var.location
+  dns_zone_name       = local.dns_zone_config.zone_name
+  resource_group_name = local.dns_zone_config.resource_group_name
+  a_record_ttl        = lookup(local.dns_zone_config, "a_record_ttl", 3600)
+
+  tags = var.common_tags
+}
+
+# -----------------------------------------------------------------------------
+# WAF Policy (mandatory for WAF_v2 - replaces legacy WAF configuration)
+# Azure Advisor recommends migrating from legacy WAF config to WAF policies for
+# newer managed rule sets, custom rules, per-rule exclusions, and bot protection.
+# -----------------------------------------------------------------------------
+
+module "waf_policy" {
+  source = "./modules/waf-policy"
+  count  = local.appgw_config.enabled && lookup(local.appgw_config, "waf_policy_enabled", true) ? 1 : 0
+
+  name                = "${var.app_name}-${var.app_env}-waf-policy"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = var.location
+
+  enabled                          = lookup(local.appgw_config, "waf_enabled", true)
+  mode                             = lookup(local.appgw_config, "waf_mode", "Prevention")
+  request_body_check               = lookup(local.appgw_config, "request_body_check", true)
+  request_body_enforcement         = lookup(local.appgw_config, "request_body_enforcement", true)
+  request_body_inspect_limit_in_kb = lookup(local.appgw_config, "request_body_inspect_limit_in_kb", 128)
+  max_request_body_size_kb         = lookup(local.appgw_config, "max_request_body_size_kb", 128)
+  file_upload_limit_mb             = lookup(local.appgw_config, "file_upload_limit_mb", 100)
+
+  # Rule set overrides for API gateway use case
+  # Default OWASP 3.2 + Bot Manager rules trigger false positives on JSON API bodies
+  managed_rule_sets = [
+    {
+      type    = "OWASP"
+      version = "3.2"
+      rule_group_overrides = [
+        {
+          # General rules - body parsing errors that false-positive on JSON payloads
+          rule_group_name = "General"
+          rules = [
+            { id = "200002", enabled = false }, # REQBODY_ERROR  — WAF can't parse JSON as form data
+            { id = "200003", enabled = false }, # MULTIPART_STRICT_ERROR — not multipart
+          ]
+        }
+      ]
+    },
+    {
+      type    = "Microsoft_BotManagerRuleSet"
+      version = "1.0"
+      rule_group_overrides = [
+        {
+          # API clients (curl, SDKs) aren't browsers — disable bot detection
+          rule_group_name = "UnknownBots"
+          rules = [
+            { id = "300700", enabled = false }, # Generic unknown bot
+            { id = "300300", enabled = false }, # curl user-agent
+            { id = "300100", enabled = false }, # Missing common browser headers
+          ]
+        }
+      ]
+    }
+  ]
+
+  # Exclude request body JSON args from OWASP rule inspection
+  # Required for JSON API payloads (OpenAI chat completions, Document Intelligence, etc.)
+  # Without exclusions, OWASP 3.2 flags JSON body content as SQL injection / XSS
+  exclusions = [
+    {
+      match_variable          = "RequestArgNames"
+      selector                = "*"
+      selector_match_operator = "EqualsAny"
+    }
+  ]
+
+  tags = var.common_tags
+}
+
+# -----------------------------------------------------------------------------
 # Application Gateway (optional, WAF in front of APIM)
-# When enabled, APIM becomes internal-only and App GW is the public entry point
+# When enabled, APIM becomes internal-only and App GW is the public entry point.
+# Uses static PIP from dns_zone module when dns_zone is enabled.
 # -----------------------------------------------------------------------------
 module "app_gateway" {
   source = "./modules/app-gateway"
@@ -1026,8 +1119,13 @@ module "app_gateway" {
     max_capacity = local.appgw_config.autoscale.max_capacity
   } : null
 
-  waf_enabled = lookup(local.appgw_config, "waf_enabled", true)
-  waf_mode    = lookup(local.appgw_config, "waf_mode", "Prevention")
+  waf_enabled   = lookup(local.appgw_config, "waf_policy_enabled", true) ? false : lookup(local.appgw_config, "waf_enabled", true)
+  waf_mode      = lookup(local.appgw_config, "waf_mode", "Prevention")
+  waf_policy_id = lookup(local.appgw_config, "waf_policy_enabled", true) && length(module.waf_policy) > 0 ? module.waf_policy[0].resource_id : null
+
+  # SSL certificate name for HTTPS listener (cert uploaded via CLI/portal)
+  # Convention: ai-services-hub-<env>-cert — only set when cert exists on App GW
+  ssl_certificate_name = lookup(local.appgw_config, "ssl_certificate_name", null)
 
   # SSL certificates from Key Vault
   ssl_certificates = {
@@ -1037,7 +1135,8 @@ module "app_gateway" {
     }
   }
 
-  # Backend pointing to APIM
+  # Backend pointing to APIM — FQDN resolves to PE IP via private DNS zone
+  # (privatelink.azure-api.net linked to VNet by Azure Landing Zone policy)
   backend_apim = {
     fqdn       = local.apim_config.enabled ? trimsuffix(replace(module.apim[0].gateway_url, "https://", ""), "/") : ""
     https_port = 443
@@ -1046,15 +1145,65 @@ module "app_gateway" {
 
   frontend_hostname = lookup(local.appgw_config, "frontend_hostname", "api.example.com")
 
+  # Rewrite rule set to forward original host header to APIM
+  # Critical for APIM to rewrite Operation-Location headers correctly for Document Intelligence
+  rewrite_rule_set = {
+    forward_original_host = {
+      name = "forward-original-host"
+      rewrite_rules = {
+        map_ocp_apim_key_to_api_key = {
+          name          = "map-ocp-apim-key-to-api-key"
+          rule_sequence = 90
+          conditions = {
+            path_contains_openai_or_docint = {
+              variable    = "var_uri_path"
+              pattern     = ".*(openai|documentintelligence).*"
+              ignore_case = true
+              negate      = false
+            }
+            ocp_apim_subscription_key_present = {
+              variable    = "http_req_Ocp-Apim-Subscription-Key"
+              pattern     = ".+"
+              ignore_case = false
+              negate      = false
+            }
+          }
+          request_header_configurations = {
+            api_key = {
+              header_name  = "api-key"
+              header_value = "{http_req_Ocp-Apim-Subscription-Key}"
+            }
+          }
+        }
+        add_x_forwarded_host = {
+          name          = "add-x-forwarded-host"
+          rule_sequence = 100
+          request_header_configurations = {
+            x_forwarded_host = {
+              header_name  = "X-Forwarded-Host"
+              header_value = "{var_host}"
+            }
+          }
+        }
+      }
+    }
+  }
+
   # Key Vault for SSL cert access
   key_vault_id = lookup(local.appgw_config, "key_vault_id", null)
 
+  # Static PIP from dns-zone module (zero-downtime DNS)
+  # When dns_zone is enabled, App GW uses the static PIP instead of creating its own
+  public_ip_resource_id = local.dns_zone_config.enabled ? module.dns_zone[0].public_ip_id : null
+
   # Diagnostics
+  enable_diagnostics         = var.shared_config.log_analytics.enabled
   log_analytics_workspace_id = module.ai_foundry_hub.log_analytics_workspace_id
 
   tags = var.common_tags
 
-  depends_on = [module.network, module.apim]
+  # Ensure DNS zone is fully created before App Gateway references its public IP
+  depends_on = [module.network, module.apim, module.waf_policy, module.dns_zone]
 }
 
 # ------------------------------------------------------------------------------
@@ -1246,6 +1395,58 @@ module "foundry_project" {
     module.tenant,
     module.ai_foundry_hub
   ]
+}
+
+# =============================================================================
+# APIM LANDING PAGE - Static HTML at root path
+# Serves a branded landing page when users visit the custom domain root URL
+# instead of returning a 404. No subscription key required.
+# =============================================================================
+resource "azurerm_api_management_api" "landing_page" {
+  count = local.apim_config.enabled ? 1 : 0
+
+  name                  = "landing-page"
+  resource_group_name   = azurerm_resource_group.main.name
+  api_management_name   = module.apim[0].name
+  revision              = "1"
+  display_name          = "Landing Page"
+  description           = "Static landing page served at the API gateway root URL"
+  path                  = ""
+  protocols             = ["https"]
+  subscription_required = false
+  api_type              = "http"
+
+  depends_on = [module.apim]
+}
+
+resource "azurerm_api_management_api_operation" "landing_page_get" {
+  count = local.apim_config.enabled ? 1 : 0
+
+  operation_id        = "get-landing-page"
+  api_name            = azurerm_api_management_api.landing_page[0].name
+  api_management_name = module.apim[0].name
+  resource_group_name = azurerm_resource_group.main.name
+  display_name        = "Landing Page"
+  method              = "GET"
+  url_template        = "/"
+  description         = "Returns the AI Services Hub landing page"
+
+  response {
+    status_code = 200
+  }
+
+  depends_on = [azurerm_api_management_api.landing_page]
+}
+
+resource "azurerm_api_management_api_policy" "landing_page" {
+  count = local.apim_config.enabled ? 1 : 0
+
+  api_name            = azurerm_api_management_api.landing_page[0].name
+  api_management_name = module.apim[0].name
+  resource_group_name = azurerm_resource_group.main.name
+  xml_content         = file("${path.module}/params/apim/landing_page_policy.xml")
+
+  depends_on = [azurerm_api_management_api_operation.landing_page_get]
 }
 
 

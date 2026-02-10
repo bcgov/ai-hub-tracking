@@ -11,8 +11,13 @@ locals {
   routing_rule_https_name  = "${var.name}-rule-https"
   routing_rule_http_name   = "${var.name}-rule-http"
 
-  # Get first SSL cert name for HTTPS listener
-  ssl_cert_name = length(var.ssl_certificates) > 0 ? values(var.ssl_certificates)[0].name : null
+  # SSL cert name for HTTPS listener: prefer explicit name (for CLI/portal-uploaded certs),
+  # fall back to first cert from ssl_certificates map, or null (no HTTPS)
+  ssl_cert_name = (
+    var.ssl_certificate_name != null
+    ? var.ssl_certificate_name
+    : length(var.ssl_certificates) > 0 ? values(var.ssl_certificates)[0].name : null
+  )
 
   # Determine if we need managed identity for Key Vault SSL certs
   needs_identity = length(var.ssl_certificates) > 0

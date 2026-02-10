@@ -125,16 +125,21 @@ EOF
         fail "Expected Operation-Location header in 202 response"
     fi
     
-    # Verify Operation-Location contains APIM gateway URL, not backend URL
-    # Should contain: ai-services-hub-test-apim.azure-api.net (APIM gateway)
+    # Verify Operation-Location contains App Gateway URL, not backend URL
+    # Should contain: test.aihub.gov.bc.ca (App Gateway)
     # Should NOT contain: .cognitiveservices.azure.com (direct backend)
+    # Should NOT contain: azure-api.net (direct APIM - must go through App Gateway)
     
     if echo "${operation_location}" | grep -q "cognitiveservices.azure.com"; then
         fail "Operation-Location contains direct backend URL: ${operation_location}"
     fi
     
-    if ! echo "${operation_location}" | grep -q "azure-api.net"; then
-        fail "Operation-Location does not contain APIM gateway URL: ${operation_location}"
+    if echo "${operation_location}" | grep -q "azure-api.net"; then
+        fail "Operation-Location contains APIM URL (should be App Gateway): ${operation_location}"
+    fi
+    
+    if ! echo "${operation_location}" | grep -q "${APPGW_HOSTNAME}"; then
+        fail "Operation-Location does not contain App Gateway hostname (${APPGW_HOSTNAME}): ${operation_location}"
     fi
     
     # Verify it contains the tenant path
@@ -179,13 +184,17 @@ EOF
         fail "Expected Operation-Location header in 202 response"
     fi
     
-    # Verify Operation-Location contains APIM gateway URL, not backend URL
+    # Verify Operation-Location contains App Gateway URL, not backend URL
     if echo "${operation_location}" | grep -q "cognitiveservices.azure.com"; then
         fail "Operation-Location contains direct backend URL: ${operation_location}"
     fi
     
-    if ! echo "${operation_location}" | grep -q "azure-api.net"; then
-        fail "Operation-Location does not contain APIM gateway URL: ${operation_location}"
+    if echo "${operation_location}" | grep -q "azure-api.net"; then
+        fail "Operation-Location contains APIM URL (should be App Gateway): ${operation_location}"
+    fi
+    
+    if ! echo "${operation_location}" | grep -q "${APPGW_HOSTNAME}"; then
+        fail "Operation-Location does not contain App Gateway hostname (${APPGW_HOSTNAME}): ${operation_location}"
     fi
     
     # Verify it contains the tenant path
@@ -277,6 +286,216 @@ EOF
     parse_response "${response}"
     
     [[ "${RESPONSE_STATUS}" == "200" ]] || [[ "${RESPONSE_STATUS}" == "202" ]]
+}
+
+# =============================================================================
+# Full Async Flow Tests - JPG Image Analysis with Polling
+# =============================================================================
+
+# Path to test form fixture (BC Monthly Report form)
+# WAF request_body_enforcement=false allows large payloads; WAF still inspects first 128KB
+TEST_FORM_JPG="${BATS_TEST_DIRNAME}/test_form.jpg"
+
+@test "WLRS: Full async flow - submit JPG file, poll operation, validate extracted text" {
+    skip_if_no_key "wlrs-water-form-assistant"
+    if ! docint_accessible "wlrs-water-form-assistant"; then
+        skip "Document Intelligence backend not accessible"
+    fi
+    [[ -f "${TEST_FORM_JPG}" ]] || fail "Test fixture not found: ${TEST_FORM_JPG}"
+
+    # Step 1: Submit file directly as binary (octet-stream)
+    local full_response
+    full_response=$(docint_analyze_file "wlrs-water-form-assistant" "prebuilt-layout" "${TEST_FORM_JPG}")
+
+    # Step 2: Verify 202 Accepted (or 200 for direct result)
+    local status
+    status=$(echo "${full_response}" | grep "^HTTP/" | tail -1 | grep -o '[0-9]\{3\}')
+    [[ "${status}" == "202" ]] || [[ "${status}" == "200" ]]
+
+    # If 200 direct response, extract content from body
+    if [[ "${status}" == "200" ]]; then
+        local body
+        body=$(echo "${full_response}" | sed -n '/^\r*$/,$ p' | tail -n +2)
+        local content
+        content=$(json_get "${body}" '.analyzeResult.content')
+        assert_contains "${content}" "Monthly Report"
+        return 0
+    fi
+
+    # Step 3: Extract Operation-Location header
+    local operation_location
+    operation_location=$(echo "${full_response}" | grep -i "operation-location" | head -1 | sed 's/^[^:]*: //' | tr -d '\r\n')
+    [[ -n "${operation_location}" ]] || fail "Missing Operation-Location header in 202 response"
+
+    # Step 4: Convert full URL to relative path and poll until succeeded
+    local operation_path
+    operation_path=$(extract_operation_path "wlrs-water-form-assistant" "${operation_location}")
+    wait_for_operation "wlrs-water-form-assistant" "${operation_path}" 60
+
+    # Step 5: Validate extracted content from analyzeResult
+    local content
+    content=$(json_get "${RESPONSE_BODY}" '.analyzeResult.content')
+    [[ -n "${content}" ]] || fail "analyzeResult.content is empty"
+
+    # Assert OCR extracted expected text from the BC Monthly Report form
+    assert_contains "${content}" "Monthly Report"
+    assert_contains "${content}" "Declaration"
+}
+
+@test "WLRS: Async flow returns valid analyzeResult structure" {
+    skip_if_no_key "wlrs-water-form-assistant"
+    if ! docint_accessible "wlrs-water-form-assistant"; then
+        skip "Document Intelligence backend not accessible"
+    fi
+    [[ -f "${TEST_FORM_JPG}" ]] || fail "Test fixture not found: ${TEST_FORM_JPG}"
+
+    local full_response
+    full_response=$(docint_analyze_file "wlrs-water-form-assistant" "prebuilt-layout" "${TEST_FORM_JPG}")
+
+    local status
+    status=$(echo "${full_response}" | grep "^HTTP/" | tail -1 | grep -o '[0-9]\{3\}')
+
+    if [[ "${status}" == "200" ]]; then
+        local body
+        body=$(echo "${full_response}" | sed -n '/^\r*$/,$ p' | tail -n +2)
+        RESPONSE_BODY="${body}"
+    elif [[ "${status}" == "202" ]]; then
+        local operation_location
+        operation_location=$(echo "${full_response}" | grep -i "operation-location" | head -1 | sed 's/^[^:]*: //' | tr -d '\r\n')
+        local operation_path
+        operation_path=$(extract_operation_path "wlrs-water-form-assistant" "${operation_location}")
+        wait_for_operation "wlrs-water-form-assistant" "${operation_path}" 60
+    else
+        fail "Unexpected status ${status}"
+    fi
+
+    # Validate analyzeResult structure
+    local result_status
+    result_status=$(json_get "${RESPONSE_BODY}" '.status')
+    [[ "${result_status}" == "succeeded" ]] || [[ "${result_status}" == "completed" ]]
+
+    # analyzeResult must have pages array
+    local page_count
+    page_count=$(json_get "${RESPONSE_BODY}" '.analyzeResult.pages | length')
+    [[ "${page_count}" -ge 1 ]] || fail "Expected at least 1 page, got ${page_count}"
+
+    # analyzeResult.content must be non-empty
+    local content_length
+    content_length=$(json_get "${RESPONSE_BODY}" '.analyzeResult.content | length')
+    [[ "${content_length}" -gt 0 ]] || fail "analyzeResult.content is empty"
+}
+
+@test "WLRS: Async flow extracts multiple fields from form JPG" {
+    skip_if_no_key "wlrs-water-form-assistant"
+    if ! docint_accessible "wlrs-water-form-assistant"; then
+        skip "Document Intelligence backend not accessible"
+    fi
+    [[ -f "${TEST_FORM_JPG}" ]] || fail "Test fixture not found: ${TEST_FORM_JPG}"
+
+    local full_response
+    full_response=$(docint_analyze_file "wlrs-water-form-assistant" "prebuilt-layout" "${TEST_FORM_JPG}")
+
+    local status
+    status=$(echo "${full_response}" | grep "^HTTP/" | tail -1 | grep -o '[0-9]\{3\}')
+
+    if [[ "${status}" == "200" ]]; then
+        RESPONSE_BODY=$(echo "${full_response}" | sed -n '/^\r*$/,$ p' | tail -n +2)
+    elif [[ "${status}" == "202" ]]; then
+        local operation_location
+        operation_location=$(echo "${full_response}" | grep -i "operation-location" | head -1 | sed 's/^[^:]*: //' | tr -d '\r\n')
+        local operation_path
+        operation_path=$(extract_operation_path "wlrs-water-form-assistant" "${operation_location}")
+        wait_for_operation "wlrs-water-form-assistant" "${operation_path}" 60
+    else
+        fail "Unexpected status ${status}"
+    fi
+
+    local content
+    content=$(json_get "${RESPONSE_BODY}" '.analyzeResult.content')
+
+    # Validate multiple text fields were extracted from the BC Monthly Report form
+    assert_contains "${content}" "Monthly Report"
+    assert_contains "${content}" "Ministry of Social Development"
+    assert_contains "${content}" "Since your last declaration"
+    assert_contains "${content}" "Declare all income"
+    assert_contains "${content}" "Declaration"
+}
+
+@test "SDPR: Full async flow - submit JPG file with prebuilt-invoice, poll and validate" {
+    skip_if_no_key "sdpr-invoice-automation"
+    if ! docint_accessible "sdpr-invoice-automation"; then
+        skip "Document Intelligence backend not accessible"
+    fi
+    [[ -f "${TEST_FORM_JPG}" ]] || fail "Test fixture not found: ${TEST_FORM_JPG}"
+
+    # Submit file directly with prebuilt-invoice model (SDPR's primary use case)
+    local full_response
+    full_response=$(docint_analyze_file "sdpr-invoice-automation" "prebuilt-invoice" "${TEST_FORM_JPG}")
+
+    local status
+    status=$(echo "${full_response}" | grep "^HTTP/" | tail -1 | grep -o '[0-9]\{3\}')
+    [[ "${status}" == "202" ]] || [[ "${status}" == "200" ]]
+
+    if [[ "${status}" == "200" ]]; then
+        local body
+        body=$(echo "${full_response}" | sed -n '/^\r*$/,$ p' | tail -n +2)
+        local content
+        content=$(json_get "${body}" '.analyzeResult.content')
+        assert_contains "${content}" "Monthly Report"
+        return 0
+    fi
+
+    # Poll the operation
+    local operation_location
+    operation_location=$(echo "${full_response}" | grep -i "operation-location" | head -1 | sed 's/^[^:]*: //' | tr -d '\r\n')
+    [[ -n "${operation_location}" ]] || fail "Missing Operation-Location header in 202 response"
+
+    local operation_path
+    operation_path=$(extract_operation_path "sdpr-invoice-automation" "${operation_location}")
+    wait_for_operation "sdpr-invoice-automation" "${operation_path}" 60
+
+    # Validate extracted content
+    local content
+    content=$(json_get "${RESPONSE_BODY}" '.analyzeResult.content')
+    [[ -n "${content}" ]] || fail "analyzeResult.content is empty"
+
+    assert_contains "${content}" "Monthly Report"
+    assert_contains "${content}" "Declaration"
+}
+
+@test "SDPR: prebuilt-read model extracts raw text from JPG file" {
+    skip_if_no_key "sdpr-invoice-automation"
+    if ! docint_accessible "sdpr-invoice-automation"; then
+        skip "Document Intelligence backend not accessible"
+    fi
+    [[ -f "${TEST_FORM_JPG}" ]] || fail "Test fixture not found: ${TEST_FORM_JPG}"
+
+    local full_response
+    full_response=$(docint_analyze_file "sdpr-invoice-automation" "prebuilt-read" "${TEST_FORM_JPG}")
+
+    local status
+    status=$(echo "${full_response}" | grep "^HTTP/" | tail -1 | grep -o '[0-9]\{3\}')
+    [[ "${status}" == "202" ]] || [[ "${status}" == "200" ]]
+
+    if [[ "${status}" == "200" ]]; then
+        RESPONSE_BODY=$(echo "${full_response}" | sed -n '/^\r*$/,$ p' | tail -n +2)
+    elif [[ "${status}" == "202" ]]; then
+        local operation_location
+        operation_location=$(echo "${full_response}" | grep -i "operation-location" | head -1 | sed 's/^[^:]*: //' | tr -d '\r\n')
+        local operation_path
+        operation_path=$(extract_operation_path "sdpr-invoice-automation" "${operation_location}")
+        wait_for_operation "sdpr-invoice-automation" "${operation_path}" 60
+    else
+        fail "Unexpected status ${status}"
+    fi
+
+    local content
+    content=$(json_get "${RESPONSE_BODY}" '.analyzeResult.content')
+    [[ -n "${content}" ]] || fail "analyzeResult.content is empty"
+
+    # prebuilt-read should extract the raw text from the BC Monthly Report form
+    assert_contains "${content}" "Monthly Report"
+    assert_contains "${content}" "Declaration"
 }
 
 # =============================================================================

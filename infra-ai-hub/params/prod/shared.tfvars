@@ -78,10 +78,19 @@ shared_config = {
     waf_enabled = true
     waf_mode    = "Prevention"
 
+    # WAF body inspection (CRS 3.2+)
+    # enforcement=false lets large payloads through (Doc Intelligence SDK sends multi-MB base64)
+    # WAF still inspects first 128KB for SQLi/XSS threats
+    request_body_check               = true
+    request_body_enforcement         = false
+    request_body_inspect_limit_in_kb = 128
+    max_request_body_size_kb         = 2000 # ~2MB (provider max)
+    file_upload_limit_mb             = 100
+
     subnet_name          = "appgw-subnet"
     subnet_prefix_length = 27
 
-    frontend_hostname = "api.example.com"
+    frontend_hostname = "aihub.gov.bc.ca"
 
     # SSL certificates (configure with your Key Vault)
     # ssl_certificates = {
@@ -92,6 +101,18 @@ shared_config = {
     # }
 
     # key_vault_id = "/subscriptions/.../resourceGroups/.../providers/Microsoft.KeyVault/vaults/prod-kv"
+  }
+
+  # ---------------------------------------------------------------------------
+  # DNS Zone & Static Public IP
+  # ---------------------------------------------------------------------------
+  # Managed by Terraform with lifecycle prevent_destroy.
+  # Creates: Resource Group, DNS Zone, Static PIP, A record.
+  # After first apply, delegate NS records to parent zone (one-time).
+  dns_zone = {
+    enabled             = true
+    zone_name           = "aihub.gov.bc.ca"
+    resource_group_name = "ai-hub-prod-dns"
   }
 
   # ---------------------------------------------------------------------------
