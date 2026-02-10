@@ -39,6 +39,40 @@ apim_request() {
     curl -X "${method}" "${curl_opts[@]}" "${url}"
 }
 
+# HTTP request wrapper using the Ocp-Apim-Subscription-Key header
+# Usage: apim_request_ocp <method> <tenant> <path> [body]
+apim_request_ocp() {
+    local method="${1}"
+    local tenant="${2}"
+    local path="${3}"
+    local body="${4:-}"
+
+    local subscription_key
+    subscription_key=$(get_subscription_key "${tenant}")
+
+    if [[ -z "${subscription_key}" ]]; then
+        echo "Error: No subscription key for tenant ${tenant}" >&2
+        return 1
+    fi
+
+    local url="${APIM_GATEWAY_URL}/${tenant}${path}"
+
+    local curl_opts=(
+        -s                                          # Silent
+        -w "\n%{http_code}"                         # Append HTTP status code
+        -H "Ocp-Apim-Subscription-Key: ${subscription_key}"
+        -H "Content-Type: application/json"
+        -H "Accept: application/json"
+        --max-time 60                               # 60 second timeout
+    )
+
+    if [[ -n "${body}" ]]; then
+        curl_opts+=(-d "${body}")
+    fi
+
+    curl -X "${method}" "${curl_opts[@]}" "${url}"
+}
+
 # Parse response to separate body from status code
 # Returns: body in RESPONSE_BODY, status in RESPONSE_STATUS
 parse_response() {
@@ -84,6 +118,35 @@ apim_request_with_retry() {
     done
     
     # Return the last response after all retries exhausted
+    echo "${response}"
+}
+
+# Make a request with retry logic for 429 rate limiting (Ocp-Apim-Subscription-Key header)
+# Usage: apim_request_with_retry_ocp <method> <tenant> <path> [body]
+apim_request_with_retry_ocp() {
+    local method="${1}"
+    local tenant="${2}"
+    local path="${3}"
+    local body="${4:-}"
+    local retries=0
+    local response
+
+    while [[ ${retries} -lt ${MAX_RETRIES} ]]; do
+        response=$(apim_request_ocp "${method}" "${tenant}" "${path}" "${body}")
+        parse_response "${response}"
+
+        if [[ "${RESPONSE_STATUS}" == "429" ]]; then
+            retries=$((retries + 1))
+            local retry_after
+            retry_after=$(echo "${RESPONSE_BODY}" | grep -oP 'retry after \K[0-9]+' || echo "${RETRY_DELAY}")
+            echo "Rate limited (429), retry ${retries}/${MAX_RETRIES} after ${retry_after}s..." >&2
+            sleep "${retry_after}"
+        else
+            echo "${response}"
+            return 0
+        fi
+    done
+
     echo "${response}"
 }
 
@@ -136,6 +199,49 @@ EOF
     apim_request_with_retry "POST" "${tenant}" "${path}" "${body}"
 }
 
+# Make a chat completion request using Ocp-Apim-Subscription-Key header
+# Usage: chat_completion_ocp <tenant> <model> <message>
+chat_completion_ocp() {
+    local tenant="${1}"
+    local model="${2}"
+    local message="${3}"
+    local max_tokens="${4:-100}"
+
+    local path="/openai/deployments/${model}/chat/completions?api-version=${OPENAI_API_VERSION}"
+    local body
+
+    if [[ "${model}" == gpt-5* ]]; then
+        body=$(cat <<EOF
+{
+    "messages": [
+        {
+            "role": "user",
+            "content": "${message}"
+        }
+    ],
+    "max_completion_tokens": ${max_tokens}
+}
+EOF
+)
+    else
+        body=$(cat <<EOF
+{
+    "messages": [
+        {
+            "role": "user",
+            "content": "${message}"
+        }
+    ],
+    "max_tokens": ${max_tokens},
+    "temperature": 0.7
+}
+EOF
+)
+    fi
+
+    apim_request_with_retry_ocp "POST" "${tenant}" "${path}" "${body}"
+}
+
 # Make a document intelligence analyze request
 # Usage: docint_analyze <tenant> <model> <base64_content>
 docint_analyze() {
@@ -153,6 +259,25 @@ EOF
 )
     
     apim_request "POST" "${tenant}" "${path}" "${body}"
+}
+
+# Make a document intelligence analyze request using Ocp-Apim-Subscription-Key header
+# Usage: docint_analyze_ocp <tenant> <model> <base64_content>
+docint_analyze_ocp() {
+    local tenant="${1}"
+    local model="${2:-prebuilt-layout}"
+    local base64_content="${3}"
+
+    local path="/documentintelligence/documentModels/${model}:analyze?api-version=${DOCINT_API_VERSION}"
+    local body
+    body=$(cat <<EOF
+{
+    "base64Source": "${base64_content}"
+}
+EOF
+)
+
+    apim_request_ocp "POST" "${tenant}" "${path}" "${body}"
 }
 
 # Assert HTTP status code
