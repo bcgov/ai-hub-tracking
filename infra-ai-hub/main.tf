@@ -1193,12 +1193,6 @@ module "app_gateway" {
           name          = "map-ocp-apim-key-to-api-key"
           rule_sequence = 90
           conditions = {
-            path_contains_openai_or_docint = {
-              variable    = "var_uri_path"
-              pattern     = ".*(openai|documentintelligence).*"
-              ignore_case = true
-              negate      = false
-            }
             ocp_apim_subscription_key_present = {
               variable    = "http_req_Ocp-Apim-Subscription-Key"
               pattern     = ".+"
