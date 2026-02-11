@@ -35,6 +35,12 @@ variable "resource_group_id" {
   nullable    = false
 }
 
+variable "has_graph_permissions" {
+  description = "Whether the current identity has Microsoft Graph User.Read.All. When false the module skips all user-lookup and role-assignment resources."
+  type        = bool
+  default     = true
+}
+
 variable "user_management" {
   description = "Tenant user management configuration (Entra groups + custom roles)"
   type = object({
