@@ -2,7 +2,7 @@
 # LOCAL VALUES
 # =============================================================================
 locals {
-  enabled       = var.user_management.enabled && var.has_graph_permissions
+  enabled       = var.user_management.enabled
   create_groups = var.user_management.create_groups
   group_prefix  = var.user_management.group_prefix
   mail_enabled  = var.user_management.mail_enabled

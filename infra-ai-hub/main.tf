@@ -1355,23 +1355,6 @@ module "tenant" {
 }
 
 # -----------------------------------------------------------------------------
-# Tenant User Management (Entra groups + custom RBAC at tenant RG scope)
-# -----------------------------------------------------------------------------
-module "tenant_user_management" {
-  source   = "./modules/tenant-user-management"
-  for_each = local.enabled_tenants
-
-  tenant_name           = each.value.tenant_name
-  display_name          = each.value.display_name
-  app_env               = var.app_env
-  resource_group_id     = module.tenant[each.key].resource_group_id
-  user_management       = each.value.user_management
-  has_graph_permissions = local.has_graph_permissions
-
-  depends_on = [module.tenant]
-}
-
-# -----------------------------------------------------------------------------
 # AI Foundry Projects (per tenant)
 # This module creates AI Foundry projects, connections, AND model deployments.
 # All Hub-modifying resources are in this module so it can run serially.

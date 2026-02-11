@@ -7,10 +7,6 @@
 # =============================================================================
 
 locals {
-  # Graph API permission check — gracefully skip tenant-user-management
-  # when the current identity lacks User.Read.All on Microsoft Graph.
-  has_graph_permissions = data.external.graph_permissions.result.has_user_read_all == "true"
-
   # Filter to only enabled tenants
   enabled_tenants = {
     for key, config in var.tenants :
