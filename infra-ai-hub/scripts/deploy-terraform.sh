@@ -597,6 +597,7 @@ tf_apply_phased() {
         "-target=module.app_gateway"
         "-target=module.defender"
         "-target=module.tenant"
+        "-target=module.tenant_user_management"
     )
 
     log_info "Phase 1 targets: ${targets[*]}"

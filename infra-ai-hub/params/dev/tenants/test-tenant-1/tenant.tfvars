@@ -128,6 +128,11 @@ tenant = {
     store_in_keyvault = false
   }
 
+  # Tenant user management — dev tenants use empty seed to avoid creating orphan groups
+  user_management = {
+    enabled = false
+  }
+
   # APIM Policies Configuration
   # Consolidates all APIM policy settings for this tenant
   apim_policies = {
@@ -136,8 +141,8 @@ tenant = {
       tokens_per_minute = 1000
     }
     pii_redaction = {
-      enabled     = true  # Enabled for testing fail-closed behavior
-      fail_closed = true  # Block requests if PII service fails
+      enabled     = true # Enabled for testing fail-closed behavior
+      fail_closed = true # Block requests if PII service fails
     }
     usage_logging = {
       enabled = true

@@ -128,6 +128,11 @@ tenant = {
     store_in_keyvault = false
   }
 
+  # Tenant user management — dev tenants use empty seed to avoid creating orphan groups
+  user_management = {
+    enabled = false
+  }
+
   # APIM Policies Configuration
   # Consolidates all APIM policy settings for this tenant
   apim_policies = {

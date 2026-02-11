@@ -1,9 +1,12 @@
 # =============================================================================
-# ENTRA GROUPS
+# ENTRA GROUPS (only when create_groups = true)
 # =============================================================================
 # NOTE: Membership is managed via individual azuread_group_member resources
 # (add-only). The azuread_group resource does NOT set 'members' or 'owners'
 # attributes, so users added in the Azure portal are never removed by Terraform.
+#
+# When create_groups = false, groups are skipped entirely and custom RBAC roles
+# are assigned directly to individual users (see bottom of file).
 # =============================================================================
 resource "azuread_group" "tenant" {
   for_each = local.groups_to_create
@@ -13,6 +16,13 @@ resource "azuread_group" "tenant" {
   mail_enabled            = local.mail_enabled
   mail_nickname           = each.value.mail_nickname
   prevent_duplicate_names = true
+
+  # Set admin seed members as group owners so tenant admins can manage
+  # membership via the Azure portal / myaccount without platform team.
+  owners = [
+    for upn in local.owner_members :
+    data.azuread_user.members[lower(upn)].object_id
+  ]
 }
 
 resource "azuread_group_member" "seed_members" {
@@ -20,13 +30,6 @@ resource "azuread_group_member" "seed_members" {
 
   group_object_id  = local.group_object_ids[each.value.role]
   member_object_id = data.azuread_user.members[lower(each.value.upn)].object_id
-}
-
-resource "azuread_group_owner" "group_owners" {
-  for_each = local.group_owners
-
-  group_object_id = local.group_object_ids[each.value.role]
-  owner_object_id = data.azuread_user.members[lower(each.value.upn)].object_id
 }
 
 # =============================================================================
@@ -42,6 +45,12 @@ resource "azurerm_role_definition" "tenant_admin" {
   permissions {
     actions = [
       "*"
+    ]
+    # Prevent tenant admins from escalating beyond their RG scope
+    not_actions = [
+      "Microsoft.Authorization/elevateAccess/Action",
+      "Microsoft.Authorization/roleDefinitions/write",
+      "Microsoft.Authorization/roleDefinitions/delete"
     ]
     data_actions = [
       "Microsoft.CognitiveServices/*",
@@ -124,13 +133,33 @@ resource "azurerm_role_definition" "tenant_read" {
 }
 
 # =============================================================================
-# ROLE ASSIGNMENTS (GROUP -> CUSTOM ROLE)
+# ROLE ASSIGNMENTS — GROUP MODE (create_groups = true)
+# =============================================================================
+# Use static keys (toset) to avoid for_each unknown-value errors when groups
+# are being created in the same apply.
 # =============================================================================
 resource "azurerm_role_assignment" "tenant_groups" {
-  for_each = local.enabled ? { for role, group_id in local.group_object_ids : role => group_id if group_id != null } : {}
+  for_each = local.enabled && local.create_groups ? toset(["admin", "write", "read"]) : toset([])
 
   scope              = var.resource_group_id
-  role_definition_id = each.key == "admin" ? azurerm_role_definition.tenant_admin[0].role_definition_resource_id : each.key == "write" ? azurerm_role_definition.tenant_write[0].role_definition_resource_id : azurerm_role_definition.tenant_read[0].role_definition_resource_id
-  principal_id       = each.value
+  role_definition_id = local.role_definition_map[each.key]
+  principal_id       = local.group_object_ids[each.key]
   principal_type     = "Group"
+}
+
+# =============================================================================
+# ROLE ASSIGNMENTS — DIRECT USER MODE (create_groups = false)
+# =============================================================================
+# When Entra group creation permissions are not available, assign the custom
+# RBAC roles directly to individual users on the tenant resource group.
+# Switching to create_groups = true later will replace these with group-based
+# assignments (Terraform will destroy these and create group assignments).
+# =============================================================================
+resource "azurerm_role_assignment" "direct_users" {
+  for_each = local.direct_user_assignments
+
+  scope              = var.resource_group_id
+  role_definition_id = local.role_definition_map[each.value.role]
+  principal_id       = data.azuread_user.members[lower(each.value.upn)].object_id
+  principal_type     = "User"
 }

@@ -154,7 +154,7 @@ tenant = {
     }
     pii_redaction = {
       enabled     = true
-      fail_closed = true  # Block requests if PII service fails (not applicable when disabled)
+      fail_closed = true # Block requests if PII service fails (not applicable when disabled)
     }
     usage_logging = {
       enabled = true

@@ -89,7 +89,7 @@ variable "managed_rule_sets" {
 variable "exclusions" {
   description = "Rule exclusions for false positive handling"
   type = list(object({
-    match_variable          = string # RequestHeaderNames, RequestCookieNames, RequestArgNames, RequestBodyPostArgNames
+    match_variable          = string # RequestArgNames, RequestArgValues, RequestArgKeys, RequestHeaderNames, RequestHeaderValues, RequestHeaderKeys, RequestCookieNames, RequestCookieValues, RequestCookieKeys
     selector                = string
     selector_match_operator = string # Contains, EndsWith, Equals, EqualsAny, StartsWith
   }))

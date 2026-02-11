@@ -38,9 +38,13 @@ variable "resource_group_id" {
 variable "user_management" {
   description = "Tenant user management configuration (Entra groups + custom roles)"
   type = object({
-    enabled      = optional(bool, true)
-    group_prefix = optional(string, "ai-hub")
-    mail_enabled = optional(bool, false)
+    enabled = optional(bool, true)
+    # When true, creates Entra security groups and assigns roles to groups.
+    # When false, assigns custom RBAC roles directly to individual users.
+    # Requires Group.ReadWrite.All Graph API permission when true.
+    create_groups = optional(bool, false)
+    group_prefix  = optional(string, "ai-hub")
+    mail_enabled  = optional(bool, false)
     existing_group_ids = optional(object({
       admin = optional(string)
       write = optional(string)
