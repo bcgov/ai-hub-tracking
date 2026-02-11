@@ -46,7 +46,12 @@ az_authenticated() {
 }
 
 setup() {
-    # These tests require az CLI — skip entire suite if not available
+    # These tests require az CLI, terraform, and jq
+    for cmd in az terraform jq; do
+        if ! command -v "${cmd}" >/dev/null 2>&1; then
+            skip "Required tool '${cmd}' not found — skipping user management tests"
+        fi
+    done
     if ! az_authenticated; then
         skip "az CLI not authenticated — skipping user management tests"
     fi
