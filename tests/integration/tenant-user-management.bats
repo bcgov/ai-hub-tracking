@@ -45,6 +45,26 @@ az_authenticated() {
     az account show >/dev/null 2>&1 || return 1
 }
 
+# Check if the current identity can read Entra directory (Graph User.Read.All)
+# Caches result in HAS_GRAPH_ACCESS variable to avoid repeated calls
+has_graph_read_access() {
+    if [[ -z "${HAS_GRAPH_ACCESS:-}" ]]; then
+        if az ad user list --top 1 >/dev/null 2>&1; then
+            export HAS_GRAPH_ACCESS="true"
+        else
+            export HAS_GRAPH_ACCESS="false"
+        fi
+    fi
+    [[ "${HAS_GRAPH_ACCESS}" == "true" ]]
+}
+
+# Resolve a UPN to an Entra object ID (requires Graph read access)
+# Usage: resolve_upn_to_id <upn>
+resolve_upn_to_id() {
+    local upn="${1}"
+    az ad user show --id "${upn}" --query id -o tsv 2>/dev/null
+}
+
 setup() {
     # These tests require az CLI, terraform, and jq
     for cmd in az terraform jq; do
@@ -105,11 +125,11 @@ setup() {
         skip "No admin seed members found in tfvars for ${tenant}"
     fi
 
-    # Get all role assignments on the RG
+    # Get all role assignments on the RG (include principalId for fallback matching)
     local assignments
     assignments=$(az role assignment list \
         --resource-group "${rg_name}" \
-        --query "[?principalType=='User'].{role:roleDefinitionName, name:principalName}" \
+        --query "[?principalType=='User'].{role:roleDefinitionName, name:principalName, principalId:principalId}" \
         -o json 2>/dev/null) || true
 
     if [[ -z "${assignments}" || "${assignments}" == "[]" ]]; then
@@ -118,29 +138,57 @@ setup() {
 
     local admin_role="ai-hub-test-${tenant}-admin"
 
+    # Detect if principalName is available (null when identity lacks Graph perms)
+    local names_available
+    names_available=$(echo "${assignments}" | jq -r '[.[] | select(.name != null and .name != "")] | length')
+
+    # If names are unavailable, we need Graph access to resolve UPNs to principalIds
+    if [[ "${names_available}" -eq 0 ]]; then
+        if ! has_graph_read_access; then
+            skip "Cannot verify user assignments: identity lacks Graph directory read permission (principalName is null)"
+        fi
+    fi
+
     # Spot check first 2 admin seed members
     local checked=0
     local missing=""
     while IFS= read -r upn; do
         [[ -z "${upn}" ]] && continue
         checked=$((checked + 1))
-        if ! echo "${assignments}" | jq -e \
+
+        # First try matching by principalName (works when caller has Graph perms)
+        if echo "${assignments}" | jq -e \
             --arg upn "${upn}" --arg role "${admin_role}" \
             '.[] | select(.name == $upn and .role == $role)' >/dev/null 2>&1; then
-            # Try case-insensitive match
-            if ! echo "${assignments}" | jq -e \
-                --arg upn "${upn}" --arg role "${admin_role}" \
-                '.[] | select((.name | ascii_downcase) == ($upn | ascii_downcase) and .role == $role)' >/dev/null 2>&1; then
-                missing="${missing} ${upn}"
+            [[ ${checked} -ge 2 ]] && break
+            continue
+        fi
+        # Try case-insensitive principalName match
+        if echo "${assignments}" | jq -e \
+            --arg upn "${upn}" --arg role "${admin_role}" \
+            '.[] | select((.name | ascii_downcase) == ($upn | ascii_downcase) and .role == $role)' >/dev/null 2>&1; then
+            [[ ${checked} -ge 2 ]] && break
+            continue
+        fi
+        # Fallback: resolve UPN → object ID and match by principalId
+        local oid
+        oid=$(resolve_upn_to_id "${upn}") || true
+        if [[ -n "${oid}" ]]; then
+            if echo "${assignments}" | jq -e \
+                --arg oid "${oid}" --arg role "${admin_role}" \
+                '.[] | select(.principalId == $oid and .role == $role)' >/dev/null 2>&1; then
+                [[ ${checked} -ge 2 ]] && break
+                continue
             fi
         fi
+        missing="${missing} ${upn}"
         [[ ${checked} -ge 2 ]] && break
     done <<< "${expected_admins}"
 
     if [[ -n "${missing}" ]]; then
         echo "Missing direct admin role assignments for:${missing}" >&2
         echo "Expected role: ${admin_role}" >&2
-        echo "Actual assignments: ${assignments}" >&2
+        echo "Actual assignments: $(echo "${assignments}" | jq -c '[.[] | {role, name, principalId}]')" >&2
         return 1
     fi
 
@@ -195,7 +243,7 @@ setup() {
     local assignments
     assignments=$(az role assignment list \
         --resource-group "${rg_name}" \
-        --query "[?principalType=='User'].{role:roleDefinitionName, name:principalName}" \
+        --query "[?principalType=='User'].{role:roleDefinitionName, name:principalName, principalId:principalId}" \
         -o json 2>/dev/null) || true
 
     if [[ -z "${assignments}" || "${assignments}" == "[]" ]]; then
@@ -204,22 +252,49 @@ setup() {
 
     local admin_role="ai-hub-test-${tenant}-admin"
 
+    # Detect if principalName is available (null when identity lacks Graph perms)
+    local names_available
+    names_available=$(echo "${assignments}" | jq -r '[.[] | select(.name != null and .name != "")] | length')
+
+    if [[ "${names_available}" -eq 0 ]]; then
+        if ! has_graph_read_access; then
+            skip "Cannot verify user assignments: identity lacks Graph directory read permission (principalName is null)"
+        fi
+    fi
+
     # Spot check first 2 members
     local checked=0
     local missing=""
     while IFS= read -r upn; do
         [[ -z "${upn}" ]] && continue
         checked=$((checked + 1))
-        if ! echo "${assignments}" | jq -e \
+
+        # Try matching by principalName (case-insensitive)
+        if echo "${assignments}" | jq -e \
             --arg upn "${upn}" --arg role "${admin_role}" \
             '.[] | select((.name | ascii_downcase) == ($upn | ascii_downcase) and .role == $role)' >/dev/null 2>&1; then
-            missing="${missing} ${upn}"
+            [[ ${checked} -ge 2 ]] && break
+            continue
         fi
+        # Fallback: resolve UPN → object ID and match by principalId
+        local oid
+        oid=$(resolve_upn_to_id "${upn}") || true
+        if [[ -n "${oid}" ]]; then
+            if echo "${assignments}" | jq -e \
+                --arg oid "${oid}" --arg role "${admin_role}" \
+                '.[] | select(.principalId == $oid and .role == $role)' >/dev/null 2>&1; then
+                [[ ${checked} -ge 2 ]] && break
+                continue
+            fi
+        fi
+        missing="${missing} ${upn}"
         [[ ${checked} -ge 2 ]] && break
     done <<< "${expected_admins}"
 
     if [[ -n "${missing}" ]]; then
         echo "Missing direct admin role assignments for:${missing}" >&2
+        echo "Expected role: ${admin_role}" >&2
+        echo "Actual assignments: $(echo "${assignments}" | jq -c '[.[] | {role, name, principalId}]')" >&2
         return 1
     fi
 
