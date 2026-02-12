@@ -91,6 +91,13 @@ output "apim_name" {
 # =============================================================================
 # TENANT OUTPUTS
 # =============================================================================
+output "tenant_resource_groups" {
+  description = "Map of tenant names to their resource group names"
+  value = {
+    for tenant_key, tenant in module.tenant : tenant_key => tenant.resource_group_name
+  }
+}
+
 output "tenant_projects" {
   description = "Map of tenant names to their AI Foundry project details"
   value = {

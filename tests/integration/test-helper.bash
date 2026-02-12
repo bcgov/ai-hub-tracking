@@ -478,8 +478,101 @@ setup_test_suite() {
     fi
 }
 
+# Make a Document Intelligence analyze request by sending a file as raw binary
+# (application/octet-stream). This tests the WAF custom rule that allows binary
+# file uploads to Doc Intel paths without managed rule inspection.
+# Returns full response with headers (uses -i flag).
+# Usage: docint_analyze_binary <tenant> <model> <file_path>
+docint_analyze_binary() {
+    local tenant="${1}"
+    local model="${2:-prebuilt-layout}"
+    local file_path="${3}"
+
+    if [[ ! -f "${file_path}" ]]; then
+        echo "Error: File not found: ${file_path}" >&2
+        return 1
+    fi
+
+    local subscription_key
+    subscription_key=$(get_subscription_key "${tenant}")
+
+    local url="${APIM_GATEWAY_URL}/${tenant}/documentintelligence/documentModels/${model}:analyze?api-version=${DOCINT_API_VERSION}"
+
+    curl -s -i -X POST "${url}" \
+        -H "api-key: ${subscription_key}" \
+        -H "Content-Type: application/octet-stream" \
+        --data-binary "@${file_path}" \
+        --max-time 120 2>/dev/null
+}
+
+# Make a Document Intelligence analyze request by sending a file as application/pdf.
+# Tests the WAF custom rule specifically for PDF content type.
+# Returns full response with headers (uses -i flag).
+# Usage: docint_analyze_pdf <tenant> <model> <file_path>
+docint_analyze_pdf() {
+    local tenant="${1}"
+    local model="${2:-prebuilt-layout}"
+    local file_path="${3}"
+
+    if [[ ! -f "${file_path}" ]]; then
+        echo "Error: File not found: ${file_path}" >&2
+        return 1
+    fi
+
+    local subscription_key
+    subscription_key=$(get_subscription_key "${tenant}")
+
+    local url="${APIM_GATEWAY_URL}/${tenant}/documentintelligence/documentModels/${model}:analyze?api-version=${DOCINT_API_VERSION}"
+
+    curl -s -i -X POST "${url}" \
+        -H "api-key: ${subscription_key}" \
+        -H "Content-Type: application/pdf" \
+        --data-binary "@${file_path}" \
+        --max-time 120 2>/dev/null
+}
+
+# Make a Document Intelligence analyze request via multipart/form-data.
+# Tests WAF custom rule for multipart file uploads.
+# Returns full response with headers (uses -i flag).
+# Usage: docint_analyze_multipart <tenant> <model> <file_path>
+docint_analyze_multipart() {
+    local tenant="${1}"
+    local model="${2:-prebuilt-layout}"
+    local file_path="${3}"
+
+    if [[ ! -f "${file_path}" ]]; then
+        echo "Error: File not found: ${file_path}" >&2
+        return 1
+    fi
+
+    local subscription_key
+    subscription_key=$(get_subscription_key "${tenant}")
+
+    local url="${APIM_GATEWAY_URL}/${tenant}/documentintelligence/documentModels/${model}:analyze?api-version=${DOCINT_API_VERSION}"
+
+    curl -s -i -X POST "${url}" \
+        -H "api-key: ${subscription_key}" \
+        -F "file=@${file_path}" \
+        --max-time 120 2>/dev/null
+}
+
+# Extract HTTP status from a full response (headers + body captured with -i)
+# Usage: extract_http_status <full_response>
+extract_http_status() {
+    local full_response="${1}"
+    echo "${full_response}" | grep "^HTTP/" | tail -1 | grep -o '[0-9]\{3\}'
+}
+
+# Extract body from a full response (headers + body captured with -i)
+# Usage: extract_response_body <full_response>
+extract_response_body() {
+    local full_response="${1}"
+    echo "${full_response}" | sed -n '/^\r*$/,$ p' | tail -n +2
+}
+
 # Export functions
 export -f apim_request apim_request_with_retry parse_response chat_completion docint_analyze
-export -f docint_analyze_file extract_operation_path
+export -f docint_analyze_file docint_analyze_binary docint_analyze_pdf docint_analyze_multipart
+export -f extract_operation_path extract_http_status extract_response_body
 export -f assert_status assert_contains assert_not_contains json_get
 export -f looks_like_pii is_redacted wait_for_operation setup_test_suite

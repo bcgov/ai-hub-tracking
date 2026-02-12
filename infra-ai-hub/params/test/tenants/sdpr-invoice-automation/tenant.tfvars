@@ -133,6 +133,18 @@ tenant = {
     store_in_keyvault = false
   }
 
+  # Tenant user management (applies across environments)
+  user_management = {
+    seed_members = {
+      admin = [
+        "anthony.shivakumar@gov.bc.ca",
+        "alex.struk@gov.bc.ca",
+        "kaegan.mandryk@gov.bc.ca",
+        "justin.hewitt@gov.bc.ca"
+      ]
+    }
+  }
+
   # APIM Policies Configuration
   # Consolidates all APIM policy settings for this tenant
   apim_policies = {
@@ -142,7 +154,7 @@ tenant = {
     }
     pii_redaction = {
       enabled     = true
-      fail_closed = true  # Block requests if PII service fails (not applicable when disabled)
+      fail_closed = true # Block requests if PII service fails (not applicable when disabled)
     }
     usage_logging = {
       enabled = true

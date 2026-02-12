@@ -1090,6 +1090,44 @@ module "waf_policy" {
     }
   ]
 
+  # Custom rule: Allow file uploads to Document Intelligence without managed rule inspection
+  # Custom rules with "Allow" action are evaluated before managed rules — when matched,
+  # the request bypasses all OWASP/Bot managed rules. This is path-specific: only requests
+  # to documentintelligence/formrecognizer paths with file upload content types are allowed
+  # through. JSON requests (application/json with base64Source) and all other routes remain
+  # fully protected by managed rules.
+  custom_rules = [
+    {
+      name      = "AllowDocIntelFileUploads"
+      priority  = 1
+      rule_type = "MatchRule"
+      action    = "Allow"
+      match_conditions = [
+        {
+          # Match Document Intelligence API paths (current and legacy)
+          match_variable = "RequestUri"
+          operator       = "Contains"
+          match_values   = ["documentintelligence", "formrecognizer"]
+          transforms     = ["Lowercase"]
+        },
+        {
+          # Match file upload content types — excludes application/json which is handled
+          # by the existing RequestArgNames exclusion for base64Source payloads
+          match_variable = "RequestHeaders"
+          selector       = "Content-Type"
+          operator       = "Contains"
+          match_values = [
+            "application/octet-stream", # Raw binary upload (most common SDK method)
+            "image/",                   # Any image type (jpeg, png, tiff, bmp, heif)
+            "application/pdf",          # PDF documents
+            "multipart/form-data"       # Multipart file uploads
+          ]
+          transforms = ["Lowercase"]
+        }
+      ]
+    }
+  ]
+
   tags = var.common_tags
 }
 

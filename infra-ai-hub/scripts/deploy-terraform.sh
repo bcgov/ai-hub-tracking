@@ -174,6 +174,48 @@ check_prerequisites() {
     log_success "Prerequisites check passed"
 }
 
+# =============================================================================
+# Graph API Permission Check
+# =============================================================================
+# Tenant user management requires Microsoft Graph User.Read.All permission.
+# This function probes the Graph API to check if the current identity has it.
+# Returns 0 if permission is available, 1 if not.
+# =============================================================================
+check_graph_permissions() {
+    log_info "Checking Microsoft Graph API permissions..."
+
+    # 1. Get a Graph token via the current Azure CLI identity
+    local token
+    token=$(az account get-access-token \
+        --resource https://graph.microsoft.com \
+        --query accessToken -o tsv 2>/dev/null) || {
+        log_warning "Could not acquire Graph API token"
+        return 1
+    }
+
+    if [[ -z "${token:-}" ]]; then
+        log_warning "Graph API token is empty"
+        return 1
+    fi
+
+    # 2. Probe with a minimal call — 200 means User.Read.All is granted
+    local http_status
+    http_status=$(curl -s -o /dev/null -w "%{http_code}" \
+        -H "Authorization: Bearer ${token}" \
+        "https://graph.microsoft.com/v1.0/users?\$top=1&\$select=id" 2>/dev/null) || {
+        log_warning "Graph API probe failed (curl error)"
+        return 1
+    }
+
+    if [[ "${http_status}" == "200" ]]; then
+        log_success "Graph API User.Read.All permission confirmed"
+        return 0
+    else
+        log_warning "Graph API returned HTTP ${http_status} — User.Read.All permission not available"
+        return 1
+    fi
+}
+
 setup_azure_auth() {
     log_info "Setting up Azure authentication..."
     
@@ -375,7 +417,20 @@ tf_plan() {
     
     terraform plan "${plan_args[@]}"
     
-    log_success "Plan created"
+    log_success "Plan created (main config)"
+
+    # Also plan tenant-user-management (separate state) if Graph perms available.
+    # This can fail on fresh environments where tenant RGs don't exist yet —
+    # that's expected and non-fatal (the RGs get created in apply Phase 1).
+    if check_graph_permissions; then
+        log_info "Planning tenant user management (separate state)..."
+        if ! tf_user_mgmt_plan "$@"; then
+            log_warning "Tenant-user-management plan failed (tenant resource groups may not exist yet)."
+            log_warning "This is expected on fresh environments — run apply-phased to create RGs first."
+        fi
+    else
+        log_warning "Skipping tenant-user-management plan — no Graph User.Read.All permission"
+    fi
 }
 
 extract_import_target_from_tf_output() {
@@ -589,6 +644,8 @@ tf_apply_phased() {
     fi
 
     # Target core infrastructure and tenant resources (no model deployments here)
+    # NOTE: tenant_user_management is in a separate state (tenant-user-mgmt/)
+    # and applied conditionally based on Graph API permissions.
     local targets=(
         "-target=azurerm_resource_group.main"
         "-target=module.network"
@@ -742,8 +799,119 @@ tf_apply_phased() {
 
     run_terraform_with_retries apply "${phase4_args[@]}" "$@"
     log_success "Phase 4 complete"
+
+    # =========================================================================
+    # PHASE 5: Tenant User Management (separate state, conditional)
+    # Only runs when the current identity has Graph User.Read.All permission.
+    # Uses a separate state file so the main config can never destroy these
+    # resources when running without Graph permissions.
+    # =========================================================================
+    if check_graph_permissions; then
+        log_info "=== PHASE 5: Applying tenant user management (separate state) ==="
+        tf_user_mgmt_apply "$@"
+        log_success "Phase 5 complete"
+    else
+        log_warning "=== PHASE 5: SKIPPED — tenant user management requires Graph User.Read.All ==="
+        log_warning "Existing user management resources are preserved (separate state)."
+        log_warning "Grant User.Read.All to the identity, or run locally with a privileged account."
+    fi
     
     log_success "Phased apply complete"
+}
+
+# =============================================================================
+# Tenant User Management — Separate State Operations
+# =============================================================================
+# These functions manage the tenant-user-mgmt/ config which has its own
+# state file. This allows conditional execution based on Graph API permissions
+# without the main config ever touching these resources.
+# =============================================================================
+USER_MGMT_DIR="${INFRA_DIR}/tenant-user-mgmt"
+
+tf_user_mgmt_init() {
+    log_info "Initializing tenant-user-mgmt (separate state)..."
+
+    local state_key="ai-services-hub/${ENVIRONMENT}/tenant-user-management.tfstate"
+    log_info "User-mgmt backend: ${BACKEND_STORAGE_ACCOUNT}/${BACKEND_CONTAINER_NAME}/${state_key}"
+
+    cd "$USER_MGMT_DIR"
+
+    local init_args=("-upgrade")
+    if [[ "${CI:-false}" == "true" ]]; then
+        init_args+=("-input=false" "-reconfigure")
+    fi
+
+    terraform init "${init_args[@]}" \
+        -backend-config="resource_group_name=${BACKEND_RESOURCE_GROUP}" \
+        -backend-config="storage_account_name=${BACKEND_STORAGE_ACCOUNT}" \
+        -backend-config="container_name=${BACKEND_CONTAINER_NAME}" \
+        -backend-config="key=${state_key}" \
+        -backend-config="subscription_id=${ARM_SUBSCRIPTION_ID:-}" \
+        -backend-config="tenant_id=${ARM_TENANT_ID:-}" \
+        -backend-config="client_id=${TF_VAR_client_id:-}" \
+        -backend-config="use_oidc=${ARM_USE_OIDC:-false}"
+
+    cd "$INFRA_DIR"
+    log_success "Tenant-user-mgmt initialized"
+}
+
+# Common var args for tenant-user-mgmt operations
+_user_mgmt_var_args() {
+    local combined_tenants_file="${INFRA_DIR}/.tenants-${ENVIRONMENT}.auto.tfvars"
+    echo "-var-file=${combined_tenants_file}"
+    echo "-var=app_env=${ENVIRONMENT}"
+    echo "-var=subscription_id=${ARM_SUBSCRIPTION_ID}"
+    echo "-var=tenant_id=${ARM_TENANT_ID}"
+    echo "-var=client_id=${TF_VAR_client_id:-}"
+    echo "-var=use_oidc=${ARM_USE_OIDC:-false}"
+}
+
+tf_user_mgmt_plan() {
+    tf_user_mgmt_init
+
+    cd "$USER_MGMT_DIR"
+
+    local plan_args=()
+    while IFS= read -r arg; do
+        plan_args+=("$arg")
+    done < <(_user_mgmt_var_args)
+    plan_args+=("-input=false")
+
+    # Allow failure (e.g. tenant RGs don't exist yet on fresh envs)
+    set +e
+    terraform plan "${plan_args[@]}" "$@"
+    local rc=$?
+    set -e
+
+    cd "$INFRA_DIR"
+
+    if [[ $rc -eq 0 ]]; then
+        log_success "Tenant-user-mgmt plan complete"
+    fi
+    return $rc
+}
+
+tf_user_mgmt_apply() {
+    log_info "Applying tenant user management (separate state)..."
+
+    tf_user_mgmt_init
+
+    cd "$USER_MGMT_DIR"
+
+    local apply_args=()
+    while IFS= read -r arg; do
+        apply_args+=("$arg")
+    done < <(_user_mgmt_var_args)
+    apply_args+=("-input=false")
+
+    if [[ "${CI:-false}" == "true" ]]; then
+        apply_args+=("-auto-approve")
+    fi
+
+    run_terraform_with_retries apply "${apply_args[@]}" "$@"
+
+    cd "$INFRA_DIR"
+    log_success "Tenant user management apply complete"
 }
 
 tf_destroy() {
