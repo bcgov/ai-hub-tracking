@@ -24,6 +24,34 @@ locals {
   appgw_config    = var.shared_config.app_gateway
   dns_zone_config = var.shared_config.dns_zone
 
+  # Key rotation configuration shortcut
+  key_rotation_config = local.apim_config.key_rotation
+
+  # When key rotation is enabled, ALL subscription_key tenants are eligible.
+  # Keys are stored in the centralized hub Key Vault (not per-tenant KVs),
+  # so per-tenant key_vault.enabled is NOT required for rotation eligibility.
+  tenants_with_key_rotation = {
+    for key, config in local.tenants_with_subscription_key : key => config
+    if local.key_rotation_config.rotation_enabled && local.apim_config.enabled
+  }
+
+  # Effective store_in_keyvault: true for ALL tenants when rotation is enabled
+  # (stored in hub KV). When rotation is disabled, no keys are stored.
+  # Per-tenant store_in_keyvault is deprecated — hub KV is the only store.
+  tenants_storing_keys_in_kv = {
+    for key, config in local.tenants_with_subscription_key : key => config
+    if local.apim_config.enabled && local.key_rotation_config.rotation_enabled
+  }
+
+  # Hub Key Vault URI — single KV for all tenant rotation keys
+  hub_keyvault_uri = local.key_rotation_config.rotation_enabled && local.apim_config.enabled ? (
+    try(module.hub_key_vault[0].uri, "")
+  ) : ""
+
+  hub_keyvault_name = local.key_rotation_config.rotation_enabled && local.apim_config.enabled ? (
+    try(module.hub_key_vault[0].name, "")
+  ) : ""
+
   # Application Insights enabled flag - use input variable directly for count expressions
   # This avoids "count depends on resource attributes" errors during destroy
   application_insights_enabled = var.shared_config.log_analytics.enabled
@@ -120,6 +148,9 @@ locals {
         pii_structural_whitelist    = try(config.apim_policies.pii_redaction.structural_whitelist, [])
         pii_detection_language      = try(config.apim_policies.pii_redaction.detection_language, "en")
         pii_fail_closed             = try(config.apim_policies.pii_redaction.fail_closed, false)
+        # Key rotation endpoint — uses centralized hub Key Vault
+        key_rotation_enabled = local.key_rotation_config.rotation_enabled
+        keyvault_uri         = local.hub_keyvault_uri
       }
     )
   }

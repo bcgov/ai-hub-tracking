@@ -291,3 +291,29 @@ output "tenant_diagnostics_summary" {
     }
   }
 }
+
+# =============================================================================
+# APIM KEY ROTATION OUTPUTS
+# =============================================================================
+output "apim_key_rotation_summary" {
+  description = "Summary of APIM subscription key rotation configuration"
+  value = {
+    globally_enabled       = local.key_rotation_config.rotation_enabled
+    rotation_interval_days = local.key_rotation_config.rotation_interval_days
+    eligible_tenants       = keys(local.tenants_with_key_rotation)
+    pattern                = "alternating primary/secondary"
+    hub_keyvault_name      = local.hub_keyvault_name
+    hub_keyvault_uri       = local.hub_keyvault_uri
+    internal_endpoint      = local.key_rotation_config.rotation_enabled ? "GET /{tenant}/internal/apim-keys" : null
+    tenant_details = {
+      for key, config in local.enabled_tenants : key => {
+        auth_mode         = lookup(lookup(config, "apim_auth", {}), "mode", "subscription_key")
+        rotation_eligible = contains(keys(local.tenants_with_key_rotation), key)
+        keyvault_secrets  = contains(keys(local.tenants_with_key_rotation), key) ? ["${key}-apim-primary-key", "${key}-apim-secondary-key", "${key}-apim-rotation-metadata"] : null
+        reason_if_ineligible = !local.key_rotation_config.rotation_enabled ? "rotation globally disabled" : (
+          lookup(lookup(config, "apim_auth", {}), "mode", "subscription_key") != "subscription_key" ? "auth mode is not subscription_key" : null
+        )
+      }
+    }
+  }
+}

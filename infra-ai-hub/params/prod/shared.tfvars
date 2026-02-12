@@ -57,6 +57,12 @@ shared_config = {
     subnet_prefix_length   = 27
 
     private_dns_zone_ids = []
+
+    # Subscription key rotation (managed by GitHub Actions workflow)
+    key_rotation = {
+      rotation_enabled       = false  # Disabled in prod until validated in test
+      rotation_interval_days = 30     # Monthly rotation when enabled
+    }
   }
 
   # ---------------------------------------------------------------------------

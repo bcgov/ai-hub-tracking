@@ -1,0 +1,554 @@
+<!-- TITLE: APIM Key Rotation -->
+<!-- NAV: apim-key-rotation -->
+
+<h1>APIM Subscription Key Rotation</h1>
+
+<p>This guide explains how APIM subscription keys are automatically rotated for tenant teams, and how to update your application to use the new keys.</p>
+
+<div class="alert alert-info">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    </div>
+    <div>
+        <strong>Zero Downtime</strong><br>
+        Key rotation uses an alternating primary/secondary pattern. Only one key is rotated at a time &mdash; the other remains valid and untouched. Your service is never interrupted.
+    </div>
+</div>
+
+<h2>How It Works</h2>
+
+<div class="card">
+    <h3>Alternating Primary/Secondary Pattern</h3>
+    <p>APIM subscriptions have two key slots: <strong>primary</strong> and <strong>secondary</strong>. Both are valid for API calls at all times. Each rotation cycle regenerates one slot while the other remains untouched:</p>
+    <ol>
+        <li><strong>Week 1: Regenerate SECONDARY</strong> &mdash; tenants continue using PRIMARY (untouched)</li>
+        <li><strong>Week 2: Regenerate PRIMARY</strong> &mdash; tenants continue using SECONDARY (regenerated last week, still valid)</li>
+        <li><strong>Week 3: Regenerate SECONDARY</strong> &mdash; alternates indefinitely</li>
+    </ol>
+    <p>Both keys are stored in the centralized hub Key Vault after every rotation. Tenants can fetch new keys at their convenience via the APIM internal endpoint or by requesting access from the platform team.</p>
+</div>
+
+<div class="card">
+    <h3>Key Lifecycle Timeline</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Event</th>
+                <th>Primary Key</th>
+                <th>Secondary Key</th>
+                <th>Safe to Use</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Initial</strong></td>
+                <td>key_A</td>
+                <td>key_B</td>
+                <td>Either &check;</td>
+            </tr>
+            <tr>
+                                <td><strong>Rotation 1</strong> (regen secondary)</td>
+                                <td>key_A (untouched)</td>
+                                <td><strong>key_C</strong> (NEW)</td>
+                                <td>key_A &check;</td>
+            </tr>
+            <tr>
+                                <td><strong>Rotation 2</strong> (regen primary)</td>
+                                <td><strong>key_D</strong> (NEW)</td>
+                                <td>key_C (untouched)</td>
+                                <td>key_C &check;</td>
+            </tr>
+            <tr>
+                                <td><strong>Rotation 3</strong> (regen secondary)</td>
+                                <td>key_D (untouched)</td>
+                                <td><strong>key_E</strong> (NEW)</td>
+                                <td>key_D &check;</td>
+            </tr>
+        </tbody>
+    </table>
+    <p><em>The key NOT being rotated is always safe. You have the full rotation interval to switch to the new key.</em></p>
+</div>
+
+<h2>Platform Team Runbook (Emergency)</h2>
+
+<div class="card">
+        <h3>Compromised Keys: Rotate Both Slots Immediately</h3>
+        <p>Use this runbook only for emergency compromise scenarios where both keys must be replaced right away. This is a manual operational procedure (documentation only).</p>
+        <ol>
+                <li>Identify the APIM subscription ID and tenant name.</li>
+                <li>Regenerate <strong>secondary</strong> and then <strong>primary</strong> in APIM.</li>
+                <li>Read latest key values from APIM <code>listSecrets</code>.</li>
+                <li>Write both keys to hub Key Vault with 90-day expiry.</li>
+                <li>Update <code>{tenant}-apim-rotation-metadata</code> with <code>safe_slot</code> and timestamps.</li>
+                <li>Notify tenant team to pull new keys from <code>/internal/apim-keys</code>.</li>
+        </ol>
+
+        <h4>Example CLI Sequence</h4>
+        <pre># Inputs
+SUBSCRIPTION_ID="&lt;azure-subscription-id&gt;"
+RESOURCE_GROUP="ai-services-hub-dev"
+APIM_NAME="ai-services-hub-dev-apim"
+TENANT="test-tenant-1"
+APIM_SUB_ID="&lt;apim-subscription-guid&gt;"
+HUB_KV="ai-services-hub-dev-hkv"
+
+# 1) Regenerate both slots (secondary first, then primary)
+az rest --method POST \
+    --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.ApiManagement/service/${APIM_NAME}/subscriptions/${APIM_SUB_ID}/regenerateSecondaryKey?api-version=2024-05-01"
+
+az rest --method POST \
+    --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.ApiManagement/service/${APIM_NAME}/subscriptions/${APIM_SUB_ID}/regeneratePrimaryKey?api-version=2024-05-01"
+
+# 2) Get current keys from APIM
+SECRETS_JSON=$(az rest --method POST \
+    --url "https://management.azure.com/subscriptions/${SUBSCRIPTION_ID}/resourceGroups/${RESOURCE_GROUP}/providers/Microsoft.ApiManagement/service/${APIM_NAME}/subscriptions/${APIM_SUB_ID}/listSecrets?api-version=2024-05-01")
+
+PRIMARY=$(echo "$SECRETS_JSON" | jq -r '.primaryKey')
+SECONDARY=$(echo "$SECRETS_JSON" | jq -r '.secondaryKey')
+EXPIRES_ON=$(date -u -d "+90 days" +"%Y-%m-%dT%H:%M:%SZ")
+NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+
+# 3) Store keys in hub Key Vault
+az keyvault secret set --vault-name "$HUB_KV" --name "${TENANT}-apim-primary-key" --value "$PRIMARY" --expires "$EXPIRES_ON"
+az keyvault secret set --vault-name "$HUB_KV" --name "${TENANT}-apim-secondary-key" --value "$SECONDARY" --expires "$EXPIRES_ON"
+
+# 4) Update metadata
+METADATA=$(jq -n --arg now "$NOW" '{
+    last_rotated_slot: "primary",
+    last_rotation_at: $now,
+    next_rotation_at: "manual-emergency",
+    rotation_number: 999,
+    safe_slot: "secondary"
+}')
+
+az keyvault secret set \
+    --vault-name "$HUB_KV" \
+    --name "${TENANT}-apim-rotation-metadata" \
+    --value "$METADATA" \
+    --content-type "application/json" \
+    --expires "$EXPIRES_ON"</pre>
+
+        <div class="alert alert-warning" style="margin-top: 0.75rem;">
+                <div>
+                        <strong>Important:</strong> This emergency sequence invalidates all previously leaked keys. Coordinate tenant notifications immediately after completion.
+                </div>
+        </div>
+</div>
+
+<div class="card">
+        <h3>Tenant Retrieval After Emergency Rotation</h3>
+        <p>After platform team rotates both keys, tenant teams should fetch current keys from APIM and switch to the <code>safe_slot</code> key.</p>
+        <pre>curl -s -H "api-key: YOUR_CURRENT_VALID_KEY" \
+    "https://your-apim-gateway.azure-api.net/YOUR_TENANT/internal/apim-keys" | jq .
+
+# Read the recommended key:
+# .rotation.safe_slot
+# Then use .primary_key or .secondary_key accordingly.</pre>
+        <p>If the tenant has no valid key left, platform team must provide one-time bootstrap access/key out-of-band.</p>
+</div>
+
+<h2>Configuration</h2>
+
+<div class="card">
+    <h3>Shared Config (<code>params/{env}/shared.tfvars</code>)</h3>
+    <p>Key rotation is configured globally for all tenants in the shared config:</p>
+    <pre>apim = {
+  # ... existing APIM config ...
+
+  key_rotation = {
+    rotation_enabled       = true   # Master flag (on/off for all tenants)
+    rotation_interval_days = 7      # Rotate every N days (same for all tenants)
+  }
+}</pre>
+    <table>
+        <thead>
+            <tr>
+                <th>Setting</th>
+                <th>Type</th>
+                <th>Default</th>
+                <th>Description</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>rotation_enabled</code></td>
+                <td>bool</td>
+                <td><code>false</code></td>
+                <td>Master flag. When <code>false</code>, no keys are rotated for any tenant.</td>
+            </tr>
+            <tr>
+                <td><code>rotation_interval_days</code></td>
+                <td>number</td>
+                <td><code>7</code></td>
+                <td>Days between rotations. Applies uniformly to all tenants.</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h3>Tenant Prerequisites</h3>
+    <p>For a tenant to participate in key rotation, it only needs:</p>
+    <ul>
+        <li><code>apim_auth.mode = "subscription_key"</code> (default)</li>
+    </ul>
+    <div class="alert alert-info" style="margin-top: 0.75rem;">
+        <div>
+            <strong>Note:</strong> A per-tenant Key Vault is <strong>not required</strong> for key rotation. All rotation keys are stored in a centralized hub Key Vault managed by the platform team. Any tenant using subscription_key auth is automatically eligible.
+        </div>
+    </div>
+</div>
+
+<h2>How Tenants Fetch New Keys</h2>
+
+<div class="alert alert-success">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+    </div>
+    <div>
+        <strong>Key Insight</strong><br>
+        After rotation, one of your keys is always still valid (the one that was NOT rotated). Use it to call the APIM internal endpoint or continue using your service while you update to the new key.
+    </div>
+</div>
+
+<div class="card">
+    <h3>Option 1: APIM Internal Endpoint (Simplest)</h3>
+    <p>Call <code>GET /{your-tenant}/internal/apim-keys</code> with ANY valid subscription key. Returns both keys plus rotation metadata as JSON.</p>
+
+    <h4>Bash</h4>
+    <pre>#!/bin/bash
+# Fetch both APIM keys via the internal endpoint
+APIM_GATEWAY="https://your-apim-gateway.azure-api.net"
+TENANT="your-tenant-name"
+CURRENT_KEY="your-current-valid-key"
+
+RESPONSE=$(curl -s \
+    -H "api-key: ${CURRENT_KEY}" \
+    "${APIM_GATEWAY}/${TENANT}/internal/apim-keys")
+
+echo "${RESPONSE}" | jq .
+
+# Example response:
+# {
+#   "tenant": "your-tenant-name",
+#   "primary_key": "abc123...",
+#   "secondary_key": "def456...",
+#   "rotation": {
+#     "last_rotated_slot": "primary",
+#     "last_rotation_at": "2026-02-11T02:00:00Z",
+#     "next_rotation_at": "2026-02-18T02:00:00Z",
+#     "rotation_number": 5,
+#     "safe_slot": "secondary"
+#   },
+#   "keyvault": {
+#     "uri": "https://hub-kv.vault.azure.net/",
+#     "primary_key_secret": "your-tenant-name-apim-primary-key",
+#     "secondary_key_secret": "your-tenant-name-apim-secondary-key"
+#   }
+# }
+
+# Use the safe_slot key (the one NOT just rotated)
+SAFE_SLOT=$(echo "${RESPONSE}" | jq -r '.rotation.safe_slot')
+if [[ "${SAFE_SLOT}" == "primary" ]]; then
+    NEW_KEY=$(echo "${RESPONSE}" | jq -r '.primary_key')
+else
+    NEW_KEY=$(echo "${RESPONSE}" | jq -r '.secondary_key')
+fi
+echo "Safe key to use: ${NEW_KEY:0:8}..."</pre>
+
+    <h4>Python</h4>
+    <pre>import requests
+
+apim_gateway = "https://your-apim-gateway.azure-api.net"
+tenant = "your-tenant-name"
+current_key = "your-current-valid-key"
+
+response = requests.get(
+    f"{apim_gateway}/{tenant}/internal/apim-keys",
+    headers={"api-key": current_key}
+)
+data = response.json()
+
+safe_slot = data["rotation"]["safe_slot"]  # "primary" or "secondary"
+safe_key = data[f"{safe_slot}_key"]
+print(f"Safe slot: {safe_slot}, key: {safe_key[:8]}...")</pre>
+</div>
+
+<div class="card">
+    <h3>Option 2: Contact Platform Team</h3>
+    <p>If you've missed a rotation schedule or need a fresh set of keys, contact the platform team directly. The platform team manages the centralized hub Key Vault and can provide your current keys or trigger an ad-hoc rotation.</p>
+    <div class="alert alert-info" style="margin-top: 0.75rem;">
+        <div>
+            <strong>Hub Key Vault:</strong> All tenant rotation keys are stored centrally in the hub Key Vault (<code>{app_name}-{env}-hkv</code>). Tenants do not need their own Key Vault for rotation. Secret names follow the pattern: <code>{tenant}-apim-primary-key</code>, <code>{tenant}-apim-secondary-key</code>.
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3>Option 3: Automatic Key Refresh (Production Pattern)</h3>
+    <p>For production apps, implement a periodic key check. This pattern uses the APIM endpoint so no Azure SDK is needed.</p>
+
+    <pre>#!/bin/bash
+# rotate-my-key.sh - Run via cron: 0 3 * * * /path/to/rotate-my-key.sh
+set -euo pipefail
+
+APIM_GATEWAY="https://your-apim-gateway.azure-api.net"
+TENANT="your-tenant-name"
+CONFIG_FILE="/etc/myapp/apim-key"
+
+# Read the current key your app is using
+CURRENT_KEY=$(cat "${CONFIG_FILE}" 2>/dev/null || echo "")
+
+if [[ -z "${CURRENT_KEY}" ]]; then
+    echo "ERROR: No current key found in ${CONFIG_FILE}"
+    exit 1
+fi
+
+# Fetch both keys via APIM (authenticates with current key)
+RESPONSE=$(curl -s -H "api-key: ${CURRENT_KEY}" \
+    "${APIM_GATEWAY}/${TENANT}/internal/apim-keys")
+
+SAFE_SLOT=$(echo "${RESPONSE}" | jq -r '.rotation.safe_slot')
+if [[ "${SAFE_SLOT}" == "primary" ]]; then
+    LATEST_KEY=$(echo "${RESPONSE}" | jq -r '.primary_key')
+else
+    LATEST_KEY=$(echo "${RESPONSE}" | jq -r '.secondary_key')
+fi
+
+if [[ "${CURRENT_KEY}" != "${LATEST_KEY}" ]]; then
+    echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') Key changed - updating config"
+    echo "${LATEST_KEY}" > "${CONFIG_FILE}"
+    # Optionally: systemctl reload myapp
+else
+    echo "$(date -u +'%Y-%m-%dT%H:%M:%SZ') Key unchanged"
+fi</pre>
+</div>
+
+<h2>Key Vault Secrets Reference</h2>
+
+<div class="card">
+    <p>All secrets are stored in the centralized hub Key Vault (<code>{app_name}-{env}-hkv</code>) with tenant-prefixed names:</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Secret Name Pattern</th>
+                <th>Description</th>
+                <th>Managed By</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>{tenant}-apim-primary-key</code></td>
+                <td>Current value of the APIM primary key slot for this tenant.</td>
+                <td>Terraform (seed) + Rotation script</td>
+            </tr>
+            <tr>
+                <td><code>{tenant}-apim-secondary-key</code></td>
+                <td>Current value of the APIM secondary key slot for this tenant.</td>
+                <td>Terraform (seed) + Rotation script</td>
+            </tr>
+            <tr>
+                <td><code>{tenant}-apim-rotation-metadata</code></td>
+                <td>JSON metadata: last rotated slot, safe slot, rotation timestamp, rotation number.</td>
+                <td>Rotation script</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<h2>Rotation Schedule</h2>
+
+<div class="card">
+    <table>
+        <thead>
+            <tr>
+                <th>Environment</th>
+                <th>Interval</th>
+                <th>Schedule</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Dev</td>
+                <td>7 days</td>
+                <td>Every Monday 02:00 UTC</td>
+                <td>Enabled</td>
+            </tr>
+            <tr>
+                <td>Test</td>
+                <td>7 days</td>
+                <td>Every Monday 02:00 UTC</td>
+                <td>Enabled</td>
+            </tr>
+            <tr>
+                <td>Prod</td>
+                <td>30 days</td>
+                <td>Every Monday 02:00 UTC (only rotates when interval elapsed)</td>
+                <td>Disabled (pending validation)</td>
+            </tr>
+        </tbody>
+    </table>
+    <p>The GitHub Actions workflow runs weekly, but the bash script checks whether the rotation interval has actually elapsed before regenerating keys. A 30-day interval means the script will skip most weekly runs.</p>
+    <div class="alert alert-warning" style="margin-top: 0.75rem;">
+        <div>
+            <strong>Repository Maintenance Required:</strong> GitHub automatically disables scheduled workflows after 60 days of repo inactivity. This repo must have regular commits or activity to keep the rotation workflow running. If the workflow gets disabled, re-enable it from the Actions tab or trigger manually via <code>workflow_dispatch</code>.
+        </div>
+    </div>
+    <div class="alert alert-info" style="margin-top: 0.75rem;">
+        <div>
+            <strong>Missed Rotation?</strong> If a rotation was missed due to workflow inactivity, tenants can contact the platform team for a new set of keys or to trigger an ad-hoc rotation.
+        </div>
+    </div>
+</div>
+
+<h2>APIM Internal Endpoint</h2>
+
+<div class="card">
+    <h3><code>GET /{tenant-name}/internal/apim-keys</code></h3>
+    <p>When key rotation is enabled, each tenant API exposes an internal endpoint for fetching both subscription keys.</p>
+
+    <h4>Authentication</h4>
+    <p>Requires a valid APIM subscription key (either primary or secondary) in the <code>api-key</code> header. APIM validates the key before serving the response.</p>
+
+    <h4>How It Works</h4>
+    <ol>
+        <li>APIM validates the incoming subscription key (standard APIM behavior)</li>
+        <li>APIM policy uses its managed identity to read secrets from the centralized hub Key Vault</li>
+        <li>Returns JSON with primary key, secondary key, rotation metadata, and Key Vault info</li>
+    </ol>
+
+    <h4>Response Example</h4>
+    <pre>{
+  "tenant": "your-tenant-name",
+  "primary_key": "abc123def456...",
+  "secondary_key": "ghi789jkl012...",
+  "rotation": {
+    "last_rotated_slot": "primary",
+    "last_rotation_at": "2026-02-11T02:00:00Z",
+    "next_rotation_at": "2026-02-18T02:00:00Z",
+    "rotation_number": 5,
+    "safe_slot": "secondary"
+  },
+  "keyvault": {
+    "uri": "https://hub-kv.vault.azure.net/",
+    "primary_key_secret": "your-tenant-name-apim-primary-key",
+    "secondary_key_secret": "your-tenant-name-apim-secondary-key"
+  }
+}</pre>
+
+    <h4>Infrastructure</h4>
+    <p>The endpoint is implemented purely in APIM policy (no backend service). APIM's system-assigned managed identity is granted <code>Key Vault Secrets User</code> on the centralized hub Key Vault via a single Terraform RBAC assignment (scales to 1000+ tenants).</p>
+</div>
+
+<h2>Troubleshooting</h2>
+
+<div class="card">
+    <h3>My API calls return 401 after rotation</h3>
+    <p>Your app is using the key that was just rotated. The other key is still valid. Fix:</p>
+    <ol>
+        <li>Fetch both keys: <code>curl -H "api-key: YOUR_OTHER_KEY" https://apim/{tenant}/internal/apim-keys</code></li>
+        <li>Use the <code>safe_slot</code> key from the response</li>
+        <li>Both keys are also in the hub Key Vault: <code>{tenant}-apim-primary-key</code> and <code>{tenant}-apim-secondary-key</code></li>
+    </ol>
+
+    <h3>How do I check rotation metadata?</h3>
+    <pre>az keyvault secret show \
+    --vault-name HUB_KV_NAME \
+    --name "YOUR_TENANT-apim-rotation-metadata" \
+    --query "value" -o tsv | jq .</pre>
+    <p>Output:</p>
+    <pre>{
+  "last_rotated_slot": "primary",
+  "last_rotation_at": "2026-02-11T02:00:00Z",
+  "next_rotation_at": "2026-02-18T02:00:00Z",
+  "rotation_number": 5,
+  "safe_slot": "secondary"
+}</pre>
+
+    <h3>The /internal/apim-keys endpoint returns empty keys</h3>
+    <p>APIM's managed identity may not have access to the hub Key Vault. Verify the RBAC assignment:</p>
+    <pre>terraform output apim_key_rotation_summary</pre>
+    <p>Ensure the <code>azurerm_role_assignment.apim_keyvault_secrets_user</code> resource exists on the hub Key Vault. Check that the hub Key Vault (<code>{app_name}-{env}-hkv</code>) is deployed and accessible.</p>
+
+    <h3>GitHub Actions rotation stopped running</h3>
+    <p>GitHub disables scheduled workflows after 60 days of repo inactivity. This repo requires regular maintenance (commits, activity) to keep scheduled workflows active.</p>
+    <ol>
+        <li>Go to Actions tab &rarr; Find "APIM Key Rotation" workflow</li>
+        <li>Click "Enable workflow"</li>
+        <li>Or trigger manually via <code>workflow_dispatch</code></li>
+        <li><strong>Contact the platform team</strong> if rotation was missed &mdash; they can issue new keys or trigger an ad-hoc rotation</li>
+    </ol>
+
+    <h3>I want to temporarily disable rotation for my environment</h3>
+    <p>Set <code>rotation_enabled = false</code> in <code>params/{env}/shared.tfvars</code> and deploy. The rotation workflow will skip all tenants.</p>
+
+    <h3>My tenant is not eligible for rotation</h3>
+    <p>Check:</p>
+    <pre>terraform output apim_key_rotation_summary</pre>
+    <p>Common reasons:</p>
+    <ul>
+        <li><code>apim_auth.mode != "subscription_key"</code> &mdash; rotation only applies to subscription key auth</li>
+        <li>Rotation is globally disabled (<code>rotation_enabled = false</code> in <code>shared.tfvars</code>)</li>
+    </ul>
+</div>
+
+<h2>Architecture</h2>
+
+<div class="card">
+    <h3>Component Overview</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Component</th>
+                <th>Purpose</th>
+                <th>Location</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>Rotation Script</td>
+                <td>Self-contained bash script: discovers APIM + hub KV, rotates keys, stores in hub KV</td>
+                <td><code>infra-ai-hub/scripts/rotate-apim-keys.sh</code></td>
+            </tr>
+            <tr>
+                <td>GitHub Actions Workflow</td>
+                <td>Thin wrapper: checkout, OIDC login, calls script with <code>--environment</code></td>
+                <td><code>.github/workflows/apim-key-rotation.yml</code></td>
+            </tr>
+            <tr>
+                <td>Hub Key Vault</td>
+                <td>Centralized KV storing ALL tenant rotation keys (scales to 1000+ tenants)</td>
+                <td><code>infra-ai-hub/main.tf</code> (<code>module.hub_key_vault</code>)</td>
+            </tr>
+            <tr>
+                <td>APIM Policy Endpoint</td>
+                <td>Internal <code>/apim-keys</code> route reads from hub KV</td>
+                <td><code>infra-ai-hub/params/apim/api_policy.xml.tftpl</code></td>
+            </tr>
+            <tr>
+                <td>Terraform Config</td>
+                <td>Seeds initial KV secrets, rotation metadata, single RBAC for APIM MI &rarr; hub KV</td>
+                <td><code>infra-ai-hub/main.tf</code> (key rotation section)</td>
+            </tr>
+            <tr>
+                <td>Shared Config</td>
+                <td>Rotation enabled flag + interval days</td>
+                <td><code>infra-ai-hub/params/{env}/shared.tfvars</code></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h3>Security Considerations</h3>
+    <ul>
+        <li><strong>OIDC Authentication</strong>: The rotation workflow uses the same OIDC identity as Terraform deployments. No stored secrets.</li>
+        <li><strong>Centralized Hub Key Vault</strong>: All rotation keys are stored in a single hub KV. APIM reads keys via its system-assigned MI with one RBAC assignment. Scales to 1000+ tenants.</li>
+        <li><strong>No Per-Tenant KV Required</strong>: Tenants do not need their own Key Vault for rotation. The hub KV handles all tenants centrally.</li>
+        <li><strong>Audit Trail</strong>: Every key change is versioned in Key Vault with rotation metadata tags.</li>
+        <li><strong>No Key in Logs</strong>: The rotation script never prints key values. Only metadata appears in logs.</li>
+        <li><strong>Terraform Lifecycle</strong>: Key Vault secrets use <code>ignore_changes = [value, tags]</code> so Terraform won't overwrite rotated keys.</li>
+        <li><strong>Internal Endpoint Security</strong>: The <code>/internal/apim-keys</code> endpoint requires a valid subscription key. Only authenticated tenants can read their own keys.</li>
+    </ul>
+</div>

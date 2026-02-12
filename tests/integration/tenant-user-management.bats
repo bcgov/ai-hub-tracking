@@ -17,7 +17,8 @@ load 'test-helper'
 # Returns: newline-separated list of admin UPNs
 get_tenant_seed_admins() {
     local tenant="${1}"
-    local tfvars_file="${SCRIPT_DIR}/../../infra-ai-hub/params/test/tenants/${tenant}/tenant.tfvars"
+    local env="${TEST_ENV:-test}"
+    local tfvars_file="${SCRIPT_DIR}/../../infra-ai-hub/params/${env}/tenants/${tenant}/tenant.tfvars"
 
     if [[ ! -f "${tfvars_file}" ]]; then
         echo "Warning: tenant.tfvars not found for ${tenant}" >&2
@@ -35,7 +36,8 @@ get_tenant_seed_admins() {
 # Check if create_groups is set to true in a tenant.tfvars file
 is_group_mode() {
     local tenant="${1}"
-    local tfvars_file="${SCRIPT_DIR}/../../infra-ai-hub/params/test/tenants/${tenant}/tenant.tfvars"
+    local env="${TEST_ENV:-test}"
+    local tfvars_file="${SCRIPT_DIR}/../../infra-ai-hub/params/${env}/tenants/${tenant}/tenant.tfvars"
     grep -q 'create_groups\s*=\s*true' "${tfvars_file}" 2>/dev/null
 }
 

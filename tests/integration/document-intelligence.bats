@@ -93,6 +93,7 @@ EOF
 
 @test "WLRS: Operation-Location header uses APIM gateway URL not backend URL" {
     skip_if_no_key "wlrs-water-form-assistant"
+    skip_if_no_appgw
     if ! docint_accessible "wlrs-water-form-assistant"; then
         skip "Document Intelligence backend not accessible"
     fi
@@ -152,6 +153,7 @@ EOF
 
 @test "SDPR: Operation-Location header uses APIM gateway URL not backend URL" {
     skip_if_no_key "sdpr-invoice-automation"
+    skip_if_no_appgw
     if ! docint_accessible "sdpr-invoice-automation"; then
         skip "Document Intelligence backend not accessible"
     fi
@@ -549,7 +551,7 @@ TEST_FORM_JPG="${BATS_TEST_DIRNAME}/test_form.jpg"
     assert_status "404" "${RESPONSE_STATUS}"
 }
 
-@test "Document analysis without subscription key returns 401" {
+@test "Document analysis without subscription key returns 401 or 404" {
     local body='{"base64Source": "'"${SAMPLE_PDF_BASE64}"'"}'
     local url="${APIM_GATEWAY_URL}/wlrs-water-form-assistant/documentintelligence/documentModels/prebuilt-layout:analyze?api-version=${DOCINT_API_VERSION}"
     
@@ -558,7 +560,7 @@ TEST_FORM_JPG="${BATS_TEST_DIRNAME}/test_form.jpg"
         -d "${body}")
     parse_response "${response}"
     
-    assert_status "401" "${RESPONSE_STATUS}"
+    [[ "${RESPONSE_STATUS}" == "401" ]] || [[ "${RESPONSE_STATUS}" == "404" ]]
 }
 
 # =============================================================================

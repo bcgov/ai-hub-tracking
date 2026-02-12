@@ -8,9 +8,59 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="${SCRIPT_DIR}/../../infra-ai-hub"
 
+# Test environment (dev/test/prod)
+: "${TEST_ENV:=test}"
+export TEST_ENV
+
+# Parse app_gateway block from shared.tfvars and export App GW config values
+load_shared_tfvars_config() {
+    local env="${1:-${TEST_ENV}}"
+    local shared_tfvars="${INFRA_DIR}/params/${env}/shared.tfvars"
+
+    APPGW_CONFIG_ENABLED="false"
+    APPGW_HOSTNAME=""
+
+    if [[ ! -f "${shared_tfvars}" ]]; then
+        echo "Warning: shared.tfvars not found at ${shared_tfvars}; assuming app_gateway disabled" >&2
+        export APPGW_CONFIG_ENABLED APPGW_HOSTNAME
+        return 0
+    fi
+
+    local appgw_block
+    appgw_block=$(awk '
+        /^[[:space:]]*app_gateway[[:space:]]*=[[:space:]]*\{/ {
+            in_block=1
+            depth=1
+            next
+        }
+        in_block {
+            open_count=gsub(/\{/, "&")
+            close_count=gsub(/\}/, "&")
+            depth += open_count - close_count
+            if (depth <= 0) {
+                in_block=0
+                exit
+            }
+            print
+        }
+    ' "${shared_tfvars}")
+
+    if echo "${appgw_block}" | grep -qP '^\s*enabled\s*=\s*true\b'; then
+        APPGW_CONFIG_ENABLED="true"
+    fi
+
+    local frontend_hostname
+    frontend_hostname=$(echo "${appgw_block}" | grep -oP '^\s*frontend_hostname\s*=\s*"\K[^"]+' | head -1 || true)
+    if [[ -n "${frontend_hostname}" ]]; then
+        APPGW_HOSTNAME="${frontend_hostname}"
+    fi
+
+    export APPGW_CONFIG_ENABLED APPGW_HOSTNAME
+}
+
 # Function to load config from terraform output
 load_terraform_config() {
-    local env="${1:-test}"
+    local env="${1:-${TEST_ENV}}"
     
     echo "Loading terraform configuration for environment: ${env}" >&2
     
@@ -19,6 +69,9 @@ load_terraform_config() {
         echo "Error: Cannot find infra-ai-hub directory at ${INFRA_DIR}" >&2
         return 1
     fi
+
+    # Load environment-specific app gateway config from shared.tfvars
+    load_shared_tfvars_config "${env}"
     
     # Get terraform output
     local tf_output
@@ -39,15 +92,32 @@ load_terraform_config() {
     fi
     export APIM_GATEWAY_URL
 
-    # Prefer App GW URL for API calls (routes through WAF + custom domain)
+    # Determine whether App Gateway is actually deployed in this environment
+    APPGW_DEPLOYED="false"
     if [[ -n "${APPGW_URL}" ]]; then
+        APPGW_DEPLOYED="true"
+    fi
+    export APPGW_DEPLOYED
+
+    # Prefer App GW URL when deployed; otherwise use direct APIM
+    if [[ "${APPGW_DEPLOYED}" == "true" ]]; then
         APIM_GATEWAY_URL="${APPGW_URL}"
         export APIM_GATEWAY_URL
+    else
+        echo "Info: App Gateway not deployed for ${env}; using direct APIM URL for tests" >&2
+        if [[ -z "${APPGW_HOSTNAME}" ]] && [[ -n "${APIM_GATEWAY_URL}" ]]; then
+            APPGW_HOSTNAME=$(echo "${APIM_GATEWAY_URL}" | sed -E 's#^https?://([^/]+)/?.*$#\1#')
+            export APPGW_HOSTNAME
+        fi
     fi
     
     # Extract APIM name
     APIM_NAME=$(echo "${tf_output}" | jq -r '.apim_name.value // empty')
     export APIM_NAME
+
+    # Extract hub key vault name (used by fallback key refresh after rotations)
+    HUB_KEYVAULT_NAME=$(echo "${tf_output}" | jq -r '.apim_key_rotation_summary.value.hub_keyvault_name // empty')
+    export HUB_KEYVAULT_NAME
     
     # Extract subscription keys (sensitive values)
     local subscriptions
@@ -56,15 +126,62 @@ load_terraform_config() {
     if [[ -n "${subscriptions}" ]]; then
         WLRS_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["wlrs-water-form-assistant"].primary_key // empty')
         SDPR_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["sdpr-invoice-automation"].primary_key // empty')
-        export WLRS_SUBSCRIPTION_KEY SDPR_SUBSCRIPTION_KEY
+        TEST_TENANT_1_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '."test-tenant-1".primary_key // empty')
+        TEST_TENANT_2_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '."test-tenant-2".primary_key // empty')
+        export WLRS_SUBSCRIPTION_KEY SDPR_SUBSCRIPTION_KEY TEST_TENANT_1_SUBSCRIPTION_KEY TEST_TENANT_2_SUBSCRIPTION_KEY
     fi
     
     echo "Configuration loaded successfully:" >&2
+    echo "  Test Env: ${env}" >&2
     echo "  API Base URL: ${APIM_GATEWAY_URL}" >&2
+    echo "  App GW Config Enabled: ${APPGW_CONFIG_ENABLED}" >&2
+    echo "  App GW Deployed: ${APPGW_DEPLOYED}" >&2
     echo "  App GW URL: ${APPGW_URL:-not set}" >&2
+    echo "  App GW Hostname: ${APPGW_HOSTNAME:-not set}" >&2
     echo "  APIM Name: ${APIM_NAME}" >&2
+    echo "  Hub KV Name: ${HUB_KEYVAULT_NAME:-not set}" >&2
     echo "  WLRS Key: ${WLRS_SUBSCRIPTION_KEY:+********}" >&2
     echo "  SDPR Key: ${SDPR_SUBSCRIPTION_KEY:+********}" >&2
+    echo "  Test-Tenant-1 Key: ${TEST_TENANT_1_SUBSCRIPTION_KEY:+********}" >&2
+    echo "  Test-Tenant-2 Key: ${TEST_TENANT_2_SUBSCRIPTION_KEY:+********}" >&2
+}
+
+# Map tenant name to its subscription key env var
+get_subscription_key_var_name() {
+    local tenant="${1}"
+
+    case "${tenant}" in
+        wlrs-water-form-assistant)
+            echo "WLRS_SUBSCRIPTION_KEY"
+            ;;
+        sdpr-invoice-automation)
+            echo "SDPR_SUBSCRIPTION_KEY"
+            ;;
+        test-tenant-1)
+            echo "TEST_TENANT_1_SUBSCRIPTION_KEY"
+            ;;
+        test-tenant-2)
+            echo "TEST_TENANT_2_SUBSCRIPTION_KEY"
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+# Update tenant key env var at runtime (used for vault fallback)
+set_subscription_key() {
+    local tenant="${1}"
+    local key_value="${2}"
+
+    local var_name
+    var_name=$(get_subscription_key_var_name "${tenant}") || {
+        echo "Unknown tenant: ${tenant}" >&2
+        return 1
+    }
+
+    printf -v "${var_name}" '%s' "${key_value}"
+    export "${var_name}"
 }
 
 # Function to get subscription key for a tenant
@@ -78,6 +195,12 @@ get_subscription_key() {
         sdpr-invoice-automation)
             echo "${SDPR_SUBSCRIPTION_KEY:-}"
             ;;
+        test-tenant-1)
+            echo "${TEST_TENANT_1_SUBSCRIPTION_KEY:-}"
+            ;;
+        test-tenant-2)
+            echo "${TEST_TENANT_2_SUBSCRIPTION_KEY:-}"
+            ;;
         *)
             echo "Unknown tenant: ${tenant}" >&2
             return 1
@@ -85,9 +208,15 @@ get_subscription_key() {
     esac
 }
 
-# Function to check if config is loaded
+# Function to check if config is loaded (at least one tenant key available)
 config_loaded() {
-    [[ -n "${APIM_GATEWAY_URL:-}" ]] && [[ -n "${WLRS_SUBSCRIPTION_KEY:-}" ]] && [[ -n "${SDPR_SUBSCRIPTION_KEY:-}" ]]
+    [[ -n "${APIM_GATEWAY_URL:-}" ]] && \
+    ( [[ -n "${WLRS_SUBSCRIPTION_KEY:-}" ]] || [[ -n "${TEST_TENANT_1_SUBSCRIPTION_KEY:-}" ]] )
+}
+
+# True when App Gateway is actually deployed for the current test env
+is_appgw_deployed() {
+    [[ "${APPGW_DEPLOYED:-false}" == "true" ]]
 }
 
 # Function to validate prerequisites
@@ -106,17 +235,33 @@ check_prerequisites() {
 }
 
 # Export functions
-export -f get_subscription_key config_loaded check_prerequisites
+export -f load_shared_tfvars_config get_subscription_key_var_name set_subscription_key get_subscription_key config_loaded is_appgw_deployed check_prerequisites
 
 # Default values if terraform output is not available (for testing)
 # Prefer App GW custom domain (end-to-end through WAF) over direct APIM
 : "${APIM_GATEWAY_URL:=https://test.aihub.gov.bc.ca}"
 export APIM_GATEWAY_URL
 
+# Whether App Gateway is available for the current env (runtime, from terraform output)
+: "${APPGW_DEPLOYED:=false}"
+export APPGW_DEPLOYED
+
+# Whether App Gateway is enabled in shared.tfvars (config intent)
+: "${APPGW_CONFIG_ENABLED:=false}"
+export APPGW_CONFIG_ENABLED
+
 # App Gateway hostname (for Operation-Location header validation)
 # This is the external-facing hostname that clients use
 : "${APPGW_HOSTNAME:=test.aihub.gov.bc.ca}"
 export APPGW_HOSTNAME
+
+# Hub Key Vault name used by Azure CLI fallback (if available)
+: "${HUB_KEYVAULT_NAME:=}"
+export HUB_KEYVAULT_NAME
+
+# Enable runtime fallback to refresh keys from Key Vault when APIM returns 401
+: "${ENABLE_VAULT_KEY_FALLBACK:=true}"
+export ENABLE_VAULT_KEY_FALLBACK
 
 # API versions
 export OPENAI_API_VERSION="2024-10-21"
@@ -139,7 +284,8 @@ export DEFAULT_MODEL="gpt-4.1-mini"
 # Returns: space-separated list of model deployment names
 get_tenant_models() {
     local tenant="${1}"
-    local tfvars_file="${SCRIPT_DIR}/../../infra-ai-hub/params/test/tenants/${tenant}/tenant.tfvars"
+    local env="${TEST_ENV:-test}"
+    local tfvars_file="${SCRIPT_DIR}/../../infra-ai-hub/params/${env}/tenants/${tenant}/tenant.tfvars"
     
     if [[ ! -f "${tfvars_file}" ]]; then
         echo "Warning: tenant.tfvars not found for ${tenant}, using DEFAULT_MODEL" >&2

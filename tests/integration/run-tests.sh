@@ -7,6 +7,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="${SCRIPT_DIR}/../../infra-ai-hub"
 
+# Test environment (dev/test/prod)
+: "${TEST_ENV:=test}"
+export TEST_ENV
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -58,13 +62,16 @@ check_prerequisites() {
 # Load configuration from environment variables or terraform
 load_config() {
     log_info "Loading configuration..."
+    log_info "Test environment: ${TEST_ENV}"
     
     # Check if config is already provided via environment
-    if [[ -n "${APIM_GATEWAY_URL:-}" ]] && [[ -n "${WLRS_SUBSCRIPTION_KEY:-}" ]] && [[ -n "${SDPR_SUBSCRIPTION_KEY:-}" ]]; then
+    if [[ -n "${APIM_GATEWAY_URL:-}" ]] && ( [[ -n "${WLRS_SUBSCRIPTION_KEY:-}" ]] || [[ -n "${TEST_TENANT_1_SUBSCRIPTION_KEY:-}" ]] ); then
         log_success "Configuration loaded from environment variables"
         log_success "APIM Gateway URL: ${APIM_GATEWAY_URL}"
         log_success "WLRS subscription key loaded"
-        log_success "SDPR subscription key loaded"
+        [[ -n "${SDPR_SUBSCRIPTION_KEY:-}" ]] && log_success "SDPR subscription key loaded"
+        [[ -n "${TEST_TENANT_1_SUBSCRIPTION_KEY:-}" ]] && log_success "test-tenant-1 subscription key loaded"
+        [[ -n "${TEST_TENANT_2_SUBSCRIPTION_KEY:-}" ]] && log_success "test-tenant-2 subscription key loaded"
         return 0
     fi
     
@@ -92,6 +99,7 @@ load_config() {
     appgw_url=$(echo "${tf_output}" | jq -r '.appgw_url.value // empty')
     export APIM_GATEWAY_URL=$(echo "${tf_output}" | jq -r '.apim_gateway_url.value // empty')
     export APIM_NAME=$(echo "${tf_output}" | jq -r '.apim_name.value // empty')
+    export HUB_KEYVAULT_NAME=$(echo "${tf_output}" | jq -r '.apim_key_rotation_summary.value.hub_keyvault_name // empty')
     
     if [[ -n "${appgw_url}" ]]; then
         export APIM_GATEWAY_URL="${appgw_url}"
@@ -104,6 +112,12 @@ load_config() {
         echo "${tf_output}" | jq -r 'keys[]'
         exit 1
     fi
+
+    if [[ -n "${HUB_KEYVAULT_NAME}" ]]; then
+        log_success "Hub Key Vault name loaded: ${HUB_KEYVAULT_NAME}"
+    else
+        log_warn "Hub Key Vault name not found in terraform output"
+    fi
     
     # Extract subscription keys (sensitive)
     local subscriptions
@@ -112,6 +126,8 @@ load_config() {
     if [[ -n "${subscriptions}" ]]; then
         export WLRS_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["wlrs-water-form-assistant"].primary_key // empty')
         export SDPR_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["sdpr-invoice-automation"].primary_key // empty')
+        export TEST_TENANT_1_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["test-tenant-1"].primary_key // empty')
+        export TEST_TENANT_2_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["test-tenant-2"].primary_key // empty')
         
         if [[ -n "${WLRS_SUBSCRIPTION_KEY}" ]]; then
             log_success "WLRS subscription key loaded"
@@ -123,6 +139,18 @@ load_config() {
             log_success "SDPR subscription key loaded"
         else
             log_warn "SDPR subscription key not found"
+        fi
+
+        if [[ -n "${TEST_TENANT_1_SUBSCRIPTION_KEY}" ]]; then
+            log_success "test-tenant-1 subscription key loaded"
+        else
+            log_warn "test-tenant-1 subscription key not found"
+        fi
+
+        if [[ -n "${TEST_TENANT_2_SUBSCRIPTION_KEY}" ]]; then
+            log_success "test-tenant-2 subscription key loaded"
+        else
+            log_warn "test-tenant-2 subscription key not found"
         fi
     else
         log_warn "Subscription keys not found in terraform output"
@@ -188,20 +216,17 @@ main() {
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo ""
     
-    check_prerequisites
-    load_config
-    test_connectivity
-    
-    echo ""
-    echo "Starting test execution..."
-    echo ""
-    
     # Parse arguments
     local test_files=()
     local verbose=false
     
     while [[ $# -gt 0 ]]; do
         case "$1" in
+            -e|--env)
+                TEST_ENV="$2"
+                export TEST_ENV
+                shift 2
+                ;;
             -v|--verbose)
                 verbose=true
                 shift
@@ -210,6 +235,7 @@ main() {
                 echo "Usage: $0 [options] [test-file.bats ...]"
                 echo ""
                 echo "Options:"
+                echo "  -e, --env        Environment to test (dev|test|prod). Default: TEST_ENV or test"
                 echo "  -v, --verbose    Show detailed test output"
                 echo "  -h, --help       Show this help message"
                 echo ""
@@ -225,6 +251,14 @@ main() {
                 ;;
         esac
     done
+
+    check_prerequisites
+    load_config
+    test_connectivity
+
+    echo ""
+    echo "Starting test execution..."
+    echo ""
     
     if run_tests "${test_files[@]}"; then
         echo ""

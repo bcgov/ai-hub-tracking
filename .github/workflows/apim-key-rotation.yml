@@ -1,0 +1,193 @@
+name: APIM Key Rotation
+
+on:
+  schedule:
+    # Runs weekly on Monday at 02:00 UTC
+    # The script checks rotation_interval_days internally before rotating
+    - cron: "0 2 * * 1"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Environment to rotate keys in"
+        required: true
+        default: "test"
+        type: choice
+        options:
+          - dev
+          - test
+          - prod
+      dry_run:
+        description: "Dry run (show what would happen without making changes)"
+        required: false
+        default: true
+        type: boolean
+
+# IMPORTANT: This repo must have regular commits/activity to prevent GitHub
+# from auto-disabling scheduled workflows after 60 days of inactivity.
+# If workflows get disabled, re-enable them from the Actions tab or trigger
+# manually via workflow_dispatch.
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  APP_NAME: ai-services-hub
+
+concurrency:
+  group: apim-key-rotation-${{ github.event.inputs.environment || 'all' }}
+  cancel-in-progress: false
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Rotate keys for a single environment (manual dispatch)
+  # ---------------------------------------------------------------------------
+  rotate-single:
+    if: github.event_name == 'workflow_dispatch'
+    name: Rotate Keys (${{ inputs.environment }})
+    environment: ${{ inputs.environment }}
+    runs-on: ubuntu-24.04
+    env:
+      RESOURCE_GROUP: ai-services-hub-${{ inputs.environment }}
+      APIM_NAME: ai-services-hub-${{ inputs.environment }}-apim
+      HUB_KEYVAULT_NAME: ai-services-hub-${{ inputs.environment }}-hkv
+      ROTATION_ENABLED: ${{ inputs.environment == 'prod' && 'false' || 'true' }}
+      ROTATION_INTERVAL_DAYS: ${{ inputs.environment == 'prod' && '30' || '7' }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure CLI Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run Key Rotation
+        shell: bash
+        run: |
+          chmod +x infra-ai-hub/scripts/rotate-apim-keys.sh
+          infra-ai-hub/scripts/rotate-apim-keys.sh \
+            --environment "${{ inputs.environment }}" \
+            --config-dir "infra-ai-hub" \
+            --verbose \
+            ${{ inputs.dry_run && '--dry-run' || '' }}
+
+  # ---------------------------------------------------------------------------
+  # Scheduled rotation for all environments
+  # ---------------------------------------------------------------------------
+  rotate-dev:
+    if: github.event_name == 'schedule'
+    name: Rotate Keys (dev)
+    environment: dev
+    runs-on: ubuntu-24.04
+    env:
+      RESOURCE_GROUP: ai-services-hub-dev
+      APIM_NAME: ai-services-hub-dev-apim
+      HUB_KEYVAULT_NAME: ai-services-hub-dev-hkv
+      ROTATION_ENABLED: "true"
+      ROTATION_INTERVAL_DAYS: "7"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure CLI Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run Key Rotation
+        shell: bash
+        run: |
+          chmod +x infra-ai-hub/scripts/rotate-apim-keys.sh
+          infra-ai-hub/scripts/rotate-apim-keys.sh \
+            --environment dev \
+            --config-dir "infra-ai-hub" \
+            --verbose
+
+  rotate-test:
+    if: github.event_name == 'schedule'
+    name: Rotate Keys (test)
+    environment: test
+    runs-on: ubuntu-24.04
+    env:
+      RESOURCE_GROUP: ai-services-hub-test
+      APIM_NAME: ai-services-hub-test-apim
+      HUB_KEYVAULT_NAME: ai-services-hub-test-hkv
+      ROTATION_ENABLED: "true"
+      ROTATION_INTERVAL_DAYS: "7"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure CLI Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run Key Rotation
+        shell: bash
+        run: |
+          chmod +x infra-ai-hub/scripts/rotate-apim-keys.sh
+          infra-ai-hub/scripts/rotate-apim-keys.sh \
+            --environment test \
+            --config-dir "infra-ai-hub" \
+            --verbose
+
+  rotate-prod:
+    if: github.event_name == 'schedule'
+    name: Rotate Keys (prod)
+    needs: [rotate-test]  # Prod only runs after test succeeds
+    environment: prod
+    runs-on: ubuntu-24.04
+    env:
+      RESOURCE_GROUP: ai-services-hub-prod
+      APIM_NAME: ai-services-hub-prod-apim
+      HUB_KEYVAULT_NAME: ai-services-hub-prod-hkv
+      ROTATION_ENABLED: "false"
+      ROTATION_INTERVAL_DAYS: "30"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure CLI Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run Key Rotation
+        shell: bash
+        run: |
+          chmod +x infra-ai-hub/scripts/rotate-apim-keys.sh
+          infra-ai-hub/scripts/rotate-apim-keys.sh \
+            --environment prod \
+            --config-dir "infra-ai-hub" \
+            --verbose
+
+  # ---------------------------------------------------------------------------
+  # Summary notification
+  # ---------------------------------------------------------------------------
+  notify:
+    if: always() && github.event_name == 'schedule'
+    name: Rotation Summary
+    needs: [rotate-dev, rotate-test, rotate-prod]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Report Status
+        shell: bash
+        run: |
+          echo "========================================="
+          echo "APIM Key Rotation Summary"
+          echo "========================================="
+          echo "Triggered: $(date -u +'%Y-%m-%d %H:%M:%S UTC')"
+          echo "Dev:  ${{ needs.rotate-dev.result }}"
+          echo "Test: ${{ needs.rotate-test.result }}"
+          echo "Prod: ${{ needs.rotate-prod.result }}"
+          echo "========================================="

@@ -943,6 +943,86 @@ resource "azurerm_role_assignment" "apim_language_service_user" {
   depends_on = [module.apim, azurerm_cognitive_account.language_service]
 }
 
+# =============================================================================
+# HUB KEY VAULT (Centralized - stores ALL tenant rotation keys)
+# =============================================================================
+# A single hub-level Key Vault that holds APIM subscription keys for all
+# tenants. This scales to 1000+ tenants without creating per-tenant KVs for
+# rotation. Secret naming convention: {tenant-name}-apim-primary-key, etc.
+# APIM's managed identity gets a single RBAC assignment on this vault.
+# =============================================================================
+module "hub_key_vault" {
+  source  = "Azure/avm-res-keyvault-vault/azurerm"
+  version = "0.10.2"
+  count   = local.key_rotation_config.rotation_enabled && local.apim_config.enabled ? 1 : 0
+
+  name                = "${var.app_name}-${var.app_env}-hkv"
+  location            = var.location
+  resource_group_name = azurerm_resource_group.main.name
+  tenant_id           = data.azurerm_client_config.current.tenant_id
+
+  sku_name                       = "standard"
+  purge_protection_enabled       = true
+  soft_delete_retention_days     = 90
+  public_network_access_enabled  = false
+  legacy_access_policies_enabled = false # Use RBAC instead
+
+  network_acls = {
+    default_action = "Deny"
+    bypass         = "AzureServices"
+  }
+
+  # Let Azure Policy manage DNS zone groups (Landing Zone pattern)
+  private_endpoints_manage_dns_zone_group = false
+
+  private_endpoints = {
+    primary = {
+      subnet_resource_id = module.network.private_endpoint_subnet_id
+      tags               = var.common_tags
+    }
+  }
+
+  role_assignments = {
+    # Grant the Terraform deployer (current principal) full secrets access
+    deployer_secrets_officer = {
+      role_definition_id_or_name = "Key Vault Secrets Officer"
+      principal_id               = data.azurerm_client_config.current.object_id
+    }
+  }
+
+  diagnostic_settings = {}
+
+  tags             = var.common_tags
+  enable_telemetry = false
+
+  depends_on = [azurerm_resource_group.main, module.network]
+}
+
+# Wait for hub Key Vault DNS zone to be created by Azure Policy
+resource "terraform_data" "hub_kv_dns_wait" {
+  count = local.key_rotation_config.rotation_enabled && local.apim_config.enabled ? 1 : 0
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command     = "${path.module}/scripts/wait-for-dns-zone.sh --resource-group ${azurerm_resource_group.main.name} --private-endpoint-name ${module.hub_key_vault[0].private_endpoints["primary"].name} --timeout ${var.shared_config.private_endpoint_dns_wait.timeout} --interval ${var.shared_config.private_endpoint_dns_wait.poll_interval}"
+  }
+
+  depends_on = [module.hub_key_vault]
+}
+
+# Key Vault Secrets User - for APIM to read subscription keys from hub Key Vault
+# Required by the /internal/apim-keys policy endpoint (send-request to KV REST API)
+# Single RBAC assignment on hub KV (scales to 1000+ tenants vs. per-tenant assignments)
+resource "azurerm_role_assignment" "apim_keyvault_secrets_user" {
+  count = local.key_rotation_config.rotation_enabled && local.apim_config.enabled ? 1 : 0
+
+  scope                = module.hub_key_vault[0].resource_id
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.apim[0].principal_id
+
+  depends_on = [module.apim, module.hub_key_vault]
+}
+
 # -----------------------------------------------------------------------------
 # APIM Subscriptions (for subscription_key auth mode)
 # Creates subscription keys for tenants using key-based authentication
@@ -969,34 +1049,70 @@ resource "azurerm_api_management_subscription" "tenant" {
   depends_on = [module.apim]
 }
 
-# Store subscription keys in tenant Key Vault (optional - disabled by default)
-# WARNING: Only enable if Key Vault does NOT have auto-rotation policies!
-# Auto-rotated secrets would break APIM keys since the new value
-# won't match the actual APIM subscription key.
+# Store subscription keys in hub Key Vault (centralized for all tenants).
+# When key rotation is enabled, ALL subscription_key tenants get keys stored.
+# Otherwise, respects per-tenant apim_auth.store_in_keyvault setting (stored in tenant KV).
+# Secret names are tenant-prefixed: {tenant}-apim-primary-key, {tenant}-apim-secondary-key
+# The rotation script manages these secrets after initial seed.
 resource "azurerm_key_vault_secret" "apim_subscription_primary_key" {
-  for_each = {
-    for key, config in local.tenants_with_subscription_key : key => config
-    if config.key_vault.enabled && local.apim_config.enabled && lookup(lookup(config, "apim_auth", {}), "store_in_keyvault", false)
+  for_each = local.tenants_storing_keys_in_kv
+
+  name            = "${each.key}-apim-primary-key"
+  value           = azurerm_api_management_subscription.tenant["${each.key}-subscription"].primary_key
+  key_vault_id    = module.hub_key_vault[0].resource_id
+  expiration_date = timeadd(timestamp(), "2160h") # 90 days; compliant with landing zone policy
+
+  # When key rotation is enabled, the rotation script updates this secret.
+  # Ignore value changes to avoid Terraform overwriting rotated keys.
+  lifecycle {
+    ignore_changes = [value, tags, expiration_date]
   }
 
-  name         = "apim-subscription-primary-key"
-  value        = azurerm_api_management_subscription.tenant["${each.key}-subscription"].primary_key
-  key_vault_id = module.tenant[each.key].key_vault_id
-
-  depends_on = [module.tenant, azurerm_api_management_subscription.tenant]
+  depends_on = [module.hub_key_vault, terraform_data.hub_kv_dns_wait, azurerm_api_management_subscription.tenant]
 }
 
 resource "azurerm_key_vault_secret" "apim_subscription_secondary_key" {
-  for_each = {
-    for key, config in local.tenants_with_subscription_key : key => config
-    if config.key_vault.enabled && local.apim_config.enabled && lookup(lookup(config, "apim_auth", {}), "store_in_keyvault", false)
+  for_each = local.tenants_storing_keys_in_kv
+
+  name            = "${each.key}-apim-secondary-key"
+  value           = azurerm_api_management_subscription.tenant["${each.key}-subscription"].secondary_key
+  key_vault_id    = module.hub_key_vault[0].resource_id
+  expiration_date = timeadd(timestamp(), "2160h") # 90 days
+
+  lifecycle {
+    ignore_changes = [value, tags, expiration_date]
   }
 
-  name         = "apim-subscription-secondary-key"
-  value        = azurerm_api_management_subscription.tenant["${each.key}-subscription"].secondary_key
-  key_vault_id = module.tenant[each.key].key_vault_id
+  depends_on = [module.hub_key_vault, terraform_data.hub_kv_dns_wait, azurerm_api_management_subscription.tenant]
+}
 
-  depends_on = [module.tenant, azurerm_api_management_subscription.tenant]
+# -----------------------------------------------------------------------------
+# APIM Key Rotation - Metadata (seeded by Terraform, managed by script)
+# -----------------------------------------------------------------------------
+# Rotation metadata tracks which slot was last rotated so the script
+# alternates between primary and secondary each cycle.
+resource "azurerm_key_vault_secret" "apim_rotation_metadata" {
+  for_each = {
+    for key, config in local.tenants_with_key_rotation : key => config
+  }
+
+  name            = "${each.key}-apim-rotation-metadata"
+  value           = jsonencode({
+    last_rotated_slot = "none"
+    last_rotation_at  = "never"
+    next_rotation_at  = "pending"
+    rotation_number   = 0
+    safe_slot         = "primary"
+  })
+  key_vault_id    = module.hub_key_vault[0].resource_id
+  content_type    = "application/json"
+  expiration_date = timeadd(timestamp(), "2160h") # 90 days
+
+  lifecycle {
+    ignore_changes = [value, tags, expiration_date]
+  }
+
+  depends_on = [module.hub_key_vault, terraform_data.hub_kv_dns_wait, azurerm_api_management_subscription.tenant]
 }
 
 # -----------------------------------------------------------------------------

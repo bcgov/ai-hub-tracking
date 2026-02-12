@@ -142,6 +142,16 @@ variable "shared_config" {
       subnet_name                   = optional(string, "apim-subnet")
       subnet_prefix_length          = optional(number, 27)
       private_dns_zone_ids          = optional(list(string), [])
+
+      # Subscription key rotation settings
+      # When enabled, a GitHub Actions workflow rotates APIM subscription keys
+      # on a schedule using an alternating primary/secondary pattern (zero-downtime).
+      # Keys are stored in a centralized hub Key Vault (not per-tenant KVs).
+      # Tenants read new keys via the APIM /internal/apim-keys endpoint.
+      key_rotation = optional(object({
+        rotation_enabled       = optional(bool, false) # Master flag: enables/disables rotation for all tenants
+        rotation_interval_days = optional(number, 7)   # How often keys rotate (same for all tenants)
+      }), { rotation_enabled = false, rotation_interval_days = 7 })
     })
 
     # DNS Zone settings (vanity domain + static PIP for App Gateway)
