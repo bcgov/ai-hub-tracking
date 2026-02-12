@@ -1096,8 +1096,8 @@ resource "azurerm_key_vault_secret" "apim_rotation_metadata" {
     for key, config in local.tenants_with_key_rotation : key => config
   }
 
-  name            = "${each.key}-apim-rotation-metadata"
-  value           = jsonencode({
+  name = "${each.key}-apim-rotation-metadata"
+  value = jsonencode({
     last_rotated_slot = "none"
     last_rotation_at  = "never"
     next_rotation_at  = "pending"
