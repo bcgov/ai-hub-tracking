@@ -176,7 +176,7 @@ jobs:
         uses: bats-core/bats-action@3.0.0
 
       - name: Run Integration Tests
-        if: (inputs.command == 'apply' && inputs.environment_name == 'test')
+        if: inputs.command == 'apply' && (inputs.environment_name == 'dev' || inputs.environment_name == 'test')
         shell: bash
         working-directory: ./infra-ai-hub
         env:
