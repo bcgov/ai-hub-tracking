@@ -22,13 +22,14 @@
 # Usage (GHA or local):
 #   ./rotate-apim-keys.sh --environment <env> --config-dir <path> [--dry-run] [--verbose]
 #
-# The script prefers explicit environment variables when provided, then falls
-# back to tfvars discovery:
-#   APP_NAME, RESOURCE_GROUP, APIM_NAME, HUB_KEYVAULT_NAME,
-#   ROTATION_ENABLED, ROTATION_INTERVAL_DAYS
+# Config resolution order:
+#   1. params/{env}/shared.tfvars  (rotation_enabled, rotation_interval_days)
+#   2. Naming convention            (resource group, APIM, hub KV from APP_NAME + env)
+#   3. Environment variables         (APP_NAME, RESOURCE_GROUP, APIM_NAME, HUB_KEYVAULT_NAME)
+#   4. Azure CLI discovery           (fallback when convention + env vars are absent)
 #
-# If env vars are not provided, it self-discovers APIM instance, hub Key Vault,
-# and rotation config from terraform.tfvars and params/{env}/shared.tfvars.
+# In GHA there is no terraform.tfvars; set APP_NAME as a workflow-level env var
+# and the script derives everything else from convention + shared.tfvars.
 #
 # Prerequisites:
 #   - Azure CLI authenticated (az login / OIDC)
@@ -118,14 +119,15 @@ if [[ -z "${ENVIRONMENT}" ]] || [[ -z "${CONFIG_DIR}" ]]; then
 fi
 
 # =============================================================================
-# CONFIG DISCOVERY (reads from tfvars — all logic self-contained)
+# CONFIG DISCOVERY (shared.tfvars + naming convention — no terraform.tfvars needed)
 # =============================================================================
 discover_config() {
     local tfvars="${CONFIG_DIR}/terraform.tfvars"
     local shared_tfvars="${CONFIG_DIR}/params/${ENVIRONMENT}/shared.tfvars"
 
     # -------------------------------------------------------------------------
-    # Config source precedence: ENV VARS -> tfvars discovery
+    # Config source precedence:
+    #   shared.tfvars > naming convention > env vars > Azure CLI fallback
     # -------------------------------------------------------------------------
     local app_name="${APP_NAME:-}"
 
@@ -162,8 +164,12 @@ discover_config() {
     fi
     log_debug "Rotation interval: ${ROTATION_INTERVAL_DAYS} days"
 
-    # Discover APIM instance in resource group (or use env override)
+    # Discover APIM instance: env var → naming convention → Azure CLI fallback
     APIM_NAME="${APIM_NAME:-}"
+    if [[ -z "${APIM_NAME}" ]] && [[ -n "${app_name}" ]]; then
+        APIM_NAME="${app_name}-${ENVIRONMENT}-apim"
+        log_debug "Derived APIM name from naming convention: ${APIM_NAME}"
+    fi
     if [[ -z "${APIM_NAME}" ]]; then
         APIM_NAME=$(az apim list \
             --resource-group "${RESOURCE_GROUP}" \
@@ -176,17 +182,11 @@ discover_config() {
     fi
     log_info "Discovered APIM: ${APIM_NAME}"
 
-    # Discover hub Key Vault (or use env override)
+    # Discover hub Key Vault: env var → naming convention → Azure CLI fallback
     HUB_KEYVAULT_NAME="${HUB_KEYVAULT_NAME:-}"
-    local expected_kv_name=""
-    if [[ -n "${app_name}" ]]; then
-        expected_kv_name="${app_name}-${ENVIRONMENT}-hkv"
-    fi
-
-    if [[ -z "${HUB_KEYVAULT_NAME}" ]] && [[ -n "${expected_kv_name}" ]]; then
-        HUB_KEYVAULT_NAME=$(az keyvault list \
-            --resource-group "${RESOURCE_GROUP}" \
-            --query "[?name=='${expected_kv_name}'].name" -o tsv 2>/dev/null || echo "")
+    if [[ -z "${HUB_KEYVAULT_NAME}" ]] && [[ -n "${app_name}" ]]; then
+        HUB_KEYVAULT_NAME="${app_name}-${ENVIRONMENT}-hkv"
+        log_debug "Derived hub KV name from naming convention: ${HUB_KEYVAULT_NAME}"
     fi
 
     if [[ -z "${HUB_KEYVAULT_NAME}" ]]; then
@@ -198,7 +198,6 @@ discover_config() {
 
     if [[ -z "${HUB_KEYVAULT_NAME}" ]]; then
         log_error "Hub Key Vault not found in resource group '${RESOURCE_GROUP}'"
-        log_error "Expected: ${expected_kv_name}"
         exit 1
     fi
     log_info "Discovered hub Key Vault: ${HUB_KEYVAULT_NAME}"
