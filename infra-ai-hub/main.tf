@@ -1195,50 +1195,142 @@ module "waf_policy" {
     }
   ]
 
-  # Exclude request body JSON args from OWASP rule inspection
-  # Required for JSON API payloads (OpenAI chat completions, Document Intelligence, etc.)
-  # Without exclusions, OWASP 3.2 flags JSON body content as SQL injection / XSS
-  exclusions = [
-    {
-      match_variable          = "RequestArgNames"
-      selector                = "*"
-      selector_match_operator = "EqualsAny"
-    }
-  ]
+  # Keep managed rules enabled by default; use path/header-scoped allow rules
+  # for known false positives to avoid broad global exclusions.
+  exclusions = []
 
-  # Custom rule: Allow file uploads to Document Intelligence without managed rule inspection
-  # Custom rules with "Allow" action are evaluated before managed rules — when matched,
-  # the request bypasses all OWASP/Bot managed rules. This is path-specific: only requests
-  # to documentintelligence/formrecognizer paths with file upload content types are allowed
-  # through. JSON requests (application/json with base64Source) and all other routes remain
-  # fully protected by managed rules.
+  # Custom rules with "Allow" action bypass all managed rules for matched traffic.
+  # Each service gets its own scoped rule requiring the api-key header so only
+  # APIM-authenticated requests skip OWASP/Bot inspection. Unauthenticated
+  # requests still receive full managed rule protection.
+  #
+  # Why per-service Allow rules instead of broad exclusions:
+  #   - OpenAI: user prompts trigger SQLi (942xxx), XSS (941xxx), RCE (932xxx), LFI (930xxx)
+  #   - Doc Intel JSON: base64Source triggers random OWASP signatures
+  #   - AI Search: vectorSearch.profiles.* triggers 930120 (LFI); queries trigger SQLi
+  #   - Speech: SSML XML can trigger XSS rules
   custom_rules = [
     {
+      # Document Intelligence file uploads (binary content types)
+      # No api-key gate needed: content-type filter is already specific enough
       name      = "AllowDocIntelFileUploads"
       priority  = 1
       rule_type = "MatchRule"
       action    = "Allow"
       match_conditions = [
         {
-          # Match Document Intelligence API paths (current and legacy)
           match_variable = "RequestUri"
           operator       = "Contains"
           match_values   = ["documentintelligence", "formrecognizer"]
           transforms     = ["Lowercase"]
         },
         {
-          # Match file upload content types — excludes application/json which is handled
-          # by the existing RequestArgNames exclusion for base64Source payloads
           match_variable = "RequestHeaders"
           selector       = "Content-Type"
           operator       = "Contains"
           match_values = [
-            "application/octet-stream", # Raw binary upload (most common SDK method)
-            "image/",                   # Any image type (jpeg, png, tiff, bmp, heif)
-            "application/pdf",          # PDF documents
-            "multipart/form-data"       # Multipart file uploads
+            "application/octet-stream",
+            "image/",
+            "application/pdf",
+            "multipart/form-data"
           ]
           transforms = ["Lowercase"]
+        }
+      ]
+    },
+    {
+      # Document Intelligence JSON requests (base64Source payloads)
+      # base64-encoded document bytes match random OWASP patterns
+      name      = "AllowDocIntelJsonWithApiKey"
+      priority  = 2
+      rule_type = "MatchRule"
+      action    = "Allow"
+      match_conditions = [
+        {
+          match_variable = "RequestUri"
+          operator       = "Contains"
+          match_values   = ["documentintelligence", "formrecognizer", "documentmodels"]
+          transforms     = ["Lowercase"]
+        },
+        {
+          match_variable = "RequestHeaders"
+          selector       = "Content-Type"
+          operator       = "Contains"
+          match_values   = ["application/json"]
+          transforms     = ["Lowercase"]
+        },
+        {
+          match_variable = "RequestHeaders"
+          selector       = "api-key"
+          operator       = "Regex"
+          match_values   = [".+"]
+        }
+      ]
+    },
+    {
+      # OpenAI / GPT chat completions and embeddings
+      # User prompts routinely contain SQL fragments, HTML, shell commands —
+      # all valid LLM input that triggers OWASP SQLi/XSS/RCE/LFI rules
+      name      = "AllowOpenAiWithApiKey"
+      priority  = 10
+      rule_type = "MatchRule"
+      action    = "Allow"
+      match_conditions = [
+        {
+          match_variable = "RequestUri"
+          operator       = "Contains"
+          match_values   = ["/openai/"]
+          transforms     = ["Lowercase"]
+        },
+        {
+          match_variable = "RequestHeaders"
+          selector       = "api-key"
+          operator       = "Regex"
+          match_values   = [".+"]
+        }
+      ]
+    },
+    {
+      # AI Search: index schema, queries, and vector search operations
+      # vectorSearch.profiles.* triggers 930120 (LFI); search text triggers SQLi
+      name      = "AllowAiSearchWithApiKey"
+      priority  = 11
+      rule_type = "MatchRule"
+      action    = "Allow"
+      match_conditions = [
+        {
+          match_variable = "RequestUri"
+          operator       = "Contains"
+          match_values   = ["/ai-search/"]
+          transforms     = ["Lowercase"]
+        },
+        {
+          match_variable = "RequestHeaders"
+          selector       = "api-key"
+          operator       = "Regex"
+          match_values   = [".+"]
+        }
+      ]
+    },
+    {
+      # Speech Services: TTS (SSML/XML) and STT (audio binary)
+      # SSML <speak> tags can trigger XSS rules
+      name      = "AllowSpeechWithApiKey"
+      priority  = 12
+      rule_type = "MatchRule"
+      action    = "Allow"
+      match_conditions = [
+        {
+          match_variable = "RequestUri"
+          operator       = "Contains"
+          match_values   = ["cognitiveservices", "speech/synthesis", "speech/recognition"]
+          transforms     = ["Lowercase"]
+        },
+        {
+          match_variable = "RequestHeaders"
+          selector       = "api-key"
+          operator       = "Regex"
+          match_values   = [".+"]
         }
       ]
     }

@@ -189,4 +189,5 @@ jobs:
 
           echo "=== Running Integration Tests (env-aware harness) ==="
           cd ../tests/integration
+          chmod +x ./run-tests.sh
           ./run-tests.sh --env "${TEST_ENV}"
