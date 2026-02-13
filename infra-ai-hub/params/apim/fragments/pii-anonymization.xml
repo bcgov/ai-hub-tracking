@@ -14,6 +14,11 @@
         - JSON envelope (roles, parameters, model) is never scanned
         - Falls back to raw-body single-document mode for non-JSON payloads
 
+        Performance optimizations:
+        - Single Body.As<string>() read (cached in piiResponseBodyStr)
+        - Single JObject.Parse() pass for diagnostics (cached in piiDiagnostics)
+        - Timing via piiStartTimeTicks / piiDurationMs for latency monitoring
+
         Prerequisites - Set these variables before including this fragment:
         - piiInputContent: The request body as a string (JSON with messages array)
         - piiAnonymizationEnabled: "true" or "false" based on tenant config
@@ -21,76 +26,47 @@
         Optional configuration variables:
         - piiExcludedCategories: JSON array of PII categories to exclude
         - piiDetectionLanguage: Language code for detection (default: "en")
-        - piiFailClosed: "true" to block requests when redaction fails (default: "false")
+        - piiFailClosed: "true" to block requests when redaction fails (default: "false" = fail-open)
+
+        Failure behavior:
+        - If piiFailClosed="true" and redaction fails, the request is blocked with HTTP 503
+        - If piiFailClosed="false" (default), the original unredacted content is forwarded
+        - Detailed failure diagnostics (failure_reason, MSI status) are always logged regardless of mode
 
         Required Named Value:
         - piiServiceUrl: The Language Service endpoint URL (set in APIM Named Values)
 
         Output:
         - piiAnonymizedContent: The reconstructed JSON body with redacted message content
-
-        Performance Optimizations:
-        - Response body is read from HTTP stream ONCE and cached as piiResponseBodyStr
-          (eliminates 6 redundant Body.As<string>() calls that each re-read the stream)
-        - Diagnostics (docCount, errors, entities, types) computed in a SINGLE pass
-          over the cached response body (replaces 5 separate variables, each re-parsing)
-        - PII API call latency measured via DateTime.UtcNow ticks → piiDurationMs
-
-        Debug Logging (trace severity levels):
-        - verbose/pre-call: input size, per-message char breakdown, tenant, path
-        - error/post-call-failure: response body snippet (500 chars), parsed errors,
-          status code, duration, input size — emitted only when redaction fails
-        - verbose/post-call-details: per-document entity breakdown (chars, count, types)
-        - information/summary: standard metrics for every request (always emitted)
-
-        Fail-Closed Behavior (when piiFailClosed="true"):
-        - If Language Service is unavailable, returns non-200, or NO documents can be
-          processed, the request is blocked with a 503 error.
-        - Individual document errors (e.g., one oversized message) are logged as
-          warnings but do NOT trigger fail-closed — the service is healthy, only that
-          specific document failed. Messages that failed scanning keep their original
-          content (partial redaction).
+        - piiRedactionSucceeded: "true" or "false"
+        - piiDetectionStatusCode: HTTP status code from PII API
+        - piiDurationMs: PII API call latency in milliseconds
+        - piiDiagnostics: JSON object with docCount, entityCount, entityTypes, docErrors
+        - piiContentChanged: "true" if content was modified by PII redaction
     -->
     <choose>
         <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnonymizationEnabled&quot;, &quot;false&quot;) == &quot;true&quot;)">
             <!-- Get MSI token for Cognitive Services -->
+            <!-- ignore-error=true: if MSI fails, send-request will fail too, handled by fail-closed/fail-open -->
             <authentication-managed-identity
                 resource="https://cognitiveservices.azure.com"
                 output-token-variable-name="pii-msi-access-token"
-                ignore-error="false" />
+                ignore-error="true" />
+
+            <!-- Capture MSI token status for failure diagnostics -->
+            <set-variable name="piiMsiTokenStatus" value="@{
+                try {
+                    var token = (string)context.Variables[&quot;pii-msi-access-token&quot;];
+                    return string.IsNullOrEmpty(token) ? &quot;empty&quot; : &quot;acquired&quot;;
+                } catch {
+                    return &quot;failed&quot;;
+                }
+            }" />
 
             <!-- ====== TIMING: Capture start time for PII API latency measurement ====== -->
             <set-variable name="piiStartTimeTicks" value="@(DateTime.UtcNow.Ticks.ToString())" />
 
-            <!-- ====== DEBUG: Pre-call input analysis (verbose — only visible when verbose tracing enabled) ====== -->
-            <trace source="pii-anonymization" severity="verbose">
-                <message>PII Pre-Call — Input Analysis</message>
-                <metadata name="phase" value="pre-call" />
-                <metadata name="request-id" value="@(context.RequestId.ToString())" />
-                <metadata name="tenant-id" value="@(context.Request.Headers.GetValueOrDefault(&quot;X-Tenant-Id&quot;, &quot;unknown&quot;))" />
-                <metadata name="request-path" value="@(context.Request.Url.Path)" />
-                <metadata name="request-method" value="@(context.Request.Method)" />
-                <metadata name="input-size-chars" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;).Length.ToString())" />
-                <metadata name="input-doc-details" value="@{
-                    var input = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
-                    try {
-                        var body = JObject.Parse(input);
-                        var msgs = body[&quot;messages&quot;] as JArray;
-                        if (msgs == null) { return &quot;no-messages-array (raw fallback mode)&quot;; }
-                        var details = new System.Collections.Generic.List&lt;string&gt;();
-                        for (int i = 0; i &lt; msgs.Count &amp;&amp; i &lt; 25; i++) {
-                            var c = msgs[i]?[&quot;content&quot;]?.ToString();
-                            var role = msgs[i]?[&quot;role&quot;]?.ToString() ?? &quot;?&quot;;
-                            details.Add(&quot;msg-&quot; + i + &quot;(&quot; + role + &quot;):&quot; + (c != null ? c.Length.ToString() : &quot;null&quot;) + &quot;chars&quot;);
-                        }
-                        return msgs.Count + &quot; messages: &quot; + string.Join(&quot;, &quot;, details);
-                    } catch (Exception ex) { return &quot;parse-error: &quot; + ex.Message; }
-                }" />
-                <metadata name="fail-closed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiFailClosed&quot;, &quot;false&quot;))" />
-            </trace>
-
             <!-- Call Azure Language Service PII API with per-message documents -->
-            <!-- See: https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/how-to/redact-text-pii -->
             <send-request mode="new" response-variable-name="piiAnalysisResponse" timeout="20" ignore-error="true">
                 <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
                 <set-method>POST</set-method>
@@ -98,13 +74,18 @@
                     <value>application/json</value>
                 </set-header>
                 <set-header name="Authorization" exists-action="override">
-                    <value>@("Bearer " + (string)context.Variables["pii-msi-access-token"])</value>
+                    <value>@{
+                        try {
+                            return "Bearer " + (string)context.Variables["pii-msi-access-token"];
+                        } catch {
+                            return "Bearer unavailable";
+                        }
+                    }</value>
                 </set-header>
                 <set-body>@{
                     var inputText = context.Variables.GetValueOrDefault&lt;string&gt;("piiInputContent", "");
                     var language = context.Variables.GetValueOrDefault&lt;string&gt;("piiDetectionLanguage", "en");
 
-                    // Parse excluded categories from config
                     var excludedCategoriesJson = context.Variables.GetValueOrDefault&lt;string&gt;("piiExcludedCategories", "[]");
                     JArray excludedCategories;
                     try {
@@ -113,9 +94,6 @@
                         excludedCategories = new JArray();
                     }
 
-                    // Parse messages from JSON body — each message content becomes a separate
-                    // PII document. This avoids scanning JSON structure (roles, parameters) and
-                    // respects per-document size limits (S tier: 125K chars per document).
                     var documents = new JArray();
                     try {
                         var bodyObj = JObject.Parse(inputText);
@@ -132,9 +110,8 @@
                                 }
                             }
                         }
-                    } catch { /* JSON parse failed — fall through to raw fallback */ }
+                    } catch { /* JSON parse failed - fall through to raw fallback */ }
 
-                    // Fallback: if no messages extracted, send raw body as single document
                     if (documents.Count == 0) {
                         documents.Add(new JObject {
                             {"text", inputText},
@@ -145,7 +122,6 @@
 
                     var request = new JObject();
                     request["kind"] = "PiiEntityRecognition";
-
                     var parameters = new JObject {
                         {"modelVersion", "latest"},
                         {"redactionPolicy", new JObject {
@@ -153,12 +129,9 @@
                             {"redactionCharacter", "#"}
                         }}
                     };
-
-                    // Add excluded categories if specified
                     if (excludedCategories.Count > 0) {
                         parameters["excludePiiCategories"] = excludedCategories;
                     }
-
                     request["parameters"] = parameters;
                     request["analysisInput"] = new JObject {
                         {"documents", documents}
@@ -167,32 +140,41 @@
                 }</set-body>
             </send-request>
 
+            <!-- Cache HTTP status code FIRST (before reading body) -->
+            <set-variable name="piiDetectionStatusCode" value="@{
+                try {
+                    var response = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiAnalysisResponse&quot;);
+                    return response != null ? ((int)response.StatusCode).ToString() : &quot;no-response&quot;;
+                } catch {
+                    return &quot;error&quot;;
+                }
+            }" />
+
             <!-- ====== PERFORMANCE: Cache response body string ONCE ====== -->
-            <!-- Eliminates 6 redundant Body.As<string>() stream reads below -->
+            <!-- Only reads Body.As<string> for HTTP 200 responses -->
             <set-variable name="piiResponseBodyStr" value="@{
                 try {
+                    var statusCode = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;0&quot;);
+                    if (statusCode != &quot;200&quot;) { return &quot;&quot;; }
                     var response = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiAnalysisResponse&quot;);
                     if (response == null) { return &quot;&quot;; }
                     return response.Body.As&lt;string&gt;(preserveContent: true);
                 } catch (Exception ex) {
-                    return &quot;{body-read-error: &quot; + ex.Message + &quot;}&quot;;
+                    return &quot;&quot;;
                 }
-            }" />
-
-            <!-- Cache HTTP status code -->
-            <set-variable name="piiDetectionStatusCode" value="@{
-                var response = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiAnalysisResponse&quot;);
-                return response != null ? ((int)response.StatusCode).ToString() : &quot;no-response&quot;;
             }" />
 
             <!-- ====== PERFORMANCE: Compute PII API call duration ====== -->
             <set-variable name="piiDurationMs" value="@{
-                var startTicks = long.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiStartTimeTicks&quot;, DateTime.UtcNow.Ticks.ToString()));
-                return ((DateTime.UtcNow.Ticks - startTicks) / TimeSpan.TicksPerMillisecond).ToString();
+                try {
+                    var startTicks = long.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiStartTimeTicks&quot;, DateTime.UtcNow.Ticks.ToString()));
+                    return ((DateTime.UtcNow.Ticks - startTicks) / TimeSpan.TicksPerMillisecond).ToString();
+                } catch {
+                    return &quot;-1&quot;;
+                }
             }" />
 
-            <!-- Compute piiRedactionSucceeded from CACHED response body (no Body.As<string> re-read) -->
-            <!-- Individual document errors do NOT count as service failure -->
+            <!-- Compute piiRedactionSucceeded from CACHED response body -->
             <set-variable name="piiRedactionSucceeded" value="@{
                 try {
                     var statusCode = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;0&quot;);
@@ -216,42 +198,33 @@
             <choose>
                 <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactionSucceeded&quot;, &quot;false&quot;) == &quot;false&quot;)">
                     <trace source="pii-anonymization" severity="error">
-                        <message>PII Redaction Failed — Debug Details</message>
+                        <message>PII Redaction Failed</message>
                         <metadata name="phase" value="post-call-failure" />
                         <metadata name="request-id" value="@(context.RequestId.ToString())" />
                         <metadata name="tenant-id" value="@(context.Request.Headers.GetValueOrDefault(&quot;X-Tenant-Id&quot;, &quot;unknown&quot;))" />
-                        <metadata name="request-path" value="@(context.Request.Url.Path)" />
                         <metadata name="pii-status-code" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;unknown&quot;))" />
                         <metadata name="pii-duration-ms" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDurationMs&quot;, &quot;unknown&quot;))" />
-                        <metadata name="response-body-length" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiResponseBodyStr&quot;, &quot;&quot;).Length.ToString())" />
-                        <metadata name="response-body-snippet" value="@{
-                            var body = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiResponseBodyStr&quot;, &quot;&quot;);
-                            return body.Length &gt; 500 ? body.Substring(0, 500) + &quot;...[truncated at 500 chars]&quot; : body;
-                        }" />
-                        <metadata name="error-details" value="@{
-                            var body = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiResponseBodyStr&quot;, &quot;&quot;);
-                            try {
-                                var j = JObject.Parse(body);
-                                var errors = j.SelectToken(&quot;$.results.errors&quot;);
-                                var topError = j.SelectToken(&quot;$.error&quot;);
-                                if (errors != null) { return &quot;doc-errors: &quot; + errors.ToString(Newtonsoft.Json.Formatting.None); }
-                                if (topError != null) { return &quot;api-error: &quot; + topError.ToString(Newtonsoft.Json.Formatting.None); }
-                                return &quot;no-errors-in-response (redactedText was null for all documents)&quot;;
-                            } catch { return &quot;unparseable-response&quot;; }
-                        }" />
                         <metadata name="input-size-chars" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;).Length.ToString())" />
-                        <metadata name="fail-closed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiFailClosed&quot;, &quot;false&quot;))" />
+                        <metadata name="pii-msi-token-status" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiMsiTokenStatus&quot;, &quot;unknown&quot;))" />
+                        <metadata name="pii-failure-reason" value="@{
+                            var msi = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiMsiTokenStatus&quot;, &quot;unknown&quot;);
+                            if (msi == &quot;failed&quot; || msi == &quot;empty&quot;) { return &quot;msi-token-&quot; + msi; }
+                            var status = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;unknown&quot;);
+                            if (status == &quot;no-response&quot;) { return &quot;network-or-dns-error&quot;; }
+                            if (status == &quot;error&quot;) { return &quot;response-read-error&quot;; }
+                            if (status != &quot;200&quot;) { return &quot;http-error-&quot; + status; }
+                            return &quot;parse-error&quot;;
+                        }" />
                     </trace>
                 </when>
             </choose>
 
-            <!-- Fail-closed check: if enabled and redaction completely failed, block the request -->
+            <!-- Fail-closed check: block request if piiFailClosed=true and redaction failed -->
             <choose>
                 <when condition="@(
                     context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiFailClosed&quot;, &quot;false&quot;).ToLower() == &quot;true&quot; &amp;&amp;
                     context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactionSucceeded&quot;, &quot;false&quot;) == &quot;false&quot;
                 )">
-                    <!-- Log the failure before returning error -->
                     <trace source="pii-anonymization" severity="error">
                         <message>PII Redaction Failed - Request Blocked (fail-closed mode)</message>
                         <metadata name="event-type" value="pii-anonymization-blocked" />
@@ -259,10 +232,9 @@
                         <metadata name="tenant-id" value="@(context.Request.Headers.GetValueOrDefault(&quot;X-Tenant-Id&quot;, &quot;unknown&quot;))" />
                         <metadata name="pii-status-code" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;unknown&quot;))" />
                         <metadata name="pii-duration-ms" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDurationMs&quot;, &quot;unknown&quot;))" />
-                        <metadata name="pii-fail-closed" value="true" />
+                        <metadata name="pii-fail-closed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiFailClosed&quot;, &quot;false&quot;))" />
                         <metadata name="pii-redaction-succeeded" value="false" />
                     </trace>
-                    <!-- Return 503 error - PII redaction service unavailable -->
                     <return-response>
                         <set-status code="503" reason="PII Redaction Unavailable" />
                         <set-header name="Content-Type" exists-action="override">
@@ -274,8 +246,13 @@
                         <set-body>@{
                             var piiStatus = context.Variables.GetValueOrDefault&lt;string&gt;("piiDetectionStatusCode", "unknown");
                             var duration = context.Variables.GetValueOrDefault&lt;string&gt;("piiDurationMs", "unknown");
-                            var responseSnippet = context.Variables.GetValueOrDefault&lt;string&gt;("piiResponseBodyStr", "");
-                            if (responseSnippet.Length > 200) { responseSnippet = responseSnippet.Substring(0, 200); }
+                            var msi = context.Variables.GetValueOrDefault&lt;string&gt;("piiMsiTokenStatus", "unknown");
+                            string failureReason;
+                            if (msi == "failed" || msi == "empty") { failureReason = "msi-token-" + msi; }
+                            else if (piiStatus == "no-response") { failureReason = "network-or-dns-error"; }
+                            else if (piiStatus == "error") { failureReason = "response-read-error"; }
+                            else if (piiStatus != "200") { failureReason = "http-error-" + piiStatus; }
+                            else { failureReason = "parse-error"; }
                             var errorResponse = new JObject {
                                 {"error", new JObject {
                                     {"code", "PiiRedactionUnavailable"},
@@ -283,7 +260,7 @@
                                     {"request_id", context.RequestId.ToString()},
                                     {"pii_status_code", piiStatus},
                                     {"pii_duration_ms", duration},
-                                    {"pii_response_snippet", responseSnippet}
+                                    {"failure_reason", failureReason}
                                 }}
                             };
                             return errorResponse.ToString();
@@ -292,24 +269,19 @@
                 </when>
             </choose>
 
-            <!-- Reconstruct JSON body from CACHED response body (no Body.As<string> re-read) -->
-            <!-- This only executes if we didn't return-response above (fail-closed did not trigger) -->
+            <!-- Reconstruct JSON body from CACHED response body -->
             <set-variable name="piiAnonymizedContent" value="@{
                 try {
                     var statusCode = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;0&quot;);
                     if (statusCode != &quot;200&quot;) {
                         return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
                     }
-
                     var bodyStr = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiResponseBodyStr&quot;, &quot;&quot;);
                     if (string.IsNullOrEmpty(bodyStr)) {
                         return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
                     }
-
                     var responseBody = JObject.Parse(bodyStr);
                     var resultDocs = responseBody.SelectToken(&quot;$.results.documents&quot;) as JArray;
-
-                    // Build id → redactedText map from PII results
                     var redactedMap = new System.Collections.Generic.Dictionary&lt;string, string&gt;();
                     if (resultDocs != null) {
                         foreach (var doc in resultDocs) {
@@ -320,36 +292,27 @@
                             }
                         }
                     }
-
-                    // Handle fallback mode (raw document — body wasn't parseable as messages)
                     if (redactedMap.ContainsKey(&quot;raw&quot;)) {
                         return redactedMap[&quot;raw&quot;];
                     }
-
-                    // Reconstruct JSON body: replace each message content with its redacted version
                     var inputText = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
                     var bodyObj = JObject.Parse(inputText);
                     var messages = bodyObj[&quot;messages&quot;] as JArray;
-
                     if (messages != null) {
                         for (int i = 0; i &lt; messages.Count; i++) {
                             var key = i.ToString();
                             if (redactedMap.ContainsKey(key)) {
                                 ((JObject)messages[i])[&quot;content&quot;] = redactedMap[key];
                             }
-                            // Messages that failed PII scanning keep their original content
                         }
                     }
-
                     return bodyObj.ToString(Newtonsoft.Json.Formatting.None);
                 } catch {
-                    // Fail-open: return original content on any error
                     return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
                 }
             }" />
 
             <!-- ====== PERFORMANCE: Single-pass diagnostics from CACHED response body ====== -->
-            <!-- Replaces 5 separate variables that each re-read + re-parsed the response body -->
             <set-variable name="piiDiagnostics" value="@{
                 try {
                     var statusCode = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;0&quot;);
@@ -357,34 +320,26 @@
                         return &quot;{}&quot;;
                     }
                     var bodyStr = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiResponseBodyStr&quot;, &quot;&quot;);
+                    if (string.IsNullOrEmpty(bodyStr)) { return &quot;{}&quot;; }
                     var responseBody = JObject.Parse(bodyStr);
                     var docs = responseBody.SelectToken(&quot;$.results.documents&quot;) as JArray;
                     var errors = responseBody.SelectToken(&quot;$.results.errors&quot;) as JArray;
-
                     int docCount = docs?.Count ?? 0;
                     int totalEntities = 0;
                     var categories = new System.Collections.Generic.HashSet&lt;string&gt;();
-                    var perDocDetails = new System.Collections.Generic.List&lt;string&gt;();
-
                     if (docs != null) {
                         foreach (var doc in docs) {
-                            var docId = doc[&quot;id&quot;]?.ToString() ?? &quot;?&quot;;
-                            var redacted = doc[&quot;redactedText&quot;]?.ToString();
                             var entities = doc[&quot;entities&quot;] as JArray;
                             int eCount = entities?.Count ?? 0;
                             totalEntities += eCount;
-                            var docCats = new System.Collections.Generic.List&lt;string&gt;();
                             if (entities != null) {
                                 foreach (var e in entities) {
                                     var cat = e[&quot;category&quot;]?.ToString();
-                                    if (cat != null) { categories.Add(cat); docCats.Add(cat); }
+                                    if (cat != null) { categories.Add(cat); }
                                 }
                             }
-                            perDocDetails.Add(&quot;doc-&quot; + docId + &quot;:&quot; + (redacted != null ? redacted.Length.ToString() : &quot;null&quot;) + &quot;chars,&quot; + eCount + &quot;entities[&quot; + string.Join(&quot;,&quot;, docCats) + &quot;]&quot;);
                         }
                     }
-
-                    // Document-level errors from Language Service
                     var docErrorsList = new System.Collections.Generic.List&lt;string&gt;();
                     if (errors != null &amp;&amp; errors.Count &gt; 0) {
                         foreach (var err in errors) {
@@ -393,44 +348,30 @@
                             docErrorsList.Add(&quot;doc-&quot; + id + &quot;:&quot; + msg);
                         }
                     }
-
                     var result = new JObject {
                         {&quot;docCount&quot;, docCount},
                         {&quot;docErrors&quot;, docErrorsList.Count &gt; 0 ? string.Join(&quot;; &quot;, docErrorsList) : &quot;none&quot;},
                         {&quot;entityCount&quot;, totalEntities},
-                        {&quot;entityTypes&quot;, categories.Count &gt; 0 ? string.Join(&quot;,&quot;, categories) : &quot;none&quot;},
-                        {&quot;perDocDetails&quot;, string.Join(&quot; | &quot;, perDocDetails)}
+                        {&quot;entityTypes&quot;, categories.Count &gt; 0 ? string.Join(&quot;,&quot;, categories) : &quot;none&quot;}
                     };
                     return result.ToString(Newtonsoft.Json.Formatting.None);
                 } catch (Exception ex) {
-                    return &quot;{diag-error: &quot; + ex.Message + &quot;}&quot;;
+                    return &quot;{}&quot;;
                 }
             }" />
 
             <!-- Content changed check -->
             <set-variable name="piiContentChanged" value="@{
-                var inputText = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
-                var anonymized = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnonymizedContent&quot;, &quot;&quot;);
-                return (!string.Equals(inputText, anonymized, System.StringComparison.Ordinal)).ToString();
+                try {
+                    var inputText = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
+                    var anonymized = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnonymizedContent&quot;, &quot;&quot;);
+                    return (!string.Equals(inputText, anonymized, System.StringComparison.Ordinal)).ToString();
+                } catch {
+                    return &quot;error&quot;;
+                }
             }" />
 
-            <!-- ====== DEBUG: Per-document breakdown (verbose — only visible when verbose tracing enabled) ====== -->
-            <trace source="pii-anonymization" severity="verbose">
-                <message>PII Post-Call — Per-Document Breakdown</message>
-                <metadata name="phase" value="post-call-details" />
-                <metadata name="request-id" value="@(context.RequestId.ToString())" />
-                <metadata name="tenant-id" value="@(context.Request.Headers.GetValueOrDefault(&quot;X-Tenant-Id&quot;, &quot;unknown&quot;))" />
-                <metadata name="pii-duration-ms" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDurationMs&quot;, &quot;unknown&quot;))" />
-                <metadata name="per-doc-details" value="@{
-                    try {
-                        var diag = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDiagnostics&quot;, &quot;{}&quot;));
-                        return diag[&quot;perDocDetails&quot;]?.ToString() ?? &quot;none&quot;;
-                    } catch { return &quot;parse-error&quot;; }
-                }" />
-                <metadata name="response-body-length" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiResponseBodyStr&quot;, &quot;&quot;).Length.ToString())" />
-            </trace>
-
-            <!-- Log PII detection to App Insights — summary trace for all requests -->
+            <!-- Log PII detection to App Insights -->
             <trace source="pii-anonymization" severity="information">
                 <message>PII Anonymization Applied</message>
                 <metadata name="event-type" value="pii-anonymization" />
@@ -442,21 +383,21 @@
                 <metadata name="pii-content-changed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiContentChanged&quot;, &quot;unknown&quot;))" />
                 <metadata name="pii-fail-closed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiFailClosed&quot;, &quot;false&quot;))" />
                 <metadata name="pii-entity-count" value="@{
-                    try { return JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDiagnostics&quot;, &quot;{}&quot;))[&quot;entityCount&quot;]?.ToString() ?? &quot;0&quot;; } catch { return &quot;error&quot;; }
+                    try { return JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDiagnostics&quot;, &quot;{}&quot;))[&quot;entityCount&quot;]?.ToString() ?? &quot;0&quot;; } catch { return &quot;0&quot;; }
                 }" />
                 <metadata name="pii-entity-types" value="@{
-                    try { return JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDiagnostics&quot;, &quot;{}&quot;))[&quot;entityTypes&quot;]?.ToString() ?? &quot;none&quot;; } catch { return &quot;error&quot;; }
+                    try { return JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDiagnostics&quot;, &quot;{}&quot;))[&quot;entityTypes&quot;]?.ToString() ?? &quot;none&quot;; } catch { return &quot;none&quot;; }
                 }" />
                 <metadata name="pii-document-count" value="@{
-                    try { return JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDiagnostics&quot;, &quot;{}&quot;))[&quot;docCount&quot;]?.ToString() ?? &quot;0&quot;; } catch { return &quot;error&quot;; }
+                    try { return JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDiagnostics&quot;, &quot;{}&quot;))[&quot;docCount&quot;]?.ToString() ?? &quot;0&quot;; } catch { return &quot;0&quot;; }
                 }" />
                 <metadata name="pii-document-errors" value="@{
-                    try { return JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDiagnostics&quot;, &quot;{}&quot;))[&quot;docErrors&quot;]?.ToString() ?? &quot;none&quot;; } catch { return &quot;error&quot;; }
+                    try { return JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDiagnostics&quot;, &quot;{}&quot;))[&quot;docErrors&quot;]?.ToString() ?? &quot;none&quot;; } catch { return &quot;none&quot;; }
                 }" />
             </trace>
         </when>
+        <!-- PII disabled: pass through content unchanged -->
         <otherwise>
-            <!-- PII anonymization disabled - pass through original content -->
             <set-variable name="piiAnonymizedContent"
                 value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;))" />
         </otherwise>
