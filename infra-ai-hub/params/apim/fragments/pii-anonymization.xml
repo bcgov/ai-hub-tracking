@@ -194,47 +194,12 @@
                 }
             }" />
 
-            <!-- ====== DEBUG: Detailed failure trace when redaction fails ====== -->
-            <choose>
-                <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactionSucceeded&quot;, &quot;false&quot;) == &quot;false&quot;)">
-                    <trace source="pii-anonymization" severity="error">
-                        <message>PII Redaction Failed</message>
-                        <metadata name="phase" value="post-call-failure" />
-                        <metadata name="request-id" value="@(context.RequestId.ToString())" />
-                        <metadata name="tenant-id" value="@(context.Request.Headers.GetValueOrDefault(&quot;X-Tenant-Id&quot;, &quot;unknown&quot;))" />
-                        <metadata name="pii-status-code" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;unknown&quot;))" />
-                        <metadata name="pii-duration-ms" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDurationMs&quot;, &quot;unknown&quot;))" />
-                        <metadata name="input-size-chars" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;).Length.ToString())" />
-                        <metadata name="pii-msi-token-status" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiMsiTokenStatus&quot;, &quot;unknown&quot;))" />
-                        <metadata name="pii-failure-reason" value="@{
-                            var msi = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiMsiTokenStatus&quot;, &quot;unknown&quot;);
-                            if (msi == &quot;failed&quot; || msi == &quot;empty&quot;) { return &quot;msi-token-&quot; + msi; }
-                            var status = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;unknown&quot;);
-                            if (status == &quot;no-response&quot;) { return &quot;network-or-dns-error&quot;; }
-                            if (status == &quot;error&quot;) { return &quot;response-read-error&quot;; }
-                            if (status != &quot;200&quot;) { return &quot;http-error-&quot; + status; }
-                            return &quot;parse-error&quot;;
-                        }" />
-                    </trace>
-                </when>
-            </choose>
-
             <!-- Fail-closed check: block request if piiFailClosed=true and redaction failed -->
             <choose>
                 <when condition="@(
                     context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiFailClosed&quot;, &quot;false&quot;).ToLower() == &quot;true&quot; &amp;&amp;
                     context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactionSucceeded&quot;, &quot;false&quot;) == &quot;false&quot;
                 )">
-                    <trace source="pii-anonymization" severity="error">
-                        <message>PII Redaction Failed - Request Blocked (fail-closed mode)</message>
-                        <metadata name="event-type" value="pii-anonymization-blocked" />
-                        <metadata name="request-id" value="@(context.RequestId.ToString())" />
-                        <metadata name="tenant-id" value="@(context.Request.Headers.GetValueOrDefault(&quot;X-Tenant-Id&quot;, &quot;unknown&quot;))" />
-                        <metadata name="pii-status-code" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;unknown&quot;))" />
-                        <metadata name="pii-duration-ms" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDurationMs&quot;, &quot;unknown&quot;))" />
-                        <metadata name="pii-fail-closed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiFailClosed&quot;, &quot;false&quot;))" />
-                        <metadata name="pii-redaction-succeeded" value="false" />
-                    </trace>
                     <return-response>
                         <set-status code="503" reason="PII Redaction Unavailable" />
                         <set-header name="Content-Type" exists-action="override">
