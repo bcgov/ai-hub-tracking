@@ -174,10 +174,10 @@ setup() {
     error_message=$(json_get "${RESPONSE_BODY}" '.error.message')
     assert_contains "${error_message}" "PII redaction service is unavailable"
 
-    # Verify request_id is present for correlation
-    local request_id
-    request_id=$(json_get "${RESPONSE_BODY}" '.error.request_id')
-    [[ -n "${request_id}" ]]
+    # Verify failure_reason is present for diagnostics
+    local failure_reason
+    failure_reason=$(json_get "${RESPONSE_BODY}" '.error.failure_reason')
+    [[ -n "${failure_reason}" ]]
 }
 
 @test "FAIL-OPEN: wlrs-water-form-assistant succeeds when PII service is unavailable" {
@@ -193,7 +193,7 @@ setup() {
     # Fail-open: request should succeed with original content passed through
     assert_status "200" "${RESPONSE_STATUS}"
 
-    # Note: The response may contain the unredacted email since PII service failed
+    # The response may contain the unredacted email since PII service failed
     # and fail_closed=false allows passthrough
     local content
     content=$(json_get "${RESPONSE_BODY}" '.choices[0].message.content')
