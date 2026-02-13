@@ -398,9 +398,11 @@ store_key_in_vault() {
         return 1
     }
 
-    local -a tags_array=()
+    local -a tags_args=()
     if [[ -n "${tags}" ]]; then
+        local -a tags_array=()
         read -r -a tags_array <<< "${tags}"
+        tags_args=(--tags "${tags_array[@]}")
     fi
 
     local err_output
@@ -409,7 +411,7 @@ store_key_in_vault() {
         --name "${secret_name}" \
         --value "${key_value}" \
         --content-type "text/plain" \
-        --tags "${tags_array[@]}" \
+        "${tags_args[@]}" \
         --expires "${expires_on}" \
         --output none 2>&1) || {
         log_error "Failed to store key in KV: ${secret_name}"

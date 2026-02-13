@@ -1013,7 +1013,8 @@ tf_destroy_phased() {
         "-target=azurerm_api_management_backend.docint"
         "-target=azurerm_api_management_backend.storage"
         "-target=azurerm_api_management_backend.ai_search"
-        "-target=azurerm_api_management_backend.speech_services"
+        "-target=azurerm_api_management_backend.speech_services_stt"
+        "-target=azurerm_api_management_backend.speech_services_tts"
     )
 
     run_terraform_with_retries destroy "${phase2b_args[@]}" "$@"
