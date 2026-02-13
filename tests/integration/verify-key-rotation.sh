@@ -29,6 +29,8 @@ log_warn()    { echo -e "${YELLOW}[WARN]${NC} $*"; }
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="${SCRIPT_DIR}/../../infra-ai-hub"
 
+source "${SCRIPT_DIR}/test-helper.bash"
+
 cd "${INFRA_DIR}"
 
 # --- Step 0: Load terraform config ---
@@ -52,6 +54,7 @@ if [[ -z "$APIM_GW" ]]; then
 fi
 
 HUB_KV=$(echo "$TF_OUTPUT" | jq -r '.apim_key_rotation_summary.value.hub_keyvault_name // empty')
+export HUB_KEYVAULT_NAME="${HUB_KV}"
 
 T1_KEY=$(echo "$TF_OUTPUT" | jq -r --arg t "$TENANT" '.apim_tenant_subscriptions.value[$t].primary_key // empty')
 
@@ -73,36 +76,6 @@ if [[ -z "$T1_SECONDARY_KEY" ]]; then
     exit 1
 fi
 
-refresh_tenant_key_from_vault() {
-    local tenant="$1"
-    local preferred_slot="${2:-}"
-
-    if [[ -z "${HUB_KV}" ]] || ! command -v az >/dev/null 2>&1 || ! az account show >/dev/null 2>&1; then
-        return 1
-    fi
-
-    local slot="${preferred_slot}"
-    if [[ -z "${slot}" ]]; then
-        local metadata
-        metadata=$(az keyvault secret show --vault-name "${HUB_KV}" --name "${tenant}-apim-rotation-metadata" --query value -o tsv 2>/dev/null || true)
-        if [[ -n "${metadata}" ]]; then
-            slot=$(echo "${metadata}" | jq -r '.safe_slot // empty' 2>/dev/null || true)
-        fi
-    fi
-
-    local key=""
-    if [[ "${slot}" == "secondary" ]]; then
-        key=$(az keyvault secret show --vault-name "${HUB_KV}" --name "${tenant}-apim-secondary-key" --query value -o tsv 2>/dev/null || true)
-        [[ -z "${key}" ]] && key=$(az keyvault secret show --vault-name "${HUB_KV}" --name "${tenant}-apim-primary-key" --query value -o tsv 2>/dev/null || true)
-    else
-        key=$(az keyvault secret show --vault-name "${HUB_KV}" --name "${tenant}-apim-primary-key" --query value -o tsv 2>/dev/null || true)
-        [[ -z "${key}" ]] && key=$(az keyvault secret show --vault-name "${HUB_KV}" --name "${tenant}-apim-secondary-key" --query value -o tsv 2>/dev/null || true)
-    fi
-
-    [[ -n "${key}" ]] || return 1
-    printf '%s' "${key}"
-}
-
 # --- Step 1: Capture pre-rotation keys from APIM endpoint ---
 log_info ""
 log_info "=== Step 1: Capture pre-rotation keys ==="
@@ -114,7 +87,7 @@ PRE_RESPONSE=$(curl -s -X GET "$APIM_GW/${TENANT}/internal/apim-keys" \
 PRE_ERR=$(echo "$PRE_RESPONSE" | jq -r '.error.code // empty' 2>/dev/null || true)
 if [[ "$PRE_ERR" == "401" ]]; then
     log_warn "Primary key returned 401; attempting to refresh from Key Vault"
-    NEW_PRIMARY=$(refresh_tenant_key_from_vault "${TENANT}" "primary" || true)
+    NEW_PRIMARY=$(get_tenant_key_from_vault "${TENANT}" "primary" || true)
     if [[ -n "${NEW_PRIMARY}" ]]; then
         T1_KEY="${NEW_PRIMARY}"
         PRE_RESPONSE=$(curl -s -X GET "$APIM_GW/${TENANT}/internal/apim-keys" \
@@ -176,7 +149,7 @@ fi
 
 if [[ "$HTTP_STATUS" == "401" ]]; then
     log_warn "Both old keys returned 401; attempting Key Vault safe-slot fallback"
-    NEW_SAFE_KEY=$(refresh_tenant_key_from_vault "${TENANT}" || true)
+    NEW_SAFE_KEY=$(get_tenant_key_from_vault "${TENANT}" || true)
     if [[ -n "${NEW_SAFE_KEY}" ]]; then
         POST_RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "$APIM_GW/${TENANT}/internal/apim-keys" \
             -H "api-key: $NEW_SAFE_KEY" \

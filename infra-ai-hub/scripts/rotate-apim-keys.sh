@@ -65,6 +65,90 @@ log_warn()  { echo "${LOG_PREFIX} [WARN]  $(date -u +'%Y-%m-%dT%H:%M:%SZ') $*" >
 log_error() { echo "${LOG_PREFIX} [ERROR] $(date -u +'%Y-%m-%dT%H:%M:%SZ') $*" >&2; }
 log_debug() { if [[ "${VERBOSE}" == "true" ]]; then echo "${LOG_PREFIX} [DEBUG] $(date -u +'%Y-%m-%dT%H:%M:%SZ') $*"; fi; }
 
+iso_utc_now() {
+    date -u +'%Y-%m-%dT%H:%M:%SZ'
+}
+
+iso_utc_plus_days() {
+    local days="$1"
+    local base_iso="${2:-}"
+
+    if [[ -n "${base_iso}" ]]; then
+        if out=$(date -u -d "${base_iso} + ${days} days" +'%Y-%m-%dT%H:%M:%SZ' 2>/dev/null); then
+            echo "${out}"
+            return 0
+        fi
+
+        if command -v python3 >/dev/null 2>&1; then
+            python3 - "${base_iso}" "${days}" <<'PY'
+import sys
+from datetime import datetime, timedelta, timezone
+
+base_iso = sys.argv[1]
+days = int(sys.argv[2])
+dt = datetime.fromisoformat(base_iso.replace("Z", "+00:00"))
+target = dt + timedelta(days=days)
+print(target.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"))
+PY
+            return $?
+        fi
+
+        return 1
+    fi
+
+    if out=$(date -u -d "+${days} days" +'%Y-%m-%dT%H:%M:%SZ' 2>/dev/null); then
+        echo "${out}"
+        return 0
+    fi
+
+    if out=$(date -u -v+"${days}"d +'%Y-%m-%dT%H:%M:%SZ' 2>/dev/null); then
+        echo "${out}"
+        return 0
+    fi
+
+    if command -v python3 >/dev/null 2>&1; then
+        python3 - "${days}" <<'PY'
+import sys
+from datetime import datetime, timedelta, timezone
+
+days = int(sys.argv[1])
+target = datetime.now(timezone.utc) + timedelta(days=days)
+print(target.strftime("%Y-%m-%dT%H:%M:%SZ"))
+PY
+        return $?
+    fi
+
+    return 1
+}
+
+iso_to_epoch() {
+    local iso_ts="$1"
+
+    if out=$(date -u -d "${iso_ts}" +%s 2>/dev/null); then
+        echo "${out}"
+        return 0
+    fi
+
+    if out=$(date -u -j -f "%Y-%m-%dT%H:%M:%SZ" "${iso_ts}" +%s 2>/dev/null); then
+        echo "${out}"
+        return 0
+    fi
+
+    if command -v python3 >/dev/null 2>&1; then
+        python3 - "${iso_ts}" <<'PY'
+import sys
+from datetime import datetime
+
+iso_ts = sys.argv[1]
+dt = datetime.fromisoformat(iso_ts.replace("Z", "+00:00"))
+print(int(dt.timestamp()))
+PY
+        return $?
+    fi
+
+    return 1
+}
+
 # =============================================================================
 # USAGE
 # =============================================================================
@@ -283,7 +367,10 @@ set_rotation_metadata() {
     local secret_name="${tenant_name}-apim-rotation-metadata"
     # Landing zone policy requires secrets to have a max validity period (90 days)
     local expires_on
-    expires_on=$(date -u -d "+90 days" +'%Y-%m-%dT%H:%M:%SZ')
+    expires_on=$(iso_utc_plus_days 90) || {
+        log_error "Failed to compute expiration timestamp for metadata secret"
+        return 1
+    }
 
     local err_output
     err_output=$(az keyvault secret set \
@@ -306,7 +393,15 @@ store_key_in_vault() {
     local tags="$3"  # space-separated key=value pairs
     # Landing zone policy requires secrets to have a max validity period (90 days)
     local expires_on
-    expires_on=$(date -u -d "+90 days" +'%Y-%m-%dT%H:%M:%SZ')
+    expires_on=$(iso_utc_plus_days 90) || {
+        log_error "Failed to compute expiration timestamp for secret: ${secret_name}"
+        return 1
+    }
+
+    local -a tags_array=()
+    if [[ -n "${tags}" ]]; then
+        read -r -a tags_array <<< "${tags}"
+    fi
 
     local err_output
     err_output=$(az keyvault secret set \
@@ -314,7 +409,7 @@ store_key_in_vault() {
         --name "${secret_name}" \
         --value "${key_value}" \
         --content-type "text/plain" \
-        --tags ${tags} \
+        --tags "${tags_array[@]}" \
         --expires "${expires_on}" \
         --output none 2>&1) || {
         log_error "Failed to store key in KV: ${secret_name}"
@@ -334,7 +429,7 @@ is_rotation_due() {
     fi
 
     local last_epoch
-    last_epoch=$(date -d "${last_rotation_at}" +%s 2>/dev/null || echo "0")
+    last_epoch=$(iso_to_epoch "${last_rotation_at}" 2>/dev/null || echo "0")
     local now_epoch
     now_epoch=$(date -u +%s)
     local diff_days=$(( (now_epoch - last_epoch) / 86400 ))
@@ -376,9 +471,10 @@ rotate_tenant_key() {
     due=$(is_rotation_due "${last_rotation_at}" "${ROTATION_INTERVAL_DAYS}")
     if [[ "${due}" == "false" ]] && [[ "${FORCE}" != "true" ]]; then
         local next_rotation_at
-        next_rotation_at=$(date -u -d "${last_rotation_at} + ${ROTATION_INTERVAL_DAYS} days" +'%Y-%m-%dT%H:%M:%SZ' 2>/dev/null || echo "unknown")
+        next_rotation_at=$(iso_utc_plus_days "${ROTATION_INTERVAL_DAYS}" "${last_rotation_at}" 2>/dev/null || echo "unknown")
         log_info "Rotation not yet due. Next rotation at: ${next_rotation_at}"
-        return 0
+        # Exit code 2 means intentionally skipped (interval not elapsed).
+        return 2
     fi
 
     if [[ "${FORCE}" == "true" ]] && [[ "${due}" == "false" ]]; then
@@ -433,15 +529,33 @@ rotate_tenant_key() {
     local secrets
     secrets=$(get_subscription_details "${sub_name}")
     local new_primary_key
-    new_primary_key=$(echo "${secrets}" | jq -r '.primaryKey')
+    if ! new_primary_key=$(echo "${secrets}" | jq -er '.primaryKey'); then
+        log_error "Failed to extract primaryKey from subscription details for '${sub_name}'. Aborting without updating Key Vault."
+        return 1
+    fi
+    if [[ -z "${new_primary_key}" || "${new_primary_key}" == "null" ]]; then
+        log_error "primaryKey is empty for '${sub_name}'. Aborting without updating Key Vault."
+        return 1
+    fi
+
     local new_secondary_key
-    new_secondary_key=$(echo "${secrets}" | jq -r '.secondaryKey')
+    if ! new_secondary_key=$(echo "${secrets}" | jq -er '.secondaryKey'); then
+        log_error "Failed to extract secondaryKey from subscription details for '${sub_name}'. Aborting without updating Key Vault."
+        return 1
+    fi
+    if [[ -z "${new_secondary_key}" || "${new_secondary_key}" == "null" ]]; then
+        log_error "secondaryKey is empty for '${sub_name}'. Aborting without updating Key Vault."
+        return 1
+    fi
 
     # Step 6: Store BOTH keys in hub Key Vault (tenant-prefixed)
     local now_iso
-    now_iso=$(date -u +'%Y-%m-%dT%H:%M:%SZ')
+    now_iso=$(iso_utc_now)
     local next_rotation_iso
-    next_rotation_iso=$(date -u -d "+ ${ROTATION_INTERVAL_DAYS} days" +'%Y-%m-%dT%H:%M:%SZ')
+    next_rotation_iso=$(iso_utc_plus_days "${ROTATION_INTERVAL_DAYS}") || {
+        log_error "Failed to compute next rotation timestamp"
+        return 1
+    }
     local new_rotation_number=$(( rotation_number + 1 ))
 
     log_info "Storing keys in hub Key Vault (${HUB_KEYVAULT_NAME})..."
@@ -546,8 +660,13 @@ main() {
             continue
         fi
 
-        if rotate_tenant_key "${sub_name}" "${tenant_name}"; then
+        local status=0
+        rotate_tenant_key "${sub_name}" "${tenant_name}" || status=$?
+        if [[ ${status} -eq 0 ]]; then
             rotated=$((rotated + 1))
+        elif [[ ${status} -eq 2 ]]; then
+            skipped=$((skipped + 1))
+            log_info "Skipped rotation for tenant: ${tenant_name} (not yet due)"
         else
             failed=$((failed + 1))
             log_error "Failed to rotate key for tenant: ${tenant_name}"
@@ -558,7 +677,8 @@ main() {
     log_info "ROTATION SUMMARY"
     log_info "============================================================"
     log_info "Total subscriptions: ${total}"
-    log_info "Processed:           ${rotated}"
+    log_info "Rotated:             ${rotated}"
+    log_info "Skipped:             ${skipped}"
     log_info "Failed:              ${failed}"
     log_info "============================================================"
 

@@ -9,8 +9,9 @@ source "${SCRIPT_DIR}/config.bash"
 # Strategy:
 # 1) Try rotation metadata safe_slot first
 # 2) Fallback to primary then secondary secrets
-refresh_tenant_key_from_vault() {
+get_tenant_key_from_vault() {
     local tenant="${1}"
+    local preferred_slot="${2:-}"
 
     if [[ "${ENABLE_VAULT_KEY_FALLBACK:-true}" != "true" ]]; then
         return 1
@@ -32,15 +33,17 @@ refresh_tenant_key_from_vault() {
         return 1
     fi
 
-    local safe_slot=""
+    local safe_slot="${preferred_slot}"
     local metadata_json=""
-    metadata_json=$(az keyvault secret show \
-        --vault-name "${vault_name}" \
-        --name "${tenant}-apim-rotation-metadata" \
-        --query value -o tsv 2>/dev/null || true)
+    if [[ -z "${safe_slot}" ]]; then
+        metadata_json=$(az keyvault secret show \
+            --vault-name "${vault_name}" \
+            --name "${tenant}-apim-rotation-metadata" \
+            --query value -o tsv 2>/dev/null || true)
 
-    if [[ -n "${metadata_json}" ]]; then
-        safe_slot=$(echo "${metadata_json}" | jq -r '.safe_slot // empty' 2>/dev/null || true)
+        if [[ -n "${metadata_json}" ]]; then
+            safe_slot=$(echo "${metadata_json}" | jq -r '.safe_slot // empty' 2>/dev/null || true)
+        fi
     fi
 
     local candidates=()
@@ -60,14 +63,26 @@ refresh_tenant_key_from_vault() {
             --name "${secret_name}" \
             --query value -o tsv 2>/dev/null || true)
         if [[ -n "${refreshed_key}" ]]; then
-            set_subscription_key "${tenant}" "${refreshed_key}"
-            echo "[key-fallback] Refreshed ${tenant} key from ${secret_name}" >&2
+            printf '%s' "${refreshed_key}"
             return 0
         fi
     done
 
     echo "[key-fallback] Failed to refresh key for ${tenant} from vault ${vault_name}" >&2
     return 1
+}
+
+refresh_tenant_key_from_vault() {
+    local tenant="${1}"
+    local preferred_slot="${2:-}"
+    local refreshed_key=""
+    if ! refreshed_key=$(get_tenant_key_from_vault "${tenant}" "${preferred_slot}"); then
+        return 1
+    fi
+
+    set_subscription_key "${tenant}" "${refreshed_key}"
+    echo "[key-fallback] Refreshed ${tenant} key from vault" >&2
+    return 0
 }
 
 # HTTP request wrapper with standard headers

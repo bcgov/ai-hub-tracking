@@ -32,7 +32,7 @@ permissions:
     contents: read
 
 env:
-    APP_NAME: ai-services-hub
+    APP_NAME: ${{ vars.APP_NAME || 'ai-services-hub' }}
 
 concurrency:
     group: apim-key-rotation-${{ github.event.inputs.environment || 'all' }}

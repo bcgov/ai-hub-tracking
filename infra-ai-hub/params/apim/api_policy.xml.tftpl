@@ -101,6 +101,39 @@
                         <value>@("Bearer " + (string)context.Variables["kv-token"])</value>
                     </set-header>
                 </send-request>
+                <!-- Return explicit error if any Key Vault call failed -->
+                <choose>
+                    <when condition="@(
+                        ((IResponse)context.Variables[&quot;kvPrimaryResp&quot;]) == null || ((IResponse)context.Variables[&quot;kvPrimaryResp&quot;]).StatusCode &gt;= 400 ||
+                        ((IResponse)context.Variables[&quot;kvSecondaryResp&quot;]) == null || ((IResponse)context.Variables[&quot;kvSecondaryResp&quot;]).StatusCode &gt;= 400 ||
+                        ((IResponse)context.Variables[&quot;kvMetadataResp&quot;]) == null || ((IResponse)context.Variables[&quot;kvMetadataResp&quot;]).StatusCode &gt;= 400
+                    )">
+                        <return-response>
+                            <set-status code="502" reason="Bad Gateway" />
+                            <set-header name="Content-Type" exists-action="override">
+                                <value>application/json</value>
+                            </set-header>
+                            <set-body>@{
+                                var primaryResp = ((IResponse)context.Variables["kvPrimaryResp"]);
+                                var secondaryResp = ((IResponse)context.Variables["kvSecondaryResp"]);
+                                var metadataResp = ((IResponse)context.Variables["kvMetadataResp"]);
+
+                                var result = new JObject(
+                                    new JProperty("error", new JObject(
+                                        new JProperty("code", "KeyVaultReadFailed"),
+                                        new JProperty("message", "Failed to read one or more APIM key secrets from Key Vault."),
+                                        new JProperty("details", new JObject(
+                                            new JProperty("primary_status", primaryResp == null ? 0 : primaryResp.StatusCode),
+                                            new JProperty("secondary_status", secondaryResp == null ? 0 : secondaryResp.StatusCode),
+                                            new JProperty("metadata_status", metadataResp == null ? 0 : metadataResp.StatusCode)
+                                        ))
+                                    ))
+                                );
+                                return result.ToString();
+                            }</set-body>
+                        </return-response>
+                    </when>
+                </choose>
                 <!-- Build JSON response -->
                 <return-response>
                     <set-status code="200" reason="OK" />

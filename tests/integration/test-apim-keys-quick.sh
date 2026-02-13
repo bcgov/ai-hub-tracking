@@ -2,12 +2,15 @@
 # Quick test: call /internal/apim-keys and verify response
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+source "${SCRIPT_DIR}/test-helper.bash"
+
 # Environment/tenant configuration
 TEST_ENV="${TEST_ENV:-test}"
 TENANT_1="${TENANT_1:-${APIM_KEYS_TENANT_1:-wlrs-water-form-assistant}}"
 TENANT_2="${TENANT_2:-${APIM_KEYS_TENANT_2:-sdpr-invoice-automation}}"
 
-cd "$(dirname "$0")/../../infra-ai-hub"
+cd "${SCRIPT_DIR}/../../infra-ai-hub"
 
 # Get terraform outputs
 TF_OUTPUT=$(terraform output -json 2>/dev/null)
@@ -31,6 +34,7 @@ fi
 T1_KEY=$(echo "$TF_OUTPUT" | jq -r --arg t "$TENANT_1" '.apim_tenant_subscriptions.value[$t].primary_key // empty')
 T2_KEY=$(echo "$TF_OUTPUT" | jq -r --arg t "$TENANT_2" '.apim_tenant_subscriptions.value[$t].primary_key // empty')
 HUB_KV=$(echo "$TF_OUTPUT" | jq -r '.apim_key_rotation_summary.value.hub_keyvault_name // empty')
+export HUB_KEYVAULT_NAME="${HUB_KV}"
 
 if [[ -z "$T1_KEY" ]] || [[ -z "$T2_KEY" ]]; then
     echo "Error: Missing tenant subscription keys in terraform output" >&2
@@ -38,33 +42,6 @@ if [[ -z "$T1_KEY" ]] || [[ -z "$T2_KEY" ]]; then
     echo "  TENANT_2=${TENANT_2} key present? $([[ -n "$T2_KEY" ]] && echo yes || echo no)" >&2
     exit 1
 fi
-
-refresh_tenant_key_from_vault() {
-    local tenant="$1"
-    local safe_slot=""
-    local metadata=""
-
-    if [[ -z "${HUB_KV}" ]] || ! command -v az >/dev/null 2>&1 || ! az account show >/dev/null 2>&1; then
-        return 1
-    fi
-
-    metadata=$(az keyvault secret show --vault-name "${HUB_KV}" --name "${tenant}-apim-rotation-metadata" --query value -o tsv 2>/dev/null || true)
-    if [[ -n "${metadata}" ]]; then
-        safe_slot=$(echo "${metadata}" | jq -r '.safe_slot // empty' 2>/dev/null || true)
-    fi
-
-    local key=""
-    if [[ "${safe_slot}" == "secondary" ]]; then
-        key=$(az keyvault secret show --vault-name "${HUB_KV}" --name "${tenant}-apim-secondary-key" --query value -o tsv 2>/dev/null || true)
-        [[ -z "${key}" ]] && key=$(az keyvault secret show --vault-name "${HUB_KV}" --name "${tenant}-apim-primary-key" --query value -o tsv 2>/dev/null || true)
-    else
-        key=$(az keyvault secret show --vault-name "${HUB_KV}" --name "${tenant}-apim-primary-key" --query value -o tsv 2>/dev/null || true)
-        [[ -z "${key}" ]] && key=$(az keyvault secret show --vault-name "${HUB_KV}" --name "${tenant}-apim-secondary-key" --query value -o tsv 2>/dev/null || true)
-    fi
-
-    [[ -n "${key}" ]] || return 1
-    printf '%s' "${key}"
-}
 
 echo "Environment: $TEST_ENV"
 echo "Base URL Type: $BASE_KIND"
@@ -81,7 +58,7 @@ RESP=$(curl -s -X GET "$APIM_GW/${TENANT_1}/internal/apim-keys" \
     --max-time 30 2>/dev/null)
 STATUS=$(echo "${RESP}" | jq -r '.error.code // empty' 2>/dev/null || true)
 if [[ "${STATUS}" == "401" ]]; then
-    NEW_KEY=$(refresh_tenant_key_from_vault "${TENANT_1}" || true)
+    NEW_KEY=$(get_tenant_key_from_vault "${TENANT_1}" || true)
     if [[ -n "${NEW_KEY}" ]]; then
         T1_KEY="${NEW_KEY}"
         RESP=$(curl -s -X GET "$APIM_GW/${TENANT_1}/internal/apim-keys" \
@@ -100,7 +77,7 @@ RESP=$(curl -s -X GET "$APIM_GW/${TENANT_2}/internal/apim-keys" \
     --max-time 30 2>/dev/null)
 STATUS=$(echo "${RESP}" | jq -r '.error.code // empty' 2>/dev/null || true)
 if [[ "${STATUS}" == "401" ]]; then
-    NEW_KEY=$(refresh_tenant_key_from_vault "${TENANT_2}" || true)
+    NEW_KEY=$(get_tenant_key_from_vault "${TENANT_2}" || true)
     if [[ -n "${NEW_KEY}" ]]; then
         T2_KEY="${NEW_KEY}"
         RESP=$(curl -s -X GET "$APIM_GW/${TENANT_2}/internal/apim-keys" \
