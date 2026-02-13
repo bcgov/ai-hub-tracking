@@ -224,33 +224,26 @@ TEST_CREDIT_CARD="4111-1111-1111-1111"
 }
 
 # =============================================================================
-# Fail-Closed Behavior Tests
+# Fail-Closed / Fail-Open Behavior Tests
 # =============================================================================
-# These tests verify the fail-closed behavior for PII redaction.
-# When fail_closed=true, any PII service failure should block the request.
-# When fail_closed=false (default), failures allow the request through.
+# These tests verify behavior when the PII service is healthy.
+# - fail_closed=true tenants succeed normally when PII service is up
+# - fail_closed=false tenants succeed normally when PII service is up
 #
-# NOTE: Testing actual PII service failure requires either:
-# 1. A tenant configured with fail_closed=true AND
-# 2. A way to simulate PII service failure (e.g., invalid piiServiceUrl, network issue)
-#
-# The tests below verify:
-# - The expected error response format for fail-closed mode
-# - That fail-open tenants still work (current behavior)
+# See pii-failure.bats for tests that simulate PII service failure.
 # =============================================================================
 
 @test "FAIL-OPEN: wlrs-water-form-assistant processes requests successfully" {
     skip_if_no_key "wlrs-water-form-assistant"
 
-    # wlrs-water-form-assistant has PII redaction enabled with fail_closed=false (default)
-    # This test verifies that even if there were PII service issues,
-    # the fail-open behavior would allow the request through
+    # wlrs-water-form-assistant has PII redaction enabled with fail_closed=false
+    # Verifies normal processing when PII service is healthy
     local prompt="Hello, this is a simple test message without PII."
 
     response=$(chat_completion "wlrs-water-form-assistant" "${DEFAULT_MODEL}" "${prompt}" 50)
     parse_response "${response}"
 
-    # Should succeed - fail-open allows requests through
+    # Should succeed - PII service is healthy
     assert_status "200" "${RESPONSE_STATUS}"
 
     local content
@@ -264,13 +257,13 @@ TEST_CREDIT_CARD="4111-1111-1111-1111"
     skip_if_no_key "sdpr-invoice-automation"
 
     # sdpr-invoice-automation has PII redaction enabled with fail_closed=true
-    # This test verifies that normal requests work when PII service is healthy
+    # Verifies normal processing when PII service is healthy
     local prompt="Process this request normally."
 
     response=$(chat_completion "sdpr-invoice-automation" "${DEFAULT_MODEL}" "${prompt}" 50)
     parse_response "${response}"
 
-    # Should succeed - PII service is healthy, so fail_closed doesn't trigger
+    # Should succeed - PII service is healthy
     assert_status "200" "${RESPONSE_STATUS}"
 
     local content
