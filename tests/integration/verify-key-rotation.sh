@@ -3,7 +3,7 @@
 # Manual verification: rotate keys and verify via APIM endpoint
 # =============================================================================
 # Steps:
-#   1. Capture current keys from /internal/apim-keys for test-tenant-1
+#   1. Capture current keys from /internal/apim-keys for the configured tenant
 #   2. Run the rotation script (force mode by default)
 #   3. Call /internal/apim-keys again with one of the OLD keys (safe slot should still work)
 #   4. Verify the rotated slot has a new key in the response
@@ -12,7 +12,7 @@ set -euo pipefail
 
 # Environment/tenant configuration
 TEST_ENV="${TEST_ENV:-dev}"
-TENANT="${TENANT:-test-tenant-1}"
+TENANT="${TENANT:-${APIM_KEYS_TENANT_1:-wlrs-water-form-assistant}}"
 FORCE_ROTATION="${FORCE_ROTATION:-true}"
 
 RED='\033[0;31m'

@@ -65,13 +65,13 @@ load_config() {
     log_info "Test environment: ${TEST_ENV}"
     
     # Check if config is already provided via environment
-    if [[ -n "${APIM_GATEWAY_URL:-}" ]] && ( [[ -n "${WLRS_SUBSCRIPTION_KEY:-}" ]] || [[ -n "${TEST_TENANT_1_SUBSCRIPTION_KEY:-}" ]] ); then
+    if [[ -n "${APIM_GATEWAY_URL:-}" ]] && ( [[ -n "${WLRS_SUBSCRIPTION_KEY:-}" ]] || [[ -n "${SDPR_SUBSCRIPTION_KEY:-}" ]] ); then
         log_success "Configuration loaded from environment variables"
         log_success "APIM Gateway URL: ${APIM_GATEWAY_URL}"
         log_success "WLRS subscription key loaded"
         [[ -n "${SDPR_SUBSCRIPTION_KEY:-}" ]] && log_success "SDPR subscription key loaded"
-        [[ -n "${TEST_TENANT_1_SUBSCRIPTION_KEY:-}" ]] && log_success "test-tenant-1 subscription key loaded"
-        [[ -n "${TEST_TENANT_2_SUBSCRIPTION_KEY:-}" ]] && log_success "test-tenant-2 subscription key loaded"
+        [[ -n "${APIM_KEYS_TENANT_1:-}" ]] && log_success "APIM Keys Tenant-1: ${APIM_KEYS_TENANT_1}"
+        [[ -n "${APIM_KEYS_TENANT_2:-}" ]] && log_success "APIM Keys Tenant-2: ${APIM_KEYS_TENANT_2}"
         return 0
     fi
     
@@ -126,8 +126,9 @@ load_config() {
     if [[ -n "${subscriptions}" ]]; then
         export WLRS_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["wlrs-water-form-assistant"].primary_key // empty')
         export SDPR_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["sdpr-invoice-automation"].primary_key // empty')
-        export TEST_TENANT_1_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["test-tenant-1"].primary_key // empty')
-        export TEST_TENANT_2_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["test-tenant-2"].primary_key // empty')
+
+        export APIM_KEYS_TENANT_1="${APIM_KEYS_TENANT_1:-wlrs-water-form-assistant}"
+        export APIM_KEYS_TENANT_2="${APIM_KEYS_TENANT_2:-sdpr-invoice-automation}"
         
         if [[ -n "${WLRS_SUBSCRIPTION_KEY}" ]]; then
             log_success "WLRS subscription key loaded"
@@ -141,17 +142,8 @@ load_config() {
             log_warn "SDPR subscription key not found"
         fi
 
-        if [[ -n "${TEST_TENANT_1_SUBSCRIPTION_KEY}" ]]; then
-            log_success "test-tenant-1 subscription key loaded"
-        else
-            log_warn "test-tenant-1 subscription key not found"
-        fi
-
-        if [[ -n "${TEST_TENANT_2_SUBSCRIPTION_KEY}" ]]; then
-            log_success "test-tenant-2 subscription key loaded"
-        else
-            log_warn "test-tenant-2 subscription key not found"
-        fi
+        log_success "APIM Keys Tenant-1: ${APIM_KEYS_TENANT_1}"
+        log_success "APIM Keys Tenant-2: ${APIM_KEYS_TENANT_2}"
     else
         log_warn "Subscription keys not found in terraform output"
         log_info "Tests requiring subscription keys will be skipped"

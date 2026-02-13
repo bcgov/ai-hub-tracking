@@ -821,19 +821,28 @@ resource "azurerm_api_management_api_policy" "tenant" {
   resource_group_name = azurerm_resource_group.main.name
   xml_content         = each.value
 
-  # IMPORTANT: No explicit depends_on for backends!
-  # This allows Terraform to handle policy updates and backend destructions
-  # as independent operations. Combined with -parallelism=1, Terraform's
-  # natural ordering (updates before destructions) ensures policies are
-  # updated before orphaned backends are deleted.
+  # Dependencies: backends, named values, and fragments must exist before
+  # policies reference them. APIM validates backend-id references at policy
+  # submission time and returns 400 if they don't exist.
   #
-  # Dependencies for creation ordering (named values and fragments only):
+  # depends_on ordering is also correct for destruction: when a backend is
+  # removed, Terraform updates the policy first (removing the reference),
+  # then destroys the backend.
   depends_on = [
     module.apim,
+    # Backends (policy XML references these via set-backend-service backend-id)
+    azurerm_api_management_backend.openai,
+    azurerm_api_management_backend.docint,
+    azurerm_api_management_backend.storage,
+    azurerm_api_management_backend.ai_search,
+    azurerm_api_management_backend.speech_services_stt,
+    azurerm_api_management_backend.speech_services_tts,
+    # Named values
     azurerm_api_management_named_value.openai_endpoint,
     azurerm_api_management_named_value.docint_endpoint,
     azurerm_api_management_named_value.storage_endpoint,
     azurerm_api_management_named_value.speech_services_key,
+    # Policy fragments
     azurerm_api_management_policy_fragment.cognitive_services_auth,
     azurerm_api_management_policy_fragment.storage_auth,
     azurerm_api_management_policy_fragment.keyvault_auth,

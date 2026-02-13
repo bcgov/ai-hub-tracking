@@ -4,8 +4,8 @@ set -euo pipefail
 
 # Environment/tenant configuration
 TEST_ENV="${TEST_ENV:-test}"
-TENANT_1="${TENANT_1:-test-tenant-1}"
-TENANT_2="${TENANT_2:-test-tenant-2}"
+TENANT_1="${TENANT_1:-${APIM_KEYS_TENANT_1:-wlrs-water-form-assistant}}"
+TENANT_2="${TENANT_2:-${APIM_KEYS_TENANT_2:-sdpr-invoice-automation}}"
 
 cd "$(dirname "$0")/../../infra-ai-hub"
 

@@ -9,6 +9,15 @@ setup() {
     setup_test_suite
 }
 
+# Canonical tenants for this suite (resolved by config loader)
+tenant_1() {
+    echo "${APIM_KEYS_TENANT_1:-wlrs-water-form-assistant}"
+}
+
+tenant_2() {
+    echo "${APIM_KEYS_TENANT_2:-sdpr-invoice-automation}"
+}
+
 # Helper: skip if tenant subscription key is not available
 skip_if_no_tenant_key() {
     local tenant="${1}"
@@ -38,32 +47,38 @@ post_apim_keys() {
 # Positive Tests: GET /internal/apim-keys returns keys for each tenant
 # =============================================================================
 
-@test "test-tenant-1: GET /internal/apim-keys returns 200" {
-    skip_if_no_tenant_key "test-tenant-1"
+@test "Tenant-1: GET /internal/apim-keys returns 200" {
+    local t1
+    t1="$(tenant_1)"
+    skip_if_no_tenant_key "${t1}"
 
-    response=$(get_apim_keys "test-tenant-1")
+    response=$(get_apim_keys "${t1}")
     parse_response "${response}"
 
     assert_status "200" "${RESPONSE_STATUS}"
 }
 
-@test "test-tenant-1: apim-keys response contains tenant name" {
-    skip_if_no_tenant_key "test-tenant-1"
+@test "Tenant-1: apim-keys response contains tenant name" {
+    local t1
+    t1="$(tenant_1)"
+    skip_if_no_tenant_key "${t1}"
 
-    response=$(get_apim_keys "test-tenant-1")
+    response=$(get_apim_keys "${t1}")
     parse_response "${response}"
 
     assert_status "200" "${RESPONSE_STATUS}"
 
     local tenant_name
     tenant_name=$(json_get "${RESPONSE_BODY}" '.tenant')
-    [[ "${tenant_name}" == "test-tenant-1" ]]
+    [[ "${tenant_name}" == "${t1}" ]]
 }
 
-@test "test-tenant-1: apim-keys response contains non-empty primary_key" {
-    skip_if_no_tenant_key "test-tenant-1"
+@test "Tenant-1: apim-keys response contains non-empty primary_key" {
+    local t1
+    t1="$(tenant_1)"
+    skip_if_no_tenant_key "${t1}"
 
-    response=$(get_apim_keys "test-tenant-1")
+    response=$(get_apim_keys "${t1}")
     parse_response "${response}"
 
     assert_status "200" "${RESPONSE_STATUS}"
@@ -73,10 +88,12 @@ post_apim_keys() {
     [[ -n "${primary_key}" ]] && [[ "${primary_key}" != "null" ]]
 }
 
-@test "test-tenant-1: apim-keys response contains non-empty secondary_key" {
-    skip_if_no_tenant_key "test-tenant-1"
+@test "Tenant-1: apim-keys response contains non-empty secondary_key" {
+    local t1
+    t1="$(tenant_1)"
+    skip_if_no_tenant_key "${t1}"
 
-    response=$(get_apim_keys "test-tenant-1")
+    response=$(get_apim_keys "${t1}")
     parse_response "${response}"
 
     assert_status "200" "${RESPONSE_STATUS}"
@@ -86,10 +103,12 @@ post_apim_keys() {
     [[ -n "${secondary_key}" ]] && [[ "${secondary_key}" != "null" ]]
 }
 
-@test "test-tenant-1: apim-keys response contains rotation metadata" {
-    skip_if_no_tenant_key "test-tenant-1"
+@test "Tenant-1: apim-keys response contains rotation metadata" {
+    local t1
+    t1="$(tenant_1)"
+    skip_if_no_tenant_key "${t1}"
 
-    response=$(get_apim_keys "test-tenant-1")
+    response=$(get_apim_keys "${t1}")
     parse_response "${response}"
 
     assert_status "200" "${RESPONSE_STATUS}"
@@ -104,10 +123,12 @@ post_apim_keys() {
     [[ -n "${safe_slot}" ]] && [[ "${safe_slot}" != "null" ]]
 }
 
-@test "test-tenant-1: apim-keys response contains keyvault info" {
-    skip_if_no_tenant_key "test-tenant-1"
+@test "Tenant-1: apim-keys response contains keyvault info" {
+    local t1
+    t1="$(tenant_1)"
+    skip_if_no_tenant_key "${t1}"
 
-    response=$(get_apim_keys "test-tenant-1")
+    response=$(get_apim_keys "${t1}")
     parse_response "${response}"
 
     assert_status "200" "${RESPONSE_STATUS}"
@@ -118,39 +139,45 @@ post_apim_keys() {
 
     local primary_secret
     primary_secret=$(json_get "${RESPONSE_BODY}" '.keyvault.primary_key_secret')
-    [[ "${primary_secret}" == "test-tenant-1-apim-primary-key" ]]
+    [[ "${primary_secret}" == "${t1}-apim-primary-key" ]]
 
     local secondary_secret
     secondary_secret=$(json_get "${RESPONSE_BODY}" '.keyvault.secondary_key_secret')
-    [[ "${secondary_secret}" == "test-tenant-1-apim-secondary-key" ]]
+    [[ "${secondary_secret}" == "${t1}-apim-secondary-key" ]]
 }
 
-@test "test-tenant-2: GET /internal/apim-keys returns 200" {
-    skip_if_no_tenant_key "test-tenant-2"
+@test "Tenant-2: GET /internal/apim-keys returns 200" {
+    local t2
+    t2="$(tenant_2)"
+    skip_if_no_tenant_key "${t2}"
 
-    response=$(get_apim_keys "test-tenant-2")
+    response=$(get_apim_keys "${t2}")
     parse_response "${response}"
 
     assert_status "200" "${RESPONSE_STATUS}"
 }
 
-@test "test-tenant-2: apim-keys response contains correct tenant name" {
-    skip_if_no_tenant_key "test-tenant-2"
+@test "Tenant-2: apim-keys response contains correct tenant name" {
+    local t2
+    t2="$(tenant_2)"
+    skip_if_no_tenant_key "${t2}"
 
-    response=$(get_apim_keys "test-tenant-2")
+    response=$(get_apim_keys "${t2}")
     parse_response "${response}"
 
     assert_status "200" "${RESPONSE_STATUS}"
 
     local tenant_name
     tenant_name=$(json_get "${RESPONSE_BODY}" '.tenant')
-    [[ "${tenant_name}" == "test-tenant-2" ]]
+    [[ "${tenant_name}" == "${t2}" ]]
 }
 
-@test "test-tenant-2: apim-keys response contains non-empty keys" {
-    skip_if_no_tenant_key "test-tenant-2"
+@test "Tenant-2: apim-keys response contains non-empty keys" {
+    local t2
+    t2="$(tenant_2)"
+    skip_if_no_tenant_key "${t2}"
 
-    response=$(get_apim_keys "test-tenant-2")
+    response=$(get_apim_keys "${t2}")
     parse_response "${response}"
 
     assert_status "200" "${RESPONSE_STATUS}"
@@ -164,10 +191,12 @@ post_apim_keys() {
     [[ -n "${secondary_key}" ]] && [[ "${secondary_key}" != "null" ]]
 }
 
-@test "test-tenant-2: apim-keys response contains rotation metadata" {
-    skip_if_no_tenant_key "test-tenant-2"
+@test "Tenant-2: apim-keys response contains rotation metadata" {
+    local t2
+    t2="$(tenant_2)"
+    skip_if_no_tenant_key "${t2}"
 
-    response=$(get_apim_keys "test-tenant-2")
+    response=$(get_apim_keys "${t2}")
     parse_response "${response}"
 
     assert_status "200" "${RESPONSE_STATUS}"
@@ -181,18 +210,22 @@ post_apim_keys() {
 # Negative Tests: Method not allowed, missing key
 # =============================================================================
 
-@test "test-tenant-1: POST /internal/apim-keys returns 405" {
-    skip_if_no_tenant_key "test-tenant-1"
+@test "Tenant-1: POST /internal/apim-keys returns 405" {
+    local t1
+    t1="$(tenant_1)"
+    skip_if_no_tenant_key "${t1}"
 
-    response=$(post_apim_keys "test-tenant-1")
+    response=$(post_apim_keys "${t1}")
     parse_response "${response}"
 
     assert_status "405" "${RESPONSE_STATUS}"
 }
 
 @test "Unauthenticated request to /internal/apim-keys returns 401" {
-    # Call without any subscription key
-    local url="${APIM_GATEWAY_URL}/test-tenant-1/internal/apim-keys"
+    # Call without any subscription key — use first available tenant path
+    local tenant
+    tenant="$(tenant_1)"
+    local url="${APIM_GATEWAY_URL}/${tenant}/internal/apim-keys"
     local response
     response=$(curl -s -w "\n%{http_code}" -X GET "${url}" \
         -H "Content-Type: application/json" \
@@ -208,14 +241,23 @@ post_apim_keys() {
 # =============================================================================
 
 @test "Tenant-1 and Tenant-2 return different primary keys" {
-    skip_if_no_tenant_key "test-tenant-1"
-    skip_if_no_tenant_key "test-tenant-2"
+    local t1
+    local t2
+    t1="$(tenant_1)"
+    t2="$(tenant_2)"
 
-    response1=$(get_apim_keys "test-tenant-1")
+    if [[ "${t1}" == "${t2}" ]]; then
+        skip "Tenant-1 and Tenant-2 resolve to the same tenant (${t1})"
+    fi
+
+    skip_if_no_tenant_key "${t1}"
+    skip_if_no_tenant_key "${t2}"
+
+    response1=$(get_apim_keys "${t1}")
     parse_response "${response1}"
     local key1="${RESPONSE_BODY}"
 
-    response2=$(get_apim_keys "test-tenant-2")
+    response2=$(get_apim_keys "${t2}")
     parse_response "${response2}"
     local key2="${RESPONSE_BODY}"
 

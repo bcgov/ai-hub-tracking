@@ -126,9 +126,11 @@ load_terraform_config() {
     if [[ -n "${subscriptions}" ]]; then
         WLRS_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["wlrs-water-form-assistant"].primary_key // empty')
         SDPR_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["sdpr-invoice-automation"].primary_key // empty')
-        TEST_TENANT_1_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '."test-tenant-1".primary_key // empty')
-        TEST_TENANT_2_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '."test-tenant-2".primary_key // empty')
-        export WLRS_SUBSCRIPTION_KEY SDPR_SUBSCRIPTION_KEY TEST_TENANT_1_SUBSCRIPTION_KEY TEST_TENANT_2_SUBSCRIPTION_KEY
+
+        APIM_KEYS_TENANT_1="${APIM_KEYS_TENANT_1:-wlrs-water-form-assistant}"
+        APIM_KEYS_TENANT_2="${APIM_KEYS_TENANT_2:-sdpr-invoice-automation}"
+
+        export WLRS_SUBSCRIPTION_KEY SDPR_SUBSCRIPTION_KEY APIM_KEYS_TENANT_1 APIM_KEYS_TENANT_2
     fi
     
     echo "Configuration loaded successfully:" >&2
@@ -142,8 +144,8 @@ load_terraform_config() {
     echo "  Hub KV Name: ${HUB_KEYVAULT_NAME:-not set}" >&2
     echo "  WLRS Key: ${WLRS_SUBSCRIPTION_KEY:+********}" >&2
     echo "  SDPR Key: ${SDPR_SUBSCRIPTION_KEY:+********}" >&2
-    echo "  Test-Tenant-1 Key: ${TEST_TENANT_1_SUBSCRIPTION_KEY:+********}" >&2
-    echo "  Test-Tenant-2 Key: ${TEST_TENANT_2_SUBSCRIPTION_KEY:+********}" >&2
+    echo "  APIM Keys Tenant-1: ${APIM_KEYS_TENANT_1:-not set}" >&2
+    echo "  APIM Keys Tenant-2: ${APIM_KEYS_TENANT_2:-not set}" >&2
 }
 
 # Map tenant name to its subscription key env var
@@ -156,12 +158,6 @@ get_subscription_key_var_name() {
             ;;
         sdpr-invoice-automation)
             echo "SDPR_SUBSCRIPTION_KEY"
-            ;;
-        test-tenant-1)
-            echo "TEST_TENANT_1_SUBSCRIPTION_KEY"
-            ;;
-        test-tenant-2)
-            echo "TEST_TENANT_2_SUBSCRIPTION_KEY"
             ;;
         *)
             return 1
@@ -195,12 +191,6 @@ get_subscription_key() {
         sdpr-invoice-automation)
             echo "${SDPR_SUBSCRIPTION_KEY:-}"
             ;;
-        test-tenant-1)
-            echo "${TEST_TENANT_1_SUBSCRIPTION_KEY:-}"
-            ;;
-        test-tenant-2)
-            echo "${TEST_TENANT_2_SUBSCRIPTION_KEY:-}"
-            ;;
         *)
             echo "Unknown tenant: ${tenant}" >&2
             return 1
@@ -211,7 +201,7 @@ get_subscription_key() {
 # Function to check if config is loaded (at least one tenant key available)
 config_loaded() {
     [[ -n "${APIM_GATEWAY_URL:-}" ]] && \
-    ( [[ -n "${WLRS_SUBSCRIPTION_KEY:-}" ]] || [[ -n "${TEST_TENANT_1_SUBSCRIPTION_KEY:-}" ]] )
+    ( [[ -n "${WLRS_SUBSCRIPTION_KEY:-}" ]] || [[ -n "${SDPR_SUBSCRIPTION_KEY:-}" ]] )
 }
 
 # True when App Gateway is actually deployed for the current test env
@@ -258,6 +248,11 @@ export APPGW_HOSTNAME
 # Hub Key Vault name used by Azure CLI fallback (if available)
 : "${HUB_KEYVAULT_NAME:=}"
 export HUB_KEYVAULT_NAME
+
+# Canonical tenants for /internal/apim-keys tests
+: "${APIM_KEYS_TENANT_1:=wlrs-water-form-assistant}"
+: "${APIM_KEYS_TENANT_2:=sdpr-invoice-automation}"
+export APIM_KEYS_TENANT_1 APIM_KEYS_TENANT_2
 
 # Enable runtime fallback to refresh keys from Key Vault when APIM returns 401
 : "${ENABLE_VAULT_KEY_FALLBACK:=true}"
@@ -325,7 +320,7 @@ get_tenant_chat_models() {
         fi
     done
     
-    echo "${chat_models}" | xargs  # Trim whitespace
+    echo "${chat_models}" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//'  # Trim whitespace
 }
 
 # Export functions for use in bats tests

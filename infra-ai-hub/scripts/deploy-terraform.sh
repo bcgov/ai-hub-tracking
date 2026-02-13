@@ -772,7 +772,8 @@ tf_apply_phased() {
             "-target=azurerm_api_management_backend.docint"
             "-target=azurerm_api_management_backend.storage"
             "-target=azurerm_api_management_backend.ai_search"
-            "-target=azurerm_api_management_backend.speech_services"
+            "-target=azurerm_api_management_backend.speech_services_stt"
+            "-target=azurerm_api_management_backend.speech_services_tts"
         )
         
         if ! run_terraform_with_retries apply "${phase3a_args[@]}"; then

@@ -210,7 +210,7 @@ discover_config() {
 # Get all APIM subscriptions for tenants (convention: display name ends with "Subscription")
 # Returns lines in format: sub_id|tenant_name
 # - sub_id: APIM subscription ID (GUID) used for API calls
-# - tenant_name: extracted from product scope (e.g., "test-tenant-1") used for KV secret naming
+# - tenant_name: extracted from product scope (e.g., "wlrs-water-form-assistant") used for KV secret naming
 get_tenant_subscriptions() {
     az rest \
         --method GET \
@@ -538,7 +538,7 @@ main() {
 
         total=$((total + 1))
         # sub_name = APIM subscription ID (GUID) for API calls
-        # tenant_name = product name from scope (e.g., "test-tenant-1") for KV secret naming
+        # tenant_name = product name from scope (e.g., "wlrs-water-form-assistant") for KV secret naming
 
         if [[ -z "${tenant_name}" ]]; then
             log_error "Could not determine tenant name for subscription: ${sub_name}"
