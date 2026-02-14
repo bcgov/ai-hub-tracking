@@ -65,8 +65,8 @@ shared_config = {
 
     # Subscription key rotation (managed by GitHub Actions workflow)
     key_rotation = {
-      rotation_enabled       = true # Enable rotation in test for validation
-      rotation_interval_days = 7    # Weekly rotation
+      rotation_enabled       = false # Enable rotation in test for validation
+      rotation_interval_days = 60    # Must be less than 90 days (APIM max key lifetime)
     }
   }
 

@@ -2,9 +2,11 @@ name: APIM Key Rotation
 
 on:
     schedule:
-        # Runs weekly on Monday at 02:00 UTC
-        # The script checks rotation_interval_days internally before rotating
-        - cron: "0 2 * * 1"
+        # Note: The actual rotation script checks the rotation_interval_days before rotating.
+        # Runs everyday at 1 am or 2 am Pacific time, depending on PST or PDT
+        # PDT (UTC-7): so it will run at 2 am PDT in summer
+        # PST (UTC-8): so it will run at 1 am PST in winter
+        - cron: "0 9 * * *"
     workflow_dispatch:
         inputs:
             environment:
