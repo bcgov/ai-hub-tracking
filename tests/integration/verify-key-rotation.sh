@@ -19,23 +19,63 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+GRAY='\033[0;90m'
 NC='\033[0m'
 
-log_info()    { echo -e "${BLUE}[INFO]${NC} $*"; }
-log_success() { echo -e "${GREEN}[PASS]${NC} $*"; }
-log_fail()    { echo -e "${RED}[FAIL]${NC} $*"; }
-log_warn()    { echo -e "${YELLOW}[WARN]${NC} $*"; }
+_ts() { date -u +'%Y-%m-%dT%H:%M:%SZ'; }
+log_info()    { echo -e "${GRAY}$(_ts)${NC} ${BLUE}[INFO]${NC} $*"; }
+log_success() { echo -e "${GRAY}$(_ts)${NC} ${GREEN}[PASS]${NC} $*"; }
+log_fail()    { echo -e "${GRAY}$(_ts)${NC} ${RED}[FAIL]${NC} $*"; }
+log_warn()    { echo -e "${GRAY}$(_ts)${NC} ${YELLOW}[WARN]${NC} $*"; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 INFRA_DIR="${SCRIPT_DIR}/../../infra-ai-hub"
+
+is_key_rotation_enabled() {
+    local env="$1"
+    local shared_tfvars="${INFRA_DIR}/params/${env}/shared.tfvars"
+
+    [[ -f "${shared_tfvars}" ]] || {
+        echo "true"
+        return
+    }
+
+    local parsed
+    parsed=$(awk '
+        /^[[:space:]]*apim[[:space:]]*=[[:space:]]*\{/ { in_apim=1 }
+        in_apim && /^[[:space:]]*key_rotation[[:space:]]*=[[:space:]]*\{/ { in_key_rotation=1 }
+        in_apim && in_key_rotation && /^[[:space:]]*rotation_enabled[[:space:]]*=/ {
+            line=$0
+            sub(/#.*/, "", line)
+            gsub(/[[:space:]]/, "", line)
+            split(line, kv, "=")
+            print kv[2]
+            exit
+        }
+        in_key_rotation && /^[[:space:]]*\}/ { in_key_rotation=0 }
+        in_apim && !in_key_rotation && /^[[:space:]]*\}/ { in_apim=0 }
+    ' "${shared_tfvars}" | tr '[:upper:]' '[:lower:]')
+
+    if [[ "${parsed}" == "false" ]]; then
+        echo "false"
+    else
+        echo "true"
+    fi
+}
+
+if [[ "$(is_key_rotation_enabled "${TEST_ENV}")" != "true" ]]; then
+    log_warn "APIM key rotation is disabled in params/${TEST_ENV}/shared.tfvars. Skipping verification."
+    exit 0
+fi
 
 source "${SCRIPT_DIR}/test-helper.bash"
 
 cd "${INFRA_DIR}"
 
-# --- Step 0: Load terraform config ---
-log_info "Loading terraform outputs..."
-TF_OUTPUT=$(terraform output -json 2>/dev/null)
+# --- Step 0: Load stack config ---
+log_info "Loading scaled stack outputs..."
+TF_OUTPUT_RAW=$(./scripts/deploy-terraform.sh output "${TEST_ENV}" 2>/dev/null)
+TF_OUTPUT=$(echo "$TF_OUTPUT_RAW" | sed -n '/^{/,$p')
 
 # Prefer App Gateway URL when deployed; otherwise use direct APIM URL
 APPGW_URL=$(echo "$TF_OUTPUT" | jq -r '.appgw_url.value // empty')

@@ -1,7 +1,3 @@
-# =============================================================================
-# VARIABLES — Tenant User Management (separate state)
-# =============================================================================
-
 variable "app_env" {
   description = "Application environment (dev, test, prod)"
   type        = string
@@ -37,15 +33,26 @@ variable "use_oidc" {
   default     = true
 }
 
-# =============================================================================
-# TENANT CONFIGURATION
-# =============================================================================
-# Only the fields needed for user management are declared here.
-# The full tenant object type is declared so the same tfvars files can be
-# reused without "unexpected attribute" errors.
-# =============================================================================
 variable "tenants" {
   description = "Tenant configurations (reuses the same tfvars as the main config)"
   type        = any
   default     = {}
+}
+
+variable "backend_resource_group" {
+  description = "Backend resource group (accepted for shared deploy command contract)"
+  type        = string
+  default     = ""
+}
+
+variable "backend_storage_account" {
+  description = "Backend storage account (accepted for shared deploy command contract)"
+  type        = string
+  default     = ""
+}
+
+variable "backend_container_name" {
+  description = "Backend container name (accepted for shared deploy command contract)"
+  type        = string
+  default     = "tfstate"
 }

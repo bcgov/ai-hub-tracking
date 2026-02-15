@@ -320,6 +320,7 @@ resource "null_resource" "purge_ai_foundry" {
 
   provisioner "local-exec" {
     when        = destroy
+    on_failure  = continue
     interpreter = ["bash", "-c"]
     command     = "${self.triggers.scripts_dir}/purge-ai-foundry.sh --name \"${self.triggers.account_name}\" --location \"${self.triggers.location}\" --resource-group \"${self.triggers.resource_group_name}\" --subscription \"${self.triggers.subscription_id}\" --timeout ${self.triggers.timeout} --interval ${self.triggers.poll_interval}"
   }

@@ -669,20 +669,12 @@ tenants = {
 
 ### Deploying Changes
 
-After updating `tenants.tfvars`, deploy using one of these methods:
+After updating `tenants.tfvars`, deploy using the deployment script:
 
-**Option 1: Direct terraform commands**
 ```bash
 cd infra-ai-hub
-terraform plan -var-file="params/test/shared.tfvars" -var-file="params/test/tenants.tfvars"
-terraform apply -var-file="params/test/shared.tfvars" -var-file="params/test/tenants.tfvars"
-```
-
-**Option 2: Deployment script**
-```bash
-cd initial-setup/infra
-./deploy-terraform.sh plan test
-./deploy-terraform.sh apply test
+./scripts/deploy-terraform.sh plan ${ENVIRONMENT}
+./scripts/deploy-terraform.sh apply ${ENVIRONMENT} --auto-approve
 ```
 
 ### Resource Toggle Matrix
@@ -766,6 +758,10 @@ apim_auth = {
 - If APIM keys are stored in Key Vault, auto-rotation generates a NEW random value
 - This breaks all client apps since the rotated value doesn't match the actual APIM key
 - APIM subscription keys should be rotated **in APIM**, not in Key Vault
+
+**Shared Hub Key Vault behavior:**
+- The shared hub key vault is always deployed as part of shared infrastructure
+- `apim.key_rotation.rotation_enabled` controls key rotation workflows and secret writes, not key vault creation
 
 #### Subscription Key Mode (Default) - Recommended Workflow
 
@@ -943,12 +939,12 @@ Edit `params/apim/tenants/my-new-tenant/api_policy.xml` with service routing:
 </policies>
 ```
 
-#### 3. Deploy with Phased Strategy
+#### 3. Deploy
 
-Deploy the tenant using the multi-phase approach:
+Deploy the tenant:
 
 ```bash
-./scripts/deploy-terraform.sh apply-phased test
+./scripts/deploy-terraform.sh apply test
 ```
 
 #### 4. Verify Deployment
@@ -961,16 +957,11 @@ After apply, verify in Azure Portal:
 
 ### Deployment Best Practices
 
-#### Phase Strategy for foundry_project
+#### Scaled Strategy for foundry_project
 
-The foundry_project module requires sequential deployment due to ETag conflicts on Azure's Cognitive Services API:
+The foundry stack runs after tenants and uses `parallelism=1` to avoid Azure Cognitive Services ETag conflicts.
 
-**Key Steps**:
-1. Phase 1: Deploy all modules except foundry_project (parallelism=10)
-2. Phase 2: Deploy foundry_project only (parallelism=1) - resolves ETag conflicts
-3. Phase 3: Final apply to catch any drift (parallelism=10)
-
-**Automation**: Use `./scripts/deploy-terraform.sh apply-phased test` for full automated phasing.
+**Automation**: Use `./scripts/deploy-terraform.sh apply test`.
 
 ### APIM Tenant Configuration
 
@@ -1113,14 +1104,12 @@ flowchart LR
 
 **Cause**: Concurrent foundry_project creation triggers Azure service conflicts
 
-**Solution**: Use Phase 2 with `parallelism=1`:
+**Solution**: The `foundry` stack already runs with `parallelism=1` to avoid this. Re-run the deployment:
 ```bash
-terraform apply -parallelism=1 -target='module.foundry_project' \
-  -var-file="params/test/shared.tfvars" \
-  -var-file="params/test/tenants.tfvars"
+./scripts/deploy-terraform.sh apply ${ENVIRONMENT} --auto-approve
 ```
 
-**Automation**: Use `./scripts/deploy-terraform.sh apply-phased test` (handles phasing automatically)
+**Automation**: The stack engine handles this automatically with retry logic.
 
 #### 2. AI Foundry Service Soft Delete
 
@@ -1251,13 +1240,12 @@ ApiManagementGatewayLogs
 
 ```
 infra-ai-hub/
-├── main.tf                    # Orchestration layer
-├── variables.tf               # Core variables
-├── outputs.tf                 # Module outputs
-├── providers.tf               # Provider config
-├── backend.tf                 # State backend
-├── locals.tf                  # Local values & validation checks
-├── terraform.tfvars           # Variable values
+├── stacks/                            # Isolated Terraform root modules (one state file each)
+│   ├── shared/                        # Phase 1: VNet, subnets, AI Foundry Hub, App GW, WAF, KV, ACR, monitoring
+│   ├── tenant/                        # Phase 2: Per-tenant resources (AI Search, CosmosDB, DI, Storage, KV)
+│   ├── foundry/                       # Phase 3: AI Foundry projects per tenant (parallelism=1)
+│   ├── apim/                          # Phase 3: API Management gateway, policies, tenant subscriptions
+│   └── tenant-user-mgmt/             # Phase 3: Entra ID user/group assignments (requires Graph API)
 │
 ├── modules/
 │   ├── network/               # Subnet infrastructure
@@ -1271,7 +1259,8 @@ infra-ai-hub/
 │   └── app-configuration/     # Feature flags
 │
 ├── scripts/
-│   └── wait-for-dns-zone.sh   # DNS propagation wait
+│   ├── deploy-terraform.sh    # Public entrypoint for all Terraform operations
+│   └── deploy-scaled.sh       # Internal stack engine (parallel execution, auto-recovery)
 │
 └── params/
     ├── apim/
@@ -1307,10 +1296,11 @@ infra-ai-hub/
 - Tenant Services: Multiple tenants (wlrs, sdpr-invoice-automation) with mixed service configurations
 - APIM: Tenant-specific routing, policies, and PII redaction active
 
-✅ **Deployment Process**: Multi-phase strategy validated
-- Phase 1: All modules except foundry_project (parallelism: 10)
-- Phase 2: foundry_project only (parallelism: 1) - resolves ETag conflicts
-- Phase 3: Final validation apply
+✅ **Deployment Process**: Stack-based engine validated
+- Phase 1: `shared` stack (network, AI Foundry Hub, App GW, WAF, KV, monitoring)
+- Phase 2: `tenant` stacks in parallel (per-tenant fan-out with isolated state)
+- Phase 3: `foundry` + `apim` + `tenant-user-mgmt` in parallel
+- Auto-recovery: deposed object cleanup, import-on-conflict, transient error retry
 
 ✅ **Resource Import**: Tested and working
 - Storage account import procedure operational
@@ -1618,7 +1608,7 @@ BACKEND_STORAGE_ACCOUNT="${BACKEND_STORAGE_ACCOUNT}" \
 
 ### Step 6: Deploy Infrastructure (Terraform Apply)
 
-Deploy using the phased strategy to avoid ETag conflicts:
+Deploy using stack orchestration:
 
 ```bash
 cd /home/alstruk/GitHub/ai-hub-tracking/infra-ai-hub && \
@@ -1628,13 +1618,57 @@ NO_PROXY="management.azure.com,login.microsoftonline.com,graph.microsoft.com,reg
 CI="true" \
 BACKEND_RESOURCE_GROUP="${BACKEND_RESOURCE_GROUP}" \
 BACKEND_STORAGE_ACCOUNT="${BACKEND_STORAGE_ACCOUNT}" \
-./scripts/deploy-terraform.sh apply-phased ${ENVIRONMENT} --auto-approve
+./scripts/deploy-terraform.sh apply ${ENVIRONMENT} --auto-approve
 ```
 
-The `apply-phased` command automatically handles the three-phase deployment:
-1. **Phase 1**: Deploy all modules except `foundry_project` (parallelism=10)
-2. **Phase 2**: Deploy `foundry_project` modules only (parallelism=1 to avoid ETag conflicts)
-3. **Phase 3**: Final validation apply to catch any drift
+Apply order is deterministic:
+1. `shared`
+2. `tenant` (per tenant, parallel)
+3. `foundry` + `apim` + `tenant-user-mgmt` (all in parallel)
+
+```mermaid
+flowchart TD
+  subgraph APPLY
+    S["1 shared stack - shared.tfstate"]
+
+    subgraph TPAR["2 tenant stack - parallel fan-out"]
+      T1["tenant sdpr-invoice-automation - tenant-sdpr-key.tfstate"]
+      T2["tenant wlrs-water-form-assistant - tenant-wlrs-key.tfstate"]
+      TN["tenant N - tenant-key.tfstate"]
+    end
+
+    subgraph P3["3 parallel stacks"]
+      F["foundry stack - foundry.tfstate - parallelism 1"]
+      A["apim stack - apim.tfstate"]
+      U["tenant-user-mgmt stack - tenant-user-management.tfstate - runs only with Graph User.Read.All"]
+    end
+  end
+
+  S --> T1
+  S --> T2
+  S --> TN
+
+  T1 --> F
+  T2 --> F
+  TN --> F
+
+  T1 --> A
+  T2 --> A
+  TN --> A
+
+  T1 --> U
+  T2 --> U
+  TN --> U
+```
+
+Recommendation: use `apply` as the primary deployment path.
+
+Dependency details in this flow:
+- `tenant` reads from `shared` (`private_endpoint_subnet_id`, `log_analytics_workspace_id`, `ai_foundry_hub_id`)
+- `foundry` reads from `shared` (`ai_foundry_hub_id`) and all `tenant-*` states
+- `apim` reads from `shared` (network + AI + observability + key vault outputs) and all `tenant-*` states
+- `tenant-user-mgmt` reads from all `tenant-*` states and is conditionally skipped if Graph permissions are missing
+- Phase 3 stacks (`foundry`, `apim`, `tenant-user-mgmt`) have no cross-dependencies and run concurrently
 
 ---
 
@@ -1674,11 +1708,55 @@ NO_PROXY="management.azure.com,login.microsoftonline.com,graph.microsoft.com,reg
 CI="true" \
 BACKEND_RESOURCE_GROUP="${BACKEND_RESOURCE_GROUP}" \
 BACKEND_STORAGE_ACCOUNT="${BACKEND_STORAGE_ACCOUNT}" \
-./scripts/deploy-terraform.sh destroy-phased ${ENVIRONMENT} --auto-approve
+./scripts/deploy-terraform.sh destroy ${ENVIRONMENT} --auto-approve
 ```
 
+Destroy runs in strict reverse dependency order:
+1. `tenant-user-mgmt` + `apim` + `foundry` (all in parallel)
+2. `tenant` (per tenant, parallel)
+3. `shared`
+
+```mermaid
+flowchart TD
+  subgraph DESTROY
+    subgraph P3_D["1 parallel stacks destroy"]
+      U["tenant-user-mgmt destroy - conditional on Graph access"]
+      A["apim destroy"]
+      F["foundry destroy"]
+    end
+
+    subgraph TPAR_D["2 tenant destroy - parallel fan-out"]
+      T1["tenant sdpr-invoice-automation destroy"]
+      T2["tenant wlrs-water-form-assistant destroy"]
+      TN["tenant N destroy"]
+    end
+
+    S["3 shared destroy - last stack removed"]
+  end
+
+  U --> T1
+  U --> T2
+  U --> TN
+  A --> T1
+  A --> T2
+  A --> TN
+  F --> T1
+  F --> T2
+  F --> TN
+  T1 --> S
+  T2 --> S
+  TN --> S
+```
+
+Recommendation: use `destroy` as the primary teardown path.
+
+Destroy guardrails in this flow:
+- Reverse ordering prevents deleting shared resources while downstream stacks still reference them
+- Tenant destroys run in parallel but each tenant keeps isolated Terraform data (`TF_DATA_DIR`) to avoid init collisions
+- Shared is always destroyed last because it provides hub/network/observability/security outputs consumed by other stacks
+
 **Important**:
-- The `destroy-phased` command reverses the deployment phases to cleanly remove all resources
+- The `destroy` command reverses stack dependency order for isolated-state environments
 - This is a cost-saving measure for dev environments only
 - Test and prod environments are persistent and managed through CI/CD pipelines
 

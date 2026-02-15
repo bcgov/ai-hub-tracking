@@ -16,13 +16,15 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+GRAY='\033[0;90m'
 NC='\033[0m' # No Color
 
-# Print colored message
-log_info() { echo -e "${BLUE}[INFO]${NC} $1"; }
-log_success() { echo -e "${GREEN}[SUCCESS]${NC} $1"; }
-log_warn() { echo -e "${YELLOW}[WARN]${NC} $1"; }
-log_error() { echo -e "${RED}[ERROR]${NC} $1"; }
+# Print colored message with timestamp
+_ts() { date -u +'%Y-%m-%dT%H:%M:%SZ'; }
+log_info() { echo -e "${GRAY}$(_ts)${NC} ${BLUE}[INFO]${NC} $*"; }
+log_success() { echo -e "${GRAY}$(_ts)${NC} ${GREEN}[SUCCESS]${NC} $*"; }
+log_warn() { echo -e "${GRAY}$(_ts)${NC} ${YELLOW}[WARN]${NC} $*"; }
+log_error() { echo -e "${GRAY}$(_ts)${NC} ${RED}[ERROR]${NC} $*"; }
 
 # Bats binary - check common locations
 find_bats() {
@@ -82,14 +84,21 @@ load_config() {
         log_warn "Terraform state not found. Checking for remote state..."
     fi
     
-    # Get terraform output
-    local tf_output
-    if ! tf_output=$(cd "${INFRA_DIR}" && terraform output -json 2>/dev/null); then
-        log_error "Failed to get terraform output"
+    # Get stack-aggregated output
+    local tf_output_raw
+    if ! tf_output_raw=$(cd "${INFRA_DIR}" && ./scripts/deploy-terraform.sh output "${TEST_ENV}" 2>/dev/null); then
+        log_error "Failed to get stack output"
         echo "You can provide configuration via environment variables instead:"
         echo "  export APIM_GATEWAY_URL=https://your-apim.azure-api.net"
         echo "  export WLRS_SUBSCRIPTION_KEY=your-key"
         echo "  export SDPR_SUBSCRIPTION_KEY=your-key"
+        exit 1
+    fi
+
+    local tf_output
+    tf_output=$(echo "${tf_output_raw}" | sed -n '/^{/,$p')
+    if [[ -z "${tf_output}" ]]; then
+        log_error "Failed to parse JSON output from stack output"
         exit 1
     fi
     
@@ -103,8 +112,11 @@ load_config() {
     
     if [[ -n "${appgw_url}" ]]; then
         export APIM_GATEWAY_URL="${appgw_url}"
+        export APPGW_URL="${appgw_url}"
+        export APPGW_DEPLOYED="true"
         log_success "Using App GW URL: ${appgw_url}"
     elif [[ -n "${APIM_GATEWAY_URL}" ]]; then
+        export APPGW_DEPLOYED="false"
         log_warn "App GW URL not available, using direct APIM: ${APIM_GATEWAY_URL}"
     else
         log_error "Neither appgw_url nor apim_gateway_url found in terraform output"
@@ -113,10 +125,17 @@ load_config() {
         exit 1
     fi
 
-    if [[ -n "${HUB_KEYVAULT_NAME}" ]]; then
-        log_success "Hub Key Vault name loaded: ${HUB_KEYVAULT_NAME}"
+    # Hub Key Vault is only set when key rotation is globally enabled
+    local key_rotation_enabled
+    key_rotation_enabled=$(echo "${tf_output}" | jq -r '.apim_key_rotation_summary.value.globally_enabled // false')
+    if [[ "${key_rotation_enabled}" == "true" ]]; then
+        if [[ -n "${HUB_KEYVAULT_NAME}" ]]; then
+            log_success "Hub Key Vault name loaded: ${HUB_KEYVAULT_NAME}"
+        else
+            log_warn "Key rotation enabled but Hub Key Vault name not found in terraform output"
+        fi
     else
-        log_warn "Hub Key Vault name not found in terraform output"
+        log_info "Key rotation disabled — Hub Key Vault not required"
     fi
     
     # Extract subscription keys (sensitive)
@@ -179,6 +198,16 @@ run_tests() {
     log_info "Running tests..."
     echo ""
     
+    # Guard: fail if no test files were found
+    local has_tests=false
+    for test_file in "${test_files[@]}"; do
+        [[ -f "${test_file}" ]] && has_tests=true && break
+    done
+    if [[ "$has_tests" == "false" ]]; then
+        log_error "No test files found to run"
+        return 1
+    fi
+
     local failed=0
     for test_file in "${test_files[@]}"; do
         if [[ -f "${test_file}" ]]; then
@@ -202,11 +231,13 @@ run_tests() {
 
 # Main
 main() {
+    local start_time=$SECONDS
     echo ""
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║       AI Services Hub APIM Integration Tests                ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
     echo ""
+    log_info "Test run started at $(_ts)"
     
     # Parse arguments
     local test_files=()
@@ -224,21 +255,31 @@ main() {
                 shift
                 ;;
             -h|--help)
-                echo "Usage: $0 [options] [test-file.bats ...]"
+                echo "Usage: $0 [options] [environment] [test-file.bats ...]"
                 echo ""
                 echo "Options:"
                 echo "  -e, --env        Environment to test (dev|test|prod). Default: TEST_ENV or test"
                 echo "  -v, --verbose    Show detailed test output"
                 echo "  -h, --help       Show this help message"
                 echo ""
+                echo "The first bare argument matching dev|test|prod is treated as the environment."
+                echo ""
                 echo "Examples:"
-                echo "  $0                          # Run all tests"
+                echo "  $0 test                     # Run all tests against test env"
+                echo "  $0                          # Run all tests (default: test)"
                 echo "  $0 chat-completions.bats    # Run specific test file"
                 echo "  $0 -v pii-redaction.bats    # Run with verbose output"
                 exit 0
                 ;;
             *)
-                test_files+=("$1")
+                # First bare arg that looks like an environment name → treat as env
+                if [[ -z "${env_set:-}" && "$1" =~ ^(dev|test|prod)$ ]]; then
+                    TEST_ENV="$1"
+                    export TEST_ENV
+                    env_set=true
+                else
+                    test_files+=("$1")
+                fi
                 shift
                 ;;
         esac
@@ -254,11 +295,17 @@ main() {
     
     if run_tests "${test_files[@]}"; then
         echo ""
-        log_success "All tests passed!"
+        local elapsed=$(( SECONDS - start_time ))
+        local mins=$(( elapsed / 60 ))
+        local secs=$(( elapsed % 60 ))
+        log_success "All tests passed! — total time: ${mins}m ${secs}s"
         exit 0
     else
         echo ""
-        log_error "Some tests failed"
+        local elapsed=$(( SECONDS - start_time ))
+        local mins=$(( elapsed / 60 ))
+        local secs=$(( elapsed % 60 ))
+        log_error "Some tests failed — total time: ${mins}m ${secs}s"
         exit 1
     fi
 }

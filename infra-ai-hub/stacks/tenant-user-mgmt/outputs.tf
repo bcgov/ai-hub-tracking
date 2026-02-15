@@ -1,6 +1,3 @@
-# =============================================================================
-# OUTPUTS
-# =============================================================================
 output "tenant_user_management" {
   description = "Map of tenant names to their Entra group IDs and custom role definition IDs"
   value = {

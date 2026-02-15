@@ -5,6 +5,36 @@
 
 load 'test-helper'
 
+setup_file() {
+    local env="${TEST_ENV:-test}"
+    local shared_tfvars="${BATS_TEST_DIRNAME}/../../infra-ai-hub/params/${env}/shared.tfvars"
+
+    APIM_KEY_ROTATION_ENABLED="true"
+    if [[ -f "${shared_tfvars}" ]]; then
+        local parsed
+        parsed=$(awk '
+            /^[[:space:]]*apim[[:space:]]*=[[:space:]]*\{/ { in_apim=1 }
+            in_apim && /^[[:space:]]*key_rotation[[:space:]]*=[[:space:]]*\{/ { in_key_rotation=1 }
+            in_apim && in_key_rotation && /^[[:space:]]*rotation_enabled[[:space:]]*=/ {
+                line=$0
+                sub(/#.*/, "", line)
+                gsub(/[[:space:]]/, "", line)
+                split(line, kv, "=")
+                print kv[2]
+                exit
+            }
+            in_key_rotation && /^[[:space:]]*\}/ { in_key_rotation=0 }
+            in_apim && !in_key_rotation && /^[[:space:]]*\}/ { in_apim=0 }
+        ' "${shared_tfvars}" | tr '[:upper:]' '[:lower:]')
+
+        if [[ "${parsed}" == "true" || "${parsed}" == "false" ]]; then
+            APIM_KEY_ROTATION_ENABLED="${parsed}"
+        fi
+    fi
+
+    export APIM_KEY_ROTATION_ENABLED
+}
+
 setup() {
     setup_test_suite
 }
@@ -20,6 +50,10 @@ tenant_2() {
 
 # Helper: skip if tenant subscription key is not available
 skip_if_no_tenant_key() {
+    if [[ "${APIM_KEY_ROTATION_ENABLED:-true}" != "true" ]]; then
+        skip "APIM key rotation is disabled in shared.tfvars for ${TEST_ENV:-test}"
+    fi
+
     local tenant="${1}"
     local key
     key=$(get_subscription_key "${tenant}" 2>/dev/null || echo "")
@@ -222,6 +256,10 @@ post_apim_keys() {
 }
 
 @test "Unauthenticated request to /internal/apim-keys returns 401" {
+    if [[ "${APIM_KEY_ROTATION_ENABLED:-true}" != "true" ]]; then
+        skip "APIM key rotation is disabled in shared.tfvars for ${TEST_ENV:-test}"
+    fi
+
     # Call without any subscription key — use first available tenant path
     local tenant
     tenant="$(tenant_1)"
