@@ -60,10 +60,18 @@ ROTATION_INTERVAL_DAYS=7
 # =============================================================================
 # LOGGING
 # =============================================================================
-log_info()  { echo "${LOG_PREFIX} [INFO]  $(date -u +'%Y-%m-%dT%H:%M:%SZ') $*"; }
-log_warn()  { echo "${LOG_PREFIX} [WARN]  $(date -u +'%Y-%m-%dT%H:%M:%SZ') $*" >&2; }
-log_error() { echo "${LOG_PREFIX} [ERROR] $(date -u +'%Y-%m-%dT%H:%M:%SZ') $*" >&2; }
-log_debug() { if [[ "${VERBOSE}" == "true" ]]; then echo "${LOG_PREFIX} [DEBUG] $(date -u +'%Y-%m-%dT%H:%M:%SZ') $*"; fi; }
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+GRAY='\033[0;90m'
+NC='\033[0m'
+
+log_info()  { echo -e "${GRAY}$(date -u +'%Y-%m-%dT%H:%M:%SZ')${NC} ${BLUE}${LOG_PREFIX} [INFO]${NC}  $*"; }
+log_success() { echo -e "${GRAY}$(date -u +'%Y-%m-%dT%H:%M:%SZ')${NC} ${GREEN}${LOG_PREFIX} [SUCCESS]${NC} $*"; }
+log_warn()  { echo -e "${GRAY}$(date -u +'%Y-%m-%dT%H:%M:%SZ')${NC} ${YELLOW}${LOG_PREFIX} [WARN]${NC}  $*" >&2; }
+log_error() { echo -e "${GRAY}$(date -u +'%Y-%m-%dT%H:%M:%SZ')${NC} ${RED}${LOG_PREFIX} [ERROR]${NC} $*" >&2; }
+log_debug() { if [[ "${VERBOSE}" == "true" ]]; then echo -e "${GRAY}$(date -u +'%Y-%m-%dT%H:%M:%SZ')${NC} ${GRAY}${LOG_PREFIX} [DEBUG]${NC} $*"; fi; }
 
 iso_utc_now() {
     date -u +'%Y-%m-%dT%H:%M:%SZ'

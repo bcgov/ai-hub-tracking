@@ -23,11 +23,18 @@ setup_file() {
         exit 1
     fi
 
-    # Get terraform output
-    local tf_output
-    if ! tf_output=$(cd "${infra_dir}" && terraform output -json 2>/dev/null); then
-        echo "Error: Failed to get terraform output" >&2
+    # Get stack-aggregated terraform output
+    local tf_output_raw
+    if ! tf_output_raw=$(cd "${infra_dir}" && ./scripts/deploy-terraform.sh output "${env}" 2>/dev/null); then
+        echo "Error: Failed to get stack output" >&2
         echo "Make sure terraform has been applied in ${infra_dir}" >&2
+        exit 1
+    fi
+
+    local tf_output
+    tf_output=$(echo "${tf_output_raw}" | sed -n '/^{/,$p')
+    if [[ -z "${tf_output}" ]]; then
+        echo "Error: Failed to parse JSON stack output" >&2
         exit 1
     fi
 

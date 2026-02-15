@@ -56,3 +56,7 @@ tfplan
 **/sensitive/**
 **/secrets/**
 **/credentials/**
+**/terraform
+.tenant-*.auto.tfvars
+.tenant-workdir-*
+.terraform-tenant-*
