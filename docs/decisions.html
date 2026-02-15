@@ -942,6 +942,12 @@ details.adr.pending[open] summary {
         <td><span class="badge" style="background:#22c55e;color:white;">Choice</span></td>
         <td><span class="badge badge-blue">Proposed</span></td>
     </tr>
+    <tr>
+        <td><a href="#adr-015">ADR-015</a></td>
+        <td>Tenant Isolation: Resource Group vs Subscription</td>
+        <td><span class="badge badge-blue">Policy</span></td>
+        <td><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></td>
+    </tr>
 </table>
 
 <details class="adr" id="adr-001" open>
@@ -3478,6 +3484,231 @@ module "storage" {
         <li><code>infra-ai-hub/scripts/rotate-apim-keys.sh</code> &mdash; rotation script (704 lines)</li>
         <li><code>.github/workflows/apim-key-rotation.yml</code> &mdash; GHA scheduled workflow</li>
         <li><code>params/{env}/shared.tfvars</code> &mdash; per-environment rotation config</li>
+    </ul>
+
+</div>
+</details>
+
+
+<details class="adr pending" id="adr-015">
+<summary>
+    <span class="adr-title">ADR-015: Tenant Isolation: Resource Group vs Subscription</span>
+    <span class="adr-status"><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></span>
+</summary>
+<div class="adr-content">
+
+    <div class="grid grid-4" style="margin-bottom: 1rem;">
+        <div><strong>Status:</strong> <span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></div>
+        <div><strong>Date:</strong> 2026-02</div>
+        <div><strong>Deciders:</strong> AI Services Hub Team, MS CAF Team</div>
+        <div><strong>Category:</strong> <span class="badge badge-blue">Architecture</span></div>
+    </div>
+
+    <div class="alert alert-warning" style="margin-bottom: 1.5rem;">
+        <div class="alert-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div>
+            <strong>Pending Discussion with Microsoft &amp; Platform Services</strong><br>
+            This decision requires input from Microsoft&rsquo;s CAF team on Azure quota scaling options and from the Landing Zone Platform team on subscription provisioning constraints. The current RG-based design is the preferred approach for centralized governance. See <a href="https://github.com/bcgov/ai-hub-tracking/issues/63">#63</a> and <a href="https://github.com/bcgov/ai-hub-tracking/issues/74">#74</a>.
+        </div>
+    </div>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Context</h3>
+    <p>The AI Services Hub serves multiple BC Government ministries from a shared Azure subscription. Tenant isolation is currently implemented at the <strong>Resource Group level</strong> &mdash; each tenant gets its own RG with dedicated data-plane resources while sharing control-plane infrastructure (VNet, App Gateway, APIM, AI Foundry Hub) in a central RG.</p>
+
+    <p>As the platform scales beyond the initial 2 tenants, key <strong>Azure subscription-level quotas</strong> create hard scaling ceilings:</p>
+
+    <table>
+        <thead>
+            <tr><th>Resource</th><th>Per-Subscription Limit</th><th>Per-Tenant Usage</th><th>Ceiling (tenants)</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><strong>Model deployments per AI account</strong></td><td>32 (default)</td><td>5&ndash;7</td><td style="color:#ef4444;"><strong>~4&ndash;5</strong></td></tr>
+            <tr><td>AI Search services</td><td>16 (Basic/Standard)</td><td>0&ndash;1</td><td style="color:#f59e0b;">16</td></tr>
+            <tr><td>Cosmos DB accounts</td><td>50</td><td>0&ndash;1</td><td>50</td></tr>
+            <tr><td>Cognitive Services accounts</td><td>200</td><td>2 (Doc Intel + Speech)</td><td>~100</td></tr>
+            <tr><td>APIM APIs per instance</td><td>400</td><td>5&ndash;6</td><td>~80</td></tr>
+            <tr><td>Private endpoints per subnet</td><td>1000</td><td>~5</td><td>~200</td></tr>
+            <tr><td>GlobalStandard TPM (per model)</td><td>Varies (e.g., 2M for gpt-4.1-mini)</td><td>7.5K&ndash;30K</td><td>Depends on model</td></tr>
+        </tbody>
+    </table>
+
+    <p>The most immediate bottleneck is the <strong>32 model deployments per AI Foundry Hub account</strong>. With 2 tenants deploying 6&ndash;7 models each (13 total today), the limit is reached at roughly 4&ndash;5 tenants. Additionally, LLM quotas (PTU and GlobalStandard TPM) are tied to the subscription scope, so all tenants compete for the same throughput pool.</p>
+
+    <p>Issue <a href="https://github.com/bcgov/ai-hub-tracking/issues/74">#74</a> raises specific questions about PTU scaling: turnaround time for quota increases, dynamic scaling between PTU and pay-as-you-go, and whether the single-subscription model can support production-scale workloads.</p>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Options Evaluated</h3>
+
+    <div class="grid grid-2">
+        <div class="card" style="border-left: 4px solid #22c55e;">
+            <h4 style="margin-top: 0; color: #22c55e;">Option A: Resource Group Isolation (Current &amp; Preferred)</h4>
+            <p>All tenants share a single Azure subscription. Shared infrastructure (VNet, AppGW, APIM, AI Foundry Hub) lives in a central RG. Each tenant gets a dedicated RG with isolated data-plane resources. Scaling limits are mitigated at the application layer.</p>
+        </div>
+        <div class="card" style="border-left: 4px solid #60a5fa;">
+            <h4 style="margin-top: 0; color: #60a5fa;">Option B: Subscription-Per-Tenant</h4>
+            <p>Each tenant (or group of tenants) gets a dedicated Azure subscription. Shared infrastructure is replicated or connected via VNet peering. Each subscription has independent quota pools.</p>
+        </div>
+    </div>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Option A: Resource Group Isolation &mdash; Pros &amp; Cons</h3>
+
+    <div class="grid grid-2">
+        <div class="card" style="border-left-color: #22c55e;">
+            <h4 style="margin-top: 0; color: #22c55e;">Pros</h4>
+            <ul style="margin-bottom: 0;">
+                <li><strong>Centralized governance:</strong> Single subscription = single set of Azure Policies, RBAC, Defender for Cloud, cost management. One pane of glass for the platform team.</li>
+                <li><strong>Simplified networking:</strong> All resources in one VNet with one PE subnet. No cross-subscription VNet peering, no transit routing, no DNS forwarding complexity.</li>
+                <li><strong>Lower cost:</strong> Shared App Gateway, APIM, AI Foundry Hub, Log Analytics. No per-subscription overhead (reserved instances apply once, shared Defender plans).</li>
+                <li><strong>Faster tenant onboarding:</strong> Adding a tenant = adding a Terraform tenant config block. No subscription provisioning, OIDC setup, or Landing Zone request.</li>
+                <li><strong>Existing investment:</strong> Current architecture (5 stacks, phased deployment, APIM key rotation) is built and validated for this model.</li>
+                <li><strong>Operational simplicity:</strong> One deployment pipeline, one set of state files per environment, one OIDC identity per environment.</li>
+                <li><strong>Cost attribution:</strong> Per-tenant RGs enable native Azure Cost Management tag-based and RG-based cost reporting without subscription boundaries.</li>
+            </ul>
+        </div>
+        <div class="card" style="border-left-color: #ef4444;">
+            <h4 style="margin-top: 0; color: #ef4444;">Cons</h4>
+            <ul style="margin-bottom: 0;">
+                <li><strong>Quota ceilings:</strong> All tenants share subscription-scoped quotas. The 32-deployment AI account limit is the most immediate constraint (~4&ndash;5 tenants).</li>
+                <li><strong>TPM/PTU contention:</strong> All model deployments on the shared Hub compete for the same GlobalStandard TPM pool. High-demand tenants crowd out others.</li>
+                <li><strong>Blast radius:</strong> A subscription-level issue (quota exhaustion, policy misconfiguration, billing suspension) impacts <em>all</em> tenants simultaneously.</li>
+                <li><strong>Quota increase friction:</strong> Requesting Azure quota increases is a per-subscription manual process. Lead times can be days to weeks for PTU.</li>
+                <li><strong>AI Search hard limit:</strong> 16 search services per subscription is a fixed limit with no increase path &mdash; hard wall at 16 search-enabled tenants.</li>
+                <li><strong>Foundry serialization:</strong> Model deployments run serially across all tenants to avoid ETag conflicts on the shared Hub. More tenants = slower deploys.</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Option B: Subscription-Per-Tenant &mdash; Pros &amp; Cons</h3>
+
+    <div class="grid grid-2">
+        <div class="card" style="border-left-color: #22c55e;">
+            <h4 style="margin-top: 0; color: #22c55e;">Pros</h4>
+            <ul style="margin-bottom: 0;">
+                <li><strong>Independent quota pools:</strong> Each subscription gets its own 32 model deployments, 200 Cognitive Services accounts, 16 AI Search services, etc. Eliminates quota-based scaling ceilings.</li>
+                <li><strong>PTU isolation:</strong> Each tenant can request and manage its own PTU commitments. No cross-tenant throughput contention.</li>
+                <li><strong>Blast radius reduction:</strong> Subscription-level issues are isolated to one tenant.</li>
+                <li><strong>Independent scaling:</strong> Each subscription can scale resources (VM sizes, throughput, storage) without affecting others.</li>
+                <li><strong>Compliance flexibility:</strong> Some future tenants may have regulatory requirements (FOIPPA, health data) that mandate subscription-level isolation.</li>
+                <li><strong>Clean cost separation:</strong> Native Azure billing per subscription. No tag-based attribution needed.</li>
+            </ul>
+        </div>
+        <div class="card" style="border-left-color: #ef4444;">
+            <h4 style="margin-top: 0; color: #ef4444;">Cons</h4>
+            <ul style="margin-bottom: 0;">
+                <li><strong>Loss of central governance:</strong> Each subscription needs its own Azure Policies, RBAC assignments, Defender plans. Policy drift risk increases linearly.</li>
+                <li><strong>Networking complexity:</strong> Requires cross-subscription VNet peering (or VWAN hub-and-spoke), cross-subscription private DNS zones, transit routing. Significant complexity increase.</li>
+                <li><strong>Infrastructure duplication:</strong> App Gateway, APIM, Key Vault, and potentially AI Foundry Hub must be replicated per subscription &mdash; or a complex shared services model must be designed.</li>
+                <li><strong>Higher cost:</strong> Duplicated infrastructure (App Gateway ~$300/mo, APIM StandardV2 ~$700/mo per subscription). Reserved instance savings are fragmented.</li>
+                <li><strong>Subscription provisioning lead time:</strong> BC Gov Landing Zone subscription requests go through the Platform Services team. Lead time is days to weeks, blocking rapid tenant onboarding.</li>
+                <li><strong>Pipeline complexity:</strong> Each subscription needs its own OIDC federation, deployment pipeline, state backend. The current single-pipeline model does not extend.</li>
+                <li><strong>Operational overhead:</strong> N subscriptions = N sets of monitoring, alerting, secret rotation, certificate management. Platform team workload scales linearly.</li>
+                <li><strong>APIM routing:</strong> A shared APIM fronting multiple subscription backends requires cross-subscription private endpoints or public exposure &mdash; both add complexity.</li>
+            </ul>
+        </div>
+    </div>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Decision</h3>
+    <p><strong>We continue with Resource Group isolation (Option A)</strong> as the preferred architecture, with specific mitigations for quota scaling constraints. This decision is pending confirmation from Microsoft on quota flexibility and from the Platform team on subscription provisioning options as a future fallback.</p>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Mitigations for RG-Based Scaling Limits</h3>
+
+    <table>
+        <thead>
+            <tr><th>Constraint</th><th>Limit</th><th>Mitigation Strategy</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>Model deployments per AI account</strong></td>
+                <td>32</td>
+                <td>Request quota increase via Azure Support. Deploy a second AI Foundry Hub account if increase denied. Consolidate shared models (e.g., single embedding model for all tenants).</td>
+                <td><span class="badge" style="background:#f59e0b;color:white;">Pending MS</span></td>
+            </tr>
+            <tr>
+                <td><strong>GlobalStandard TPM contention</strong></td>
+                <td>Per-model cap</td>
+                <td>Implement APIM rate limiting per tenant (already in place). Explore PTU for high-priority tenants. Use <code>dynamic_throttling_enabled</code> on AI account. Investigate PTU &harr; pay-as-you-go spillover.</td>
+                <td><span class="badge" style="background:#f59e0b;color:white;">Pending MS</span></td>
+            </tr>
+            <tr>
+                <td><strong>AI Search services</strong></td>
+                <td>16</td>
+                <td>Not all tenants need AI Search (1 of 2 currently enabled). For tenants with simple needs, use shared index with document-level permissions or skip Search entirely.</td>
+                <td><span class="badge" style="background:#22c55e;color:white;">Mitigated</span></td>
+            </tr>
+            <tr>
+                <td><strong>Foundry project serialization</strong></td>
+                <td>Serial deploys</td>
+                <td>Already mitigated in ADR-013 (scaled stacks). Foundry stack runs serial but other phases are parallel. <code>prevent_destroy</code> on model deployments reduces redeploy churn.</td>
+                <td><span class="badge badge-gold">In Place</span></td>
+            </tr>
+            <tr>
+                <td><strong>APIM API count</strong></td>
+                <td>400</td>
+                <td>Consolidate API definitions. Use a single versioned API with tenant routing via APIM policies rather than per-tenant API duplicates.</td>
+                <td><span class="badge" style="background:#22c55e;color:white;">Future</span></td>
+            </tr>
+        </tbody>
+    </table>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Trigger for Revisiting This Decision</h3>
+    <p>The following conditions would warrant moving specific tenants or tenant groups to dedicated subscriptions (hybrid model):</p>
+    <ul>
+        <li>Tenant count exceeds 10&ndash;15 and quota increase requests are denied by Microsoft</li>
+        <li>A tenant requires dedicated PTU with guaranteed throughput SLAs that conflict with shared pool</li>
+        <li>Regulatory requirements (e.g., health data under FOIPPA) mandate subscription-level isolation explicitly</li>
+        <li>PTU turnaround time for quota increases exceeds acceptable lead times for tenant onboarding</li>
+        <li>Total GlobalStandard TPM across all tenants approaches the per-model subscription ceiling</li>
+    </ul>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
+    <ul>
+        <li><strong>Right-sizing for now:</strong> With 2 active tenants and realistic growth to 5&ndash;10 in the near term, the RG model has headroom with mitigations. Subscription-level rearchitecture is premature.</li>
+        <li><strong>Governance is the priority:</strong> BC Gov Landing Zone policies, RBAC, and audit requirements are significantly easier to enforce in a single subscription. The compliance benefit outweighs the quota risk.</li>
+        <li><strong>Cost efficiency:</strong> Shared infrastructure saves ~$1,000+/mo per avoided subscription (AppGW + APIM alone). This is material in a government context.</li>
+        <li><strong>Onboarding velocity:</strong> A Terraform config change vs. a multi-week subscription provisioning request. This directly impacts ministry adoption speed.</li>
+        <li><strong>Hybrid escape hatch:</strong> The architecture supports a future hybrid model where high-demand or compliance-sensitive tenants move to dedicated subscriptions while most remain on the shared RG model. This is not an irreversible decision.</li>
+    </ul>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Open Questions for Microsoft</h3>
+    <div class="alert alert-info" style="margin-bottom: 1rem;">
+        <span class="alert-icon">❓</span>
+        <div>
+            These questions are tracked in <a href="https://github.com/bcgov/ai-hub-tracking/issues/74">#74</a> and require input from the Microsoft CAF/FastTrack team:
+        </div>
+    </div>
+    <ol>
+        <li>What is the turnaround time for PTU quota increases when current allocation is at full capacity?</li>
+        <li>Does PTU support dynamic scaling (elastic range) or is it fixed at a provisioned point?</li>
+        <li>Can you provide Terraform samples for auto-fallback between PTU and GlobalStandard (pay-as-you-go)?</li>
+        <li>Can the 32 model deployment limit per Cognitive Services account be increased? To what ceiling?</li>
+        <li>Is there a recommended pattern for multi-AI-Foundry-Hub accounts within a single subscription to distribute deployments?</li>
+    </ol>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Consequences</h3>
+
+    <h4>Positive</h4>
+    <ul>
+        <li><strong>No immediate rearchitecture needed:</strong> The platform continues operating with the validated RG-based model while answers from Microsoft are pending.</li>
+        <li><strong>Clear scaling triggers:</strong> The team knows exactly which quotas to monitor and at what tenant count to revisit the decision.</li>
+        <li><strong>Documented escape path:</strong> If RG-based scaling hits limits, the migration path to subscription-per-tenant (or hybrid) is architecturally understood.</li>
+    </ul>
+
+    <h4>Negative</h4>
+    <ul>
+        <li><strong>Near-term ceiling:</strong> The 32-deployment limit means maximum ~4&ndash;5 tenants without a quota increase or model consolidation. This is a known constraint.</li>
+        <li><strong>MS dependency:</strong> Key mitigations (quota increases, PTU scaling guidance) depend on Microsoft response timelines.</li>
+        <li><strong>Potential future migration:</strong> If the hybrid model is eventually needed, migrating a tenant from shared subscription to dedicated subscription requires re-creating resources, migrating data, and updating APIM routing &mdash; non-trivial effort.</li>
+    </ul>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">References</h3>
+    <ul>
+        <li><a href="https://github.com/bcgov/ai-hub-tracking/issues/63">Issue #63: Decision | Tenant Isolation | RG Or Subscription</a></li>
+        <li><a href="https://github.com/bcgov/ai-hub-tracking/issues/74">Issue #74: Foundry Hub | Single Subscription | Scaling</a> (parent issue)</li>
+        <li><a href="#adr-010">ADR-010: Multi-Tenant Isolation Model</a> &mdash; four-layer isolation architecture</li>
+        <li><a href="#adr-013">ADR-013: Scaled Stack Architecture</a> &mdash; phased deployment with isolated state</li>
+        <li><a href="https://learn.microsoft.com/en-us/azure/ai-services/openai/quotas-limits">Azure OpenAI Quotas and Limits</a></li>
+        <li><a href="https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits">Azure Subscription Service Limits</a></li>
     </ul>
 
 </div>

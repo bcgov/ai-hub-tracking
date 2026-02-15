@@ -145,6 +145,7 @@ env:
 2. Use variables for all configurable values.
 3. Ensure variable descriptions are present.
 4. Keep changes minimal and consistent with repo patterns.
+5. Make sure changes are also reflected in appropriate sections in [docs](../../../docs/)
 
 ## Running Deployments from local machine
 1. Always use the deployment bash script over regular terraform commands
