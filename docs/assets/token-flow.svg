@@ -112,5 +112,5 @@
 
   <!-- Footer -->
   <rect x="0" y="750" width="1200" height="50" fill="#fcba19"/>
-  <text x="600" y="780" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#003366">AI Hub Tracking - Token Exchange Flow Diagram</text>
+  <text x="600" y="780" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#003366">AI Services Hub - Token Exchange Flow Diagram</text>
 </svg>

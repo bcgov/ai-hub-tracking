@@ -2,35 +2,34 @@
 # =============================================================================
 # Terraform Documentation Generator
 # =============================================================================
-# This script automatically generates documentation from Terraform files by
-# extracting comments, variable descriptions, and resource information.
+# Generates HTML reference documentation from Terraform source files for both
+# the initial-setup/infra modules and the infra-ai-hub modules + stacks.
 #
 # Usage: ./generate-tf-docs.sh [options]
 #
 # Options:
-#   -i, --infra-dir    Path to infra directory (default: ../infra)
 #   -o, --output       Output file (default: _pages/terraform-reference.html)
 #   -h, --help         Show this help message
 #
 # How it works:
-#   1. Scans all .tf files in the infra directory
-#   2. Extracts module descriptions from comments at the top of main.tf
-#   3. Parses variables.tf to get variable names, types, defaults, and descriptions
-#   4. Parses outputs.tf to get output names and descriptions
-#   5. Generates an HTML page with all the extracted documentation
+#   1. Scans initial-setup/infra/ for the root module and its sub-modules
+#   2. Scans infra-ai-hub/modules/ for the AI Hub shared modules
+#   3. Scans infra-ai-hub/stacks/ for the isolated Terraform stacks
+#   4. Extracts module descriptions from header comments in main.tf
+#   5. Parses variables.tf for variable names, types, defaults, and descriptions
+#   6. Parses outputs.tf for output names and descriptions
+#   7. Generates a single HTML page with all extracted documentation
 #
 # Comment Format Expected:
-#   # Module: Network
 #   # Description: Creates the virtual network and subnets
-#   # Author: Your Name
-#   # Last Updated: 2025-01-15
 # =============================================================================
 
 set -e
 
 # Default values
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-INFRA_DIR="${SCRIPT_DIR}/../initial-setup/infra"
+INITIAL_SETUP_DIR="${SCRIPT_DIR}/../initial-setup/infra"
+AI_HUB_DIR="${SCRIPT_DIR}/../infra-ai-hub"
 OUTPUT_FILE="${SCRIPT_DIR}/_pages/terraform-reference.html"
 
 # Colors for output
@@ -43,16 +42,12 @@ NC='\033[0m' # No Color
 # Parse command line arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        -i|--infra-dir)
-            INFRA_DIR="$2"
-            shift 2
-            ;;
         -o|--output)
             OUTPUT_FILE="$2"
             shift 2
             ;;
         -h|--help)
-            head -30 "$0" | tail -25
+            head -28 "$0" | tail -23
             exit 0
             ;;
         *)
@@ -66,15 +61,10 @@ echo -e "${BLUE}========================================${NC}"
 echo -e "${BLUE}Terraform Documentation Generator${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
-echo -e "Infra directory: ${GREEN}${INFRA_DIR}${NC}"
-echo -e "Output file: ${GREEN}${OUTPUT_FILE}${NC}"
+echo -e "Initial setup dir: ${GREEN}${INITIAL_SETUP_DIR}${NC}"
+echo -e "AI Hub dir:        ${GREEN}${AI_HUB_DIR}${NC}"
+echo -e "Output file:       ${GREEN}${OUTPUT_FILE}${NC}"
 echo ""
-
-# Verify infra directory exists
-if [ ! -d "$INFRA_DIR" ]; then
-    echo -e "${RED}Error: Infra directory not found: ${INFRA_DIR}${NC}"
-    exit 1
-fi
 
 # Function to extract description from file header comments
 # Looks for lines starting with # at the top of the file
@@ -132,9 +122,10 @@ parse_variables() {
         fi
 
         if $in_variable; then
-            # Count braces
-            brace_count=$((brace_count + $(echo "$line" | tr -cd '{' | wc -c)))
-            brace_count=$((brace_count - $(echo "$line" | tr -cd '}' | wc -c)))
+            # Count braces safely (avoid pipefail with set -e)
+            local stripped_open="${line//[^\{]/}"
+            local stripped_close="${line//[^\}]/}"
+            brace_count=$((brace_count + ${#stripped_open} - ${#stripped_close}))
 
             # Extract type
             if [[ "$line" =~ type[[:space:]]*=[[:space:]]*(.+) ]]; then
@@ -199,8 +190,9 @@ parse_outputs() {
         fi
 
         if $in_output; then
-            brace_count=$((brace_count + $(echo "$line" | tr -cd '{' | wc -c)))
-            brace_count=$((brace_count - $(echo "$line" | tr -cd '}' | wc -c)))
+            local stripped_open="${line//[^\{]/}"
+            local stripped_close="${line//[^\}]/}"
+            brace_count=$((brace_count + ${#stripped_open} - ${#stripped_close}))
 
             # Extract description
             if [[ "$line" =~ description[[:space:]]*=[[:space:]]*\"([^\"]+)\" ]]; then
@@ -241,7 +233,65 @@ parse_resources() {
     fi
 }
 
-# Start generating HTML
+# =============================================================================
+# Helper: process a directory as a card (module or stack)
+# Usage: process_dir <dir_path> <display_location> <heading_prefix> <border_color> <id_prefix>
+# =============================================================================
+process_dir() {
+    local dir_path="$1"
+    local display_location="$2"
+    local heading_prefix="$3"
+    local border_color="$4"
+    local id_prefix="$5"
+    local dir_name
+    dir_name=$(basename "$dir_path")
+
+    # Skip empty directories (no .tf files)
+    local tf_count
+    tf_count=$(find "$dir_path" -maxdepth 1 -name "*.tf" 2>/dev/null | wc -l)
+    if [ "$tf_count" -eq 0 ]; then
+        echo -e "  ${YELLOW}Skipping empty: ${dir_name}${NC}"
+        return
+    fi
+
+    echo -e "  ${GREEN}Processing ${heading_prefix}: ${dir_name}...${NC}"
+
+    {
+        local html_id="${id_prefix}${dir_name}"
+        echo "<h3 id=\"${html_id}\">${dir_name}</h3>"
+        echo "<div class=\"card\" style=\"border-left-color: ${border_color};\">"
+
+        # Get description from main.tf or README
+        local desc=""
+        desc=$(extract_file_description "${dir_path}/main.tf")
+        if [ -z "$desc" ] && [ -f "${dir_path}/README.md" ]; then
+            desc=$(head -5 "${dir_path}/README.md" | grep -v "^#" | head -1 || true)
+        fi
+        [ -n "$desc" ] && echo "<p>$desc</p>"
+
+        echo "<p><strong>Location:</strong> <code>${display_location}</code></p>"
+
+        # List files
+        echo "<details>"
+        echo "<summary style=\"cursor: pointer; color: var(--bc-blue-light);\">Files (${tf_count})</summary>"
+        echo "<ul style=\"margin-top: 0.5rem;\">"
+        for tf_file in "${dir_path}"/*.tf; do
+            [ -f "$tf_file" ] && echo "<li><code>$(basename "$tf_file")</code></li>"
+        done
+        echo "</ul>"
+        echo "</details>"
+
+        parse_variables "${dir_path}/variables.tf"
+        parse_outputs "${dir_path}/outputs.tf"
+        parse_resources "${dir_path}/main.tf"
+
+        echo "</div>"
+    } >> "$OUTPUT_FILE"
+}
+
+# =============================================================================
+# Generate HTML
+# =============================================================================
 echo -e "${YELLOW}Generating documentation...${NC}"
 
 cat > "$OUTPUT_FILE" << 'HEADER'
@@ -260,82 +310,110 @@ cat > "$OUTPUT_FILE" << 'HEADER'
 
 <p>Complete reference documentation for all Terraform modules, variables, and outputs extracted directly from the source code.</p>
 
+<div class="grid grid-2" style="margin-bottom: 2rem;">
+    <a href="#section-initial-setup" class="card-link">
+        <div class="card" style="border-left-color: #8b5cf6;">
+            <h3 style="margin-top: 0;">Initial Setup</h3>
+            <p>Network foundation: VNet, Bastion, Jumpbox, self-hosted runners.</p>
+        </div>
+    </a>
+    <a href="#section-ai-hub" class="card-link">
+        <div class="card" style="border-left-color: #22c55e;">
+            <h3 style="margin-top: 0;">AI Services Hub</h3>
+            <p>AI platform: APIM, AI Foundry, tenants, key rotation, WAF.</p>
+        </div>
+    </a>
+</div>
+
 HEADER
 
-# Process root module
-echo -e "  ${GREEN}Processing root module...${NC}"
-{
-    echo "<h2>Root Module</h2>"
-    echo "<div class=\"card\">"
+# ─────────────────────────────────────────────────────────────────────────────
+# Section 1: Initial Setup (initial-setup/infra)
+# ─────────────────────────────────────────────────────────────────────────────
+if [ -d "${INITIAL_SETUP_DIR}" ]; then
+    echo -e "${BLUE}── Initial Setup ──${NC}"
+    {
+        echo "<h2 id=\"section-initial-setup\">Initial Setup (<code>initial-setup/infra/</code>)</h2>"
+        echo "<p>Network foundation layer &mdash; VNet, Bastion, Jumpbox, and self-hosted GitHub runners. Deployed once per environment via <code>initial-setup/infra/deploy-terraform.sh</code>.</p>"
+    } >> "$OUTPUT_FILE"
 
-    desc=$(extract_file_description "${INFRA_DIR}/main.tf")
-    [ -n "$desc" ] && echo "<p>$desc</p>"
+    # Root module
+    echo -e "  ${GREEN}Processing root module...${NC}"
+    {
+        echo "<h3 id=\"initial-root\">Root Module</h3>"
+        echo "<div class=\"card\">"
 
-    echo "<p><strong>Location:</strong> <code>infra/</code></p>"
+        desc=$(extract_file_description "${INITIAL_SETUP_DIR}/main.tf")
+        [ -n "$desc" ] && echo "<p>$desc</p>"
 
-    parse_variables "${INFRA_DIR}/variables.tf"
-    parse_outputs "${INFRA_DIR}/outputs.tf"
-    parse_resources "${INFRA_DIR}/main.tf"
+        echo "<p><strong>Location:</strong> <code>initial-setup/infra/</code></p>"
 
-    echo "</div>"
-} >> "$OUTPUT_FILE"
+        parse_variables "${INITIAL_SETUP_DIR}/variables.tf"
+        parse_outputs "${INITIAL_SETUP_DIR}/outputs.tf"
+        parse_resources "${INITIAL_SETUP_DIR}/main.tf"
 
-# Process each module in modules directory
-if [ -d "${INFRA_DIR}/modules" ]; then
-    for module_dir in "${INFRA_DIR}/modules"/*/; do
-        if [ -d "$module_dir" ]; then
+        echo "</div>"
+    } >> "$OUTPUT_FILE"
+
+    # Sub-modules
+    if [ -d "${INITIAL_SETUP_DIR}/modules" ]; then
+        for module_dir in "${INITIAL_SETUP_DIR}/modules"/*/; do
+            [ -d "$module_dir" ] || continue
             module_name=$(basename "$module_dir")
-            echo -e "  ${GREEN}Processing module: ${module_name}...${NC}"
-
-            {
-                echo "<h2 id=\"${module_name}\">Module: ${module_name}</h2>"
-                echo "<div class=\"card\" style=\"border-left-color: #8b5cf6;\">"
-
-                # Get description from main.tf or README
-                desc=$(extract_file_description "${module_dir}main.tf")
-                if [ -z "$desc" ] && [ -f "${module_dir}README.md" ]; then
-                    desc=$(head -5 "${module_dir}README.md" | grep -v "^#" | head -1)
-                fi
-                [ -n "$desc" ] && echo "<p>$desc</p>"
-
-                echo "<p><strong>Location:</strong> <code>initial-setup/infra/modules/${module_name}/</code></p>"
-
-                # List files in module
-                echo "<details>"
-                echo "<summary style=\"cursor: pointer; color: var(--bc-blue-light);\">Module Files</summary>"
-                echo "<ul style=\"margin-top: 0.5rem;\">"
-                for tf_file in "${module_dir}"*.tf; do
-                    [ -f "$tf_file" ] && echo "<li><code>$(basename "$tf_file")</code></li>"
-                done
-                echo "</ul>"
-                echo "</details>"
-
-                parse_variables "${module_dir}variables.tf"
-                parse_outputs "${module_dir}outputs.tf"
-                parse_resources "${module_dir}main.tf"
-
-                echo "</div>"
-            } >> "$OUTPUT_FILE"
-        fi
-    done
+            process_dir "$module_dir" "initial-setup/infra/modules/${module_name}/" "module" "#8b5cf6" "initial-"
+        done
+    fi
+else
+    echo -e "${YELLOW}Skipping initial-setup (not found: ${INITIAL_SETUP_DIR})${NC}"
 fi
 
-# Add usage examples section
+# ─────────────────────────────────────────────────────────────────────────────
+# Section 2: AI Services Hub (infra-ai-hub)
+# ─────────────────────────────────────────────────────────────────────────────
+if [ -d "${AI_HUB_DIR}" ]; then
+    echo -e "${BLUE}── AI Services Hub ──${NC}"
+    {
+        echo ""
+        echo "<h2 id=\"section-ai-hub\">AI Services Hub (<code>infra-ai-hub/</code>)</h2>"
+        echo "<p>Multi-tenant AI platform deployed via 5 isolated Terraform stacks with parallel execution. See <a href=\"decisions.html#adr-013\">ADR-013</a> for architecture rationale.</p>"
+    } >> "$OUTPUT_FILE"
+
+    # Stacks
+    if [ -d "${AI_HUB_DIR}/stacks" ]; then
+        {
+            echo "<h2 id=\"ai-hub-stacks\">Stacks</h2>"
+            echo "<p>Each stack has its own state file and backend configuration. Deployed in dependency order: shared &rarr; tenant (parallel) &rarr; foundry + apim + tenant-user-mgmt (parallel).</p>"
+        } >> "$OUTPUT_FILE"
+
+        # Process stacks in execution order
+        for stack_name in shared tenant foundry apim tenant-user-mgmt; do
+            stack_dir="${AI_HUB_DIR}/stacks/${stack_name}"
+            [ -d "$stack_dir" ] || continue
+            process_dir "$stack_dir" "infra-ai-hub/stacks/${stack_name}/" "stack" "#0078d4" "stack-"
+        done
+    fi
+
+    # Modules
+    if [ -d "${AI_HUB_DIR}/modules" ]; then
+        {
+            echo "<h2 id=\"ai-hub-modules\">Modules</h2>"
+            echo "<p>Reusable modules consumed by the stacks above. Each module wraps Azure Verified Modules (AVM) or native <code>azurerm</code>/<code>azapi</code> resources.</p>"
+        } >> "$OUTPUT_FILE"
+
+        for module_dir in "${AI_HUB_DIR}/modules"/*/; do
+            [ -d "$module_dir" ] || continue
+            module_name=$(basename "$module_dir")
+            process_dir "$module_dir" "infra-ai-hub/modules/${module_name}/" "module" "#22c55e" "hub-"
+        done
+    fi
+else
+    echo -e "${YELLOW}Skipping infra-ai-hub (not found: ${AI_HUB_DIR})${NC}"
+fi
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Footer: usage examples and conventions
+# ─────────────────────────────────────────────────────────────────────────────
 cat >> "$OUTPUT_FILE" << 'FOOTER'
-
-<h2>Usage Examples</h2>
-
-<div class="card card-gold">
-    <h3 style="margin-top: 0;">Calling a Module</h3>
-    <pre>module "network" {
-  source = "./modules/network"
-
-  resource_group_name = var.resource_group_name
-  location            = var.location
-  environment         = var.environment
-  vnet_address_space  = ["10.0.0.0/16"]
-}</pre>
-</div>
 
 <h2>Adding New Modules</h2>
 
@@ -365,7 +443,7 @@ cat >> "$OUTPUT_FILE" << 'FOOTER'
 <div class="alert alert-warning">
     <span class="alert-icon">💡</span>
     <div>
-        <strong>Tip:</strong> The documentation generator runs automatically during the docs build process. Simply add your module and push to main.
+        <strong>Tip:</strong> The documentation generator runs automatically during the GitHub Pages build. Push to main and docs are rebuilt.
     </div>
 </div>
 FOOTER

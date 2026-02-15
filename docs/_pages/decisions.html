@@ -73,7 +73,7 @@ details.adr.pending[open] summary {
 
 <h1>Architecture Decision Records</h1>
 
-<p>This page documents key architectural decisions for the AI Hub Tracking infrastructure. Each ADR explains the context, decision, and consequences to help future maintainers understand why things are built the way they are.</p>
+<p>This page documents key architectural decisions for the AI Services Hub infrastructure. Each ADR explains the context, decision, and consequences to help future maintainers understand why things are built the way they are.</p>
 
 <div class="alert alert-warning">
     <div class="alert-icon">
@@ -185,6 +185,18 @@ details.adr.pending[open] summary {
         <td><a href="#adr-012">ADR-012</a></td>
         <td>Usage Monitoring, Cost Allocation and Chargeback Metrics</td>
         <td><span class="badge badge-blue">Operations</span></td>
+        <td><span class="badge badge-blue">Proposed</span></td>
+    </tr>
+    <tr>
+        <td><a href="#adr-013">ADR-013</a></td>
+        <td>Scaled Stack Architecture with Isolated State Files</td>
+        <td><span class="badge" style="background:#22c55e;color:white;">Choice</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
+    </tr>
+    <tr>
+        <td><a href="#adr-014">ADR-014</a></td>
+        <td>APIM Subscription Key Rotation</td>
+        <td><span class="badge" style="background:#22c55e;color:white;">Choice</span></td>
         <td><span class="badge badge-blue">Proposed</span></td>
     </tr>
 </table>
@@ -2552,6 +2564,191 @@ module "storage" {
     <ul>
         <li><strong>Complexity of Egress:</strong> Cross-region data transfer is billed at the subscription level and is difficult to attribute. We accept the tradeoff of maintaining a custom Kusto query to calculate this specific cost.</li>
         <li><strong>Maintenance:</strong> The logic for splitting shared costs (Python functions/Kusto queries) is custom code that must be maintained and verified monthly against Azure invoices.</li>
+    </ul>
+
+</div>
+</details>
+
+
+<!-- ADR-013 -->
+<details class="adr" id="adr-013">
+<summary>
+    <span class="adr-title">ADR-013: Scaled Stack Architecture with Isolated State Files</span>
+    <span class="adr-status"><span class="badge badge-gold">Accepted</span></span>
+</summary>
+<div class="adr-content">
+
+    <div class="grid grid-4" style="margin-bottom: 1rem;">
+        <div><strong>Status:</strong> Accepted</div>
+        <div><strong>Date:</strong> 2026-02</div>
+        <div><strong>Deciders:</strong> AI Services Hub Team</div>
+        <div><strong>Category:</strong> <span class="badge" style="background:#22c55e;color:white;">Infrastructure</span></div>
+    </div>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Context</h3>
+    <p>The AI Services Hub infrastructure was originally deployed as a single Terraform root module with one monolithic state file containing ~174 resources. This created several operational problems:</p>
+    <ul>
+        <li><strong>Blast radius:</strong> Any Terraform error or state corruption could affect all 174 resources simultaneously.</li>
+        <li><strong>Lock contention:</strong> Only one Terraform operation could run at a time across the entire infrastructure, even for independent resources.</li>
+        <li><strong>Serial execution:</strong> Foundry projects required <code>parallelism=1</code> due to Azure ETag conflicts, which forced the entire apply to run serially.</li>
+        <li><strong>Apply duration:</strong> A full apply took 5m 44s because independent stacks (APIM, foundry, tenant-user-mgmt) had to wait for each other.</li>
+        <li><strong>Phased targeting:</strong> The deployment script used <code>-target</code> flags to orchestrate a multi-phase apply (Phase 1: everything except foundry, Phase 2: foundry only, Phase 3: validation). This was fragile and hid dependency issues.</li>
+    </ul>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Decision</h3>
+    <p>We split the monolithic root module into <strong>5 isolated Terraform stacks</strong>, each with its own state file, backend configuration, and dependency management via <code>terraform_remote_state</code> data sources:</p>
+
+    <table>
+        <thead>
+            <tr><th>Stack</th><th>State Key</th><th>Phase</th><th>Purpose</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>shared</code></td><td><code>shared.tfstate</code></td><td>1 (serial)</td><td>VNet, subnets, AI Foundry Hub, App Gateway, WAF, Key Vault, ACR, monitoring</td></tr>
+            <tr><td><code>tenant</code></td><td><code>tenant-{key}.tfstate</code></td><td>2 (parallel fan-out)</td><td>Per-tenant resources: AI Search, CosmosDB, Document Intelligence, Storage, Key Vault</td></tr>
+            <tr><td><code>foundry</code></td><td><code>foundry.tfstate</code></td><td>3 (parallel)</td><td>AI Foundry projects per tenant (<code>parallelism=1</code> to avoid ETag conflicts)</td></tr>
+            <tr><td><code>apim</code></td><td><code>apim.tfstate</code></td><td>3 (parallel)</td><td>API Management gateway, policies, tenant subscriptions, role assignments</td></tr>
+            <tr><td><code>tenant-user-mgmt</code></td><td><code>tenant-user-management.tfstate</code></td><td>3 (parallel)</td><td>Entra ID user/group assignments (requires Graph API permissions)</td></tr>
+        </tbody>
+    </table>
+
+    <p>A stack engine (<code>deploy-scaled.sh</code>) orchestrates execution in dependency order:</p>
+    <ul>
+        <li><strong>Phase 1:</strong> <code>shared</code> runs first (all other stacks depend on it).</li>
+        <li><strong>Phase 2:</strong> <code>tenant</code> runs per-tenant in parallel (each tenant gets isolated <code>TF_DATA_DIR</code> and state).</li>
+        <li><strong>Phase 3:</strong> <code>foundry</code>, <code>apim</code>, and <code>tenant-user-mgmt</code> run concurrently (no cross-dependencies between them).</li>
+    </ul>
+    <p>For <code>destroy</code>, the order is reversed: Phase 3 stacks first (parallel), then tenants (parallel), then shared last.</p>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
+    <ul>
+        <li><strong>Reduced blast radius:</strong> A state corruption or failed apply in <code>apim</code> cannot affect <code>shared</code> or <code>tenant</code> resources. Each stack can be independently recovered.</li>
+        <li><strong>Parallel execution:</strong> Phase 3 stacks have no dependencies on each other and can run concurrently, reducing total apply time by ~60 seconds.</li>
+        <li><strong>Isolated parallelism:</strong> The <code>foundry</code> stack runs with <code>parallelism=1</code> without forcing the entire infrastructure to be serial. APIM and tenant-user-mgmt run with full parallelism simultaneously.</li>
+        <li><strong>Independent state locking:</strong> Multiple operators or CI pipelines can work on different stacks without lock contention (e.g., updating APIM policies while a tenant deployment is in progress).</li>
+        <li><strong>Cleaner dependencies:</strong> Using <code>terraform_remote_state</code> data sources makes cross-stack dependencies explicit and typed, replacing implicit module-to-module references.</li>
+    </ul>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Consequences</h3>
+
+    <h4>Positive</h4>
+    <ul>
+        <li><strong>19% faster applies:</strong> Total apply time reduced from 5m 44s to 4m 39s (measured on test environment with 2 tenants).</li>
+        <li><strong>Eliminated <code>-target</code> phasing:</strong> The old Phase 1/2/3 with <code>-target</code> flags is replaced by natural stack ordering. No more fragile target expressions.</li>
+        <li><strong>Auto-recovery:</strong> The stack engine includes deposed object cleanup, import-on-conflict, and transient error retry — previously only available at the monolith level.</li>
+        <li><strong>Live output streaming:</strong> Each stack streams Terraform output in real time via <code>tee</code>, improving debuggability in CI/CD logs.</li>
+        <li><strong>Per-tenant state isolation:</strong> Each tenant has its own state file, making tenant onboarding/offboarding a state-level operation rather than a resource-level one.</li>
+    </ul>
+
+    <h4>Negative</h4>
+    <ul>
+        <li><strong>More files:</strong> 5 stacks &times; 5 standard files (main.tf, variables.tf, outputs.tf, providers.tf, backend.tf) = 25 files vs. the original 6. Some variable declarations are duplicated across stacks.</li>
+        <li><strong>State migration required:</strong> One-time migration from the monolith state to 5 stack states using <code>terraform state mv</code>. This was performed manually with verification scripts.</li>
+        <li><strong>Cross-stack refactoring:</strong> Moving a resource between stacks requires a state move operation, not just a code move. This adds operational complexity for future refactors.</li>
+        <li><strong>Remote state coupling:</strong> Stacks are coupled via <code>terraform_remote_state</code> data sources. Adding a new output in <code>shared</code> that <code>apim</code> needs requires deploying <code>shared</code> first.</li>
+    </ul>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">References</h3>
+    <ul>
+        <li><a href="https://developer.hashicorp.com/terraform/language/state/remote-state-data">Terraform Remote State Data Source</a></li>
+        <li><code>infra-ai-hub/stacks/</code> — Stack root modules</li>
+        <li><code>infra-ai-hub/scripts/deploy-scaled.sh</code> — Stack engine</li>
+        <li><code>infra-ai-hub/scripts/deploy-terraform.sh</code> — Public entrypoint</li>
+    </ul>
+
+</div>
+</details>
+
+
+<!-- ADR-014 -->
+<details class="adr" id="adr-014">
+<summary>
+    <span class="adr-title">ADR-014: APIM Subscription Key Rotation</span>
+    <span class="adr-status"><span class="badge badge-blue">Proposed</span></span>
+</summary>
+<div class="adr-content">
+
+    <div class="grid grid-4" style="margin-bottom: 1rem;">
+        <div><strong>Status:</strong> Proposed</div>
+        <div><strong>Date:</strong> 2026-02</div>
+        <div><strong>Deciders:</strong> AI Services Hub Team</div>
+        <div><strong>Category:</strong> <span class="badge" style="background:#22c55e;color:white;">Security</span></div>
+    </div>
+
+    <div class="alert alert-warning" style="margin-bottom: 1.5rem;">
+        <div class="alert-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div>
+            <strong>Pending STRA Approval</strong><br>
+            This decision has been made by the AI Services Hub team and all infrastructure is in place. Final approval from the Security Threat and Risk Assessment (STRA) process is pending. The rotation mechanism can be enabled per-environment via a single config flag.
+        </div>
+    </div>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Context</h3>
+    <p>APIM subscription keys authenticate tenant API calls to the AI Services Hub gateway. Without rotation, these long-lived secrets present a growing risk:</p>
+    <ul>
+        <li><strong>Credential staleness:</strong> Keys provisioned at tenant onboarding remain valid indefinitely unless manually changed. A compromised key grants persistent access.</li>
+        <li><strong>No expiry enforcement:</strong> Azure APIM subscription keys have no built-in TTL or auto-expiry. The platform must implement rotation externally.</li>
+        <li><strong>BC Gov compliance:</strong> Government security policy expects secrets to be rotated periodically. The rotation interval and mechanism require STRA sign-off before production use.</li>
+        <li><strong>Multi-tenant blast radius:</strong> Each tenant has isolated subscription keys, but without rotation a single leaked key provides indefinite access to that tenant&rsquo;s API surface.</li>
+    </ul>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Decision</h3>
+    <p>We implement an <strong>alternating primary/secondary key rotation</strong> pattern with zero downtime, driven by a scheduled GitHub Actions workflow and a self-contained Bash script:</p>
+
+    <ol>
+        <li><strong>Alternating slots:</strong> APIM subscriptions have two key slots (primary and secondary). Each rotation cycle regenerates <em>one</em> slot while the other remains valid and untouched.</li>
+        <li><strong>Centralized hub Key Vault:</strong> After regeneration, both keys are written to a single hub Key Vault (<code>{app_name}-{env}-hkv</code>) with 90-day expiry and rotation metadata. No per-tenant Key Vault is required.</li>
+        <li><strong>Self-service retrieval:</strong> Tenants fetch current keys via <code>GET /{tenant}/internal/apim-keys</code> &mdash; an APIM policy endpoint that reads from the hub Key Vault using APIM&rsquo;s managed identity. No Azure SDK required.</li>
+        <li><strong>Configurable schedule:</strong> Rotation is controlled by two flags in <code>params/{env}/shared.tfvars</code>: <code>rotation_enabled</code> (master on/off) and <code>rotation_interval_days</code> (7 for dev/test, 30 for prod).</li>
+        <li><strong>OIDC authentication:</strong> The GitHub Actions workflow uses the same OIDC identity as Terraform deployments. No stored secrets for the rotation process itself.</li>
+    </ol>
+
+    <table>
+        <thead>
+            <tr><th>Component</th><th>Purpose</th><th>Location</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Rotation script</td><td>Discovers APIM + hub KV, rotates keys, stores in KV</td><td><code>infra-ai-hub/scripts/rotate-apim-keys.sh</code></td></tr>
+            <tr><td>GHA workflow</td><td>Scheduled trigger, OIDC login, calls script per-env</td><td><code>.github/workflows/apim-key-rotation.yml</code></td></tr>
+            <tr><td>Hub Key Vault</td><td>Centralized storage for all tenant keys (scales to 1000+)</td><td><code>stacks/shared/main.tf</code></td></tr>
+            <tr><td>APIM policy endpoint</td><td><code>/internal/apim-keys</code> reads from hub KV</td><td><code>params/apim/api_policy.xml.tftpl</code></td></tr>
+            <tr><td>Terraform config</td><td>Seeds initial KV secrets + RBAC for APIM MI &rarr; hub KV</td><td><code>stacks/apim/main.tf</code></td></tr>
+        </tbody>
+    </table>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
+    <ul>
+        <li><strong>Zero downtime:</strong> The alternating slot pattern guarantees one key is always valid. Tenants are never locked out during rotation.</li>
+        <li><strong>No Azure Function required:</strong> A Bash script + GHA scheduled workflow replaces what would otherwise require an Azure Function, Timer Trigger, and associated infrastructure. This keeps the solution simple and auditable.</li>
+        <li><strong>Centralized over distributed:</strong> A single hub Key Vault with tenant-prefixed secrets scales better than per-tenant Key Vaults. One RBAC assignment for APIM&rsquo;s managed identity covers all tenants.</li>
+        <li><strong>Self-service key retrieval:</strong> The <code>/internal/apim-keys</code> endpoint eliminates the need for tenants to have Azure portal access or Key Vault Reader roles. Any valid subscription key authenticates the request.</li>
+        <li><strong>Idempotent and safe:</strong> The script checks elapsed time since last rotation before acting. Multiple runs within the interval are no-ops. A <code>--dry-run</code> flag allows validation without changes.</li>
+    </ul>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Consequences</h3>
+
+    <h4>Positive</h4>
+    <ul>
+        <li><strong>Automated secret hygiene:</strong> Keys rotate on a known schedule with full audit trail in Key Vault versioning and GitHub Actions logs.</li>
+        <li><strong>Minimal tenant burden:</strong> Tenants can use the APIM internal endpoint, daily cron polling, or simply contact the platform team. No Azure SDK or Key Vault access needed.</li>
+        <li><strong>Emergency rotation:</strong> Both slots can be regenerated immediately via the documented runbook, invalidating all compromised keys.</li>
+        <li><strong>Per-environment control:</strong> Rotation can be enabled independently per environment &mdash; currently active in dev/test, disabled in prod pending STRA approval.</li>
+    </ul>
+
+    <h4>Negative</h4>
+    <ul>
+        <li><strong>GitHub workflow dependency:</strong> Rotation depends on GitHub Actions scheduler. GitHub silently disables workflows after 60 days of repo inactivity &mdash; requires periodic commits or manual re-enablement.</li>
+        <li><strong>STRA gate:</strong> Production rotation cannot be enabled until the STRA process completes. Until then, prod keys are static (same risk as baseline).</li>
+        <li><strong>Tenant coordination:</strong> Tenants using hard-coded keys (rather than the self-service endpoint) must update their configuration within the rotation interval or face 401 errors.</li>
+    </ul>
+
+    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">References</h3>
+    <ul>
+        <li><a href="apim-key-rotation.html">APIM Key Rotation Guide</a> &mdash; full operational documentation</li>
+        <li><code>infra-ai-hub/scripts/rotate-apim-keys.sh</code> &mdash; rotation script (704 lines)</li>
+        <li><code>.github/workflows/apim-key-rotation.yml</code> &mdash; GHA scheduled workflow</li>
+        <li><code>params/{env}/shared.tfvars</code> &mdash; per-environment rotation config</li>
     </ul>
 
 </div>

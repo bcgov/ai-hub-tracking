@@ -1,0 +1,379 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1050">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#001a33"/>
+      <stop offset="100%" style="stop-color:#003366"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.3"/>
+    </filter>
+    <marker id="arrowGold" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#fcba19"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#4ade80"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#60a5fa"/>
+    </marker>
+    <marker id="arrowWhite" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#94a3b8"/>
+    </marker>
+    <marker id="arrowRed" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#ef4444"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1400" height="1050" fill="url(#bgGrad)"/>
+  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1a4d80" stroke-width="0.5" opacity="0.3"/>
+  </pattern>
+  <rect width="1400" height="1050" fill="url(#grid)"/>
+
+  <!-- Title -->
+  <text x="700" y="42" text-anchor="middle" font-family="Arial, sans-serif" font-size="28" font-weight="bold" fill="white">Scaled Stack Deployment Architecture</text>
+  <text x="700" y="66" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#94a3b8">5 Isolated State Files · 3-Phase Execution · Parallel Tenant Processing · Secure Tunnel</text>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- ROW 1: TRIGGER + PROXY SETUP -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+
+  <!-- Manual Dispatch -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="90" width="240" height="135" rx="10" fill="#002244" stroke="#fcba19" stroke-width="2"/>
+    <rect x="40" y="90" width="240" height="30" rx="10" fill="#fcba19"/>
+    <text x="160" y="110" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#003366" font-weight="bold">Manual Dispatch</text>
+    <g font-family="Arial, sans-serif" font-size="10">
+      <text x="60" y="142" fill="#94a3b8">Environment:</text>
+      <rect x="145" y="130" width="40" height="18" rx="4" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1"/>
+      <text x="165" y="143" text-anchor="middle" font-family="monospace" font-size="9" fill="#38bdf8">dev</text>
+      <rect x="192" y="130" width="38" height="18" rx="4" fill="#0c4a6e" stroke="#22c55e" stroke-width="1"/>
+      <text x="211" y="143" text-anchor="middle" font-family="monospace" font-size="9" fill="#22c55e">test</text>
+      <rect x="237" y="130" width="38" height="18" rx="4" fill="#0c4a6e" stroke="#ef4444" stroke-width="1"/>
+      <text x="256" y="143" text-anchor="middle" font-family="monospace" font-size="9" fill="#ef4444">prod</text>
+
+      <text x="60" y="170" fill="#94a3b8">Command:</text>
+      <rect x="130" y="158" width="40" height="18" rx="4" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+      <text x="150" y="171" text-anchor="middle" font-family="monospace" font-size="9" fill="#60a5fa">plan</text>
+      <rect x="177" y="158" width="42" height="18" rx="4" fill="#166534" stroke="#4ade80" stroke-width="1"/>
+      <text x="198" y="171" text-anchor="middle" font-family="monospace" font-size="9" fill="#4ade80">apply</text>
+      <rect x="226" y="158" width="49" height="18" rx="4" fill="#44150e" stroke="#ef4444" stroke-width="1"/>
+      <text x="250" y="171" text-anchor="middle" font-family="monospace" font-size="9" fill="#ef4444">destroy</text>
+
+      <text x="60" y="198" fill="#94a3b8">TF Log: <tspan fill="white">ERROR|WARN|INFO|DEBUG</tspan></text>
+    </g>
+  </g>
+
+  <!-- Arrow dispatch → proxy -->
+  <path d="M 280 157 L 315 157" stroke="#fcba19" stroke-width="2" marker-end="url(#arrowGold)"/>
+
+  <!-- Deploy Proxy (tools env) -->
+  <g filter="url(#shadow)">
+    <rect x="320" y="90" width="250" height="135" rx="10" fill="#002244" stroke="#a78bfa" stroke-width="2"/>
+    <rect x="320" y="90" width="250" height="30" rx="10" fill="#5b21b6"/>
+    <text x="445" y="110" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white" font-weight="bold">Phase 0 — Deploy Proxy</text>
+    <g font-family="Arial, sans-serif" font-size="10">
+      <text x="340" y="140" fill="#94a3b8">Environment: <tspan fill="#a78bfa">tools</tspan></text>
+      <text x="340" y="158" fill="#94a3b8">Module: <tspan fill="white">azure_proxy</tspan></text>
+      <text x="340" y="176" fill="#94a3b8">Uses: <tspan fill="white">.deployer.yml</tspan></text>
+      <text x="340" y="194" fill="#94a3b8">Wait: <tspan fill="#4ade80">/healthz (120s timeout)</tspan></text>
+      <text x="340" y="210" fill="#94a3b8">Output: <tspan fill="#fcba19">proxy_url + proxy_auth (GPG)</tspan></text>
+    </g>
+  </g>
+
+  <!-- Arrow proxy → tunnel -->
+  <path d="M 570 157 L 605 157" stroke="#a78bfa" stroke-width="2" marker-end="url(#arrowWhite)"/>
+
+  <!-- Secure Tunnel Setup -->
+  <g filter="url(#shadow)">
+    <rect x="610" y="90" width="280" height="135" rx="10" fill="#002244" stroke="#ef4444" stroke-width="2"/>
+    <rect x="610" y="90" width="280" height="30" rx="10" fill="#991b1b"/>
+    <text x="750" y="110" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white" font-weight="bold">Secure Tunnel Setup</text>
+    <g font-family="Arial, sans-serif" font-size="10">
+      <text x="630" y="140" fill="#94a3b8">1. <tspan fill="white">Decrypt proxy_url/auth (GPG)</tspan></text>
+      <text x="630" y="158" fill="#94a3b8">2. <tspan fill="white">Chisel client → SOCKS5 :1080</tspan></text>
+      <text x="630" y="176" fill="#94a3b8">3. <tspan fill="white">Privoxy → HTTP proxy :8118</tspan></text>
+      <text x="630" y="194" fill="#94a3b8">4. <tspan fill="white">HTTP_PROXY=127.0.0.1:8118</tspan></text>
+      <text x="630" y="210" fill="#94a3b8">Route: <tspan fill="#ef4444">GHA runner → App Service → VNet → Private Endpoints</tspan></text>
+    </g>
+  </g>
+
+  <!-- Arrow tunnel → OIDC -->
+  <path d="M 890 157 L 925 157" stroke="#ef4444" stroke-width="2" marker-end="url(#arrowWhite)"/>
+
+  <!-- OIDC + Auth -->
+  <g filter="url(#shadow)">
+    <rect x="930" y="90" width="250" height="135" rx="10" fill="#002244" stroke="#fcba19" stroke-width="2"/>
+    <rect x="930" y="90" width="250" height="30" rx="10" fill="#92400e"/>
+    <text x="1055" y="110" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#fcba19" font-weight="bold">OIDC Authentication</text>
+    <g font-family="Arial, sans-serif" font-size="10">
+      <text x="950" y="140" fill="#94a3b8">Provider: <tspan fill="#fcba19">azure/login@v2</tspan></text>
+      <text x="950" y="158" fill="#94a3b8">No client secrets stored</text>
+      <text x="950" y="176" fill="#94a3b8">Fed. cred per environment</text>
+      <text x="950" y="194" fill="#94a3b8">Backend: <tspan fill="white">Azure Blob Storage</tspan></text>
+      <text x="950" y="210" fill="#94a3b8">State key: <tspan fill="white">per-stack .tfstate files</tspan></text>
+    </g>
+  </g>
+
+  <!-- State files -->
+  <g filter="url(#shadow)">
+    <rect x="1210" y="90" width="150" height="135" rx="10" fill="#002244" stroke="#0ea5e9" stroke-width="2"/>
+    <text x="1285" y="115" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#0ea5e9" font-weight="bold">5 State Files</text>
+    <g font-family="monospace" font-size="8" fill="#94a3b8">
+      <text x="1225" y="138" fill="#60a5fa">shared.tfstate</text>
+      <text x="1225" y="155" fill="#22c55e">tenant-*.tfstate</text>
+      <text x="1225" y="172" fill="#a78bfa">foundry.tfstate</text>
+      <text x="1225" y="189" fill="#fcba19">apim.tfstate</text>
+      <text x="1225" y="206" fill="#ef4444">tenant-user-mgmt</text>
+    </g>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- DEPLOY-TERRAFORM.SH ORCHESTRATION -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <rect x="40" y="248" width="1320" height="30" rx="8" fill="#1a5a96"/>
+  <text x="700" y="268" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="white" font-weight="bold">deploy-terraform.sh → deploy-scaled.sh Phased Execution</text>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- PHASE 1: SHARED (sequential) -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <rect x="40" y="295" width="1320" height="155" rx="12" fill="#002244" stroke="#60a5fa" stroke-width="2"/>
+  <rect x="40" y="295" width="150" height="30" rx="8" fill="#1e40af"/>
+  <text x="115" y="315" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white" font-weight="bold">Phase 1</text>
+  <text x="210" y="315" font-family="Arial, sans-serif" font-size="11" fill="#60a5fa" font-weight="bold">Shared Foundation — sequential, must complete first</text>
+
+  <!-- Shared stack -->
+  <g filter="url(#shadow)">
+    <rect x="70" y="340" width="1260" height="95" rx="8" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="700" y="362" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#38bdf8" font-weight="bold">stacks/shared</text>
+    <text x="700" y="380" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">Single stack containing all shared infrastructure — init → plan → apply (sequential)</text>
+
+    <!-- Modules in shared -->
+    <g font-family="Arial, sans-serif" font-size="9">
+      <rect x="90" y="393" width="100" height="28" rx="4" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+      <text x="140" y="411" text-anchor="middle" fill="#60a5fa">network</text>
+
+      <rect x="200" y="393" width="100" height="28" rx="4" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+      <text x="250" y="411" text-anchor="middle" fill="#60a5fa">dns-zone</text>
+
+      <rect x="310" y="393" width="120" height="28" rx="4" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+      <text x="370" y="411" text-anchor="middle" fill="#60a5fa">app-gateway</text>
+
+      <rect x="440" y="393" width="100" height="28" rx="4" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+      <text x="490" y="411" text-anchor="middle" fill="#60a5fa">waf-policy</text>
+
+      <rect x="550" y="393" width="120" height="28" rx="4" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+      <text x="610" y="411" text-anchor="middle" fill="#60a5fa">ai-foundry-hub</text>
+
+      <rect x="680" y="393" width="140" height="28" rx="4" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+      <text x="750" y="411" text-anchor="middle" fill="#60a5fa">container-registry</text>
+
+      <rect x="830" y="393" width="140" height="28" rx="4" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+      <text x="900" y="411" text-anchor="middle" fill="#60a5fa">container-app-env</text>
+
+      <rect x="980" y="393" width="100" height="28" rx="4" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+      <text x="1030" y="411" text-anchor="middle" fill="#60a5fa">defender</text>
+
+      <rect x="1090" y="393" width="120" height="28" rx="4" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+      <text x="1150" y="411" text-anchor="middle" fill="#60a5fa">app-config</text>
+
+      <rect x="1220" y="393" width="90" height="28" rx="4" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+      <text x="1265" y="411" text-anchor="middle" fill="#60a5fa">key-vault</text>
+    </g>
+  </g>
+
+  <!-- Arrow Phase 1 → Phase 2 -->
+  <path d="M 700 450 L 700 468" stroke="#fcba19" stroke-width="3" marker-end="url(#arrowGold)"/>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- PHASE 2: TENANT (parallel per-tenant) -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <rect x="40" y="472" width="1320" height="155" rx="12" fill="#002244" stroke="#22c55e" stroke-width="2"/>
+  <rect x="40" y="472" width="150" height="30" rx="8" fill="#166534"/>
+  <text x="115" y="492" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white" font-weight="bold">Phase 2</text>
+  <text x="210" y="492" font-family="Arial, sans-serif" font-size="11" fill="#22c55e" font-weight="bold">Tenant Stacks — parallel per-tenant execution</text>
+
+  <!-- Tenant stack 1 -->
+  <g filter="url(#shadow)">
+    <rect x="70" y="517" width="290" height="95" rx="8" fill="#14532d" stroke="#4ade80" stroke-width="1.5"/>
+    <text x="215" y="540" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#4ade80" font-weight="bold">stacks/tenant (tenant-A)</text>
+    <text x="215" y="558" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">State: tenant-A.tfstate</text>
+    <g font-family="Arial, sans-serif" font-size="9">
+      <rect x="90" y="570" width="115" height="28" rx="4" fill="#1e3a5f" stroke="#22c55e" stroke-width="1"/>
+      <text x="147" y="588" text-anchor="middle" fill="#22c55e">foundry-project</text>
+      <rect x="215" y="570" width="125" height="28" rx="4" fill="#1e3a5f" stroke="#22c55e" stroke-width="1"/>
+      <text x="277" y="588" text-anchor="middle" fill="#22c55e">storage-account</text>
+    </g>
+  </g>
+
+  <!-- Parallel indicator -->
+  <text x="385" y="555" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#fcba19" font-weight="bold">‖</text>
+  <text x="385" y="575" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8" font-style="italic">parallel</text>
+
+  <!-- Tenant stack 2 -->
+  <g filter="url(#shadow)">
+    <rect x="410" y="517" width="290" height="95" rx="8" fill="#14532d" stroke="#4ade80" stroke-width="1.5"/>
+    <text x="555" y="540" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#4ade80" font-weight="bold">stacks/tenant (tenant-B)</text>
+    <text x="555" y="558" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">State: tenant-B.tfstate</text>
+    <g font-family="Arial, sans-serif" font-size="9">
+      <rect x="430" y="570" width="115" height="28" rx="4" fill="#1e3a5f" stroke="#22c55e" stroke-width="1"/>
+      <text x="487" y="588" text-anchor="middle" fill="#22c55e">foundry-project</text>
+      <rect x="555" y="570" width="125" height="28" rx="4" fill="#1e3a5f" stroke="#22c55e" stroke-width="1"/>
+      <text x="617" y="588" text-anchor="middle" fill="#22c55e">storage-account</text>
+    </g>
+  </g>
+
+  <!-- Parallel indicator -->
+  <text x="725" y="555" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#fcba19" font-weight="bold">‖</text>
+  <text x="725" y="575" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8" font-style="italic">parallel</text>
+
+  <!-- Tenant stack N -->
+  <g filter="url(#shadow)">
+    <rect x="750" y="517" width="290" height="95" rx="8" fill="#14532d" stroke="#4ade80" stroke-width="1.5" stroke-dasharray="6,3"/>
+    <text x="895" y="540" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#4ade80" font-weight="bold">stacks/tenant (tenant-N)</text>
+    <text x="895" y="558" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">State: tenant-N.tfstate</text>
+    <g font-family="Arial, sans-serif" font-size="9">
+      <rect x="770" y="570" width="115" height="28" rx="4" fill="#1e3a5f" stroke="#22c55e" stroke-width="1" stroke-dasharray="4,2"/>
+      <text x="827" y="588" text-anchor="middle" fill="#22c55e">foundry-project</text>
+      <rect x="895" y="570" width="125" height="28" rx="4" fill="#1e3a5f" stroke="#22c55e" stroke-width="1" stroke-dasharray="4,2"/>
+      <text x="957" y="588" text-anchor="middle" fill="#22c55e">storage-account</text>
+    </g>
+  </g>
+
+  <!-- Execution note -->
+  <g filter="url(#shadow)">
+    <rect x="1070" y="517" width="270" height="95" rx="8" fill="#1e3a5f" stroke="#94a3b8" stroke-width="1"/>
+    <text x="1205" y="540" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white" font-weight="bold">Parallel Execution</text>
+    <g font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">
+      <text x="1090" y="558">• Each tenant gets own state file</text>
+      <text x="1090" y="575">• Ordered log output per tenant</text>
+      <text x="1090" y="592">• No cross-tenant lock contention</text>
+      <text x="1090" y="607" fill="#fcba19">• Scales horizontally for N tenants</text>
+    </g>
+  </g>
+
+  <!-- Arrow Phase 2 → Phase 3 -->
+  <path d="M 700 627 L 700 645" stroke="#fcba19" stroke-width="3" marker-end="url(#arrowGold)"/>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- PHASE 3: foundry + apim + tenant-user-mgmt (parallel) -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <rect x="40" y="649" width="1320" height="155" rx="12" fill="#002244" stroke="#a78bfa" stroke-width="2"/>
+  <rect x="40" y="649" width="150" height="30" rx="8" fill="#5b21b6"/>
+  <text x="115" y="669" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white" font-weight="bold">Phase 3</text>
+  <text x="210" y="669" font-family="Arial, sans-serif" font-size="11" fill="#a78bfa" font-weight="bold">Service Stacks — parallel, all independent of each other</text>
+
+  <!-- Foundry stack -->
+  <g filter="url(#shadow)">
+    <rect x="70" y="694" width="380" height="95" rx="8" fill="#1e3a5f" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="260" y="716" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#a78bfa" font-weight="bold">stacks/foundry</text>
+    <text x="260" y="733" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">State: foundry.tfstate — AI Foundry project configurations</text>
+    <g font-family="Arial, sans-serif" font-size="9">
+      <rect x="90" y="747" width="115" height="28" rx="4" fill="#0c4a6e" stroke="#a78bfa" stroke-width="1"/>
+      <text x="147" y="765" text-anchor="middle" fill="#a78bfa">foundry-project</text>
+      <rect x="215" y="747" width="95" height="28" rx="4" fill="#0c4a6e" stroke="#a78bfa" stroke-width="1"/>
+      <text x="262" y="765" text-anchor="middle" fill="#a78bfa">tenant</text>
+      <rect x="320" y="747" width="115" height="28" rx="4" fill="#0c4a6e" stroke="#a78bfa" stroke-width="1"/>
+      <text x="377" y="765" text-anchor="middle" fill="#a78bfa">app-config</text>
+    </g>
+  </g>
+
+  <!-- Parallel indicator -->
+  <text x="470" y="735" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#fcba19" font-weight="bold">‖</text>
+
+  <!-- APIM stack -->
+  <g filter="url(#shadow)">
+    <rect x="490" y="694" width="370" height="95" rx="8" fill="#1e3a5f" stroke="#fcba19" stroke-width="1.5"/>
+    <text x="675" y="716" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#fcba19" font-weight="bold">stacks/apim</text>
+    <text x="675" y="733" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">State: apim.tfstate — API Management + tenant subscriptions</text>
+    <g font-family="Arial, sans-serif" font-size="9">
+      <rect x="510" y="747" width="75" height="28" rx="4" fill="#0c4a6e" stroke="#fcba19" stroke-width="1"/>
+      <text x="547" y="765" text-anchor="middle" fill="#fcba19">apim</text>
+      <rect x="595" y="747" width="95" height="28" rx="4" fill="#0c4a6e" stroke="#fcba19" stroke-width="1"/>
+      <text x="642" y="765" text-anchor="middle" fill="#fcba19">tenant</text>
+      <rect x="700" y="747" width="140" height="28" rx="4" fill="#0c4a6e" stroke="#fcba19" stroke-width="1"/>
+      <text x="770" y="765" text-anchor="middle" fill="#fcba19">app-config</text>
+    </g>
+  </g>
+
+  <!-- Parallel indicator -->
+  <text x="880" y="735" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#fcba19" font-weight="bold">‖</text>
+
+  <!-- Tenant User Mgmt stack -->
+  <g filter="url(#shadow)">
+    <rect x="900" y="694" width="440" height="95" rx="8" fill="#1e3a5f" stroke="#ef4444" stroke-width="1.5"/>
+    <text x="1120" y="716" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#ef4444" font-weight="bold">stacks/tenant-user-mgmt</text>
+    <text x="1120" y="733" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">State: tenant-user-management.tfstate — RBAC assignments</text>
+    <g font-family="Arial, sans-serif" font-size="9">
+      <rect x="920" y="747" width="170" height="28" rx="4" fill="#0c4a6e" stroke="#ef4444" stroke-width="1"/>
+      <text x="1005" y="765" text-anchor="middle" fill="#ef4444">tenant-user-management</text>
+      <rect x="1100" y="747" width="95" height="28" rx="4" fill="#0c4a6e" stroke="#ef4444" stroke-width="1"/>
+      <text x="1147" y="765" text-anchor="middle" fill="#ef4444">tenant</text>
+      <rect x="1205" y="747" width="115" height="28" rx="4" fill="#0c4a6e" stroke="#ef4444" stroke-width="1"/>
+      <text x="1262" y="765" text-anchor="middle" fill="#ef4444">app-config</text>
+    </g>
+  </g>
+
+  <!-- Arrow Phase 3 → Tests -->
+  <path d="M 700 804 L 700 822" stroke="#fcba19" stroke-width="3" marker-end="url(#arrowGold)"/>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- TESTING + COMPLETION -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <rect x="40" y="826" width="1320" height="85" rx="12" fill="#002244" stroke="#22c55e" stroke-width="1"/>
+  <text x="700" y="850" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#22c55e" font-weight="bold">Post-Deploy: Integration Tests + Verification</text>
+
+  <!-- Test boxes -->
+  <g filter="url(#shadow)">
+    <rect x="70" y="862" width="200" height="35" rx="6" fill="#14532d" stroke="#4ade80" stroke-width="1"/>
+    <text x="170" y="884" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#4ade80" font-weight="bold">Install bats-core</text>
+  </g>
+  <path d="M 270 879 L 295 879" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="300" y="862" width="200" height="35" rx="6" fill="#14532d" stroke="#4ade80" stroke-width="1"/>
+    <text x="400" y="884" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#4ade80" font-weight="bold">run-tests.sh --env $ENV</text>
+  </g>
+  <path d="M 500 879 L 525 879" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="530" y="862" width="220" height="35" rx="6" fill="#14532d" stroke="#4ade80" stroke-width="1"/>
+    <text x="640" y="884" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#4ade80" font-weight="bold">AppGW + APIM + DNS checks</text>
+  </g>
+  <path d="M 750 879 L 775 879" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="780" y="862" width="200" height="35" rx="6" fill="#14532d" stroke="#4ade80" stroke-width="1"/>
+    <text x="880" y="884" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#4ade80" font-weight="bold">Key rotation verification</text>
+  </g>
+  <path d="M 980 879 L 1005 879" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
+
+  <!-- Tests condition note -->
+  <g filter="url(#shadow)">
+    <rect x="1010" y="862" width="330" height="35" rx="6" fill="#1e3a5f" stroke="#94a3b8" stroke-width="1"/>
+    <text x="1175" y="884" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">Only on <tspan fill="#4ade80">apply</tspan> + <tspan fill="#38bdf8">dev</tspan>/<tspan fill="#22c55e">test</tspan> (skipped for prod)</text>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- TIMING + PERFORMANCE -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <rect x="40" y="925" width="440" height="72" rx="8" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1"/>
+  <text x="260" y="950" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#38bdf8" font-weight="bold">⚡ Performance: ~4m 39s Total Apply Time</text>
+  <g font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">
+    <text x="60" y="970">Phase 1 (shared): ~2m 30s │ Phase 2 (tenants): ~30s │ Phase 3 (services): ~1m 40s</text>
+    <text x="60" y="985">Improved from 5m 44s (monolith) — <tspan fill="#4ade80">19% faster</tspan> with parallel phases</text>
+  </g>
+
+  <!-- Architecture benefits -->
+  <rect x="510" y="925" width="850" height="72" rx="8" fill="#1e3a5f" stroke="#94a3b8" stroke-width="1"/>
+  <text x="935" y="950" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="white" font-weight="bold">Architecture Benefits (vs Monolith)</text>
+  <g font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">
+    <text x="530" y="970"><tspan fill="#4ade80">✓</tspan> Isolated blast radius — single tenant failure won't affect others</text>
+    <text x="530" y="985"><tspan fill="#4ade80">✓</tspan> Parallel execution — tenants + Phase 3 stacks run concurrently  │  <tspan fill="#4ade80">✓</tspan> No state lock contention between stacks</text>
+  </g>
+
+  <!-- Footer -->
+  <rect x="0" y="1010" width="1400" height="40" fill="#fcba19"/>
+  <text x="700" y="1035" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#003366">AI Services Hub — Scaled Stack Deployment Architecture (5 Stacks, 3 Phases)</text>
+</svg>

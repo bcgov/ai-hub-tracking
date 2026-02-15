@@ -1,6 +1,6 @@
 # Documentation System
 
-This folder contains the documentation site for AI Hub Tracking, built with a **zero-dependency template engine** using Bash.
+This folder contains the documentation site for AI Services Hub, built with a **zero-dependency template engine** using Bash.
 
 ## Table of Contents
 
@@ -62,11 +62,21 @@ docs/
 │   └── footer.html            # Footer, closing tags
 │
 ├── _pages/                    # Source content files (not published)
+│   ├── _template.html         # ADR/page template (skipped by build)
 │   ├── index.html             # Homepage content
 │   ├── oidc-setup.html        # OIDC documentation
 │   ├── terraform.html         # Terraform modules docs
+│   ├── terraform-reference.html # Auto-generated TF module reference
 │   ├── workflows.html         # GitHub Actions docs
-│   └── diagrams.html          # Interactive SVG viewer
+│   ├── diagrams.html          # Interactive SVG viewer
+│   ├── decisions.html         # Architecture Decision Records
+│   ├── playbooks.html         # Operational playbooks
+│   ├── cost.html              # Cost analysis and optimization
+│   ├── faq.html               # Frequently asked questions
+│   ├── technical-deep-dive.html # Architecture deep dive
+│   ├── language-service-pii.html # PII anonymization docs
+│   ├── document-intelligence.html # Document Intelligence docs
+│   └── apim-key-rotation.html # APIM subscription key rotation
 │
 ├── assets/                    # Static assets (published)
 │   ├── bc_citz_logo.jpg       # BC Government logo
@@ -84,8 +94,17 @@ docs/
     ├── index.html
     ├── oidc-setup.html
     ├── terraform.html
+    ├── terraform-reference.html
     ├── workflows.html
-    └── diagrams.html
+    ├── diagrams.html
+    ├── decisions.html
+    ├── playbooks.html
+    ├── cost.html
+    ├── faq.html
+    ├── technical-deep-dive.html
+    ├── language-service-pii.html
+    ├── document-intelligence.html
+    └── apim-key-rotation.html
 ```
 
 ---
@@ -114,7 +133,7 @@ Each page in `_pages/` starts with HTML comment metadata:
 The header partial contains placeholder variables:
 
 ```html
-<title>{{PAGE_TITLE}} | AI Hub Tracking</title>
+<title>{{PAGE_TITLE}} | AI Services Hub</title>
 ...
 <a href="index.html" class="{{NAV_INDEX}}">Home</a>
 <a href="terraform.html" class="{{NAV_TERRAFORM}}">Terraform</a>
@@ -657,4 +676,4 @@ The `header.html` includes a complete CSS framework. Here are the main classes:
 
 ## License
 
-This documentation system is part of the AI Hub Tracking project, licensed under Apache 2.0.
+This documentation system is part of the AI Services Hub project, licensed under Apache 2.0.

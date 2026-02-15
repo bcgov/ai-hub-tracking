@@ -1,0 +1,334 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 900">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#001a33"/>
+      <stop offset="100%" style="stop-color:#003366"/>
+    </linearGradient>
+    <filter id="shadow">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-opacity="0.3"/>
+    </filter>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+      <feMerge>
+        <feMergeNode in="coloredBlur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+    <marker id="arrowGold" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#fcba19"/>
+    </marker>
+    <marker id="arrowGreen" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#4ade80"/>
+    </marker>
+    <marker id="arrowBlue" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#60a5fa"/>
+    </marker>
+    <marker id="arrowWhite" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#94a3b8"/>
+    </marker>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1400" height="900" fill="url(#bgGrad)"/>
+  <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+    <path d="M 40 0 L 0 0 0 40" fill="none" stroke="#1a4d80" stroke-width="0.5" opacity="0.3"/>
+  </pattern>
+  <rect width="1400" height="900" fill="url(#grid)"/>
+
+  <!-- Title -->
+  <text x="700" y="45" text-anchor="middle" font-family="Arial, sans-serif" font-size="30" font-weight="bold" fill="white">APIM Subscription Key Rotation</text>
+  <text x="700" y="72" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" fill="#94a3b8">Automated daily rotation with alternating primary/secondary slot pattern</text>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- TRIGGER SECTION -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <rect x="40" y="95" width="320" height="175" rx="12" fill="#002244" stroke="#1a5a96" stroke-width="1"/>
+  <text x="200" y="120" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#60a5fa" font-weight="bold">TRIGGERS</text>
+
+  <!-- Schedule trigger -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="135" width="130" height="55" rx="8" fill="#374151" stroke="#9ca3af" stroke-width="1.5"/>
+    <text x="125" y="157" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white" font-weight="bold">⏰ Schedule</text>
+    <text x="125" y="175" text-anchor="middle" font-family="monospace" font-size="9" fill="#94a3b8">0 9 * * * (UTC)</text>
+  </g>
+
+  <!-- Manual dispatch trigger -->
+  <g filter="url(#shadow)">
+    <rect x="210" y="135" width="130" height="55" rx="8" fill="#374151" stroke="#fcba19" stroke-width="1.5"/>
+    <text x="275" y="157" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#fcba19" font-weight="bold">🔧 Manual</text>
+    <text x="275" y="175" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">workflow_dispatch</text>
+  </g>
+
+  <!-- Manual dispatch inputs -->
+  <g font-family="monospace" font-size="9" fill="#94a3b8">
+    <text x="60" y="215">inputs: <tspan fill="#60a5fa">environment</tspan> (dev|test|prod)</text>
+    <text x="60" y="233">        <tspan fill="#60a5fa">dry_run</tspan> (true|false)</text>
+    <text x="60" y="251">concurrency: <tspan fill="#fcba19">apim-key-rotation</tspan></text>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- SCHEDULED FLOW (top) -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <rect x="390" y="95" width="970" height="175" rx="12" fill="#002244" stroke="#1a5a96" stroke-width="1"/>
+  <text x="875" y="120" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#60a5fa" font-weight="bold">SCHEDULED EXECUTION (All Environments)</text>
+
+  <!-- Dev job -->
+  <g filter="url(#shadow)">
+    <rect x="420" y="138" width="160" height="55" rx="8" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="500" y="160" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white" font-weight="bold">rotate-dev</text>
+    <text x="500" y="178" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#7dd3fc">OIDC → rotate script</text>
+  </g>
+
+  <!-- Test job -->
+  <g filter="url(#shadow)">
+    <rect x="620" y="138" width="160" height="55" rx="8" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1.5"/>
+    <text x="700" y="160" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="white" font-weight="bold">rotate-test</text>
+    <text x="700" y="178" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#7dd3fc">OIDC → rotate script</text>
+  </g>
+
+  <!-- Parallel indicator -->
+  <text x="590" y="155" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8" font-style="italic">parallel</text>
+
+  <!-- Arrow test → prod -->
+  <path d="M 780 165 L 820 165" stroke="#4ade80" stroke-width="2" marker-end="url(#arrowGreen)"/>
+
+  <!-- Prod job (depends on test) -->
+  <g filter="url(#shadow)">
+    <rect x="825" y="138" width="160" height="55" rx="8" fill="#14532d" stroke="#22c55e" stroke-width="1.5"/>
+    <text x="905" y="160" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#4ade80" font-weight="bold">rotate-prod</text>
+    <text x="905" y="178" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#bbf7d0">needs: rotate-test</text>
+  </g>
+
+  <!-- Arrow to summary -->
+  <path d="M 985 165 L 1025 165" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowWhite)"/>
+
+  <!-- Summary job -->
+  <g filter="url(#shadow)">
+    <rect x="1030" y="138" width="160" height="55" rx="8" fill="#374151" stroke="#a78bfa" stroke-width="1.5"/>
+    <text x="1110" y="160" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#a78bfa" font-weight="bold">Notify Summary</text>
+    <text x="1110" y="178" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">dev/test/prod results</text>
+  </g>
+
+  <!-- Schedule note -->
+  <g font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">
+    <text x="420" y="215">• dev + test run in <tspan fill="#60a5fa">parallel</tspan></text>
+    <text x="420" y="233">• prod <tspan fill="#4ade80">gates on test success</tspan></text>
+    <text x="420" y="251">• Summary reports all results via <tspan fill="#a78bfa">if: always()</tspan></text>
+  </g>
+
+  <!-- Arrow from triggers to flow -->
+  <path d="M 360 182 L 415 165" stroke="#fcba19" stroke-width="2" marker-end="url(#arrowGold)"/>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- ROTATION SCRIPT DETAIL -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <rect x="40" y="295" width="650" height="295" rx="12" fill="#002244" stroke="#fcba19" stroke-width="2"/>
+  <rect x="40" y="295" width="650" height="32" rx="12" fill="#1a5a96"/>
+  <text x="365" y="316" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="white" font-weight="bold">rotate-apim-keys.sh — Rotation Engine (704 lines)</text>
+
+  <!-- Step boxes inside script detail -->
+  <!-- Step 1: Read Config -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="345" width="140" height="65" rx="6" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+    <text x="130" y="367" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#60a5fa" font-weight="bold">1. Read Config</text>
+    <text x="130" y="383" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">params/apim/</text>
+    <text x="130" y="397" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">tenant configs</text>
+  </g>
+  <path d="M 200 377 L 220 377" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowWhite)"/>
+
+  <!-- Step 2: Check Interval -->
+  <g filter="url(#shadow)">
+    <rect x="225" y="345" width="140" height="65" rx="6" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+    <text x="295" y="367" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#60a5fa" font-weight="bold">2. Check Interval</text>
+    <text x="295" y="383" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">rotation_interval</text>
+    <text x="295" y="397" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">_days (default: 7)</text>
+  </g>
+  <path d="M 365 377 L 385 377" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowWhite)"/>
+
+  <!-- Step 3: Determine Slot -->
+  <g filter="url(#shadow)">
+    <rect x="390" y="345" width="140" height="65" rx="6" fill="#1e3a5f" stroke="#fcba19" stroke-width="1"/>
+    <text x="460" y="367" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#fcba19" font-weight="bold">3. Active Slot</text>
+    <text x="460" y="383" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">Hub KV tag:</text>
+    <text x="460" y="397" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">active-apim-slot</text>
+  </g>
+  <path d="M 530 377 L 550 377" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowWhite)"/>
+
+  <!-- Step 4: Regen inactive -->
+  <g filter="url(#shadow)">
+    <rect x="555" y="345" width="120" height="65" rx="6" fill="#1e3a5f" stroke="#ef4444" stroke-width="1"/>
+    <text x="615" y="367" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#ef4444" font-weight="bold">4. Regenerate</text>
+    <text x="615" y="383" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">APIM regenerate</text>
+    <text x="615" y="397" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">inactive key</text>
+  </g>
+
+  <!-- Row 2 of steps -->
+  <!-- Step 5: Store in KV -->
+  <g filter="url(#shadow)">
+    <rect x="60" y="430" width="140" height="65" rx="6" fill="#1e3a5f" stroke="#22c55e" stroke-width="1"/>
+    <text x="130" y="452" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#22c55e" font-weight="bold">5. Hub Key Vault</text>
+    <text x="130" y="468" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">az keyvault secret</text>
+    <text x="130" y="482" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">set (new key)</text>
+  </g>
+  <path d="M 200 462 L 220 462" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowWhite)"/>
+
+  <!-- Step 6: Swap slot -->
+  <g filter="url(#shadow)">
+    <rect x="225" y="430" width="140" height="65" rx="6" fill="#1e3a5f" stroke="#fcba19" stroke-width="1"/>
+    <text x="295" y="452" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#fcba19" font-weight="bold">6. Swap Slot</text>
+    <text x="295" y="468" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">primary ↔ secondary</text>
+    <text x="295" y="482" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">update KV tag</text>
+  </g>
+  <path d="M 365 462 L 385 462" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowWhite)"/>
+
+  <!-- Step 7: Validate -->
+  <g filter="url(#shadow)">
+    <rect x="390" y="430" width="140" height="65" rx="6" fill="#1e3a5f" stroke="#4ade80" stroke-width="1"/>
+    <text x="460" y="452" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#4ade80" font-weight="bold">7. Validate</text>
+    <text x="460" y="468" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">APIM policy test</text>
+    <text x="460" y="482" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">endpoint check</text>
+  </g>
+  <path d="M 530 462 L 550 462" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowWhite)"/>
+
+  <!-- Step 8: Summary -->
+  <g filter="url(#shadow)">
+    <rect x="555" y="430" width="120" height="65" rx="6" fill="#14532d" stroke="#22c55e" stroke-width="1"/>
+    <text x="615" y="452" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#4ade80" font-weight="bold">8. Report</text>
+    <text x="615" y="468" text-anchor="middle" font-family="monospace" font-size="8" fill="#94a3b8">rotation summary</text>
+    <text x="615" y="482" text-anchor="middle" font-family="monospace" font-size="8" fill="#bbf7d0">✓ complete</text>
+  </g>
+
+  <!-- Arrows between row 1 last → row 2 first -->
+  <path d="M 615 410 L 615 418 L 130 418 L 130 425" stroke="#94a3b8" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrowWhite)"/>
+
+  <!-- Script features -->
+  <g font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">
+    <text x="60" y="520">Features: <tspan fill="#fcba19">--dry-run</tspan> mode • <tspan fill="#fcba19">--verbose</tspan> logging • <tspan fill="#22c55e">per-tenant</tspan> rotation • <tspan fill="#60a5fa">OIDC</tspan> auth • <tspan fill="#ef4444">error rollback</tspan></text>
+    <text x="60" y="540">Config:   <tspan fill="white">params/apim/&lt;env&gt;/tenants/*.json</tspan> — subscription names, scopes, rotation intervals</text>
+    <text x="60" y="560">Pattern:  <tspan fill="#fcba19">Alternating Slot</tspan> — never both keys regenerated at once, zero-downtime rotation</text>
+    <text x="60" y="578">Source:   <tspan fill="white">infra-ai-hub/scripts/rotate-apim-keys.sh</tspan> (704 lines)</text>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- ALTERNATING SLOT PATTERN VISUAL -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <rect x="720" y="295" width="640" height="295" rx="12" fill="#002244" stroke="#22c55e" stroke-width="2"/>
+  <rect x="720" y="295" width="640" height="32" rx="12" fill="#166534"/>
+  <text x="1040" y="316" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="white" font-weight="bold">Alternating Primary / Secondary Slot Pattern</text>
+
+  <!-- Before rotation -->
+  <text x="860" y="355" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#94a3b8" font-weight="bold">BEFORE Rotation</text>
+
+  <!-- Primary slot - active -->
+  <rect x="760" y="368" width="200" height="50" rx="6" fill="#166534" stroke="#4ade80" stroke-width="2"/>
+  <text x="860" y="388" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#4ade80" font-weight="bold">🔑 Primary Key</text>
+  <text x="860" y="405" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#bbf7d0">ACTIVE — clients use this</text>
+
+  <!-- Secondary slot - standby -->
+  <rect x="760" y="428" width="200" height="50" rx="6" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+  <text x="860" y="448" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#60a5fa">🔑 Secondary Key</text>
+  <text x="860" y="465" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">standby — safe to regenerate</text>
+
+  <!-- Arrow -->
+  <path d="M 970 410 L 1070 410" stroke="#fcba19" stroke-width="3" stroke-dasharray="8,4" marker-end="url(#arrowGold)"/>
+  <text x="1020" y="400" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#fcba19" font-weight="bold">ROTATE</text>
+
+  <!-- After rotation -->
+  <text x="1200" y="355" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#94a3b8" font-weight="bold">AFTER Rotation</text>
+
+  <!-- Primary slot - now standby -->
+  <rect x="1100" y="368" width="200" height="50" rx="6" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+  <text x="1200" y="388" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#60a5fa">🔑 Primary Key</text>
+  <text x="1200" y="405" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">standby — old active</text>
+
+  <!-- Secondary slot - now active with new key -->
+  <rect x="1100" y="428" width="200" height="50" rx="6" fill="#166534" stroke="#4ade80" stroke-width="2"/>
+  <text x="1200" y="448" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#4ade80" font-weight="bold">🔑 Secondary Key (NEW)</text>
+  <text x="1200" y="465" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#bbf7d0">ACTIVE — regenerated + swapped</text>
+
+  <!-- Zero downtime callout -->
+  <rect x="760" y="498" width="580" height="75" rx="8" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1"/>
+  <text x="1050" y="520" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#38bdf8" font-weight="bold">Zero-Downtime Guarantee</text>
+  <g font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">
+    <text x="780" y="540">1. Inactive key regenerated → clients still use active key → <tspan fill="#4ade80">no disruption</tspan></text>
+    <text x="780" y="555">2. New key stored in Hub Key Vault → APIM policy reads from KV → <tspan fill="#4ade80">auto-sync</tspan></text>
+    <text x="780" y="570">3. Slot tag swapped → next rotation targets opposite key → <tspan fill="#fcba19">perpetual alternation</tspan></text>
+  </g>
+
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <!-- INFRASTRUCTURE COMPONENTS -->
+  <!-- ═══════════════════════════════════════════════════════════ -->
+  <rect x="40" y="615" width="1320" height="240" rx="12" fill="#002244" stroke="#1a5a96" stroke-width="1"/>
+  <text x="700" y="642" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="#60a5fa" font-weight="bold">INFRASTRUCTURE COMPONENTS</text>
+
+  <!-- APIM Instance -->
+  <g filter="url(#shadow)">
+    <rect x="70" y="660" width="220" height="100" rx="8" fill="#1e3a5f" stroke="#0078d4" stroke-width="2"/>
+    <text x="180" y="685" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#0078d4" font-weight="bold">Azure APIM</text>
+    <text x="180" y="705" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">ai-services-hub-&lt;env&gt;</text>
+    <text x="180" y="725" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">Per-tenant subscriptions</text>
+    <text x="180" y="743" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#60a5fa">primary + secondary keys</text>
+  </g>
+
+  <!-- Arrow APIM → KV -->
+  <path d="M 290 710 L 330 710" stroke="#fcba19" stroke-width="2" marker-end="url(#arrowGold)"/>
+
+  <!-- Hub Key Vault -->
+  <g filter="url(#shadow)">
+    <rect x="335" y="660" width="220" height="100" rx="8" fill="#1e3a5f" stroke="#fcba19" stroke-width="2"/>
+    <text x="445" y="685" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#fcba19" font-weight="bold">Hub Key Vault</text>
+    <text x="445" y="705" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">aihub&lt;env&gt;&lt;sub&gt;kv</text>
+    <text x="445" y="725" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">apim-key-&lt;tenant&gt;</text>
+    <text x="445" y="743" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#fcba19">active-apim-slot tag</text>
+  </g>
+
+  <!-- Arrow KV → APIM Policy -->
+  <path d="M 555 710 L 595 710" stroke="#22c55e" stroke-width="2" marker-end="url(#arrowGreen)"/>
+
+  <!-- APIM Policy Endpoint -->
+  <g filter="url(#shadow)">
+    <rect x="600" y="660" width="220" height="100" rx="8" fill="#1e3a5f" stroke="#22c55e" stroke-width="2"/>
+    <text x="710" y="685" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#22c55e" font-weight="bold">APIM Policies</text>
+    <text x="710" y="705" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">Named value references</text>
+    <text x="710" y="725" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">KV-backed secrets</text>
+    <text x="710" y="743" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#22c55e">auto-refresh on rotation</text>
+  </g>
+
+  <!-- Arrow to Terraform -->
+  <path d="M 820 710 L 860 710" stroke="#60a5fa" stroke-width="2" marker-end="url(#arrowBlue)"/>
+
+  <!-- Terraform Config -->
+  <g filter="url(#shadow)">
+    <rect x="865" y="660" width="220" height="100" rx="8" fill="#1e3a5f" stroke="#8b5cf6" stroke-width="2"/>
+    <text x="975" y="685" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#8b5cf6" font-weight="bold">Terraform Config</text>
+    <text x="975" y="705" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">modules/apim — APIM setup</text>
+    <text x="975" y="725" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">modules/tenant — subscriptions</text>
+    <text x="975" y="743" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#8b5cf6">KV access policies</text>
+  </g>
+
+  <!-- Arrow to GHA -->
+  <path d="M 1085 710 L 1125 710" stroke="#94a3b8" stroke-width="2" marker-end="url(#arrowWhite)"/>
+
+  <!-- GHA Workflow -->
+  <g filter="url(#shadow)">
+    <rect x="1130" y="660" width="200" height="100" rx="8" fill="#1e3a5f" stroke="#a78bfa" stroke-width="2"/>
+    <text x="1230" y="685" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#a78bfa" font-weight="bold">GHA Workflow</text>
+    <text x="1230" y="705" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">apim-key-rotation.yml</text>
+    <text x="1230" y="725" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">OIDC auth per env</text>
+    <text x="1230" y="743" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a78bfa">env protection rules</text>
+  </g>
+
+  <!-- STRA callout -->
+  <rect x="70" y="778" width="560" height="55" rx="8" fill="#44250e" stroke="#f97316" stroke-width="2"/>
+  <text x="350" y="800" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#f97316" font-weight="bold">⚠ STRA Status: Pending Approval</text>
+  <text x="350" y="818" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">All infrastructure and automation configs in place. Awaiting STRA sign-off before enabling scheduled rotation.</text>
+
+  <!-- Auth note -->
+  <rect x="660" y="778" width="700" height="55" rx="8" fill="#0c4a6e" stroke="#38bdf8" stroke-width="1"/>
+  <text x="1010" y="800" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#38bdf8" font-weight="bold">Authentication: OIDC (No Stored Secrets)</text>
+  <text x="1010" y="818" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">GitHub OIDC → Azure AD federated credentials → Per-environment SPN with Secrets Officer role on Hub Key Vault</text>
+
+  <!-- Footer -->
+  <rect x="0" y="855" width="1400" height="45" fill="#fcba19"/>
+  <text x="700" y="883" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="#003366">AI Services Hub — APIM Subscription Key Rotation Architecture</text>
+</svg>
