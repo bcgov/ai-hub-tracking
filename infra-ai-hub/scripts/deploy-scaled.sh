@@ -576,8 +576,15 @@ tf_run_stack() {
   local dir
   dir="$(stack_dir "$stack")"
 
-  local base_tfvars=(
-    "-var-file=${INFRA_DIR}/terraform.tfvars"
+  local base_tfvars=()
+
+  # terraform.tfvars is gitignored — only present for local dev.
+  # In GHA, these values come from TF_VAR_* environment variables.
+  if [[ -f "${INFRA_DIR}/terraform.tfvars" ]]; then
+    base_tfvars+=("-var-file=${INFRA_DIR}/terraform.tfvars")
+  fi
+
+  base_tfvars+=(
     "-var-file=${INFRA_DIR}/params/${ENVIRONMENT}/shared.tfvars"
   )
 
