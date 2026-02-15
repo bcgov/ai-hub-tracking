@@ -55,6 +55,7 @@ for page in "$PAGES_DIR"/*.html; do
         header="${header//\{\{NAV_WORKFLOWS\}\}/}"
         header="${header//\{\{NAV_DIAGRAMS\}\}/}"
         header="${header//\{\{NAV_TERRAFORM-REFERENCE\}\}/}"
+        header="${header//\{\{NAV_APIM-KEY-ROTATION\}\}/}"
         header="${header//\{\{NAV_PLAYBOOKS\}\}/}"
         header="${header//\{\{NAV_DECISIONS\}\}/}"
         header="${header//\{\{NAV_COST\}\}/}"

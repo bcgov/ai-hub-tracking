@@ -65,29 +65,31 @@ RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+GRAY='\033[0;90m'
 NC='\033[0m' # No Color
 
 # Variables tracking configuration
 ENVIRONMENT=""
-TFVARS_ARGS=()
 
 # =============================================================================
 # Logging Functions
 # =============================================================================
+_ts() { date -u +'%Y-%m-%dT%H:%M:%SZ'; }
+
 log_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+    echo -e "${GRAY}$(_ts)${NC} ${BLUE}[INFO]${NC} $*"
 }
 
 log_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+    echo -e "${GRAY}$(_ts)${NC} ${GREEN}[SUCCESS]${NC} $*"
 }
 
 log_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+    echo -e "${GRAY}$(_ts)${NC} ${YELLOW}[WARNING]${NC} $*"
 }
 
 log_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
+    echo -e "${GRAY}$(_ts)${NC} ${RED}[ERROR]${NC} $*"
 }
 
 # =============================================================================
@@ -98,17 +100,12 @@ usage() {
 Usage: $0 <command> <environment> [options]
 
 Commands:
-    init        Initialize Terraform (download providers, configure backend)
-    plan        Create execution plan
-    apply       Apply changes (all modules in parallel)
-    apply-phased Apply in two phases: 1) all except foundry_project, 2) foundry_project with parallelism=1
-    destroy     Destroy infrastructure (all modules in parallel)
-    destroy-phased Destroy in two phases: 1) foundry_project with parallelism=1, 2) all remaining
-    validate    Validate configuration
+    plan        Create execution plans for all stacks
+    apply       Apply changes across all stacks (shared -> tenant -> foundry -> apim -> tenant-user-mgmt)
+    destroy     Destroy infrastructure in reverse dependency order
+    validate    Validate all stack roots
     fmt         Format Terraform files
-    output      Show Terraform outputs
-    refresh     Refresh state
-    state       Run state commands (e.g., state list, state show)
+    output      Show aggregated stack outputs as JSON
 
 Environments:
     dev, test, prod
@@ -262,7 +259,6 @@ setup_variables() {
         exit 1
     fi
     
-    TFVARS_ARGS=("-var-file=$shared_tfvars")
     log_info "Using shared config: $shared_tfvars"
     
     # Merge individual tenant tfvars files into a combined tenants map
@@ -309,19 +305,16 @@ setup_variables() {
             # Close the tenants map
             echo "}" >> "$combined_tenants_file"
             
-            TFVARS_ARGS+=("-var-file=$combined_tenants_file")
             log_info "Generated combined tenants file: $combined_tenants_file"
         else
             log_warning "No tenant configurations found in: $tenants_dir"
             # Create empty tenants map
             echo "tenants = {}" > "$combined_tenants_file"
-            TFVARS_ARGS+=("-var-file=$combined_tenants_file")
         fi
     else
         log_warning "Tenants directory not found: $tenants_dir"
         # Create empty tenants map
         echo "tenants = {}" > "$combined_tenants_file"
-        TFVARS_ARGS+=("-var-file=$combined_tenants_file")
     fi
     
     log_success "Variable files configured"
@@ -330,73 +323,6 @@ setup_variables() {
 # =============================================================================
 # Terraform Commands
 # =============================================================================
-tf_init() {
-    log_info "Initializing Terraform..."
-    
-    # Validate backend config
-    if [[ -z "${BACKEND_RESOURCE_GROUP}" ]]; then
-        log_error "BACKEND_RESOURCE_GROUP not set (use TF_VAR_vnet_resource_group_name or set directly)"
-        exit 1
-    fi
-    if [[ -z "${BACKEND_STORAGE_ACCOUNT}" ]]; then
-        log_error "BACKEND_STORAGE_ACCOUNT not set"
-        exit 1
-    fi
-    
-    local state_key="ai-services-hub/${ENVIRONMENT}/terraform.tfstate"
-    log_info "Backend: ${BACKEND_STORAGE_ACCOUNT}/${BACKEND_CONTAINER_NAME}/${state_key}"
-    
-    cd "$INFRA_DIR"
-
-    local init_args=("-upgrade")
-    if [[ "${CI:-false}" == "true" ]]; then
-        init_args+=("-input=false" "-reconfigure")
-    fi
-
-    terraform init "${init_args[@]}" \
-        -backend-config="resource_group_name=${BACKEND_RESOURCE_GROUP}" \
-        -backend-config="storage_account_name=${BACKEND_STORAGE_ACCOUNT}" \
-        -backend-config="container_name=${BACKEND_CONTAINER_NAME}" \
-        -backend-config="key=${state_key}" \
-        -backend-config="subscription_id=${ARM_SUBSCRIPTION_ID:-}" \
-        -backend-config="tenant_id=${ARM_TENANT_ID:-}" \
-        -backend-config="client_id=${TF_VAR_client_id:-}" \
-        -backend-config="use_oidc=${ARM_USE_OIDC:-false}" \
-        "$@"
-    
-    log_success "Terraform initialized"
-}
-
-ensure_initialized() {
-    cd "$INFRA_DIR"
-    
-    if [[ ! -d ".terraform" ]] || [[ ! -f ".terraform.lock.hcl" ]]; then
-        log_warning "Terraform not initialized. Running init..."
-        tf_init
-        return
-    fi
-
-    if [[ ! -d ".terraform/modules" ]] || [[ -z "$(ls -A .terraform/modules 2>/dev/null)" ]]; then
-        log_warning "Terraform modules not installed. Running init..."
-        tf_init
-        return
-    fi
-    
-    if ! grep -q "provider" ".terraform.lock.hcl" 2>/dev/null; then
-        log_warning "Lock file incomplete. Re-initializing..."
-        tf_init
-    fi
-}
-
-tf_validate() {
-    log_info "Validating Terraform configuration..."
-    cd "$INFRA_DIR"
-    
-    terraform validate
-    
-    log_success "Configuration is valid"
-}
-
 tf_fmt() {
     log_info "Formatting Terraform files..."
     cd "$INFRA_DIR"
@@ -406,657 +332,89 @@ tf_fmt() {
     log_success "Formatting complete"
 }
 
-tf_plan() {
-    log_info "Creating Terraform plan..."
-    ensure_initialized
-    cd "$INFRA_DIR"
-    
-    local plan_args=("${TFVARS_ARGS[@]}")
-    plan_args+=("-input=false")
-    plan_args+=("$@")
-    
-    terraform plan "${plan_args[@]}"
-    
-    log_success "Plan created (main config)"
-
-    # Also plan tenant-user-management (separate state) if Graph perms available.
-    # This can fail on fresh environments where tenant RGs don't exist yet —
-    # that's expected and non-fatal (the RGs get created in apply Phase 1).
-    if check_graph_permissions; then
-        log_info "Planning tenant user management (separate state)..."
-        if ! tf_user_mgmt_plan "$@"; then
-            log_warning "Tenant-user-management plan failed (tenant resource groups may not exist yet)."
-            log_warning "This is expected on fresh environments — run apply-phased to create RGs first."
-        fi
-    else
-        log_warning "Skipping tenant-user-management plan — no Graph User.Read.All permission"
-    fi
-}
-
-extract_import_target_from_tf_output() {
-    local tf_output_file="$1"
-    local script_path="${INFRA_DIR}/scripts/extract-import-target.sh"
-
-    if [[ -x "$script_path" ]]; then
-        "$script_path" "$tf_output_file"
-    else
-        # shellcheck source=extract-import-target.sh
-        source "$script_path"
-        extract_import_target "$tf_output_file"
-    fi
-}
-
-tf_import_existing_resource_if_needed() {
-    local tf_output_file="$1"
-
-    local import_line
-    if ! import_line="$(extract_import_target_from_tf_output "$tf_output_file")"; then
-        return 1
-    fi
-
-    local import_addr
-    local import_id
-    import_addr="${import_line%%$'\t'*}"
-    import_id="${import_line#*$'\t'}"
-
-    if [[ -z "$import_addr" || -z "$import_id" || "$import_addr" == "$import_id" ]]; then
-        return 1
-    fi
-
-    log_warning "Detected existing Azure resource; importing into Terraform state"
-    log_info "Import address: $import_addr"
-    log_info "Import ID: $import_id"
-
-    if terraform import "${TFVARS_ARGS[@]}" "$import_addr" "$import_id"; then
-        log_success "Import succeeded: $import_addr"
-        return 0
-    fi
-
-    log_error "Import failed for: $import_addr"
-    return 2
-}
-
-run_terraform_with_retries() {
-    local command="$1"
-    shift
-
-    local max_retries=3
-    local attempt=1
-
-    while true; do
-        local tf_output_file
-        tf_output_file="$(mktemp -t terraform-${command}.XXXXXX.log)"
-
-        log_info "Running terraform ${command} (attempt ${attempt}/${max_retries})"
-
-        set +e
-        terraform "$command" "$@" 2>&1 | tee "$tf_output_file"
-        local tf_exit=${PIPESTATUS[0]}
-        set -e
-
-        if [[ $tf_exit -eq 0 ]]; then
-            rm -f "$tf_output_file"
-            break
-        fi
-
-        # Try to handle recoverable errors before failing
-        local handled=false
-
-        # Check for deposed object errors (404 on delete)
-        if tf_remove_deposed_object_if_needed "$tf_output_file"; then
-            handled=true
-        # Check for existing resource that needs import (apply only)
-        elif [[ "$command" == "apply" ]] && tf_import_existing_resource_if_needed "$tf_output_file"; then
-            handled=true
-        fi
-
-        if [[ "$handled" == "true" ]]; then
-            rm -f "$tf_output_file"
-            attempt=$((attempt + 1))
-            if [[ $attempt -gt $max_retries ]]; then
-                log_error "Exceeded maximum retries (${max_retries}) for auto-recovery"
-                exit $tf_exit
-            fi
-            continue
-        fi
-
-        rm -f "$tf_output_file"
-        log_error "Terraform ${command} failed (non-recoverable error)."
-        exit $tf_exit
-    done
-}
-
-# Detect and remove deposed objects from state
-# Deposed objects occur when a resource replace fails mid-operation, leaving
-# Terraform trying to delete a resource that no longer exists (404 errors)
-tf_remove_deposed_object_if_needed() {
-    local tf_output_file="$1"
-
-    # Look for deposed object deletion errors
-    # Pattern: "Error: deleting deposed object for <resource_address>"
-    # Followed by: "StatusCode=404" or "not found" or similar
-    local deposed_resource
-    deposed_resource=$(grep -oP '(?<=Error: deleting deposed object for )[^\s,]+' "$tf_output_file" 2>/dev/null | head -1)
-
-    if [[ -z "$deposed_resource" ]]; then
-        # Alternative pattern: "deposed object" with resource address
-        deposed_resource=$(grep -oP 'deposed object.*?(\S+\.\S+\[\d+\]|\S+\.\S+\.\S+\[\d+\]|\S+\.\S+\.\S+\.\S+\[\d+\])' "$tf_output_file" 2>/dev/null | grep -oP '\S+\[\d+\]$' | head -1)
-    fi
-
-    if [[ -z "$deposed_resource" ]]; then
-        return 1
-    fi
-
-    # Verify this is a 404/not-found situation (safe to remove from state)
-    if ! grep -qiE '(StatusCode=404|not found|does not exist|NoSuchResource)' "$tf_output_file" 2>/dev/null; then
-        log_warning "Deposed object detected but error is not 404/not-found. Manual intervention required."
-        return 1
-    fi
-
-    log_warning "Detected deposed object with 404 error (resource already deleted)"
-    log_info "Deposed resource: $deposed_resource"
-    log_info "Removing deposed object from state..."
-
-    if terraform state rm "$deposed_resource" 2>/dev/null; then
-        log_success "Removed deposed object from state: $deposed_resource"
-        return 0
-    fi
-
-    log_error "Failed to remove deposed object from state: $deposed_resource"
-    return 2
-}
-
-tf_apply() {
-    log_info "Applying Terraform changes..."
-    if [[ "${CI:-false}" == "true" ]]; then
-        tf_init
-    else
-        ensure_initialized
-    fi
-    cd "$INFRA_DIR"
-    
-    local apply_args=("${TFVARS_ARGS[@]}")
-    apply_args+=("-input=false")
-    
-    if [[ "${CI:-false}" == "true" ]]; then
-        apply_args+=("-auto-approve")
-    fi
-    
-    apply_args+=("$@")
-
-    # Check if this is a targeted apply
-    local is_targeted=false
-    local is_foundry_target=false
-    for arg in "$@"; do
-        if [[ "$arg" == "-target="* ]]; then
-            is_targeted=true
-            if [[ "$arg" == *"foundry_project"* ]]; then
-                is_foundry_target=true
-            fi
-        fi
-    done
-    
-    # If targeting foundry_project specifically, use parallelism=1
-    if [[ "$is_foundry_target" == "true" ]]; then
-        log_info "Detected foundry_project target - using parallelism=1 to avoid ETag conflicts"
-        apply_args+=("-parallelism=1")
-    fi
-    
-    run_terraform_with_retries apply "${apply_args[@]}"
-    
-    log_success "Apply complete"
-    
-}
-
 # =============================================================================
-# Multi-Phase Apply
-# Phase 1: Core infrastructure + tenant resources (parallel)
-# Phase 2: AI Foundry projects + model deployments (parallelism=1)
-# Phase 3: APIM Backend and Policy Orchestration
-# Phase 4: Final apply (all remaining changes)
+# Scaled Stack Operations
+# All apply/plan/destroy/validate operations delegate to deploy-scaled.sh
+# which manages isolated stack roots (shared, tenant, foundry, apim, tenant-user-mgmt).
 # =============================================================================
-tf_apply_phased() {
-    log_info "Starting phased apply..."
-    log_info "Phase 1: Core infrastructure + tenants (parallel)"
-    log_info "Phase 2: AI Foundry projects + models (parallelism=1)"
-    log_info "Phase 3: APIM orchestration"
-    log_info "Phase 4: Final apply"
-
-    if [[ "${CI:-false}" == "true" ]]; then
-        tf_init
-    else
-        ensure_initialized
-    fi
-    cd "$INFRA_DIR"
-
-    # =========================================================================
-    # PHASE 1: Core infrastructure + tenant resources (parallel)
-    # Includes: network, hub, APIM, app gateway, defender, tenant resources
-    # NOTE: module.tenant no longer has model deployments (moved to foundry_project)
-    # =========================================================================
-    log_info "=== PHASE 1: Applying core infrastructure + tenants (parallel) ==="
-    
-    local phase1_args=("${TFVARS_ARGS[@]}")
-    phase1_args+=("-input=false")
-    
-    if [[ "${CI:-false}" == "true" ]]; then
-        phase1_args+=("-auto-approve")
-    fi
-
-    # Target core infrastructure and tenant resources (no model deployments here)
-    # NOTE: tenant_user_management is in a separate state (tenant-user-mgmt/)
-    # and applied conditionally based on Graph API permissions.
-    local targets=(
-        "-target=azurerm_resource_group.main"
-        "-target=module.network"
-        "-target=module.ai_foundry_hub"
-        "-target=module.apim"
-        "-target=module.app_gateway"
-        "-target=module.defender"
-        "-target=module.tenant"
-    )
-
-    log_info "Phase 1 targets: ${targets[*]}"
-
-    run_terraform_with_retries apply "${phase1_args[@]}" "${targets[@]}" "$@"
-    log_success "Phase 1 complete"
-
-    # =========================================================================
-    # PHASE 2: AI Foundry Projects + Model Deployments (serialized)
-    # Run with parallelism=1 to avoid ETag conflicts on shared AI Foundry Hub
-    # Model deployments are now in foundry_project module, not tenant module
-    # =========================================================================
-    log_info "=== PHASE 2: Applying AI Foundry projects + models (parallelism=1) ==="
-    
-    local phase2_args=("${TFVARS_ARGS[@]}")
-    phase2_args+=("-input=false")
-    phase2_args+=("-parallelism=1")
-    
-    if [[ "${CI:-false}" == "true" ]]; then
-        phase2_args+=("-auto-approve")
-    fi
-    
-    # Only foundry_project module - contains projects AND model deployments
-    phase2_args+=("-target=module.foundry_project")
-
-    run_terraform_with_retries apply "${phase2_args[@]}" "$@"
-    log_success "Phase 2 complete"
-
-    # Phase 3: APIM Backend and Policy Orchestration
-    # ==========================================================================
-    # APIM has strict ordering constraints:
-    # - CREATION: Backends MUST exist before policies reference them
-    # - DELETION: Policies MUST be updated before backends are deleted
-    #
-    # Strategy:
-    # 1. Analyze plan to detect backend creations and deletions
-    # 2. If deletions exist: update policies FIRST (Phase 4a), then everything else in Phase 5
-    # 3. If only creations (no deletions): create backends FIRST (Phase 4a), then policies in Phase 5
-    # 4. If no backend changes: skip Phase 4 entirely
-    # ==========================================================================
-
-    log_info "=== PHASE 3: APIM Policy and Backend Orchestration ==="
-    
-    # Generate a plan to detect what's changing
-    local plan_file="${INFRA_DIR}/.phase3-plan"
-    local plan_json="${INFRA_DIR}/.phase3-plan.json"
-    
-    log_info "Analyzing Terraform plan for APIM changes..."
-    terraform plan "${TFVARS_ARGS[@]}" -input=false -out="$plan_file" > /dev/null 2>&1 || true
-    terraform show -json "$plan_file" > "$plan_json" 2>/dev/null || true
-    
-    # Check for backend creations and deletions
-    local backends_to_create=""
-    local backends_to_destroy=""
-    
-    if [[ -f "$plan_json" ]]; then
-        backends_to_create=$(jq -r '
-            .resource_changes[]? 
-            | select(.type == "azurerm_api_management_backend") 
-            | select(.change.actions | contains(["create"]))
-            | .address
-        ' "$plan_json" 2>/dev/null | grep -v '^$' || true)
-        
-        backends_to_destroy=$(jq -r '
-            .resource_changes[]? 
-            | select(.type == "azurerm_api_management_backend") 
-            | select(.change.actions | contains(["delete"]))
-            | .address
-        ' "$plan_json" 2>/dev/null | grep -v '^$' || true)
-    fi
-    
-    # Priority: Handle deletions first (policy update must happen before backend deletion)
-    if [[ -n "$backends_to_destroy" ]]; then
-        log_info "Detected backends scheduled for destruction:"
-        echo "$backends_to_destroy" | while read -r addr; do
-            [[ -n "$addr" ]] && log_info "  - $addr"
-        done
-        
-        # Phase 3a: Update policies FIRST to remove stale backend references
-        log_info "Updating APIM policies before backend deletion..."
-        
-        local phase3a_args=("${TFVARS_ARGS[@]}")
-        phase3a_args+=("-input=false")
-        
-        if [[ "${CI:-false}" == "true" ]]; then
-            phase3a_args+=("-auto-approve")
-        fi
-        
-        # Target only policy resources - no depends_on to backends means this won't trigger backend deletion
-        phase3a_args+=("-target=azurerm_api_management_api_policy.tenant")
-        
-        if ! run_terraform_with_retries apply "${phase3a_args[@]}"; then
-            log_warning "Policy update had issues, continuing with full apply..."
-        fi
-        log_success "Phase 3a (policy update for backend deletion) complete"
-        
-    elif [[ -n "$backends_to_create" ]]; then
-        # Only creations, no deletions - create backends first
-        log_info "Detected backends scheduled for creation (no deletions):"
-        echo "$backends_to_create" | while read -r addr; do
-            [[ -n "$addr" ]] && log_info "  - $addr"
-        done
-        
-        log_info "Creating new APIM backends before policy application..."
-        
-        local phase3a_args=("${TFVARS_ARGS[@]}")
-        phase3a_args+=("-input=false")
-        
-        if [[ "${CI:-false}" == "true" ]]; then
-            phase3a_args+=("-auto-approve")
-        fi
-        
-        # Target backend resources for creation
-        phase3a_args+=(
-            "-target=azurerm_api_management_backend.openai"
-            "-target=azurerm_api_management_backend.docint"
-            "-target=azurerm_api_management_backend.storage"
-            "-target=azurerm_api_management_backend.ai_search"
-            "-target=azurerm_api_management_backend.speech_services"
-        )
-        
-        if ! run_terraform_with_retries apply "${phase3a_args[@]}"; then
-            log_warning "Backend creation had issues, continuing..."
-        fi
-        log_success "Phase 3a (backend creation) complete"
-    else
-        log_info "No APIM backend changes detected, skipping Phase 3a"
-    fi
-    
-    rm -f "$plan_file" "$plan_json"
-    log_success "Phase 3 complete"
-
-    # Phase 4: Final apply for all remaining resources
-    # Now that policies no longer reference stale backends, backend destruction is safe
-    log_info "=== PHASE 4: Final apply (all remaining changes) ==="
-    
-    local phase4_args=("${TFVARS_ARGS[@]}")
-    phase4_args+=("-input=false")
-    
-    if [[ "${CI:-false}" == "true" ]]; then
-        phase4_args+=("-auto-approve")
-    fi
-
-    run_terraform_with_retries apply "${phase4_args[@]}" "$@"
-    log_success "Phase 4 complete"
-
-    # =========================================================================
-    # PHASE 5: Tenant User Management (separate state, conditional)
-    # Only runs when the current identity has Graph User.Read.All permission.
-    # Uses a separate state file so the main config can never destroy these
-    # resources when running without Graph permissions.
-    # =========================================================================
-    if check_graph_permissions; then
-        log_info "=== PHASE 5: Applying tenant user management (separate state) ==="
-        tf_user_mgmt_apply "$@"
-        log_success "Phase 5 complete"
-    else
-        log_warning "=== PHASE 5: SKIPPED — tenant user management requires Graph User.Read.All ==="
-        log_warning "Existing user management resources are preserved (separate state)."
-        log_warning "Grant User.Read.All to the identity, or run locally with a privileged account."
-    fi
-    
-    log_success "Phased apply complete"
-}
-
-# =============================================================================
-# Tenant User Management — Separate State Operations
-# =============================================================================
-# These functions manage the tenant-user-mgmt/ config which has its own
-# state file. This allows conditional execution based on Graph API permissions
-# without the main config ever touching these resources.
-# =============================================================================
-USER_MGMT_DIR="${INFRA_DIR}/tenant-user-mgmt"
-
-tf_user_mgmt_init() {
-    log_info "Initializing tenant-user-mgmt (separate state)..."
-
-    local state_key="ai-services-hub/${ENVIRONMENT}/tenant-user-management.tfstate"
-    log_info "User-mgmt backend: ${BACKEND_STORAGE_ACCOUNT}/${BACKEND_CONTAINER_NAME}/${state_key}"
-
-    cd "$USER_MGMT_DIR"
-
-    local init_args=("-upgrade")
-    if [[ "${CI:-false}" == "true" ]]; then
-        init_args+=("-input=false" "-reconfigure")
-    fi
-
-    terraform init "${init_args[@]}" \
-        -backend-config="resource_group_name=${BACKEND_RESOURCE_GROUP}" \
-        -backend-config="storage_account_name=${BACKEND_STORAGE_ACCOUNT}" \
-        -backend-config="container_name=${BACKEND_CONTAINER_NAME}" \
-        -backend-config="key=${state_key}" \
-        -backend-config="subscription_id=${ARM_SUBSCRIPTION_ID:-}" \
-        -backend-config="tenant_id=${ARM_TENANT_ID:-}" \
-        -backend-config="client_id=${TF_VAR_client_id:-}" \
-        -backend-config="use_oidc=${ARM_USE_OIDC:-false}"
-
-    cd "$INFRA_DIR"
-    log_success "Tenant-user-mgmt initialized"
-}
-
-# Common var args for tenant-user-mgmt operations
-_user_mgmt_var_args() {
-    local combined_tenants_file="${INFRA_DIR}/.tenants-${ENVIRONMENT}.auto.tfvars"
-    echo "-var-file=${combined_tenants_file}"
-    echo "-var=app_env=${ENVIRONMENT}"
-    echo "-var=subscription_id=${ARM_SUBSCRIPTION_ID}"
-    echo "-var=tenant_id=${ARM_TENANT_ID}"
-    echo "-var=client_id=${TF_VAR_client_id:-}"
-    echo "-var=use_oidc=${ARM_USE_OIDC:-false}"
-}
-
-tf_user_mgmt_plan() {
-    tf_user_mgmt_init
-
-    cd "$USER_MGMT_DIR"
-
-    local plan_args=()
-    while IFS= read -r arg; do
-        plan_args+=("$arg")
-    done < <(_user_mgmt_var_args)
-    plan_args+=("-input=false")
-
-    # Allow failure (e.g. tenant RGs don't exist yet on fresh envs)
-    set +e
-    terraform plan "${plan_args[@]}" "$@"
-    local rc=$?
-    set -e
-
-    cd "$INFRA_DIR"
-
-    if [[ $rc -eq 0 ]]; then
-        log_success "Tenant-user-mgmt plan complete"
-    fi
-    return $rc
-}
-
-tf_user_mgmt_apply() {
-    log_info "Applying tenant user management (separate state)..."
-
-    tf_user_mgmt_init
-
-    cd "$USER_MGMT_DIR"
-
-    local apply_args=()
-    while IFS= read -r arg; do
-        apply_args+=("$arg")
-    done < <(_user_mgmt_var_args)
-    apply_args+=("-input=false")
-
-    if [[ "${CI:-false}" == "true" ]]; then
-        apply_args+=("-auto-approve")
-    fi
-
-    run_terraform_with_retries apply "${apply_args[@]}" "$@"
-
-    cd "$INFRA_DIR"
-    log_success "Tenant user management apply complete"
-}
 
 tf_destroy() {
-    log_info "Destroying Terraform resources..."
-    ensure_initialized
-    cd "$INFRA_DIR"
-    
-    local destroy_args=("${TFVARS_ARGS[@]}")
-    destroy_args+=("-input=false")
-    
-    if [[ "${CI:-false}" == "true" ]]; then
-        destroy_args+=("-auto-approve")
-    fi
-    
-    destroy_args+=("$@")
-    
+    log_info "Destroying infrastructure in reverse dependency order..."
+
     if [[ "${CI:-false}" != "true" ]]; then
-        log_warning "This will DESTROY infrastructure!"
+        log_warning "This will DESTROY infrastructure using isolated stack states!"
         read -p "Are you sure? (yes/no): " confirm
         if [[ "$confirm" != "yes" ]]; then
             log_info "Destroy cancelled"
             exit 0
         fi
     fi
-    
-    terraform destroy "${destroy_args[@]}"
-    
-    log_success "Destroy complete"
+
+    SCALED_CALLER="deploy-terraform" bash "${SCRIPT_DIR}/deploy-scaled.sh" "destroy" "$ENVIRONMENT" "$@"
 }
 
-# =============================================================================
-# Two-Phase Destroy
-# Phase 1: Destroy AI Foundry projects + model deployments (parallelism=1)
-# Phase 2: Destroy all remaining modules (parallel)
-# Reverse order of apply to respect dependencies
-# =============================================================================
-tf_destroy_phased() {
-    log_info "Starting phased destroy..."
-    log_info "Phase 1: AI Foundry projects + models (parallelism=1)"
-    log_info "Phase 2: APIM policy/backend teardown (ordered)"
-    log_info "Phase 3: All remaining modules (parallel)"
+stack_state_key() {
+    local stack="$1"
+    case "$stack" in
+        shared) echo "ai-services-hub/${ENVIRONMENT}/shared.tfstate" ;;
+        tenant) echo "" ;;
+        foundry) echo "ai-services-hub/${ENVIRONMENT}/foundry.tfstate" ;;
+        apim) echo "ai-services-hub/${ENVIRONMENT}/apim.tfstate" ;;
+        tenant-user-mgmt) echo "ai-services-hub/${ENVIRONMENT}/tenant-user-management.tfstate" ;;
+        *) echo "" ;;
+    esac
+}
 
-    ensure_initialized
-    cd "$INFRA_DIR"
+tf_stack_output_json() {
+    local stack="$1"
+    local dir="${INFRA_DIR}/stacks/${stack}"
+    local key
+    key="$(stack_state_key "$stack")"
 
-    if [[ "${CI:-false}" != "true" ]]; then
-        log_warning "This will DESTROY infrastructure!"
-        read -p "Are you sure? (yes/no): " confirm
-        if [[ "$confirm" != "yes" ]]; then
-            log_info "Destroy cancelled"
-            exit 0
-        fi
-    fi
+    (
+        cd "$dir"
+        terraform init -input=false -reconfigure \
+            -backend-config="resource_group_name=${BACKEND_RESOURCE_GROUP}" \
+            -backend-config="storage_account_name=${BACKEND_STORAGE_ACCOUNT}" \
+            -backend-config="container_name=${BACKEND_CONTAINER_NAME}" \
+            -backend-config="key=${key}" \
+            -backend-config="subscription_id=${ARM_SUBSCRIPTION_ID:-}" \
+            -backend-config="tenant_id=${ARM_TENANT_ID:-}" \
+            -backend-config="client_id=${TF_VAR_client_id:-}" \
+            -backend-config="use_oidc=${ARM_USE_OIDC:-false}" >/dev/null
 
-    # Phase 1: Destroy foundry_project with parallelism=1
-    # This includes AI Foundry projects AND model deployments
-    log_info "=== PHASE 1: Destroying AI Foundry projects + models (parallelism=1) ==="
-    
-    local phase1_args=("${TFVARS_ARGS[@]}")
-    phase1_args+=("-input=false")
-    phase1_args+=("-parallelism=1")
-    phase1_args+=("-target=module.foundry_project")
-    
-    if [[ "${CI:-false}" == "true" ]]; then
-        phase1_args+=("-auto-approve")
-    fi
-
-    run_terraform_with_retries destroy "${phase1_args[@]}" "$@"
-    log_success "Phase 1 destroy complete"
-
-    # Phase 2: APIM policy/backend teardown (reverse of apply orchestration)
-    # Ensure policies are removed before backends to avoid APIM 400 errors
-    log_info "=== PHASE 2: APIM policy/backend teardown (ordered) ==="
-
-    local phase2a_args=("${TFVARS_ARGS[@]}")
-    phase2a_args+=("-input=false")
-
-    if [[ "${CI:-false}" == "true" ]]; then
-        phase2a_args+=("-auto-approve")
-    fi
-
-    # Destroy APIM API policies first
-    phase2a_args+=("-target=azurerm_api_management_api_policy.tenant")
-    run_terraform_with_retries destroy "${phase2a_args[@]}" "$@"
-    log_success "Phase 2a destroy (APIM API policies) complete"
-
-    # Then destroy APIM backends
-    local phase2b_args=("${TFVARS_ARGS[@]}")
-    phase2b_args+=("-input=false")
-
-    if [[ "${CI:-false}" == "true" ]]; then
-        phase2b_args+=("-auto-approve")
-    fi
-
-    phase2b_args+=(
-        "-target=azurerm_api_management_backend.ai_foundry"
-        "-target=azurerm_api_management_backend.openai"
-        "-target=azurerm_api_management_backend.docint"
-        "-target=azurerm_api_management_backend.storage"
-        "-target=azurerm_api_management_backend.ai_search"
-        "-target=azurerm_api_management_backend.speech_services"
+        terraform output -json 2>/dev/null || echo '{}'
     )
-
-    run_terraform_with_retries destroy "${phase2b_args[@]}" "$@"
-    log_success "Phase 2b destroy (APIM backends) complete"
-
-    # Phase 3: Destroy all remaining resources (parallel)
-    log_info "=== PHASE 3: Destroying all remaining modules (parallel) ==="
-    
-    local phase2_args=("${TFVARS_ARGS[@]}")
-    phase2_args+=("-input=false")
-    
-    if [[ "${CI:-false}" == "true" ]]; then
-        phase2_args+=("-auto-approve")
-    fi
-
-    run_terraform_with_retries destroy "${phase2_args[@]}" "$@"
-    log_success "Phase 3 destroy complete"
-    
-    log_success "Phased destroy complete"
 }
 
 tf_output() {
-    cd "$INFRA_DIR"
-    terraform output "$@"
-}
+    local apim_outputs
+    local shared_outputs
+    apim_outputs="$(tf_stack_output_json apim)"
+    shared_outputs="$(tf_stack_output_json shared)"
 
-tf_refresh() {
-    log_info "Refreshing Terraform state..."
-    cd "$INFRA_DIR"
-    
-    terraform refresh "${TFVARS_ARGS[@]}" "$@"
-    
-    log_success "State refreshed"
-}
-
-tf_state() {
-    cd "$INFRA_DIR"
-    terraform state "$@"
+    jq -n \
+        --argjson shared "$shared_outputs" \
+        --argjson apim "$apim_outputs" \
+        '{
+            appgw_url: { value: ($shared.appgw_url.value // null) },
+            resource_group_name: { value: ($shared.resource_group_name.value // null) },
+            apim_gateway_url: { value: ($apim.apim_gateway_url.value // null) },
+            apim_name: { value: ($apim.apim_name.value // null) },
+            apim_key_rotation_summary: { value: ($apim.apim_key_rotation_summary.value // {}) },
+            apim_tenant_subscriptions: {
+                sensitive: true,
+                value: ($apim.apim_tenant_subscriptions.value // {})
+            }
+        }'
 }
 
 # =============================================================================
 # Main
 # =============================================================================
 main() {
+    local start_time=$SECONDS
+
     if [[ $# -lt 1 ]]; then
         usage
     fi
@@ -1066,11 +424,10 @@ main() {
     
     # Commands that don't need environment
     case "$command" in
-        fmt|validate)
+        fmt)
             cd "$INFRA_DIR"
             case "$command" in
                 fmt) tf_fmt "$@" ;;
-                validate) tf_validate "$@" ;;
             esac
             exit 0
             ;;
@@ -1088,6 +445,11 @@ main() {
     
     # Use vnet resource group as backend resource group if not set
     BACKEND_RESOURCE_GROUP="${BACKEND_RESOURCE_GROUP:-${TF_VAR_vnet_resource_group_name:-}}"
+
+    # Log workflow start for infrastructure operations (not quick lookups like output)
+    if [[ "$command" != "output" ]]; then
+        log_info "Workflow started at $(_ts)"
+    fi
     
     # Show mode status
     if [[ "${CI:-false}" == "true" ]]; then
@@ -1102,38 +464,34 @@ main() {
     
     # Execute command
     case "$command" in
-        init)
-            tf_init "$@"
-            ;;
         plan)
-            tf_plan "$@"
+            SCALED_CALLER="deploy-terraform" bash "${SCRIPT_DIR}/deploy-scaled.sh" "plan" "$ENVIRONMENT" "$@"
             ;;
         apply)
-            tf_apply "$@"
-            ;;
-        apply-phased)
-            tf_apply_phased "$@"
+            SCALED_CALLER="deploy-terraform" bash "${SCRIPT_DIR}/deploy-scaled.sh" "apply" "$ENVIRONMENT" "$@"
             ;;
         destroy)
             tf_destroy "$@"
             ;;
-        destroy-phased)
-            tf_destroy_phased "$@"
+        validate)
+            SCALED_CALLER="deploy-terraform" bash "${SCRIPT_DIR}/deploy-scaled.sh" "validate" "$ENVIRONMENT" "$@"
             ;;
         output)
             tf_output "$@"
-            ;;
-        refresh)
-            tf_refresh "$@"
-            ;;
-        state)
-            tf_state "$@"
             ;;
         *)
             log_error "Unknown command: $command"
             usage
             ;;
     esac
+
+    # Log timing for infrastructure operations (not output/fmt which are quick lookups)
+    if [[ "$command" != "output" && "$command" != "fmt" ]]; then
+        local elapsed=$(( SECONDS - start_time ))
+        local mins=$(( elapsed / 60 ))
+        local secs=$(( elapsed % 60 ))
+        log_success "Workflow finished at $(_ts) — total time: ${mins}m ${secs}s"
+    fi
 }
 
 main "$@"

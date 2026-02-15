@@ -1,11 +1,16 @@
+# =============================================================================
+# TENANT: SDPR Invoice Automation - Dev ENVIRONMENT
+# =============================================================================
+# Dev environment configuration for SDPR Invoice Automation.
+# =============================================================================
 
 tenant = {
-  tenant_name  = "test-tenant-1"
-  display_name = "Test Tenant 1"
+  tenant_name  = "sdpr-invoice-automation"
+  display_name = "SDPR Invoice Automation"
   enabled      = true
 
   tags = {
-    ministry    = "TEST"
+    ministry    = "SDPR"
     environment = "dev"
   }
 
@@ -128,9 +133,16 @@ tenant = {
     store_in_keyvault = false
   }
 
-  # Tenant user management — dev tenants use empty seed to avoid creating orphan groups
+  # Tenant user management (applies across environments)
   user_management = {
-    enabled = false
+    seed_members = {
+      admin = [
+        "anthony.shivakumar@gov.bc.ca",
+        "alex.struk@gov.bc.ca",
+        "kaegan.mandryk@gov.bc.ca",
+        "justin.hewitt@gov.bc.ca"
+      ]
+    }
   }
 
   # APIM Policies Configuration
@@ -141,8 +153,8 @@ tenant = {
       tokens_per_minute = 1000
     }
     pii_redaction = {
-      enabled     = true # Enabled for testing fail-closed behavior
-      fail_closed = true # Block requests if PII service fails
+      enabled     = true
+      fail_closed = true # Block requests if PII service fails (not applicable when disabled)
     }
     usage_logging = {
       enabled = true

@@ -25,41 +25,40 @@ resource "azurerm_web_application_firewall_policy" "this" {
   }
 
   # Managed rule sets (OWASP, Microsoft Bot Manager, etc.)
-  dynamic "managed_rules" {
-    for_each = length(var.managed_rule_sets) > 0 ? [1] : []
-    content {
-      dynamic "managed_rule_set" {
-        for_each = var.managed_rule_sets
-        content {
-          type    = managed_rule_set.value.type
-          version = managed_rule_set.value.version
+  # The managed_rules block is always required by azurerm >= 4.x.
+  # When no rule sets are specified, a default OWASP 3.2 rule set is used.
+  managed_rules {
+    dynamic "managed_rule_set" {
+      for_each = length(var.managed_rule_sets) > 0 ? var.managed_rule_sets : [{ type = "OWASP", version = "3.2", rule_group_overrides = [] }]
+      content {
+        type    = managed_rule_set.value.type
+        version = managed_rule_set.value.version
 
-          dynamic "rule_group_override" {
-            for_each = lookup(managed_rule_set.value, "rule_group_overrides", [])
-            content {
-              rule_group_name = rule_group_override.value.rule_group_name
+        dynamic "rule_group_override" {
+          for_each = lookup(managed_rule_set.value, "rule_group_overrides", [])
+          content {
+            rule_group_name = rule_group_override.value.rule_group_name
 
-              dynamic "rule" {
-                for_each = lookup(rule_group_override.value, "rules", [])
-                content {
-                  id      = rule.value.id
-                  enabled = lookup(rule.value, "enabled", true)
-                  action  = lookup(rule.value, "action", null)
-                }
+            dynamic "rule" {
+              for_each = lookup(rule_group_override.value, "rules", [])
+              content {
+                id      = rule.value.id
+                enabled = lookup(rule.value, "enabled", true)
+                action  = lookup(rule.value, "action", null)
               }
             }
           }
         }
       }
+    }
 
-      # Exclusions
-      dynamic "exclusion" {
-        for_each = var.exclusions
-        content {
-          match_variable          = exclusion.value.match_variable
-          selector                = exclusion.value.selector
-          selector_match_operator = exclusion.value.selector_match_operator
-        }
+    # Exclusions
+    dynamic "exclusion" {
+      for_each = var.exclusions
+      content {
+        match_variable          = exclusion.value.match_variable
+        selector                = exclusion.value.selector
+        selector_match_operator = exclusion.value.selector_match_operator
       }
     }
   }

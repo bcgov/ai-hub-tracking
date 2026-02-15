@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TerraformReference | AI Hub Tracking</title>
+    <title>TerraformReference | AI Services Hub</title>
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <style>
         :root {
@@ -696,7 +696,7 @@
         <a href="index.html" class="bc-header-brand">
             <img src="assets/bc_citz_logo.jpg" alt="BC Government" class="bc-header-logo">
             <div>
-                <div class="bc-header-title">AI Hub Tracking</div>
+                <div class="bc-header-title">AI Services Hub</div>
                 <div class="bc-header-subtitle">Azure Landing Zone Infrastructure</div>
             </div>
         </a>
@@ -729,6 +729,10 @@
                         TF Reference
                         <small>Auto-generated from code</small>
                     </a>
+                    <a href="apim-key-rotation.html">
+                        APIM Key Rotation
+                        <small>Subscription key auto-rotation</small>
+                    </a>
                 </div>
             </div>
             <a href="diagrams.html" class="">Diagrams</a>
@@ -752,10 +756,27 @@
 
 <p>Complete reference documentation for all Terraform modules, variables, and outputs extracted directly from the source code.</p>
 
-<h2>Root Module</h2>
+<div class="grid grid-2" style="margin-bottom: 2rem;">
+    <a href="#section-initial-setup" class="card-link">
+        <div class="card" style="border-left-color: #8b5cf6;">
+            <h3 style="margin-top: 0;">Initial Setup</h3>
+            <p>Network foundation: VNet, Bastion, Jumpbox, self-hosted runners.</p>
+        </div>
+    </a>
+    <a href="#section-ai-hub" class="card-link">
+        <div class="card" style="border-left-color: #22c55e;">
+            <h3 style="margin-top: 0;">AI Services Hub</h3>
+            <p>AI platform: APIM, AI Foundry, tenants, key rotation, WAF.</p>
+        </div>
+    </a>
+</div>
+
+<h2 id="section-initial-setup">Initial Setup (<code>initial-setup/infra/</code>)</h2>
+<p>Network foundation layer &mdash; VNet, Bastion, Jumpbox, and self-hosted GitHub runners. Deployed once per environment via <code>initial-setup/infra/deploy-terraform.sh</code>.</p>
+<h3 id="initial-root">Root Module</h3>
 <div class="card">
 <p>-------------</p>
-<p><strong>Location:</strong> <code>infra/</code></p>
+<p><strong>Location:</strong> <code>initial-setup/infra/</code></p>
 <h4>Variables</h4>
 <table>
 <tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
@@ -903,6 +924,48 @@
 <td><code>[]</code></td>
 <td>Address space for the test environment of the vnet peering</td>
 </tr>
+<tr>
+<td><code>azure_proxy_image</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>The image for the Azure Proxy container</td>
+</tr>
+<tr>
+<td><code>app_service_sku_name_azure_proxy</code></td>
+<td><code>string</code></td>
+<td><code>P0v4</code></td>
+<td>The SKU name for the azure proxy App Service plan.</td>
+</tr>
+<tr>
+<td><code>enable_azure_proxy</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable deployment of the Azure Proxy App Service</td>
+</tr>
+<tr>
+<td><code>enable_bastion</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable deployment of the Azure Bastion host</td>
+</tr>
+<tr>
+<td><code>enable_jumpbox</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable deployment of the Azure Jumpbox VM</td>
+</tr>
+<tr>
+<td><code>log_analytics_retention_days</code></td>
+<td><code>number</code></td>
+<td><code>30</code></td>
+<td>Number of days to retain data in Log Analytics Workspace</td>
+</tr>
+<tr>
+<td><code>log_analytics_sku</code></td>
+<td><code>string</code></td>
+<td><code>PerGB2018</code></td>
+<td>SKU for Log Analytics Workspace</td>
+</tr>
 </table>
 <h4>Outputs</h4>
 <table>
@@ -951,23 +1014,146 @@
 <td><code>github_runners_acr_name</code></td>
 <td>Name of the Azure Container Registry for runner images</td>
 </tr>
+<tr>
+<td><code>proxy_url</code></td>
+<td>URL of the Azure Proxy service</td>
+</tr>
+<tr>
+<td><code>proxy_auth</code></td>
+<td>Authentication info for the Azure Proxy service</td>
+</tr>
 </table>
 <h4>Resources Created</h4>
 <ul>
 <li><code>azurerm_resource_group (main)</code></li>
 </ul>
 </div>
-<h2 id="bastion">Module: bastion</h2>
+<h3 id="initial-azure-proxy">azure-proxy</h3>
+<div class="card" style="border-left-color: #8b5cf6;">
+<p><strong>Location:</strong> <code>initial-setup/infra/modules/azure-proxy/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (4)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>app_env</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>The deployment environment (e.g., dev, test, prod).</td>
+</tr>
+<tr>
+<td><code>app_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>The base name of the application. Used for naming Azure resources.</td>
+</tr>
+<tr>
+<td><code>app_service_subnet_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>The subnet ID for the App Service.</td>
+</tr>
+<tr>
+<td><code>appinsights_connection_string</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>The Application Insights connection string for monitoring.</td>
+</tr>
+<tr>
+<td><code>appinsights_instrumentation_key</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>The Application Insights instrumentation key.</td>
+</tr>
+<tr>
+<td><code>common_tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td>A map of tags to apply to resources.</td>
+</tr>
+<tr>
+<td><code>container_registry_url</code></td>
+<td><code>string</code></td>
+<td><code>https://ghcr.io</code></td>
+<td>The URL of the container registry to pull images from.</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>The Azure region where resources will be created.</td>
+</tr>
+<tr>
+<td><code>log_analytics_workspace_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>The resource ID of the Log Analytics workspace for diagnostics.</td>
+</tr>
+<tr>
+<td><code>repo_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>The repository name, used for resource naming.</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>The name of the resource group in which to create resources.</td>
+</tr>
+<tr>
+<td><code>azure_proxy_image</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>The image for the Azure DB Proxy container</td>
+</tr>
+<tr>
+<td><code>app_service_sku_name_azure_proxy</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>The SKU name for the azure db proxy App Service plan.</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>proxy_url</code></td>
+<td>The URL of the Azure Proxy App Service</td>
+</tr>
+<tr>
+<td><code>proxy_auth</code></td>
+<td>The authentication string for the Azure Proxy</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_service_plan (azure_proxy_asp)</code></li>
+<li><code>random_uuid (proxy_chisel_username)</code></li>
+<li><code>random_password (proxy_chisel_password)</code></li>
+<li><code>azurerm_linux_web_app (azure_proxy)</code></li>
+<li><code>azurerm_monitor_diagnostic_setting (azure_proxy_diagnostics)</code></li>
+</ul>
+</div>
+<h3 id="initial-bastion">bastion</h3>
 <div class="card" style="border-left-color: #8b5cf6;">
 <p>-----------------------------------------------------------------------------</p>
 <p><strong>Location:</strong> <code>initial-setup/infra/modules/bastion/</code></p>
 <details>
-<summary style="cursor: pointer; color: var(--bc-blue-light);">Module Files</summary>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (4)</summary>
 <ul style="margin-top: 0.5rem;">
 <li><code>main.tf</code></li>
 <li><code>outputs.tf</code></li>
-<li><code>providers.tf</code></li>
 <li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
 </ul>
 </details>
 <h4>Variables</h4>
@@ -1032,17 +1218,17 @@
 <li><code>azurerm_bastion_host (main)</code></li>
 </ul>
 </div>
-<h2 id="github-runners-aca">Module: github-runners-aca</h2>
+<h3 id="initial-github-runners-aca">github-runners-aca</h3>
 <div class="card" style="border-left-color: #8b5cf6;">
 <p>-----------------------------------------------------------------------------</p>
 <p><strong>Location:</strong> <code>initial-setup/infra/modules/github-runners-aca/</code></p>
 <details>
-<summary style="cursor: pointer; color: var(--bc-blue-light);">Module Files</summary>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (4)</summary>
 <ul style="margin-top: 0.5rem;">
 <li><code>main.tf</code></li>
 <li><code>outputs.tf</code></li>
-<li><code>providers.tf</code></li>
 <li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
 </ul>
 </details>
 <h4>Variables</h4>
@@ -1178,17 +1364,17 @@
 </tr>
 </table>
 </div>
-<h2 id="jumpbox">Module: jumpbox</h2>
+<h3 id="initial-jumpbox">jumpbox</h3>
 <div class="card" style="border-left-color: #8b5cf6;">
 <p>-----------------------------------------------------------------------------</p>
 <p><strong>Location:</strong> <code>initial-setup/infra/modules/jumpbox/</code></p>
 <details>
-<summary style="cursor: pointer; color: var(--bc-blue-light);">Module Files</summary>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (4)</summary>
 <ul style="margin-top: 0.5rem;">
 <li><code>main.tf</code></li>
 <li><code>outputs.tf</code></li>
-<li><code>providers.tf</code></li>
 <li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
 </ul>
 </details>
 <h4>Variables</h4>
@@ -1303,17 +1489,94 @@
 <li><code>azurerm_role_assignment (automation_vm_contributor)</code></li>
 </ul>
 </div>
-<h2 id="network">Module: network</h2>
+<h3 id="initial-monitoring">monitoring</h3>
+<div class="card" style="border-left-color: #8b5cf6;">
+<p>Log Analytics Workspace</p>
+<p><strong>Location:</strong> <code>initial-setup/infra/modules/monitoring/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (4)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>app_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the application</td>
+</tr>
+<tr>
+<td><code>common_tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>required</code></td>
+<td>Common tags to apply to all resources</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>Canada</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>log_analytics_retention_days</code></td>
+<td><code>number</code></td>
+<td><code>30</code></td>
+<td>Number of days to retain data in Log Analytics Workspace</td>
+</tr>
+<tr>
+<td><code>log_analytics_sku</code></td>
+<td><code>string</code></td>
+<td><code>PerGB2018</code></td>
+<td>SKU for Log Analytics Workspace</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>appinsights_connection_string</code></td>
+<td>The Application Insights connection string.</td>
+</tr>
+<tr>
+<td><code>appinsights_instrumentation_key</code></td>
+<td>The Application Insights instrumentation key.</td>
+</tr>
+<tr>
+<td><code>log_analytics_workspace_id</code></td>
+<td>The resource ID of the Log Analytics workspace.</td>
+</tr>
+<tr>
+<td><code>log_analytics_workspace_key</code></td>
+<td>The primary shared key for the Log Analytics workspace.</td>
+</tr>
+<tr>
+<td><code>log_analytics_workspace_workspaceId</code></td>
+<td>The name of the Log Analytics workspace.</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_log_analytics_workspace (main)</code></li>
+<li><code>azurerm_application_insights (main)</code></li>
+</ul>
+</div>
+<h3 id="initial-network">network</h3>
 <div class="card" style="border-left-color: #8b5cf6;">
 <p><strong>Location:</strong> <code>initial-setup/infra/modules/network/</code></p>
 <details>
-<summary style="cursor: pointer; color: var(--bc-blue-light);">Module Files</summary>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (5)</summary>
 <ul style="margin-top: 0.5rem;">
 <li><code>locals.tf</code></li>
 <li><code>main.tf</code></li>
 <li><code>outputs.tf</code></li>
-<li><code>providers.tf</code></li>
 <li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
 </ul>
 </details>
 <h4>Variables</h4>
@@ -1485,18 +1748,2727 @@
 </ul>
 </div>
 
-<h2>Usage Examples</h2>
-
-<div class="card card-gold">
-    <h3 style="margin-top: 0;">Calling a Module</h3>
-    <pre>module "network" {
-  source = "./modules/network"
-
-  resource_group_name = var.resource_group_name
-  location            = var.location
-  environment         = var.environment
-  vnet_address_space  = ["10.0.0.0/16"]
-}</pre>
+<h2 id="section-ai-hub">AI Services Hub (<code>infra-ai-hub/</code>)</h2>
+<p>Multi-tenant AI platform deployed via 5 isolated Terraform stacks with parallel execution. See <a href="decisions.html#adr-013">ADR-013</a> for architecture rationale.</p>
+<h2 id="ai-hub-stacks">Stacks</h2>
+<p>Each stack has its own state file and backend configuration. Deployed in dependency order: shared &rarr; tenant (parallel) &rarr; foundry + apim + tenant-user-mgmt (parallel).</p>
+<h3 id="stack-shared">shared</h3>
+<div class="card" style="border-left-color: #0078d4;">
+<p><strong>Location:</strong> <code>infra-ai-hub/stacks/shared/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (6)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>backend.tf</code></li>
+<li><code>locals.tf</code></li>
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>providers.tf</code></li>
+<li><code>variables.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>app_env</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Application environment</td>
+</tr>
+<tr>
+<td><code>app_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Application name prefix</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Shared resource group name</td>
+</tr>
+<tr>
+<td><code>common_tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td>Common tags</td>
+</tr>
+<tr>
+<td><code>subscription_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure subscription ID</td>
+</tr>
+<tr>
+<td><code>tenant_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure tenant ID</td>
+</tr>
+<tr>
+<td><code>client_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure client ID</td>
+</tr>
+<tr>
+<td><code>use_oidc</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Use OIDC</td>
+</tr>
+<tr>
+<td><code>vnet_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Landing zone VNet name</td>
+</tr>
+<tr>
+<td><code>vnet_resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Landing zone VNet resource group</td>
+</tr>
+<tr>
+<td><code>target_vnet_address_spaces</code></td>
+<td><code>list(string)</code></td>
+<td><code>required</code></td>
+<td>Target VNet address spaces</td>
+</tr>
+<tr>
+<td><code>source_vnet_address_space</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Source VNet address space</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>privateendpoints-subnet</code></td>
+<td>Private endpoint subnet name</td>
+</tr>
+<tr>
+<td><code>shared_config</code></td>
+<td><code>any</code></td>
+<td><code>required</code></td>
+<td>Shared environment config</td>
+</tr>
+<tr>
+<td><code>defender_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable Defender for Cloud plans</td>
+</tr>
+<tr>
+<td><code>defender_resource_types</code></td>
+<td><code>map(object({</code></td>
+<td><code>{}</code></td>
+<td>Defender for Cloud resource types and subplans</td>
+</tr>
+<tr>
+<td><code>backend_resource_group</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Backend resource group (unused by shared stack logic, accepted for command consistency)</td>
+</tr>
+<tr>
+<td><code>backend_storage_account</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Backend storage account (unused by shared stack logic, accepted for command consistency)</td>
+</tr>
+<tr>
+<td><code>backend_container_name</code></td>
+<td><code>string</code></td>
+<td><code>tfstate</code></td>
+<td>Backend container name (unused by shared stack logic, accepted for command consistency)</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>resource_group_id</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_id</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_cidr</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>private_endpoint_nsg_id</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>apim_subnet_id</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>appgw_subnet_id</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>ai_foundry_hub_id</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>ai_foundry_hub_name</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>ai_foundry_hub_endpoint</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>ai_foundry_hub_principal_id</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>log_analytics_workspace_id</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>application_insights_id</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>application_insights_connection_string</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>application_insights_instrumentation_key</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>language_service_id</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>language_service_endpoint</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>hub_key_vault_id</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>hub_key_vault_name</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>hub_key_vault_uri</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>dns_zone_public_ip_id</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>dns_zone_public_ip_address</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>waf_policy_id</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>app_gateway_id</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>app_gateway_name</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>appgw_url</code></td>
+<td>App Gateway frontend URL (https://<frontend_hostname>). Null when App Gateway is not deployed.</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_resource_group (main)</code></li>
+<li><code>azurerm_cognitive_account (language_service)</code></li>
+<li><code>azurerm_private_endpoint (language_service)</code></li>
+<li><code>terraform_data (language_service_dns_wait)</code></li>
+<li><code>terraform_data (hub_kv_dns_wait)</code></li>
+</ul>
+</div>
+<h3 id="stack-tenant">tenant</h3>
+<div class="card" style="border-left-color: #0078d4;">
+<p><strong>Location:</strong> <code>infra-ai-hub/stacks/tenant/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (6)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>backend.tf</code></li>
+<li><code>locals.tf</code></li>
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>providers.tf</code></li>
+<li><code>variables.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>app_env</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>common_tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>subscription_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>tenant_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>client_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>use_oidc</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>shared_config</code></td>
+<td><code>any</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>tenants</code></td>
+<td><code>map(any)</code></td>
+<td><code>{}</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>backend_resource_group</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>backend_storage_account</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>backend_container_name</code></td>
+<td><code>string</code></td>
+<td><code>tfstate</code></td>
+<td><em>No description</em></td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>tenant_resource_groups</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>tenant_key_vaults</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>tenant_storage_accounts</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>tenant_ai_search</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>tenant_cosmos_db</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>tenant_document_intelligence</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>tenant_speech_services</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>tenant_log_analytics</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>tenant_enabled_resources</code></td>
+<td><em>No description</em></td>
+</tr>
+</table>
+</div>
+<h3 id="stack-foundry">foundry</h3>
+<div class="card" style="border-left-color: #0078d4;">
+<p><strong>Location:</strong> <code>infra-ai-hub/stacks/foundry/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (6)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>backend.tf</code></li>
+<li><code>locals.tf</code></li>
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>providers.tf</code></li>
+<li><code>variables.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>app_env</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>common_tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>subscription_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>tenant_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>client_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>use_oidc</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>shared_config</code></td>
+<td><code>any</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>tenants</code></td>
+<td><code>map(any)</code></td>
+<td><code>{}</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>backend_resource_group</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>backend_storage_account</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>backend_container_name</code></td>
+<td><code>string</code></td>
+<td><code>tfstate</code></td>
+<td><em>No description</em></td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>tenant_projects</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>tenant_ai_model_deployments</code></td>
+<td><em>No description</em></td>
+</tr>
+</table>
+</div>
+<h3 id="stack-apim">apim</h3>
+<div class="card" style="border-left-color: #0078d4;">
+<p><strong>Location:</strong> <code>infra-ai-hub/stacks/apim/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (6)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>backend.tf</code></li>
+<li><code>locals.tf</code></li>
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>providers.tf</code></li>
+<li><code>variables.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>app_env</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>app_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>common_tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>subscription_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>tenant_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>client_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>use_oidc</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>shared_config</code></td>
+<td><code>any</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>tenants</code></td>
+<td><code>map(any)</code></td>
+<td><code>{}</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>defender_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>defender_resource_types</code></td>
+<td><code>map(object({</code></td>
+<td><code>{}</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>backend_resource_group</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>backend_storage_account</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>backend_container_name</code></td>
+<td><code>string</code></td>
+<td><code>tfstate</code></td>
+<td><em>No description</em></td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>apim_gateway_url</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>apim_name</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>apim_key_rotation_summary</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>apim_tenant_subscriptions</code></td>
+<td><em>No description</em></td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_api_management_named_value (ai_foundry_endpoint)</code></li>
+<li><code>azurerm_api_management_named_value (openai_endpoint)</code></li>
+<li><code>azurerm_api_management_named_value (docint_endpoint)</code></li>
+<li><code>azurerm_api_management_named_value (storage_endpoint)</code></li>
+<li><code>azurerm_api_management_named_value (ai_search_endpoint)</code></li>
+<li><code>azurerm_api_management_named_value (speech_services_endpoint)</code></li>
+<li><code>azurerm_api_management_named_value (pii_service_url)</code></li>
+<li><code>azurerm_api_management_backend (ai_foundry)</code></li>
+<li><code>azurerm_api_management_backend (openai)</code></li>
+<li><code>azurerm_api_management_backend (docint)</code></li>
+<li><code>azurerm_api_management_backend (storage)</code></li>
+<li><code>azurerm_api_management_backend (ai_search)</code></li>
+<li><code>azurerm_api_management_backend (speech_services_stt)</code></li>
+<li><code>azurerm_api_management_backend (speech_services_tts)</code></li>
+<li><code>azurerm_api_management_named_value (speech_services_key)</code></li>
+<li><code>azurerm_api_management_logger (app_insights)</code></li>
+<li><code>azurerm_api_management_diagnostic (app_insights)</code></li>
+<li><code>azurerm_api_management_logger (tenant_app_insights)</code></li>
+<li><code>azurerm_api_management_api_diagnostic (tenant)</code></li>
+<li><code>azurerm_api_management_policy_fragment (cognitive_services_auth)</code></li>
+<li><code>azurerm_api_management_policy_fragment (storage_auth)</code></li>
+<li><code>azurerm_api_management_policy_fragment (keyvault_auth)</code></li>
+<li><code>azurerm_api_management_policy_fragment (openai_usage_logging)</code></li>
+<li><code>azurerm_api_management_policy_fragment (openai_streaming_metrics)</code></li>
+<li><code>azurerm_api_management_policy_fragment (pii_anonymization)</code></li>
+<li><code>azurerm_api_management_policy_fragment (intelligent_routing)</code></li>
+<li><code>azurerm_api_management_policy_fragment (tracking_dimensions)</code></li>
+<li><code>azurerm_api_management_api_policy (tenant)</code></li>
+<li><code>azurerm_role_assignment (apim_openai_user)</code></li>
+<li><code>azurerm_role_assignment (apim_docint_user)</code></li>
+<li><code>azurerm_role_assignment (apim_storage_reader)</code></li>
+<li><code>azurerm_role_assignment (apim_search_contributor)</code></li>
+<li><code>azurerm_role_assignment (apim_search_service_contributor)</code></li>
+<li><code>azurerm_role_assignment (apim_speech_services_user)</code></li>
+<li><code>azurerm_role_assignment (apim_language_service_user)</code></li>
+<li><code>azurerm_role_assignment (apim_keyvault_secrets_user)</code></li>
+<li><code>azurerm_api_management_subscription (tenant)</code></li>
+<li><code>azurerm_key_vault_secret (apim_subscription_primary_key)</code></li>
+<li><code>azurerm_key_vault_secret (apim_subscription_secondary_key)</code></li>
+<li><code>azurerm_key_vault_secret (apim_rotation_metadata)</code></li>
+<li><code>azurerm_api_management_api (landing_page)</code></li>
+<li><code>azurerm_api_management_api_operation (landing_page_get)</code></li>
+<li><code>azurerm_api_management_api_policy (landing_page)</code></li>
+<li><code>azurerm_api_management_api_operation (tenant_methods)</code></li>
+<li><code>azurerm_api_management_product_api (tenant)</code></li>
+<li><code>azapi_resource (defender_api_collection)</code></li>
+</ul>
+</div>
+<h3 id="stack-tenant-user-mgmt">tenant-user-mgmt</h3>
+<div class="card" style="border-left-color: #0078d4;">
+<p><strong>Location:</strong> <code>infra-ai-hub/stacks/tenant-user-mgmt/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (6)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>backend.tf</code></li>
+<li><code>locals.tf</code></li>
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>providers.tf</code></li>
+<li><code>variables.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>app_env</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Application environment (dev, test, prod)</td>
+</tr>
+<tr>
+<td><code>subscription_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure subscription ID</td>
+</tr>
+<tr>
+<td><code>tenant_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure tenant ID</td>
+</tr>
+<tr>
+<td><code>client_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure client ID for the service principal (OIDC)</td>
+</tr>
+<tr>
+<td><code>use_oidc</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Use OIDC for authentication</td>
+</tr>
+<tr>
+<td><code>tenants</code></td>
+<td><code>any</code></td>
+<td><code>{}</code></td>
+<td>Tenant configurations (reuses the same tfvars as the main config)</td>
+</tr>
+<tr>
+<td><code>backend_resource_group</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Backend resource group (accepted for shared deploy command contract)</td>
+</tr>
+<tr>
+<td><code>backend_storage_account</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Backend storage account (accepted for shared deploy command contract)</td>
+</tr>
+<tr>
+<td><code>backend_container_name</code></td>
+<td><code>string</code></td>
+<td><code>tfstate</code></td>
+<td>Backend container name (accepted for shared deploy command contract)</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>tenant_user_management</code></td>
+<td>Map of tenant names to their Entra group IDs and custom role definition IDs</td>
+</tr>
+</table>
+</div>
+<h2 id="ai-hub-modules">Modules</h2>
+<p>Reusable modules consumed by the stacks above. Each module wraps Azure Verified Modules (AVM) or native <code>azurerm</code>/<code>azapi</code> resources.</p>
+<h3 id="hub-ai-foundry-hub">ai-foundry-hub</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>AI Foundry Hub Module</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/ai-foundry-hub/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (4)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the AI Foundry account</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the resource group</td>
+</tr>
+<tr>
+<td><code>resource_group_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Resource ID of the resource group</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region for supporting resources (Log Analytics, App Insights, Private Endpoints)</td>
+</tr>
+<tr>
+<td><code>ai_location</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Azure region for AI Foundry Hub. Can differ from location for model availability (e.g., canadaeast for GPT-4.1). Defaults to location.</td>
+</tr>
+<tr>
+<td><code>sku</code></td>
+<td><code>string</code></td>
+<td><code>S0</code></td>
+<td>SKU for the AI Foundry account</td>
+</tr>
+<tr>
+<td><code>public_network_access_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Whether public network access is enabled</td>
+</tr>
+<tr>
+<td><code>local_auth_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Whether local authentication (API keys) is enabled</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Subnet ID for private endpoints</td>
+</tr>
+<tr>
+<td><code>log_analytics</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td>Log Analytics workspace configuration</td>
+</tr>
+<tr>
+<td><code>application_insights</code></td>
+<td><code>optional(string,</code></td>
+<td><code>{</code></td>
+<td>Application Insights configuration for AI Foundry monitoring</td>
+</tr>
+<tr>
+<td><code>ai_agent</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td>AI Agent service configuration with network injection support</td>
+</tr>
+<tr>
+<td><code>bing_grounding</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td>Bing Web Search resource for grounding AI models</td>
+</tr>
+<tr>
+<td><code>private_endpoint_dns_wait</code></td>
+<td><code>object({</code></td>
+<td><code>{}</code></td>
+<td>Configuration for waiting on policy-managed DNS zone groups</td>
+</tr>
+<tr>
+<td><code>scripts_dir</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Path to the scripts directory containing wait-for-dns-zone.sh</td>
+</tr>
+<tr>
+<td><code>purge_on_destroy</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Whether to permanently purge the AI Foundry account on destroy (bypasses soft delete)</td>
+</tr>
+<tr>
+<td><code>purge_wait</code></td>
+<td><code>object({</code></td>
+<td><code>{}</code></td>
+<td>Wait configuration for AI Foundry soft-delete before purge</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td>Tags to apply to resources</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>id</code></td>
+<td>Resource ID of the AI Foundry account</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>Name of the AI Foundry account</td>
+</tr>
+<tr>
+<td><code>ai_location</code></td>
+<td>Azure region where the AI Foundry Hub is deployed (may differ from PE location)</td>
+</tr>
+<tr>
+<td><code>endpoint</code></td>
+<td>Primary endpoint of the AI Foundry account</td>
+</tr>
+<tr>
+<td><code>principal_id</code></td>
+<td>Principal ID of the system-assigned managed identity</td>
+</tr>
+<tr>
+<td><code>tenant_id</code></td>
+<td>Tenant ID of the system-assigned managed identity</td>
+</tr>
+<tr>
+<td><code>private_endpoint_id</code></td>
+<td>Resource ID of the private endpoint</td>
+</tr>
+<tr>
+<td><code>private_endpoint_ip</code></td>
+<td>Private IP address of the private endpoint</td>
+</tr>
+<tr>
+<td><code>log_analytics_workspace_id</code></td>
+<td>Resource ID of the Log Analytics workspace (if created or provided)</td>
+</tr>
+<tr>
+<td><code>application_insights_id</code></td>
+<td>Resource ID of Application Insights (if enabled)</td>
+</tr>
+<tr>
+<td><code>application_insights_connection_string</code></td>
+<td>Connection string for Application Insights (if enabled)</td>
+</tr>
+<tr>
+<td><code>application_insights_instrumentation_key</code></td>
+<td>Instrumentation key for Application Insights (if enabled, deprecated - use connection_string)</td>
+</tr>
+<tr>
+<td><code>ai_agent_id</code></td>
+<td>Resource ID of the AI Agent service (if enabled)</td>
+</tr>
+<tr>
+<td><code>ai_agent_principal_id</code></td>
+<td>Principal ID of the AI Agent's managed identity</td>
+</tr>
+<tr>
+<td><code>bing_grounding_id</code></td>
+<td>Resource ID of the Bing Grounding resource (if enabled)</td>
+</tr>
+<tr>
+<td><code>bing_grounding_endpoint</code></td>
+<td>Endpoint of the Bing Grounding resource (if enabled)</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_log_analytics_workspace (this)</code></li>
+<li><code>azurerm_application_insights (this)</code></li>
+<li><code>azapi_resource (ai_foundry)</code></li>
+<li><code>azurerm_private_endpoint (ai_foundry)</code></li>
+<li><code>null_resource (wait_for_dns)</code></li>
+<li><code>azurerm_monitor_diagnostic_setting (ai_foundry)</code></li>
+<li><code>azapi_resource (ai_agent)</code></li>
+<li><code>azurerm_private_endpoint (ai_agent)</code></li>
+<li><code>null_resource (wait_for_dns_ai_agent)</code></li>
+<li><code>azurerm_cognitive_account (bing_grounding)</code></li>
+<li><code>null_resource (purge_ai_foundry)</code></li>
+</ul>
+</div>
+<h3 id="hub-apim">apim</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>API Management Module (stv2)</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/apim/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (5)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>locals.tf</code></li>
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the API Management instance</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the resource group</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>sku_name</code></td>
+<td><code>string</code></td>
+<td><code>StandardV2_1</code></td>
+<td>SKU name for APIM (stv2). StandardV2_1-10 for cost-effective, PremiumV2_1-30 for VNet injection and advanced features.</td>
+</tr>
+<tr>
+<td><code>publisher_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Publisher name for APIM</td>
+</tr>
+<tr>
+<td><code>publisher_email</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Publisher email for APIM</td>
+</tr>
+<tr>
+<td><code>public_network_access_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Whether public network access is enabled for APIM. Set to false to restrict access to private endpoints only.</td>
+</tr>
+<tr>
+<td><code>enable_private_endpoint</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Whether to create a private endpoint for APIM inbound access. Must be set explicitly to avoid plan-time evaluation issues.</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_id</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Subnet ID for APIM private endpoint (stv2). Required when enable_private_endpoint is true.</td>
+</tr>
+<tr>
+<td><code>private_dns_zone_ids</code></td>
+<td><code>list(string)</code></td>
+<td><code>[]</code></td>
+<td>List of private DNS zone IDs to link for APIM private endpoint</td>
+</tr>
+<tr>
+<td><code>enable_vnet_integration</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Whether to enable VNet integration for outbound connectivity. Required when backend services have public network access disabled.</td>
+</tr>
+<tr>
+<td><code>vnet_integration_subnet_id</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Subnet ID for APIM VNet integration (outbound). Required when enable_vnet_integration is true. Subnet must have delegation to Microsoft.Web/hostingEnvironments.</td>
+</tr>
+<tr>
+<td><code>enable_diagnostics</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Whether to enable diagnostic settings. Must be set explicitly to avoid plan-time evaluation issues.</td>
+</tr>
+<tr>
+<td><code>log_analytics_workspace_id</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Log Analytics Workspace ID for diagnostics. Required when enable_diagnostics is true.</td>
+</tr>
+<tr>
+<td><code>tenant_products</code></td>
+<td><code>map(object({</code></td>
+<td><code>{}</code></td>
+<td>Map of tenant names to their product configurations</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td>Tags to apply to resources</td>
+</tr>
+<tr>
+<td><code>enable_telemetry</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable AVM telemetry</td>
+</tr>
+<tr>
+<td><code>apis</code></td>
+<td><code>optional(string,</code></td>
+<td><code>{}</code></td>
+<td>Map of APIs to create in APIM</td>
+</tr>
+<tr>
+<td><code>subscriptions</code></td>
+<td><code>string</code></td>
+<td><code>{}</code></td>
+<td>Map of subscriptions to create</td>
+</tr>
+<tr>
+<td><code>named_values</code></td>
+<td><code>map(object({</code></td>
+<td><code>{}</code></td>
+<td>Map of named values (properties) for APIM</td>
+</tr>
+<tr>
+<td><code>policy_fragments</code></td>
+<td><code>map(object({</code></td>
+<td><code>{}</code></td>
+<td>Map of reusable policy fragments</td>
+</tr>
+<tr>
+<td><code>global_policy_xml</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>XML content for the global API Management policy</td>
+</tr>
+<tr>
+<td><code>scripts_dir</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Path to the scripts directory containing wait-for-dns-zone.sh</td>
+</tr>
+<tr>
+<td><code>private_endpoint_dns_wait</code></td>
+<td><code>object({</code></td>
+<td><code>{}</code></td>
+<td>Configuration for waiting on policy-managed DNS zone groups</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>id</code></td>
+<td>Resource ID of the API Management instance</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>Name of the API Management instance</td>
+</tr>
+<tr>
+<td><code>gateway_url</code></td>
+<td>Gateway URL of the API Management instance</td>
+</tr>
+<tr>
+<td><code>management_url</code></td>
+<td>Management URL of the API Management instance</td>
+</tr>
+<tr>
+<td><code>developer_portal_url</code></td>
+<td>Developer portal URL</td>
+</tr>
+<tr>
+<td><code>private_ip_addresses</code></td>
+<td>Private IP addresses of APIM (when VNet integrated)</td>
+</tr>
+<tr>
+<td><code>public_ip_addresses</code></td>
+<td>Public IP addresses of APIM</td>
+</tr>
+<tr>
+<td><code>product_ids</code></td>
+<td>Map of product names to their resource IDs</td>
+</tr>
+<tr>
+<td><code>principal_id</code></td>
+<td>Principal ID of the APIM managed identity</td>
+</tr>
+<tr>
+<td><code>private_endpoint_ip</code></td>
+<td>Private IP address of the APIM private endpoint</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_api_management_policy (global)</code></li>
+<li><code>null_resource (wait_for_dns_apim)</code></li>
+</ul>
+</div>
+<h3 id="hub-app-configuration">app-configuration</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>App Configuration Module</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/app-configuration/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (4)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the App Configuration store</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the resource group</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>sku</code></td>
+<td><code>string</code></td>
+<td><code>standard</code></td>
+<td>SKU for App Configuration (free or standard)</td>
+</tr>
+<tr>
+<td><code>public_network_access_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable public network access</td>
+</tr>
+<tr>
+<td><code>local_auth_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable local authentication (access keys)</td>
+</tr>
+<tr>
+<td><code>purge_protection_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Enable purge protection</td>
+</tr>
+<tr>
+<td><code>soft_delete_retention_days</code></td>
+<td><code>number</code></td>
+<td><code>7</code></td>
+<td>Soft delete retention in days (1-7)</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_id</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Subnet ID for private endpoint</td>
+</tr>
+<tr>
+<td><code>encryption</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td>Customer-managed key encryption configuration</td>
+</tr>
+<tr>
+<td><code>replicas</code></td>
+<td><code>list(object({</code></td>
+<td><code>[]</code></td>
+<td>Geo-replication configuration (Standard SKU only)</td>
+</tr>
+<tr>
+<td><code>feature_flags</code></td>
+<td><code>map(object({</code></td>
+<td><code>{}</code></td>
+<td>Feature flags to create</td>
+</tr>
+<tr>
+<td><code>configuration_keys</code></td>
+<td><code>optional(string)</code></td>
+<td><code>{}</code></td>
+<td>Configuration key-value pairs</td>
+</tr>
+<tr>
+<td><code>log_analytics_workspace_id</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Log Analytics Workspace ID for diagnostics</td>
+</tr>
+<tr>
+<td><code>scripts_dir</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Path to shared scripts directory for DNS wait operations</td>
+</tr>
+<tr>
+<td><code>private_endpoint_dns_wait</code></td>
+<td><code>object({</code></td>
+<td><code>{}</code></td>
+<td>Configuration for waiting on policy-managed DNS zone groups</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td>Tags to apply to resources</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>resource_id</code></td>
+<td>Resource ID of the App Configuration store</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>Name of the App Configuration store</td>
+</tr>
+<tr>
+<td><code>endpoint</code></td>
+<td>Endpoint of the App Configuration store</td>
+</tr>
+<tr>
+<td><code>primary_read_key</code></td>
+<td>Primary read key connection string</td>
+</tr>
+<tr>
+<td><code>principal_id</code></td>
+<td>Principal ID of the system-assigned managed identity</td>
+</tr>
+<tr>
+<td><code>private_endpoint_id</code></td>
+<td>Resource ID of the private endpoint</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_app_configuration (this)</code></li>
+<li><code>azurerm_private_endpoint (app_config)</code></li>
+<li><code>azurerm_app_configuration_feature (features)</code></li>
+<li><code>azurerm_app_configuration_key (keys)</code></li>
+<li><code>azurerm_monitor_diagnostic_setting (app_config)</code></li>
+<li><code>null_resource (wait_for_dns_appconfig)</code></li>
+</ul>
+</div>
+<h3 id="hub-app-gateway">app-gateway</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>Application Gateway Module</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/app-gateway/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (5)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>locals.tf</code></li>
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the Application Gateway</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the resource group</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>subnet_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Subnet ID for the Application Gateway</td>
+</tr>
+<tr>
+<td><code>sku</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td>SKU configuration for App Gateway</td>
+</tr>
+<tr>
+<td><code>autoscale</code></td>
+<td><code>object({</code></td>
+<td><code>null</code></td>
+<td>Autoscale configuration (if set, overrides sku.capacity)</td>
+</tr>
+<tr>
+<td><code>waf_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Enable Web Application Firewall</td>
+</tr>
+<tr>
+<td><code>waf_mode</code></td>
+<td><code>string</code></td>
+<td><code>Prevention</code></td>
+<td>WAF mode: Detection or Prevention</td>
+</tr>
+<tr>
+<td><code>ssl_certificates</code></td>
+<td><code>map(object({</code></td>
+<td><code>{}</code></td>
+<td>SSL certificates — from Key Vault (key_vault_secret_id) or direct PFX upload (data+password). Certificates can also be uploaded via Azure Portal; Terraform will ignore changes to ssl_certificate blocks.</td>
+</tr>
+<tr>
+<td><code>ssl_certificate_name</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Name of an SSL certificate already on the App Gateway (uploaded via CLI/portal). When set, enables HTTPS listener and HTTP→HTTPS redirect. Only set after the cert has been uploaded to the App Gateway.</td>
+</tr>
+<tr>
+<td><code>backend_apim</code></td>
+<td><code>object({</code></td>
+<td><code>required</code></td>
+<td>APIM backend configuration. The FQDN resolves to the PE private IP via private DNS zone linked to the App GW VNet.</td>
+</tr>
+<tr>
+<td><code>frontend_hostname</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Frontend hostname for the listener</td>
+</tr>
+<tr>
+<td><code>enable_diagnostics</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Whether to enable diagnostic settings (use static bool to avoid count unknown at plan time)</td>
+</tr>
+<tr>
+<td><code>log_analytics_workspace_id</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Log Analytics Workspace ID for diagnostics</td>
+</tr>
+<tr>
+<td><code>key_vault_id</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Key Vault ID for SSL certificate access</td>
+</tr>
+<tr>
+<td><code>public_ip_resource_id</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Resource ID of a pre-created static Public IP for the App Gateway. When set, App GW uses this existing PIP. When null, this module does not create or associate any Public IP, and you must ensure a suitable frontend configuration (for example, a private frontend or an externally managed PIP). Typically provided by the dns-zone module.</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td>Tags to apply to resources</td>
+</tr>
+<tr>
+<td><code>zones</code></td>
+<td><code>set(string)</code></td>
+<td><code>[1,</code></td>
+<td>Availability zones for App Gateway</td>
+</tr>
+<tr>
+<td><code>url_path_map_configurations</code></td>
+<td><code>map(object({</code></td>
+<td><code>null</code></td>
+<td>URL path maps for path-based routing</td>
+</tr>
+<tr>
+<td><code>rewrite_rule_set</code></td>
+<td><code>map(object({</code></td>
+<td><code>null</code></td>
+<td>Rewrite rule sets for header and URL manipulation</td>
+</tr>
+<tr>
+<td><code>waf_policy_id</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Resource ID of WAF policy to associate with App Gateway</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>id</code></td>
+<td>Resource ID of the Application Gateway</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>Name of the Application Gateway</td>
+</tr>
+<tr>
+<td><code>public_ip_address</code></td>
+<td>Public IP address of the Application Gateway. Returns null - get this from the dns_zone module output instead (dns_zone_public_ip) to avoid data source lookup failures during first deployment.</td>
+</tr>
+<tr>
+<td><code>public_ip_id</code></td>
+<td>Public IP resource ID</td>
+</tr>
+<tr>
+<td><code>backend_address_pools</code></td>
+<td>Backend address pools</td>
+</tr>
+<tr>
+<td><code>principal_id</code></td>
+<td>Principal ID of the App Gateway managed identity (user-assigned)</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_user_assigned_identity (appgw)</code></li>
+<li><code>azurerm_role_assignment (appgw_to_keyvault)</code></li>
+<li><code>azurerm_application_gateway (this)</code></li>
+<li><code>azurerm_monitor_diagnostic_setting (appgw)</code></li>
+<li><code>null_resource (diag_destination_type_trigger)</code></li>
+</ul>
+</div>
+<h3 id="hub-container-app-environment">container-app-environment</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>Container App Environment Module</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/container-app-environment/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (4)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the Container App Environment</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the resource group</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>infrastructure_subnet_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Subnet ID for the Container App Environment infrastructure</td>
+</tr>
+<tr>
+<td><code>internal_load_balancer_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Use internal load balancer (private only access)</td>
+</tr>
+<tr>
+<td><code>zone_redundancy_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable zone redundancy. Requires /23+ subnet. Set to false for /27 consumption-only.</td>
+</tr>
+<tr>
+<td><code>mtls_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Enable mTLS peer authentication between apps</td>
+</tr>
+<tr>
+<td><code>workload_profiles</code></td>
+<td><code>string</code></td>
+<td><code>[]</code></td>
+<td>Workload profiles for dedicated compute (Consumption-only if empty)</td>
+</tr>
+<tr>
+<td><code>log_analytics_workspace_id</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Log Analytics Workspace ID for diagnostics</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td>Tags to apply to resources</td>
+</tr>
+<tr>
+<td><code>enable_telemetry</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable AVM telemetry</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>resource_id</code></td>
+<td>Resource ID of the Container App Environment</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>Name of the Container App Environment</td>
+</tr>
+<tr>
+<td><code>default_domain</code></td>
+<td>Default domain of the Container App Environment</td>
+</tr>
+<tr>
+<td><code>static_ip_address</code></td>
+<td>Static IP address of the Container App Environment</td>
+</tr>
+</table>
+</div>
+<h3 id="hub-container-registry">container-registry</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>Container Registry Module</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/container-registry/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (4)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the Container Registry</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the resource group</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>sku</code></td>
+<td><code>string</code></td>
+<td><code>Premium</code></td>
+<td>SKU for Container Registry. Premium required for private endpoints and geo-replication.</td>
+</tr>
+<tr>
+<td><code>public_network_access_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Enable public network access. Set to true for public ACR, false for private-only.</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_id</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Subnet ID for private endpoints. Required if public_network_access_enabled is false.</td>
+</tr>
+<tr>
+<td><code>admin_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable admin user for the registry</td>
+</tr>
+<tr>
+<td><code>quarantine_policy_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable quarantine policy for images</td>
+</tr>
+<tr>
+<td><code>data_endpoint_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable dedicated data endpoints for each region</td>
+</tr>
+<tr>
+<td><code>export_policy_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Enable export policy (allows images to be exported)</td>
+</tr>
+<tr>
+<td><code>zone_redundancy_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Enable zone redundancy (Premium only)</td>
+</tr>
+<tr>
+<td><code>enable_trust_policy</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable content trust / image signing (Premium only)</td>
+</tr>
+<tr>
+<td><code>retention_policy_days</code></td>
+<td><code>number</code></td>
+<td><code>7</code></td>
+<td>Days to retain untagged manifests (0 = disabled)</td>
+</tr>
+<tr>
+<td><code>georeplications</code></td>
+<td><code>map(object({</code></td>
+<td><code>{}</code></td>
+<td>Geo-replication configuration for Premium SKU</td>
+</tr>
+<tr>
+<td><code>log_analytics_workspace_id</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Log Analytics Workspace ID for diagnostics</td>
+</tr>
+<tr>
+<td><code>scripts_dir</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Path to shared scripts directory for DNS wait operations</td>
+</tr>
+<tr>
+<td><code>private_endpoint_dns_wait</code></td>
+<td><code>object({</code></td>
+<td><code>{}</code></td>
+<td>Configuration for waiting on policy-managed DNS zone groups</td>
+</tr>
+<tr>
+<td><code>resource_group_name_for_dns_wait</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Resource group name to use for DNS wait operations (where PE is created)</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td>Tags to apply to resources</td>
+</tr>
+<tr>
+<td><code>enable_telemetry</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable AVM telemetry</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>resource_id</code></td>
+<td>Resource ID of the Container Registry</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>Name of the Container Registry</td>
+</tr>
+<tr>
+<td><code>login_server</code></td>
+<td>Login server URL of the Container Registry</td>
+</tr>
+<tr>
+<td><code>principal_id</code></td>
+<td>Principal ID of the system-assigned managed identity</td>
+</tr>
+<tr>
+<td><code>private_endpoint_id</code></td>
+<td>Resource ID of the private endpoint</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>null_resource (wait_for_dns_acr)</code></li>
+</ul>
+</div>
+<h3 id="hub-defender">defender</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>Microsoft Defender for Cloud Subscription Pricing</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/defender/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (4)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>resource_types</code></td>
+<td><code>map(object({</code></td>
+<td><code>{}</code></td>
+<td>Map of Defender for Cloud resource types to enable with their configuration. Keys are resource type names (e.g., 'Api', 'StorageAccounts'), values are objects with subplan.</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>enabled_resource_types</code></td>
+<td>List of Defender for Cloud resource types that are enabled</td>
+</tr>
+<tr>
+<td><code>pricing_ids</code></td>
+<td>Map of resource type to pricing resource ID</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_security_center_subscription_pricing (this)</code></li>
+</ul>
+</div>
+<h3 id="hub-dns-zone">dns-zone</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>=============================================================================</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/dns-zone/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (4)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>name_prefix</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Prefix for resource names (e.g., ai-hub-test)</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>dns_zone_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>DNS zone name (e.g., test.aihub.gov.bc.ca)</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the DNS resource group</td>
+</tr>
+<tr>
+<td><code>a_record_ttl</code></td>
+<td><code>number</code></td>
+<td><code>3600</code></td>
+<td>TTL for the A record in seconds</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td>Tags to apply to resources</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>dns_zone_id</code></td>
+<td>Resource ID of the DNS zone</td>
+</tr>
+<tr>
+<td><code>dns_zone_name</code></td>
+<td>Name of the DNS zone</td>
+</tr>
+<tr>
+<td><code>name_servers</code></td>
+<td>Name servers for the DNS zone (provide these to your DNS registrar for delegation)</td>
+</tr>
+<tr>
+<td><code>public_ip_id</code></td>
+<td>Resource ID of the static public IP (pass to App Gateway module)</td>
+</tr>
+<tr>
+<td><code>public_ip_address</code></td>
+<td>IP address of the static public IP</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td>Name of the DNS resource group</td>
+</tr>
+<tr>
+<td><code>resource_group_id</code></td>
+<td>Resource ID of the DNS resource group</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_resource_group (dns)</code></li>
+<li><code>azurerm_dns_zone (this)</code></li>
+<li><code>azurerm_public_ip (appgw)</code></li>
+<li><code>azurerm_dns_a_record (apex)</code></li>
+</ul>
+</div>
+<h3 id="hub-foundry-project">foundry-project</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>=============================================================================</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/foundry-project/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (5)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>locals.tf</code></li>
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>tenant_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the tenant (used for resource naming)</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region for the project</td>
+</tr>
+<tr>
+<td><code>ai_location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region for AI resources (can differ from project location for model availability)</td>
+</tr>
+<tr>
+<td><code>ai_foundry_hub_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Resource ID of the parent AI Foundry hub</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td>Tags to apply to resources</td>
+</tr>
+<tr>
+<td><code>key_vault</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td>Key Vault configuration from tenant module</td>
+</tr>
+<tr>
+<td><code>storage_account</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td>Storage account configuration from tenant module</td>
+</tr>
+<tr>
+<td><code>ai_search</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td>AI Search configuration from tenant module</td>
+</tr>
+<tr>
+<td><code>cosmos_db</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td>Cosmos DB configuration from tenant module</td>
+</tr>
+<tr>
+<td><code>document_intelligence</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td>Document Intelligence configuration from tenant module</td>
+</tr>
+<tr>
+<td><code>ai_model_deployments</code></td>
+<td><code>string</code></td>
+<td><code>{}</code></td>
+<td>AI model deployments to create on the shared AI Foundry Hub (prefixed with tenant name)</td>
+</tr>
+<tr>
+<td><code>project_connections</code></td>
+<td><code>object({</code></td>
+<td><code>{}</code></td>
+<td>Toggle which project connections to create</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>project_id</code></td>
+<td>Resource ID of the AI Foundry project</td>
+</tr>
+<tr>
+<td><code>project_name</code></td>
+<td>Name of the AI Foundry project</td>
+</tr>
+<tr>
+<td><code>project_principal_id</code></td>
+<td>Principal ID of the AI Foundry project's managed identity</td>
+</tr>
+<tr>
+<td><code>ai_model_deployment_ids</code></td>
+<td>Map of original model names to their resource IDs (deployment names are tenant-prefixed)</td>
+</tr>
+<tr>
+<td><code>ai_model_deployment_names</code></td>
+<td>List of deployed AI model names (tenant-prefixed, e.g., 'wlrs-gpt-4.1-mini')</td>
+</tr>
+<tr>
+<td><code>ai_model_deployment_mapping</code></td>
+<td>Map of client-facing model names to tenant-prefixed deployment names</td>
+</tr>
+<tr>
+<td><code>has_model_deployments</code></td>
+<td>Whether this tenant has any AI model deployments</td>
+</tr>
+<tr>
+<td><code>complete</code></td>
+<td>Marker indicating all project resources are complete (for serialization)</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azapi_resource (project)</code></li>
+<li><code>azurerm_role_assignment (project_to_keyvault)</code></li>
+<li><code>azurerm_role_assignment (project_to_storage)</code></li>
+<li><code>azurerm_role_assignment (project_to_search)</code></li>
+<li><code>azurerm_role_assignment (project_to_cosmos)</code></li>
+<li><code>azurerm_role_assignment (project_to_docint)</code></li>
+<li><code>azapi_resource (connection_keyvault)</code></li>
+<li><code>azapi_resource (connection_storage)</code></li>
+<li><code>azapi_resource (connection_ai_search)</code></li>
+<li><code>azapi_resource (connection_cosmos)</code></li>
+<li><code>azapi_resource (ai_model_deployment)</code></li>
+<li><code>azapi_resource (connection_docint)</code></li>
+</ul>
+</div>
+<h3 id="hub-network">network</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>Network Module - Main Configuration</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/network/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (6)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>data.tf</code></li>
+<li><code>locals.tf</code></li>
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>name_prefix</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Prefix used for naming resources (e.g., ai-hub-dev)</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>common_tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td>Common tags to apply to all resources</td>
+</tr>
+<tr>
+<td><code>vnet_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the existing virtual network (target environment)</td>
+</tr>
+<tr>
+<td><code>vnet_resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Resource group name where the virtual network exists (target environment)</td>
+</tr>
+<tr>
+<td><code>target_vnet_address_spaces</code></td>
+<td><code>list(string)</code></td>
+<td><code>required</code></td>
+<td>Address spaces of the target environment VNet. The first entry (index 0) is used to derive the private endpoint subnet.</td>
+</tr>
+<tr>
+<td><code>source_vnet_address_space</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Address space of the source environment VNet (single CIDR string), used for NSG allow rules (e.g., tools VNet CIDR).</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_name</code></td>
+<td><code>string</code></td>
+<td><code>privateendpoints-subnet</code></td>
+<td>Name of the private endpoint subnet to create in the target VNet</td>
+</tr>
+<tr>
+<td><code>apim_subnet</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>appgw_subnet</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td>Configuration for the Application Gateway subnet. Automatically placed after PE/APIM subnets.</td>
+</tr>
+<tr>
+<td><code>aca_subnet</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td><em>No description</em></td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>private_endpoint_subnet_id</code></td>
+<td>Resource ID of the primary private endpoint subnet (first in pool)</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_cidr</code></td>
+<td>CIDR of the primary private endpoint subnet</td>
+</tr>
+<tr>
+<td><code>private_endpoint_nsg_id</code></td>
+<td>Resource ID of the private endpoint NSG</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_pool</code></td>
+<td>Map of all PE subnets available for tenant allocation (name => cidr)</td>
+</tr>
+<tr>
+<td><code>apim_subnet_id</code></td>
+<td>Resource ID of the APIM subnet (null if not enabled)</td>
+</tr>
+<tr>
+<td><code>apim_subnet_cidr</code></td>
+<td>CIDR of the APIM subnet (null if not enabled)</td>
+</tr>
+<tr>
+<td><code>apim_nsg_id</code></td>
+<td>Resource ID of the APIM NSG (null if not enabled)</td>
+</tr>
+<tr>
+<td><code>appgw_subnet_id</code></td>
+<td>Resource ID of the App Gateway subnet (null if not enabled)</td>
+</tr>
+<tr>
+<td><code>appgw_subnet_cidr</code></td>
+<td>CIDR of the App Gateway subnet (null if not enabled)</td>
+</tr>
+<tr>
+<td><code>appgw_nsg_id</code></td>
+<td>Resource ID of the App Gateway NSG (null if not enabled)</td>
+</tr>
+<tr>
+<td><code>aca_subnet_id</code></td>
+<td>Resource ID of the ACA subnet (null if not enabled)</td>
+</tr>
+<tr>
+<td><code>aca_subnet_cidr</code></td>
+<td>CIDR of the ACA subnet (null if not enabled)</td>
+</tr>
+<tr>
+<td><code>aca_nsg_id</code></td>
+<td>Resource ID of the ACA NSG (null if not enabled)</td>
+</tr>
+<tr>
+<td><code>vnet_id</code></td>
+<td>Resource ID of the target VNet</td>
+</tr>
+<tr>
+<td><code>vnet_name</code></td>
+<td>Name of the target VNet</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_network_security_group (private_endpoints)</code></li>
+<li><code>azapi_resource (private_endpoints_subnet)</code></li>
+<li><code>azurerm_network_security_group (apim)</code></li>
+<li><code>azapi_resource (apim_subnet)</code></li>
+<li><code>azurerm_network_security_group (appgw)</code></li>
+<li><code>azurerm_route_table (appgw)</code></li>
+<li><code>azurerm_route (appgw_internet)</code></li>
+<li><code>azapi_resource (appgw_subnet)</code></li>
+<li><code>azurerm_network_security_group (aca)</code></li>
+<li><code>azapi_resource (aca_subnet)</code></li>
+</ul>
+</div>
+<h3 id="hub-tenant">tenant</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>Tenant Module - Main Configuration</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/tenant/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (6)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>data.tf</code></li>
+<li><code>locals.tf</code></li>
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>tenant_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Unique identifier for the tenant (used in resource names)</td>
+</tr>
+<tr>
+<td><code>display_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Human-readable display name for the tenant</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>ai_location</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Azure region for AI services (OpenAI, Document Intelligence). Can differ from location for model availability.</td>
+</tr>
+<tr>
+<td><code>resource_group_name_override</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Optional custom name for the tenant resource group. If not provided, defaults to '{tenant_name}-rg'</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Subnet ID for private endpoints</td>
+</tr>
+<tr>
+<td><code>log_analytics_workspace_id</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Resource ID of Log Analytics workspace for diagnostics (legacy/shared)</td>
+</tr>
+<tr>
+<td><code>log_analytics</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td>Per-tenant Log Analytics workspace configuration</td>
+</tr>
+<tr>
+<td><code>private_endpoint_dns_wait</code></td>
+<td><code>object({</code></td>
+<td><code>{}</code></td>
+<td>Configuration for waiting on policy-managed DNS zone groups</td>
+</tr>
+<tr>
+<td><code>scripts_dir</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Path to shared scripts directory for DNS wait operations</td>
+</tr>
+<tr>
+<td><code>key_vault</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td>Key Vault configuration for the tenant</td>
+</tr>
+<tr>
+<td><code>storage_account</code></td>
+<td><code>optional(string,</code></td>
+<td><code>{</code></td>
+<td>Storage Account configuration for the tenant</td>
+</tr>
+<tr>
+<td><code>ai_search</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td>Azure AI Search configuration for the tenant</td>
+</tr>
+<tr>
+<td><code>cosmos_db</code></td>
+<td><code>optional(string,</code></td>
+<td><code>{</code></td>
+<td>Cosmos DB configuration for the tenant</td>
+</tr>
+<tr>
+<td><code>document_intelligence</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td>Document Intelligence configuration for the tenant</td>
+</tr>
+<tr>
+<td><code>speech_services</code></td>
+<td><code>object({</code></td>
+<td><code>{</code></td>
+<td>Azure Speech Services configuration for the tenant</td>
+</tr>
+<tr>
+<td><code>ai_foundry_hub_id</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Resource ID of the shared AI Foundry Hub (for reference in outputs)</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td>Tags to apply to tenant resources</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td>Name of the tenant's resource group</td>
+</tr>
+<tr>
+<td><code>resource_group_id</code></td>
+<td>ID of the tenant's resource group</td>
+</tr>
+<tr>
+<td><code>key_vault_id</code></td>
+<td>Resource ID of the Key Vault</td>
+</tr>
+<tr>
+<td><code>key_vault_name</code></td>
+<td>Name of the Key Vault</td>
+</tr>
+<tr>
+<td><code>key_vault_uri</code></td>
+<td>URI of the Key Vault</td>
+</tr>
+<tr>
+<td><code>storage_account_id</code></td>
+<td>Resource ID of the Storage Account</td>
+</tr>
+<tr>
+<td><code>storage_account_name</code></td>
+<td>Name of the Storage Account</td>
+</tr>
+<tr>
+<td><code>storage_account_primary_blob_endpoint</code></td>
+<td>Primary blob endpoint of the Storage Account</td>
+</tr>
+<tr>
+<td><code>storage_account_primary_access_key</code></td>
+<td>Primary access key of the Storage Account</td>
+</tr>
+<tr>
+<td><code>storage_account_primary_connection_string</code></td>
+<td>Primary connection string of the Storage Account</td>
+</tr>
+<tr>
+<td><code>ai_search_id</code></td>
+<td>Resource ID of the AI Search service</td>
+</tr>
+<tr>
+<td><code>ai_search_name</code></td>
+<td>Name of the AI Search service</td>
+</tr>
+<tr>
+<td><code>ai_search_endpoint</code></td>
+<td>Endpoint URL of the AI Search service</td>
+</tr>
+<tr>
+<td><code>cosmos_db_id</code></td>
+<td>Resource ID of the Cosmos DB account</td>
+</tr>
+<tr>
+<td><code>cosmos_db_name</code></td>
+<td>Name of the Cosmos DB account</td>
+</tr>
+<tr>
+<td><code>cosmos_db_account_name</code></td>
+<td>Account name of the Cosmos DB (alias for cosmos_db_name, used for role assignments)</td>
+</tr>
+<tr>
+<td><code>cosmos_db_resource_group_name</code></td>
+<td>Resource group name containing the Cosmos DB account</td>
+</tr>
+<tr>
+<td><code>cosmos_db_endpoint</code></td>
+<td>Endpoint of the Cosmos DB account</td>
+</tr>
+<tr>
+<td><code>cosmos_db_database_name</code></td>
+<td>Name of the pre-created Cosmos DB SQL database</td>
+</tr>
+<tr>
+<td><code>document_intelligence_id</code></td>
+<td>Resource ID of the Document Intelligence account</td>
+</tr>
+<tr>
+<td><code>document_intelligence_name</code></td>
+<td>Name of the Document Intelligence account</td>
+</tr>
+<tr>
+<td><code>document_intelligence_endpoint</code></td>
+<td>Endpoint of the Document Intelligence account</td>
+</tr>
+<tr>
+<td><code>speech_services_id</code></td>
+<td>Resource ID of the Speech Services account</td>
+</tr>
+<tr>
+<td><code>speech_services_name</code></td>
+<td>Name of the Speech Services account</td>
+</tr>
+<tr>
+<td><code>speech_services_endpoint</code></td>
+<td>Endpoint of the Speech Services account</td>
+</tr>
+<tr>
+<td><code>speech_services_primary_key</code></td>
+<td>Primary access key for the Speech Services account</td>
+</tr>
+<tr>
+<td><code>openai_endpoint</code></td>
+<td>Endpoint for OpenAI-compatible API calls (shared AI Foundry Hub)</td>
+</tr>
+<tr>
+<td><code>openai_id</code></td>
+<td>Resource ID for AI models (points to AI Foundry Hub)</td>
+</tr>
+<tr>
+<td><code>log_analytics_workspace_id</code></td>
+<td>Resource ID of the tenant's Log Analytics workspace (if enabled)</td>
+</tr>
+<tr>
+<td><code>has_log_analytics</code></td>
+<td>Whether the tenant has a Log Analytics workspace (own or shared)</td>
+</tr>
+<tr>
+<td><code>log_analytics_enabled</code></td>
+<td>Whether the tenant has its own dedicated Log Analytics workspace</td>
+</tr>
+<tr>
+<td><code>application_insights_id</code></td>
+<td>Resource ID of the tenant's Application Insights (if tenant LAW enabled)</td>
+</tr>
+<tr>
+<td><code>application_insights_instrumentation_key</code></td>
+<td>Instrumentation key for the tenant's Application Insights</td>
+</tr>
+<tr>
+<td><code>application_insights_connection_string</code></td>
+<td>Connection string for the tenant's Application Insights</td>
+</tr>
+<tr>
+<td><code>enabled_resources</code></td>
+<td>Summary of which resources are enabled for this tenant</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_resource_group (tenant)</code></li>
+<li><code>random_string (suffix)</code></li>
+<li><code>azurerm_log_analytics_workspace (tenant)</code></li>
+<li><code>azurerm_application_insights (tenant)</code></li>
+<li><code>azurerm_monitor_diagnostic_setting (key_vault)</code></li>
+<li><code>azurerm_storage_account (this)</code></li>
+<li><code>azurerm_storage_container (default)</code></li>
+<li><code>azurerm_monitor_diagnostic_setting (storage)</code></li>
+<li><code>azurerm_monitor_diagnostic_setting (ai_search)</code></li>
+<li><code>azurerm_cosmosdb_account (this)</code></li>
+<li><code>azurerm_cosmosdb_sql_database (default)</code></li>
+<li><code>azurerm_cosmosdb_sql_container (default)</code></li>
+<li><code>azurerm_monitor_diagnostic_setting (cosmos)</code></li>
+<li><code>azurerm_private_endpoint (cosmos_db)</code></li>
+<li><code>azurerm_monitor_diagnostic_setting (document_intelligence)</code></li>
+<li><code>azurerm_monitor_diagnostic_setting (speech_services)</code></li>
+<li><code>null_resource (wait_for_dns_key_vault)</code></li>
+<li><code>null_resource (wait_for_dns_ai_search)</code></li>
+<li><code>null_resource (wait_for_dns_cosmos_db)</code></li>
+<li><code>null_resource (wait_for_dns_document_intelligence)</code></li>
+<li><code>null_resource (wait_for_dns_speech_services)</code></li>
+</ul>
+</div>
+<h3 id="hub-tenant-user-management">tenant-user-management</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>=============================================================================</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/tenant-user-management/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (6)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>data.tf</code></li>
+<li><code>locals.tf</code></li>
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>tenant_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Unique identifier for the tenant (used in group/role names)</td>
+</tr>
+<tr>
+<td><code>display_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Human-readable display name for the tenant</td>
+</tr>
+<tr>
+<td><code>app_env</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Application environment (dev, test, prod) — included in group/role names to prevent cross-environment conflicts</td>
+</tr>
+<tr>
+<td><code>resource_group_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Resource group ID for tenant scope role assignments</td>
+</tr>
+<tr>
+<td><code>user_management</code></td>
+<td><code>object({</code></td>
+<td><code>{}</code></td>
+<td>Tenant user management configuration (Entra groups + custom roles)</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>group_object_ids</code></td>
+<td>Object IDs for tenant role groups (empty when create_groups = false)</td>
+</tr>
+<tr>
+<td><code>role_definition_ids</code></td>
+<td>Role definition IDs for tenant custom roles</td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td>Assignment mode: 'group' when create_groups=true, 'direct_user' otherwise</td>
+</tr>
+<tr>
+<td><code>direct_user_assignments</code></td>
+<td>Map of direct user role assignments (empty when create_groups = true)</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azuread_group (tenant)</code></li>
+<li><code>azuread_group_member (seed_members)</code></li>
+<li><code>azurerm_role_definition (tenant_admin)</code></li>
+<li><code>azurerm_role_definition (tenant_write)</code></li>
+<li><code>azurerm_role_definition (tenant_read)</code></li>
+<li><code>azurerm_role_assignment (tenant_groups)</code></li>
+<li><code>azurerm_role_assignment (direct_users)</code></li>
+</ul>
+</div>
+<h3 id="hub-waf-policy">waf-policy</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>WAF Policy Module</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/waf-policy/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (4)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the WAF policy</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the resource group</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region for resources</td>
+</tr>
+<tr>
+<td><code>enabled</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Enable the WAF policy</td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td><code>string</code></td>
+<td><code>Prevention</code></td>
+<td>WAF mode: Detection or Prevention</td>
+</tr>
+<tr>
+<td><code>request_body_check</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Enable request body inspection</td>
+</tr>
+<tr>
+<td><code>request_body_enforcement</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Enforce max request body size limit. When false, WAF inspects up to inspect_limit but does not reject oversized requests. Requires OWASP CRS 3.2+</td>
+</tr>
+<tr>
+<td><code>request_body_inspect_limit_in_kb</code></td>
+<td><code>number</code></td>
+<td><code>128</code></td>
+<td>How deep into a request body the WAF inspects and applies rules (KB). Only used with CRS 3.2+</td>
+</tr>
+<tr>
+<td><code>max_request_body_size_kb</code></td>
+<td><code>number</code></td>
+<td><code>128</code></td>
+<td>Maximum request body size in KB (8-2000)</td>
+</tr>
+<tr>
+<td><code>file_upload_limit_mb</code></td>
+<td><code>number</code></td>
+<td><code>100</code></td>
+<td>Maximum file upload size in MB</td>
+</tr>
+<tr>
+<td><code>managed_rule_sets</code></td>
+<td><code>"Microsoft_BotManagerRuleSet"</code></td>
+<td><code>[</code></td>
+<td>Managed rule sets to apply</td>
+</tr>
+<tr>
+<td><code>exclusions</code></td>
+<td><code>list(object({</code></td>
+<td><code>[]</code></td>
+<td>Rule exclusions for false positive handling</td>
+</tr>
+<tr>
+<td><code>custom_rules</code></td>
+<td><code>string</code></td>
+<td><code>[]</code></td>
+<td>Custom WAF rules</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td>Tags to apply to resources</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>resource_id</code></td>
+<td>Resource ID of the WAF policy</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>Name of the WAF policy</td>
+</tr>
+<tr>
+<td><code>http_listener_ids</code></td>
+<td>Associated HTTP listener IDs</td>
+</tr>
+<tr>
+<td><code>path_based_rule_ids</code></td>
+<td>Associated path-based rule IDs</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_web_application_firewall_policy (this)</code></li>
+</ul>
 </div>
 
 <h2>Adding New Modules</h2>
@@ -1527,14 +4499,14 @@
 <div class="alert alert-warning">
     <span class="alert-icon">💡</span>
     <div>
-        <strong>Tip:</strong> The documentation generator runs automatically during the docs build process. Simply add your module and push to main.
+        <strong>Tip:</strong> The documentation generator runs automatically during the GitHub Pages build. Push to main and docs are rebuilt.
     </div>
 </div>
     </main>
     <footer class="site-footer">
         <div class="footer-content">
             <div class="footer-brand">
-                <h4>AI Hub Tracking</h4>
+                <h4>AI Services Hub</h4>
                 <p>Infrastructure as Code for Azure Landing Zone deployments</p>
             </div>
             <div class="footer-links">

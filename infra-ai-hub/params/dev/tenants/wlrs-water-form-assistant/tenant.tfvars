@@ -1,11 +1,16 @@
+# =============================================================================
+# TENANT: WLRS Water Form Assistant - Dev ENVIRONMENT
+# =============================================================================
+# Dev environment configuration for WLRS Water Form Assistant.
+# =============================================================================
 
 tenant = {
-  tenant_name  = "test-tenant-2"
-  display_name = "Test Tenant 2"
+  tenant_name  = "wlrs-water-form-assistant"
+  display_name = "WLRS Water Form Assistant"
   enabled      = true
 
   tags = {
-    ministry    = "TEST"
+    ministry    = "WLRS"
     environment = "dev"
   }
 
@@ -39,7 +44,17 @@ tenant = {
   }
 
   cosmos_db = {
-    enabled = false
+    enabled                      = false
+    offer_type                   = "Standard"
+    kind                         = "GlobalDocumentDB"
+    consistency_level            = "Session"
+    max_interval_in_seconds      = 5
+    max_staleness_prefix         = 100
+    geo_redundant_backup_enabled = false
+    automatic_failover_enabled   = false
+    total_throughput_limit       = 1000
+    database_name                = "default"
+    container_name               = "cosmosContainer"
   }
 
   document_intelligence = {
@@ -55,7 +70,7 @@ tenant = {
 
   # Speech Services - disabled by default, enable for text-to-speech/speech-to-text capabilities
   speech_services = {
-    enabled = false
+    enabled = true
   }
 
   log_analytics = {
@@ -79,7 +94,7 @@ tenant = {
         model_name    = "gpt-4.1-mini"
         model_version = "2025-04-14"
         scale_type    = "GlobalStandard"
-        capacity      = 7500
+        capacity      = 30000
       },
       # GPT-5 Series
       {
@@ -87,14 +102,14 @@ tenant = {
         model_name    = "gpt-5-mini"
         model_version = "2025-08-07"
         scale_type    = "GlobalStandard"
-        capacity      = 500
+        capacity      = 2000
       },
       {
         name          = "gpt-5-nano"
         model_name    = "gpt-5-nano"
         model_version = "2025-08-07"
         scale_type    = "GlobalStandard"
-        capacity      = 7500
+        capacity      = 30000
       },
       # GPT-5.1 Series
       {
@@ -102,14 +117,14 @@ tenant = {
         model_name    = "gpt-5.1-chat"
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
-        capacity      = 250
+        capacity      = 1000
       },
       {
         name          = "gpt-5.1-codex-mini"
         model_name    = "gpt-5.1-codex-mini"
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
-        capacity      = 500
+        capacity      = 2000
       },
       # Embeddings
       {
@@ -117,20 +132,41 @@ tenant = {
         model_name    = "text-embedding-ada-002"
         model_version = "2"
         scale_type    = "GlobalStandard"
-        capacity      = 500
-      }
+        capacity      = 2000
+      },
+      {
+        name          = "text-embedding-3-large"
+        model_name    = "text-embedding-3-large"
+        model_version = "1"
+        scale_type    = "GlobalStandard"
+        capacity      = 10000
+      },
     ]
   }
 
-  # APIM Authentication
+  # APIM Authentication Configuration
+  # Controls how clients authenticate to this tenant's APIs
+  # Options:
+  #   mode = "subscription_key" (default) - Simple API key in header
+  #   mode = "oauth2" - Azure AD OAuth2 with JWT tokens
+  #   store_in_keyvault = false (default) - Do NOT store in KV (avoids auto-rotation issues)
   apim_auth = {
-    mode              = "subscription_key"
-    store_in_keyvault = false
+    mode              = "subscription_key" # Start with subscription key, switch to oauth2 later
+    store_in_keyvault = false              # Keep false if KV has auto-rotation policies!
   }
 
-  # Tenant user management — dev tenants use empty seed to avoid creating orphan groups
+  # Tenant user management (applies across environments)
   user_management = {
-    enabled = false
+    seed_members = {
+      admin = [
+        "tim.csaky@gov.bc.ca",
+        "shabari.kunnumel@gov.bc.ca",
+        "jatinder.singh@gov.bc.ca",
+        "jeff.card@gov.bc.ca",
+        "abin.1.antony@gov.bc.ca",
+        "andrew.schwenker@gov.bc.ca"
+      ]
+    }
   }
 
   # APIM Policies Configuration
@@ -141,24 +177,24 @@ tenant = {
       tokens_per_minute = 1000
     }
     pii_redaction = {
-      enabled     = true  # Enabled for testing fail-open behavior
-      fail_closed = false # Allow requests through if PII service fails (fail-open)
+      enabled     = true  # Redact emails, phone numbers, addresses, etc.
+      fail_closed = false # Fail-open: allow requests through if PII service fails
     }
     usage_logging = {
-      enabled = true
+      enabled = true # Log AI model token usage
     }
     streaming_metrics = {
-      enabled = true
+      enabled = true # Emit metrics for streaming requests
     }
     tracking_dimensions = {
-      enabled = true
+      enabled = true # Extract tracking headers for analytics
     }
     intelligent_routing = {
-      enabled = false
+      enabled = false # Disabled until multi-backend setup
     }
   }
 
-  # Per-tenant APIM Diagnostics
+  # Per-tenant APIM Diagnostics - logs go to tenant's own LAW
   apim_diagnostics = {
     sampling_percentage = 100
     verbosity           = "information"

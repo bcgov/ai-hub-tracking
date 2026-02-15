@@ -156,66 +156,26 @@ jobs:
           # Make all scripts executable
           chmod +x ./scripts/*.sh
 
-          # Use phased apply for 'apply' command to avoid ETag conflicts on foundry_project
-          # Phase 1: All modules except foundry_project (parallel)
-          # Phase 2: foundry_project only (parallelism=1)
-          # Phase 3: Final apply for remaining resources
-          # Same for destroy but in reverse order
-          COMMAND="${{ inputs.command }}"
-          if [[ "$COMMAND" == "apply" ]]; then
-            COMMAND="apply-phased"
-          elif [[ "$COMMAND" == "destroy" ]]; then
-            COMMAND="destroy-phased"
-          fi
-
           # Run deployment via script
-          ./scripts/deploy-terraform.sh "$COMMAND" "${{ inputs.environment_name }}"
+          ./scripts/deploy-terraform.sh "${{ inputs.command }}" "${{ inputs.environment_name }}"
 
       - name: Install bats-core
         if: inputs.command == 'apply'
         uses: bats-core/bats-action@3.0.0
 
       - name: Run Integration Tests
-        if: (inputs.command == 'apply' && inputs.environment_name == 'test')
+        if: inputs.command == 'apply' && (inputs.environment_name == 'dev' || inputs.environment_name == 'test')
         shell: bash
         working-directory: ./infra-ai-hub
         env:
-          OPENAI_API_VERSION: "2024-10-21"
-          DOCINT_API_VERSION: "2024-11-30"
-          DEFAULT_MODEL: "gpt-4.1-mini"
+          TEST_ENV: ${{ inputs.environment_name }}
+          HTTP_PROXY: "http://127.0.0.1:8118"
+          HTTPS_PROXY: "http://127.0.0.1:8118"
+          NO_PROXY: "management.azure.com,login.microsoftonline.com,graph.microsoft.com,registry.terraform.io,releases.hashicorp.com,github.com,objects.githubusercontent.com"
         run: |
           set -euo pipefail
 
-          echo "=== Loading Terraform Configuration ==="
-          TF_OUTPUT=$(terraform output -json)
-
-          APIM_GATEWAY_URL=$(echo "$TF_OUTPUT" | jq -r '.apim_gateway_url.value')
-          APIM_NAME=$(echo "$TF_OUTPUT" | jq -r '.apim_name.value')
-
-          # Prefer App Gateway URL (routes through WAF + custom domain) over direct APIM
-          APPGW_URL=$(echo "$TF_OUTPUT" | jq -r '.appgw_url.value // empty')
-          if [[ -n "$APPGW_URL" && "$APPGW_URL" != "null" ]]; then
-            echo "Using App Gateway URL: $APPGW_URL"
-            APIM_GATEWAY_URL="$APPGW_URL"
-          fi
-
-          SUBSCRIPTIONS=$(echo "$TF_OUTPUT" | jq -r '.apim_tenant_subscriptions.value')
-          WLRS_SUBSCRIPTION_KEY=$(echo "$SUBSCRIPTIONS" | jq -r '.["wlrs-water-form-assistant"].primary_key')
-          SDPR_SUBSCRIPTION_KEY=$(echo "$SUBSCRIPTIONS" | jq -r '.["sdpr-invoice-automation"].primary_key')
-
-          echo "API Gateway: $APIM_GATEWAY_URL"
-          echo "WLRS Key: ****${WLRS_SUBSCRIPTION_KEY: -4}"
-          echo "SDPR Key: ****${SDPR_SUBSCRIPTION_KEY: -4}"
-
-          echo "=== Running Integration Tests ==="
+          echo "=== Running Integration Tests (env-aware harness) ==="
           cd ../tests/integration
-
-          # Extract hostname from App GW URL for Operation-Location header validation
-          APPGW_HOSTNAME="${APIM_GATEWAY_URL#https://}"
-
-          APIM_GATEWAY_URL="$APIM_GATEWAY_URL" \
-          APPGW_HOSTNAME="$APPGW_HOSTNAME" \
-          APIM_NAME="$APIM_NAME" \
-          WLRS_SUBSCRIPTION_KEY="$WLRS_SUBSCRIPTION_KEY" \
-          SDPR_SUBSCRIPTION_KEY="$SDPR_SUBSCRIPTION_KEY" \
-          bats --formatter tap *.bats
+          chmod +x ./run-tests.sh
+          ./run-tests.sh --env "${TEST_ENV}"

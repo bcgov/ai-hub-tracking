@@ -195,7 +195,7 @@ resource "azurerm_application_gateway" "this" {
       backend_address_pool_name  = local.backend_pool_name
       backend_http_settings_name = local.http_setting_name
       priority                   = 100
-      rewrite_rule_set_name      = length(var.rewrite_rule_set) > 0 ? values(var.rewrite_rule_set)[0].name : null
+      rewrite_rule_set_name      = var.rewrite_rule_set != null && length(var.rewrite_rule_set) > 0 ? values(var.rewrite_rule_set)[0].name : null
     }
   }
 

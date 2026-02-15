@@ -4,9 +4,10 @@ on:
   push:
     branches: [main]
     paths:
-      - 'docs/**'
-      - 'infra/**'  # Rebuild docs when Terraform changes
-      - '.github/workflows/pages.yml'
+      - "docs/**"
+      - "initial-setup/infra/**"
+      - "infra-ai-hub/**"
+      - ".github/workflows/pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -25,34 +26,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # Generate Terraform documentation using terraform-docs
-      # This replaces the custom bash regex parser with the industry-standard tool
-      # terraform-docs natively parses HCL and handles all edge cases
-      - name: Generate Terraform Docs
-        uses: terraform-docs/gh-actions@v1.3.0
-        with:
-          working-dir: infra
-          output-file: terraform-docs.md
-          output-method: inject
-          git-push: false
-          config-file: .terraform-docs.yml
-        continue-on-error: true  # Don't fail if terraform-docs config is missing
-
-      # Alternative: Generate HTML directly for each module
-      - name: Generate Module Documentation
+      # Generate Terraform reference docs from both infrastructure roots
+      # Scans initial-setup/infra/ and infra-ai-hub/ (modules + stacks)
+      - name: Generate Terraform Reference
         run: |
-          # Install terraform-docs if not using the action above
-          # curl -sSLo ./terraform-docs.tar.gz https://terraform-docs.io/dl/v0.18.0/terraform-docs-v0.18.0-linux-amd64.tar.gz
-          # tar -xzf terraform-docs.tar.gz
-          # chmod +x terraform-docs
-
-          # For now, use the existing bash script as fallback
-          # This will be replaced when terraform-docs is configured
           cd docs
-          if [ -f "generate-tf-docs.sh" ]; then
-            chmod +x generate-tf-docs.sh
-            ./generate-tf-docs.sh || echo "TF docs generation skipped"
-          fi
+          chmod +x generate-tf-docs.sh
+          ./generate-tf-docs.sh
 
       - name: Build documentation
         run: |

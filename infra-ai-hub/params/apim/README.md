@@ -291,6 +291,12 @@ PII anonymization via Language Service:
   - Tenant has `apim_policies.pii_redaction.enabled = true`
   - AND Language Service is enabled in shared config
 - Detects and redacts: emails, phone numbers, URLs, social security numbers, credit card numbers, addresses, etc.
+- **Document chunking**: Large messages (>5000 chars) are automatically split at word boundaries into sub-documents with compound IDs (`i_0`, `i_1`, ...) and reassembled after redaction
+- **Coverage verification** (P1 safety): After the PII API responds, the fragment verifies EVERY message received complete redaction:
+  - **Document-limit protection**: The Language Service accepts max 5 documents per synchronous request. If more are needed, excess messages are detected as unscanned
+  - **Partial-chunking detection**: When chunks are truncated by the 5-doc limit, the fragment compares redacted length vs original and keeps original content instead of silently truncating
+  - **Fail-closed mode** blocks the request (503) when coverage is incomplete, reporting `partial-redaction-N-msgs-unscanned` or `partial-redaction-N-msgs-truncated`
+  - **Fail-open mode** passes through original content for unscanned/partial messages and logs coverage metrics to App Insights
 
 ### Routing Fragments
 
@@ -399,18 +405,25 @@ Detect and mask PII in text content using Language Service PII entity recognitio
   - `redactionPolicy`:
     - `policyKind`: `CharacterMask`
     - `redactionCharacter`: `#`
-- `analysisInput.documents[0]`:
-  - `id`: `"1"`
-  - `language`: `"en"`
-  - `text`: `piiInputContent`
+- `analysisInput.documents[]`:
+  - Each chat message with content becomes a separate document
+  - Messages >5000 chars are chunked at word boundaries into sub-documents
+  - Compound IDs: message index `i`, chunk `j` → id `"i_j"` (e.g., `"1_0"`, `"1_1"`)
+  - Non-chunked messages use simple IDs (e.g., `"0"`, `"1"`)
+  - Maximum 5 documents per synchronous request (Language Service API limit)
 
 **Response Handling:**
-- Extracts `results.documents[0].redactedText` as the anonymized output
+- Extracts `results.documents[].redactedText` for each document
+- Builds a redactedMap (id → redactedText) for reassembly
+- For non-chunked messages: direct replacement from simple key
+- For chunked messages: concatenates compound keys in order (`i_0`, `i_1`, ...)
+- **Partial-chunking safety**: If reassembled text is shorter than original (missing chunks), keeps original content instead of silently truncating
 - Captures diagnostics:
   - `piiDetectionStatusCode`
-  - `piiEntityCount` (from `results.documents[0].entities`)
+  - `piiEntityCount` (from `results.documents[].entities`)
   - `piiEntityTypes` (unique entity categories from `entities[*].category`)
   - `piiContentChanged` (compares input vs anonymized)
+  - `piiRedactionCoverage` (per-message coverage: msgsWithContent, msgsRedacted, msgsPartial, msgsUnscanned, fullCoverage)
 
 **Diagnostics & Logging:**
 The fragment emits a `trace` event (source `pii-anonymization`) to Application Insights with detailed metadata:
@@ -420,19 +433,29 @@ The fragment emits a `trace` event (source `pii-anonymization`) to Application I
 - `pii-entity-count`: Number of PII entities detected in the request
 - `pii-entity-types`: Comma-separated list of unique entity categories (e.g., "Email,SSN,CreditCard")
 - `pii-content-changed`: Boolean flag indicating whether any redaction occurred (true if input differs from output)
+- `pii-coverage-full`: Whether all messages with content were fully redacted (`True`/`False`)
+- `pii-msgs-with-content`: Total messages that had non-empty content
+- `pii-msgs-unscanned`: Messages completely skipped (e.g., 5-doc limit exceeded)
+- `pii-msgs-partial`: Messages with partial chunk coverage (truncated by doc limit)
 
-These diagnostics enable monitoring of PII detection effectiveness, Language Service API health, and understanding which entity types are most commonly detected across tenants.
+These diagnostics enable monitoring of PII detection effectiveness, Language Service API health, coverage completeness, and understanding which entity types are most commonly detected across tenants.
 
 **Fail-Closed Mode:**
-The fragment now supports configurable failure handling via the `piiFailClosed` variable:
+The fragment supports configurable failure handling via the `piiFailClosed` variable:
 
-- **Fail-Closed (`piiFailClosed = "true"`)**: When the Language Service is unavailable, returns an error (HTTP 503) or the response is invalid (non-200 status, missing `redactedText`), APIM blocks the request with:
-  - HTTP Status: `503 Service Unavailable`
-  - Response Body: `{"error": {"code": "PiiRedactionUnavailable", "message": "PII redaction service is unavailable. Request blocked for data protection.", "request_id": "<uuid>"}}`
+- **Fail-Closed (`piiFailClosed = "true"`)**: APIM blocks the request with HTTP 503 when:
+  - The Language Service is unavailable (non-200 status, network error, MSI token failure)
+  - **Redaction coverage is incomplete** — not all messages were scanned (e.g., 5-document limit exceeded, partial chunking, or Language Service document errors)
+  - Response Body includes `failure_reason` for diagnostics:
+    - `"msi-token-failed"` / `"msi-token-empty"` — MSI authentication issue
+    - `"network-or-dns-error"` — Language Service unreachable
+    - `"http-error-{status}"` — Non-200 API response
+    - `"partial-redaction-N-msgs-unscanned"` — N messages completely skipped (doc limit)
+    - `"partial-redaction-N-msgs-truncated"` — N messages partially chunked (truncated)
+  - Response Body also includes `coverage` object with `msgsWithContent`, `msgsRedacted`, `msgsPartial`, `msgsUnscanned`, `fullCoverage`
   - Custom Header: `X-Request-Id: <correlation-id>`
-  - Trace Event: `pii-anonymization-blocked` with metadata for monitoring
 
-- **Fail-Open (`piiFailClosed = "false"`, default)**: If the Language Service call fails or the response can't be parsed, the fragment returns the original input text (best-effort redaction). This maintains backward compatibility with existing behavior.
+- **Fail-Open (`piiFailClosed = "false"`, default)**: If the Language Service call fails, the response can't be parsed, or coverage is incomplete, the fragment passes through original content for affected messages. No silent truncation — messages with partial chunk coverage keep their original content. Coverage metrics are always logged to App Insights regardless of mode.
 
 **Fallback Behavior:**
 - If PII anonymization is disabled (`piiAnonymizationEnabled = "false"`), the fragment passes through the original `piiInputContent` unchanged, regardless of `piiFailClosed` setting

@@ -31,14 +31,21 @@ Tests load configuration from terraform outputs. Set environment variables or ru
 export APIM_GATEWAY_URL="https://ai-services-hub-test-apim.azure-api.net"
 export WLRS_SUBSCRIPTION_KEY="<from-terraform-output>"
 export SDPR_SUBSCRIPTION_KEY="<from-terraform-output>"
+export TEST_ENV="test"  # dev|test|prod
 export HTTPS_PROXY="http://127.0.0.1:8118"  # For VPN/proxy access
 ```
+
+The test harness reads `infra-ai-hub/params/${TEST_ENV}/shared.tfvars` to determine environment-specific settings.
+If App Gateway is not deployed, tests automatically use direct APIM base URL and skip AppGW-specific assertions.
 
 ## Running Tests
 
 ```bash
 # Run all tests with proxy:
 ./run-tests.sh
+
+# Run against dev environment:
+./run-tests.sh --env dev
 
 # Run specific test file:
 bats chat-completions.bats

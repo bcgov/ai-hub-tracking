@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ArchitectureDiagrams | AI Hub Tracking</title>
+    <title>ArchitectureDiagrams | AI Services Hub</title>
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <style>
         :root {
@@ -696,7 +696,7 @@
         <a href="index.html" class="bc-header-brand">
             <img src="assets/bc_citz_logo.jpg" alt="BC Government" class="bc-header-logo">
             <div>
-                <div class="bc-header-title">AI Hub Tracking</div>
+                <div class="bc-header-title">AI Services Hub</div>
                 <div class="bc-header-subtitle">Azure Landing Zone Infrastructure</div>
             </div>
         </a>
@@ -728,6 +728,10 @@
                     <a href="terraform-reference.html">
                         TF Reference
                         <small>Auto-generated from code</small>
+                    </a>
+                    <a href="apim-key-rotation.html">
+                        APIM Key Rotation
+                        <small>Subscription key auto-rotation</small>
                     </a>
                 </div>
             </div>
@@ -1232,7 +1236,25 @@
         </div>
         <div class="diagram-card-info">
             <h4>Deployment Pipeline</h4>
-            <p>GitHub Actions workflow stages and Terraform execution</p>
+            <p>All GHA workflows, manual dispatch through secure tunnel, phased Terraform</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('apim-key-rotation', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/apim-key-rotation.svg" alt="APIM Key Rotation Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>APIM Key Rotation</h4>
+            <p>Daily scheduled rotation with alternating slot pattern and zero-downtime</p>
+        </div>
+    </div>
+    <div class="diagram-card" onclick="loadDiagram('scaled-deployment', this)">
+        <div class="diagram-card-preview">
+            <img src="assets/scaled-deployment.svg" alt="Scaled Deployment Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+        </div>
+        <div class="diagram-card-info">
+            <h4>Scaled Stack Deployment</h4>
+            <p>3-phase execution engine with isolated state files and parallel tenants</p>
         </div>
     </div>
 </div>
@@ -1365,13 +1387,35 @@
     </div>
     <div class="card" style="border-left-color: #0078d4;">
         <h3 style="margin-top: 0;">Deployment Pipeline</h3>
-        <p>CI/CD workflow visualization:</p>
+        <p>Complete CI/CD workflow visualization:</p>
         <ul style="margin-bottom: 0;">
-            <li>Trigger conditions and branch rules</li>
-            <li>Environment selection and approvals</li>
-            <li>Terraform plan/apply stages</li>
-            <li>State locking and backend access</li>
-            <li>Notification and rollback flows</li>
+            <li>All 6 GHA workflows (manual-dispatch, key-rotation, module mgmt, schedule, PR, pages)</li>
+            <li>Manual dispatch to dev/test/prod with OIDC federation</li>
+            <li>Proxy deploy → health check → secure tunnel (chisel+privoxy)</li>
+            <li>Reusable workflow templates (.deployer + .deployer-using-secure-tunnel)</li>
+            <li>Script architecture: deploy-terraform.sh → deploy-scaled.sh → 3 phases</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: #22c55e;">
+        <h3 style="margin-top: 0;">APIM Key Rotation</h3>
+        <p>Automated key rotation architecture:</p>
+        <ul style="margin-bottom: 0;">
+            <li>Daily schedule (9 UTC) + manual dispatch triggers</li>
+            <li>Scheduled flow: dev+test parallel → prod gated on test success</li>
+            <li>8-step rotation script process with alternating primary/secondary slots</li>
+            <li>Zero-downtime pattern: regenerate inactive → store in KV → swap active</li>
+            <li>Infrastructure: APIM ↔ Hub Key Vault ↔ Terraform Config</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: #a78bfa;">
+        <h3 style="margin-top: 0;">Scaled Stack Deployment</h3>
+        <p>3-phase execution engine architecture:</p>
+        <ul style="margin-bottom: 0;">
+            <li>5 isolated Terraform state files (shared, tenant, foundry, apim, tenant-user-mgmt)</li>
+            <li>Phase 1: shared foundation (sequential) — network, KV, AppGW, WAF</li>
+            <li>Phase 2: tenant stacks (parallel per-tenant) — isolated state</li>
+            <li>Phase 3: foundry + apim + tenant-user-mgmt (all 3 in parallel)</li>
+            <li>Performance: ~4m39s total (19% improvement over monolithic)</li>
         </ul>
     </div>
 </div>
@@ -1528,6 +1572,14 @@ const diagrams = {
     'deployment-pipeline': {
         title: 'Deployment Pipeline',
         src: 'assets/deployment-pipeline.svg'
+    },
+    'apim-key-rotation': {
+        title: 'APIM Key Rotation',
+        src: 'assets/apim-key-rotation.svg'
+    },
+    'scaled-deployment': {
+        title: 'Scaled Stack Deployment',
+        src: 'assets/scaled-deployment.svg'
     },
     // Microsoft Reference (PNG)
     'ms-with-platform': {
@@ -1912,7 +1964,7 @@ window.addEventListener('hashchange', function() {
     <footer class="site-footer">
         <div class="footer-content">
             <div class="footer-brand">
-                <h4>AI Hub Tracking</h4>
+                <h4>AI Services Hub</h4>
                 <p>Infrastructure as Code for Azure Landing Zone deployments</p>
             </div>
             <div class="footer-links">

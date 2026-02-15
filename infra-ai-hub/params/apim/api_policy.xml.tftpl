@@ -59,6 +59,116 @@
 
         <!-- Path-based routing to appropriate backend service -->
         <choose>
+%{ if key_rotation_enabled ~}
+            <!-- Internal endpoint: fetch APIM subscription keys from Key Vault -->
+            <!-- Returns both primary and secondary keys + rotation metadata as JSON -->
+            <when condition="@(context.Request.Url.Path.ToLower().EndsWith(&quot;internal/apim-keys&quot;))">
+                <!-- Only allow GET -->
+                <choose>
+                    <when condition="@(context.Request.Method != &quot;GET&quot;)">
+                        <return-response>
+                            <set-status code="405" reason="Method Not Allowed" />
+                            <set-header name="Content-Type" exists-action="override">
+                                <value>application/json</value>
+                            </set-header>
+                            <set-body>{"error":{"code":"MethodNotAllowed","message":"Only GET is supported."}}</set-body>
+                        </return-response>
+                    </when>
+                </choose>
+                <!-- Authenticate to Key Vault using APIM managed identity -->
+                <authentication-managed-identity resource="https://vault.azure.net" output-token-variable-name="kv-token" ignore-error="false" />
+                <!-- Fetch primary key from hub Key Vault -->
+                <send-request mode="new" response-variable-name="kvPrimaryResp" timeout="10" ignore-error="true">
+                    <set-url>@($"${keyvault_uri}secrets/${tenant_name}-apim-primary-key?api-version=7.4")</set-url>
+                    <set-method>GET</set-method>
+                    <set-header name="Authorization" exists-action="override">
+                        <value>@("Bearer " + (string)context.Variables["kv-token"])</value>
+                    </set-header>
+                </send-request>
+                <!-- Fetch secondary key from hub Key Vault -->
+                <send-request mode="new" response-variable-name="kvSecondaryResp" timeout="10" ignore-error="true">
+                    <set-url>@($"${keyvault_uri}secrets/${tenant_name}-apim-secondary-key?api-version=7.4")</set-url>
+                    <set-method>GET</set-method>
+                    <set-header name="Authorization" exists-action="override">
+                        <value>@("Bearer " + (string)context.Variables["kv-token"])</value>
+                    </set-header>
+                </send-request>
+                <!-- Fetch rotation metadata from hub Key Vault -->
+                <send-request mode="new" response-variable-name="kvMetadataResp" timeout="10" ignore-error="true">
+                    <set-url>@($"${keyvault_uri}secrets/${tenant_name}-apim-rotation-metadata?api-version=7.4")</set-url>
+                    <set-method>GET</set-method>
+                    <set-header name="Authorization" exists-action="override">
+                        <value>@("Bearer " + (string)context.Variables["kv-token"])</value>
+                    </set-header>
+                </send-request>
+                <!-- Return explicit error if any Key Vault call failed -->
+                <choose>
+                    <when condition="@(
+                        ((IResponse)context.Variables[&quot;kvPrimaryResp&quot;]) == null || ((IResponse)context.Variables[&quot;kvPrimaryResp&quot;]).StatusCode &gt;= 400 ||
+                        ((IResponse)context.Variables[&quot;kvSecondaryResp&quot;]) == null || ((IResponse)context.Variables[&quot;kvSecondaryResp&quot;]).StatusCode &gt;= 400 ||
+                        ((IResponse)context.Variables[&quot;kvMetadataResp&quot;]) == null || ((IResponse)context.Variables[&quot;kvMetadataResp&quot;]).StatusCode &gt;= 400
+                    )">
+                        <return-response>
+                            <set-status code="502" reason="Bad Gateway" />
+                            <set-header name="Content-Type" exists-action="override">
+                                <value>application/json</value>
+                            </set-header>
+                            <set-body>@{
+                                var primaryResp = ((IResponse)context.Variables["kvPrimaryResp"]);
+                                var secondaryResp = ((IResponse)context.Variables["kvSecondaryResp"]);
+                                var metadataResp = ((IResponse)context.Variables["kvMetadataResp"]);
+
+                                var result = new JObject(
+                                    new JProperty("error", new JObject(
+                                        new JProperty("code", "KeyVaultReadFailed"),
+                                        new JProperty("message", "Failed to read one or more APIM key secrets from Key Vault."),
+                                        new JProperty("details", new JObject(
+                                            new JProperty("primary_status", primaryResp == null ? 0 : primaryResp.StatusCode),
+                                            new JProperty("secondary_status", secondaryResp == null ? 0 : secondaryResp.StatusCode),
+                                            new JProperty("metadata_status", metadataResp == null ? 0 : metadataResp.StatusCode)
+                                        ))
+                                    ))
+                                );
+                                return result.ToString();
+                            }</set-body>
+                        </return-response>
+                    </when>
+                </choose>
+                <!-- Build JSON response -->
+                <return-response>
+                    <set-status code="200" reason="OK" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@{
+                        var primaryBody = ((IResponse)context.Variables["kvPrimaryResp"])?.Body?.As<JObject>(preserveContent: true);
+                        var secondaryBody = ((IResponse)context.Variables["kvSecondaryResp"])?.Body?.As<JObject>(preserveContent: true);
+                        var metadataBody = ((IResponse)context.Variables["kvMetadataResp"])?.Body?.As<JObject>(preserveContent: true);
+
+                        var primaryKey = primaryBody?["value"]?.ToString() ?? "";
+                        var secondaryKey = secondaryBody?["value"]?.ToString() ?? "";
+                        var metadataRaw = metadataBody?["value"]?.ToString() ?? "{}";
+
+                        JObject metadata;
+                        try { metadata = JObject.Parse(metadataRaw); }
+                        catch { metadata = new JObject(); }
+
+                        var result = new JObject(
+                            new JProperty("tenant", "${tenant_name}"),
+                            new JProperty("primary_key", primaryKey),
+                            new JProperty("secondary_key", secondaryKey),
+                            new JProperty("rotation", metadata),
+                            new JProperty("keyvault", new JObject(
+                                new JProperty("uri", "${keyvault_uri}"),
+                                new JProperty("primary_key_secret", "${tenant_name}-apim-primary-key"),
+                                new JProperty("secondary_key_secret", "${tenant_name}-apim-secondary-key")
+                            ))
+                        );
+                        return result.ToString();
+                    }</set-body>
+                </return-response>
+            </when>
+%{ endif ~}
 %{ if document_intelligence_enabled ~}
             <!-- Document Intelligence requests: match documentintelligence, formrecognizer, or documentModels in path -->
             <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;documentintelligence&quot;) || context.Request.Url.Path.ToLower().Contains(&quot;formrecognizer&quot;) || context.Request.Url.Path.ToLower().Contains(&quot;documentmodels&quot;))">

@@ -160,11 +160,11 @@ cleanup_test_env
 echo ""
 echo -e "${YELLOW}Test 2: Single tenant${NC}"
 setup_test_env
-mkdir -p "$TEST_DIR/tenants/test-tenant-1"
-cat > "$TEST_DIR/tenants/test-tenant-1/tenant.tfvars" << 'EOF'
+mkdir -p "$TEST_DIR/tenants/sample-tenant-1"
+cat > "$TEST_DIR/tenants/sample-tenant-1/tenant.tfvars" << 'EOF'
 # Test tenant 1
 tenant = {
-  tenant_name  = "test-tenant-1"
+    tenant_name  = "sample-tenant-1"
   display_name = "Test Tenant 1"
   enabled      = true
 }
@@ -173,8 +173,8 @@ EOF
 merge_tenants "$TEST_DIR/tenants" "$TEST_DIR/output.tfvars"
 content=$(cat "$TEST_DIR/output.tfvars")
 
-assert_contains "$content" '"test-tenant-1" =' "Should contain tenant key"
-assert_contains "$content" 'tenant_name  = "test-tenant-1"' "Should contain tenant_name"
+assert_contains "$content" '"sample-tenant-1" =' "Should contain tenant key"
+assert_contains "$content" 'tenant_name  = "sample-tenant-1"' "Should contain tenant_name"
 assert_contains "$content" 'display_name = "Test Tenant 1"' "Should contain display_name"
 assert_contains "$content" 'enabled      = true' "Should contain enabled flag"
 cleanup_test_env

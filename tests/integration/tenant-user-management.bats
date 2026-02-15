@@ -17,7 +17,8 @@ load 'test-helper'
 # Returns: newline-separated list of admin UPNs
 get_tenant_seed_admins() {
     local tenant="${1}"
-    local tfvars_file="${SCRIPT_DIR}/../../infra-ai-hub/params/test/tenants/${tenant}/tenant.tfvars"
+    local env="${TEST_ENV:-test}"
+    local tfvars_file="${SCRIPT_DIR}/../../infra-ai-hub/params/${env}/tenants/${tenant}/tenant.tfvars"
 
     if [[ ! -f "${tfvars_file}" ]]; then
         echo "Warning: tenant.tfvars not found for ${tenant}" >&2
@@ -35,7 +36,8 @@ get_tenant_seed_admins() {
 # Check if create_groups is set to true in a tenant.tfvars file
 is_group_mode() {
     local tenant="${1}"
-    local tfvars_file="${SCRIPT_DIR}/../../infra-ai-hub/params/test/tenants/${tenant}/tenant.tfvars"
+    local env="${TEST_ENV:-test}"
+    local tfvars_file="${SCRIPT_DIR}/../../infra-ai-hub/params/${env}/tenants/${tenant}/tenant.tfvars"
     grep -q 'create_groups\s*=\s*true' "${tfvars_file}" 2>/dev/null
 }
 
@@ -82,7 +84,7 @@ setup() {
 # =============================================================================
 
 @test "WLRS: Custom admin role definition exists" {
-    local role_name="ai-hub-test-wlrs-water-form-assistant-admin"
+    local role_name="ai-hub-${TEST_ENV}-wlrs-water-form-assistant-admin"
     local rg_name="wlrs-water-form-assistant-rg"
     local sub_id
     sub_id=$(az account show --query id -o tsv 2>/dev/null)
@@ -136,7 +138,7 @@ setup() {
         skip "No user role assignments found on ${rg_name} (apply may not have run yet)"
     fi
 
-    local admin_role="ai-hub-test-${tenant}-admin"
+    local admin_role="ai-hub-${TEST_ENV}-${tenant}-admin"
 
     # Detect if principalName is available (null when identity lacks Graph perms)
     local names_available
@@ -206,7 +208,7 @@ setup() {
         skip "Tenant '${tenant}' uses direct-user mode (create_groups != true)"
     fi
 
-    local group_name="ai-hub-test-${tenant}-admin"
+    local group_name="ai-hub-${TEST_ENV}-${tenant}-admin"
     local result
     result=$(az ad group show --group "${group_name}" --query "displayName" -o tsv 2>/dev/null) || true
 
@@ -250,7 +252,7 @@ setup() {
         skip "No user role assignments found on ${rg_name} (apply may not have run yet)"
     fi
 
-    local admin_role="ai-hub-test-${tenant}-admin"
+    local admin_role="ai-hub-${TEST_ENV}-${tenant}-admin"
 
     # Detect if principalName is available (null when identity lacks Graph perms)
     local names_available

@@ -73,6 +73,12 @@ shared_config = {
     # Private DNS zone IDs for private endpoints
     # Leave empty to let Azure Policy manage DNS (Landing Zone pattern)
     private_dns_zone_ids = []
+
+    # Subscription key rotation (managed by GitHub Actions workflow)
+    key_rotation = {
+      rotation_enabled       = true # Enable rotation in dev
+      rotation_interval_days = 60   # Must be less than 90 days (APIM max key lifetime)
+    }
   }
 
   # ---------------------------------------------------------------------------

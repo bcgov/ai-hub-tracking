@@ -1,11 +1,20 @@
 #!/usr/bin/env bats
 # Integration tests for Ocp-Apim-Subscription-Key header support
 # Verifies APIM accepts the legacy subscription header used by some SDKs
+#
+# NOTE: These tests only pass when APIM APIs use the default subscription key
+# header name (Ocp-Apim-Subscription-Key). When APIs are configured with custom
+# subscription_key_parameter_names (e.g., header='api-key' for Azure OpenAI SDK
+# compatibility), the legacy header is not accepted and tests are skipped.
 
 load 'test-helper'
 
 setup() {
     setup_test_suite
+    # Skip all tests: APIM APIs use custom subscription_key_parameter_names
+    # (header='api-key') for Azure OpenAI SDK compatibility, so the legacy
+    # Ocp-Apim-Subscription-Key header is not accepted.
+    skip "APIM APIs use custom subscription key header (api-key); Ocp-Apim-Subscription-Key not supported"
 }
 
 # Check if Document Intelligence is accessible before running tests

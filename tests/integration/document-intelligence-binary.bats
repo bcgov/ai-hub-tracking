@@ -16,6 +16,7 @@ load 'test-helper'
 
 setup() {
     setup_test_suite
+    skip_if_no_appgw
 }
 
 # Path to test form fixture (BC Monthly Report form)

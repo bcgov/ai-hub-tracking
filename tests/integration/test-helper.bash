@@ -5,6 +5,86 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/config.bash"
 
+# Refresh tenant key from centralized hub Key Vault via Azure CLI.
+# Strategy:
+# 1) Try rotation metadata safe_slot first
+# 2) Fallback to primary then secondary secrets
+get_tenant_key_from_vault() {
+    local tenant="${1}"
+    local preferred_slot="${2:-}"
+
+    if [[ "${ENABLE_VAULT_KEY_FALLBACK:-true}" != "true" ]]; then
+        return 1
+    fi
+
+    if ! command -v az >/dev/null 2>&1; then
+        echo "[key-fallback] az CLI not found; cannot refresh key for ${tenant}" >&2
+        return 1
+    fi
+
+    if ! az account show >/dev/null 2>&1; then
+        echo "[key-fallback] az CLI not authenticated; cannot refresh key for ${tenant}" >&2
+        return 1
+    fi
+
+    local vault_name="${HUB_KEYVAULT_NAME:-}"
+    if [[ -z "${vault_name}" ]]; then
+        echo "[key-fallback] HUB_KEYVAULT_NAME not set; cannot refresh key for ${tenant}" >&2
+        return 1
+    fi
+
+    local safe_slot="${preferred_slot}"
+    local metadata_json=""
+    if [[ -z "${safe_slot}" ]]; then
+        metadata_json=$(az keyvault secret show \
+            --vault-name "${vault_name}" \
+            --name "${tenant}-apim-rotation-metadata" \
+            --query value -o tsv 2>/dev/null || true)
+
+        if [[ -n "${metadata_json}" ]]; then
+            safe_slot=$(echo "${metadata_json}" | jq -r '.safe_slot // empty' 2>/dev/null || true)
+        fi
+    fi
+
+    local candidates=()
+    if [[ "${safe_slot}" == "primary" ]]; then
+        candidates+=("${tenant}-apim-primary-key" "${tenant}-apim-secondary-key")
+    elif [[ "${safe_slot}" == "secondary" ]]; then
+        candidates+=("${tenant}-apim-secondary-key" "${tenant}-apim-primary-key")
+    else
+        candidates+=("${tenant}-apim-primary-key" "${tenant}-apim-secondary-key")
+    fi
+
+    local refreshed_key=""
+    local secret_name
+    for secret_name in "${candidates[@]}"; do
+        refreshed_key=$(az keyvault secret show \
+            --vault-name "${vault_name}" \
+            --name "${secret_name}" \
+            --query value -o tsv 2>/dev/null || true)
+        if [[ -n "${refreshed_key}" ]]; then
+            printf '%s' "${refreshed_key}"
+            return 0
+        fi
+    done
+
+    echo "[key-fallback] Failed to refresh key for ${tenant} from vault ${vault_name}" >&2
+    return 1
+}
+
+refresh_tenant_key_from_vault() {
+    local tenant="${1}"
+    local preferred_slot="${2:-}"
+    local refreshed_key=""
+    if ! refreshed_key=$(get_tenant_key_from_vault "${tenant}" "${preferred_slot}"); then
+        return 1
+    fi
+
+    set_subscription_key "${tenant}" "${refreshed_key}"
+    echo "[key-fallback] Refreshed ${tenant} key from vault" >&2
+    return 0
+}
+
 # HTTP request wrapper with standard headers
 # Usage: apim_request <method> <tenant> <path> [body]
 apim_request() {
@@ -36,7 +116,30 @@ apim_request() {
         curl_opts+=(-d "${body}")
     fi
     
-    curl -X "${method}" "${curl_opts[@]}" "${url}"
+    local response
+    response=$(curl -X "${method}" "${curl_opts[@]}" "${url}")
+
+    local status
+    status=$(echo "${response}" | tail -n1)
+
+    # 401 fallback: key may be stale after rotation; refresh from KV and retry once
+    if [[ "${status}" == "401" ]] && refresh_tenant_key_from_vault "${tenant}"; then
+        subscription_key=$(get_subscription_key "${tenant}")
+        curl_opts=(
+            -s
+            -w "\n%{http_code}"
+            -H "api-key: ${subscription_key}"
+            -H "Content-Type: application/json"
+            -H "Accept: application/json"
+            --max-time 60
+        )
+        if [[ -n "${body}" ]]; then
+            curl_opts+=(-d "${body}")
+        fi
+        response=$(curl -X "${method}" "${curl_opts[@]}" "${url}")
+    fi
+
+    echo "${response}"
 }
 
 # HTTP request wrapper using the Ocp-Apim-Subscription-Key header
@@ -70,7 +173,30 @@ apim_request_ocp() {
         curl_opts+=(-d "${body}")
     fi
 
-    curl -X "${method}" "${curl_opts[@]}" "${url}"
+    local response
+    response=$(curl -X "${method}" "${curl_opts[@]}" "${url}")
+
+    local status
+    status=$(echo "${response}" | tail -n1)
+
+    # 401 fallback: key may be stale after rotation; refresh from KV and retry once
+    if [[ "${status}" == "401" ]] && refresh_tenant_key_from_vault "${tenant}"; then
+        subscription_key=$(get_subscription_key "${tenant}")
+        curl_opts=(
+            -s
+            -w "\n%{http_code}"
+            -H "Ocp-Apim-Subscription-Key: ${subscription_key}"
+            -H "Content-Type: application/json"
+            -H "Accept: application/json"
+            --max-time 60
+        )
+        if [[ -n "${body}" ]]; then
+            curl_opts+=(-d "${body}")
+        fi
+        response=$(curl -X "${method}" "${curl_opts[@]}" "${url}")
+    fi
+
+    echo "${response}"
 }
 
 # Parse response to separate body from status code
@@ -462,19 +588,28 @@ wait_for_operation() {
 
 # Setup function for bats tests
 setup_test_suite() {
+    local test_env="${TEST_ENV:-test}"
+
     # Check prerequisites
     check_prerequisites
     
     # Try to load config from terraform if not already set
     if ! config_loaded; then
         echo "Subscription keys not set, attempting to load from terraform..." >&2
-        load_terraform_config "test" || true
+        load_terraform_config "${test_env}" || true
     fi
     
     # Validate required config
     if [[ -z "${APIM_GATEWAY_URL:-}" ]]; then
         echo "Error: APIM_GATEWAY_URL not set" >&2
         return 1
+    fi
+}
+
+# Skip current bats test unless App Gateway is deployed for TEST_ENV
+skip_if_no_appgw() {
+    if ! is_appgw_deployed; then
+        skip "App Gateway is not deployed for TEST_ENV=${TEST_ENV:-test}; skipping AppGW-specific test"
     fi
 }
 
@@ -575,4 +710,4 @@ export -f apim_request apim_request_with_retry parse_response chat_completion do
 export -f docint_analyze_file docint_analyze_binary docint_analyze_pdf docint_analyze_multipart
 export -f extract_operation_path extract_http_status extract_response_body
 export -f assert_status assert_contains assert_not_contains json_get
-export -f looks_like_pii is_redacted wait_for_operation setup_test_suite
+export -f looks_like_pii is_redacted wait_for_operation setup_test_suite skip_if_no_appgw

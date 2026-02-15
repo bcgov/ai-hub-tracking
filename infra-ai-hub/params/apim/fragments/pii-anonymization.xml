@@ -9,10 +9,101 @@
         Architecture:
         - Parses the JSON request body and extracts each message's content
         - Sends message contents as separate documents in one PII API call
-          (up to 25 documents per request, 125K chars each on S tier)
+          (up to 5 documents per synchronous request per Azure Language Service limits)
+        - Large messages are automatically chunked at word boundaries to stay
+          within the per-document character limit (5000 chars, safe for all tiers)
+        - Chunked documents use compound IDs (e.g., "1_0", "1_1") and are
+          reassembled in order after redaction
         - Replaces each message content with its redacted version
         - JSON envelope (roles, parameters, model) is never scanned
         - Falls back to raw-body single-document mode for non-JSON payloads
+
+        Document Chunking & Reassembly:
+        The Azure Language Service enforces a per-document character limit
+        (5,120 on F0, 125K on S tier). To safely handle payloads of any size
+        we use a conservative 5,000-char threshold.
+
+        1. Splitting — For each chat message whose content exceeds the limit,
+           the text is split into consecutive chunks at the nearest word
+           boundary (space character) before the limit. Each chunk becomes a
+           separate document in the PII API request with a compound ID:
+             message index 1, chunk 0 → id "1_0"
+             message index 1, chunk 1 → id "1_1"
+             message index 1, chunk 2 → id "1_2"  …and so on
+           Short messages that fit in a single document keep their simple ID
+           (e.g., "0", "1"), so existing behaviour is fully preserved.
+
+        2. Redaction — The Language Service returns a `redactedText` field for
+           every document it successfully processes. Detected PII entities are
+           replaced in-place with a mask character ('#' by default) using the
+           CharacterMask redaction policy.  For example:
+             Input:  "Contact Erin Sanchez at 604-555-7890"
+             Output: "Contact #### ####### at ############"
+           The mask length always matches the original text length, so
+           character offsets and chunk boundaries remain stable.
+
+        3. Reassembly — After the PII API responds, a lookup map is built
+           from document id → redactedText. Reconstruction works per-message:
+           a) If the map contains the simple key (e.g., "1"), the message was
+              not chunked — apply the redacted text directly.
+           b) Otherwise, iterate compound keys "1_0", "1_1", "1_2", … in
+              order and concatenate the redacted fragments. Because chunks
+              were split at the same boundaries, concatenation reproduces
+              the full redacted content with masks in the correct positions.
+           The redacted content replaces the original message content in the
+           JSON body, and the rest of the envelope (role, parameters, model
+           settings) is left untouched.
+
+        4. Error handling — If the Language Service rejects individual
+           documents (e.g., empty text), those are reported in
+           piiDiagnostics.docErrors but do not block successfully-redacted
+           documents. The fail-closed / fail-open mode controls whether an
+           overall failure blocks the request (503) or passes through the
+           original content.
+
+        5. Redaction Coverage Verification (P1 Safety) — After the PII API
+           responds, the fragment verifies that EVERY message with content
+           received complete redaction. This catches two real loopholes:
+
+           a) Document-limit protection: The Language Service accepts at most
+              5 documents per synchronous request. When the payload requires
+              more (many messages, or large messages that chunk into many
+              documents), excess content is silently dropped — the API
+              never sees it. The coverage check detects this by comparing
+              the set of messages that have redacted output against those
+              that don't.
+              Example: 6 short messages = 6 docs needed, but only 5 get
+              sent. The remaining message passes through unscanned.
+
+           b) Partial-chunking detection: When a large message is split into
+              chunks and only some chunks fit within the 5-document limit,
+              the reassembled text would be shorter than the original. The
+              fragment detects this by comparing total redacted chunk length
+              against original message length. CharacterMask preserves text
+              length, so any discrepancy means missing chunks.
+              Example: A 30K-char message needs 6 chunks. If the 5-doc
+              limit only allows 3 chunks, the reassembled text is ~15K chars
+              — the trailing 15K chars (potentially containing PII) would
+              be silently lost.
+
+           c) Document-error tolerance: If the Language Service returns
+              errors for specific documents (e.g., unsupported language),
+              those documents have no redactedText in the response. The
+              coverage check detects these as unscanned messages.
+
+           Coverage result: piiRedactionCoverage JSON with:
+             - msgsWithContent: total messages that had non-empty content
+             - msgsRedacted: messages with complete redacted output
+             - msgsPartial: messages partially chunked (some chunks missing)
+             - msgsUnscanned: messages completely skipped (no output at all)
+             - fullCoverage: true only if msgsRedacted == msgsWithContent
+
+           Fail-closed mode blocks when fullCoverage == false, returning 503
+           with failure_reason "partial-redaction-N-msgs-unscanned" or
+           "partial-redaction-N-msgs-truncated" for diagnostics.
+           Fail-open mode passes through original content for unscanned/
+           partial messages (no silent truncation) and logs coverage metrics
+           to App Insights for monitoring.
 
         Performance optimizations:
         - Single Body.As<string>() read (cached in piiResponseBodyStr)
@@ -38,10 +129,13 @@
 
         Output:
         - piiAnonymizedContent: The reconstructed JSON body with redacted message content
-        - piiRedactionSucceeded: "true" or "false"
+        - piiRedactionSucceeded: "true" or "false" (at least one doc redacted)
+        - piiRedactionCoverage: JSON with fullCoverage, msgsWithContent, msgsRedacted,
+          msgsPartial, msgsUnscanned — comprehensive per-message coverage report
         - piiDetectionStatusCode: HTTP status code from PII API
         - piiDurationMs: PII API call latency in milliseconds
-        - piiDiagnostics: JSON object with docCount, entityCount, entityTypes, docErrors
+        - piiDiagnostics: JSON object with docCount, entityCount, entityTypes, docErrors,
+          plus coverage metrics (msgsWithContent, msgsRedacted, msgsPartial, msgsUnscanned)
         - piiContentChanged: "true" if content was modified by PII redaction
     -->
     <choose>
@@ -95,18 +189,40 @@
                     }
 
                     var documents = new JArray();
+                    var maxDocChars = 5000; // Safe for all Language Service tiers (F0 limit is 5120)
+                    var maxDocs = 5; // Azure Language Service synchronous PII limit: 5 docs/request
                     try {
                         var bodyObj = JObject.Parse(inputText);
                         var messages = bodyObj["messages"] as JArray;
                         if (messages != null) {
-                            for (int i = 0; i &lt; messages.Count &amp;&amp; i &lt; 25; i++) {
+                            for (int i = 0; i &lt; messages.Count &amp;&amp; documents.Count &lt; maxDocs; i++) {
                                 var content = messages[i]?["content"]?.ToString();
                                 if (!string.IsNullOrWhiteSpace(content)) {
-                                    documents.Add(new JObject {
-                                        {"text", content},
-                                        {"id", i.ToString()},
-                                        {"language", language}
-                                    });
+                                    if (content.Length &lt;= maxDocChars) {
+                                        documents.Add(new JObject {
+                                            {"text", content},
+                                            {"id", i.ToString()},
+                                            {"language", language}
+                                        });
+                                    } else {
+                                        // Chunk oversized messages at word boundaries
+                                        int chunkIdx = 0;
+                                        int pos = 0;
+                                        while (pos &lt; content.Length &amp;&amp; documents.Count &lt; maxDocs) {
+                                            int end = Math.Min(pos + maxDocChars, content.Length);
+                                            if (end &lt; content.Length) {
+                                                int lastSpace = content.LastIndexOf(' ', end - 1, end - pos);
+                                                if (lastSpace &gt; pos) { end = lastSpace + 1; }
+                                            }
+                                            documents.Add(new JObject {
+                                                {"text", content.Substring(pos, end - pos)},
+                                                {"id", i + "_" + chunkIdx},
+                                                {"language", language}
+                                            });
+                                            pos = end;
+                                            chunkIdx++;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -194,12 +310,82 @@
                 }
             }" />
 
-            <!-- Fail-closed check: block request if piiFailClosed=true and redaction failed -->
+            <!-- ====== SAFETY: Compute per-message redaction coverage ====== -->
+            <!-- Detects when messages are unscanned (25-doc limit) or partially -->
+            <!-- chunked (truncated). Fail-closed mode blocks on incomplete coverage. -->
+            <set-variable name="piiRedactionCoverage" value="@{
+                try {
+                    var statusCode = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;0&quot;);
+                    if (statusCode != &quot;200&quot;) {
+                        return new JObject {{&quot;fullCoverage&quot;,true},{&quot;msgsWithContent&quot;,0},{&quot;msgsRedacted&quot;,0},{&quot;msgsPartial&quot;,0},{&quot;msgsUnscanned&quot;,0}}.ToString(Newtonsoft.Json.Formatting.None);
+                    }
+                    var bodyStr = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiResponseBodyStr&quot;, &quot;&quot;);
+                    if (string.IsNullOrEmpty(bodyStr)) {
+                        return new JObject {{&quot;fullCoverage&quot;,false},{&quot;msgsWithContent&quot;,0},{&quot;msgsRedacted&quot;,0},{&quot;msgsPartial&quot;,0},{&quot;msgsUnscanned&quot;,0}}.ToString(Newtonsoft.Json.Formatting.None);
+                    }
+                    var responseBody = JObject.Parse(bodyStr);
+                    var resultDocs = responseBody.SelectToken(&quot;$.results.documents&quot;) as JArray;
+                    var redactedMap = new System.Collections.Generic.Dictionary&lt;string, string&gt;();
+                    if (resultDocs != null) {
+                        foreach (var doc in resultDocs) {
+                            var id = doc[&quot;id&quot;]?.ToString();
+                            var redacted = doc[&quot;redactedText&quot;]?.ToString();
+                            if (id != null &amp;&amp; redacted != null) { redactedMap[id] = redacted; }
+                        }
+                    }
+                    var inputText = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
+                    var bodyObj = JObject.Parse(inputText);
+                    var messages = bodyObj[&quot;messages&quot;] as JArray;
+                    int msgsWithContent = 0;
+                    int msgsRedacted = 0;
+                    int msgsPartial = 0;
+                    int msgsUnscanned = 0;
+                    if (messages != null) {
+                        for (int i = 0; i &lt; messages.Count; i++) {
+                            var content = messages[i]?[&quot;content&quot;]?.ToString();
+                            if (string.IsNullOrWhiteSpace(content)) { continue; }
+                            msgsWithContent++;
+                            if (redactedMap.ContainsKey(i.ToString())) {
+                                msgsRedacted++;
+                            } else if (redactedMap.ContainsKey(i + &quot;_0&quot;)) {
+                                int totalChunkLen = 0;
+                                int chunkIdx = 0;
+                                while (redactedMap.ContainsKey(i + &quot;_&quot; + chunkIdx)) {
+                                    totalChunkLen += redactedMap[i + &quot;_&quot; + chunkIdx].Length;
+                                    chunkIdx++;
+                                }
+                                if (totalChunkLen &gt;= content.Length) {
+                                    msgsRedacted++;
+                                } else {
+                                    msgsPartial++;
+                                }
+                            } else {
+                                msgsUnscanned++;
+                            }
+                        }
+                    }
+                    return new JObject {
+                        {&quot;msgsWithContent&quot;, msgsWithContent},
+                        {&quot;msgsRedacted&quot;, msgsRedacted},
+                        {&quot;msgsPartial&quot;, msgsPartial},
+                        {&quot;msgsUnscanned&quot;, msgsUnscanned},
+                        {&quot;fullCoverage&quot;, (msgsRedacted == msgsWithContent)}
+                    }.ToString(Newtonsoft.Json.Formatting.None);
+                } catch {
+                    return new JObject {{&quot;fullCoverage&quot;,true},{&quot;msgsWithContent&quot;,0},{&quot;msgsRedacted&quot;,0},{&quot;msgsPartial&quot;,0},{&quot;msgsUnscanned&quot;,0}}.ToString(Newtonsoft.Json.Formatting.None);
+                }
+            }" />
+
+            <!-- Fail-closed check: block if redaction failed OR coverage incomplete -->
             <choose>
-                <when condition="@(
-                    context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiFailClosed&quot;, &quot;false&quot;).ToLower() == &quot;true&quot; &amp;&amp;
-                    context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactionSucceeded&quot;, &quot;false&quot;) == &quot;false&quot;
-                )">
+                <when condition="@{
+                    if (context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiFailClosed&quot;, &quot;false&quot;).ToLower() != &quot;true&quot;) { return false; }
+                    if (context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactionSucceeded&quot;, &quot;false&quot;) == &quot;false&quot;) { return true; }
+                    try {
+                        var cov = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactionCoverage&quot;, &quot;{}&quot;));
+                        return !(cov[&quot;fullCoverage&quot;]?.Value&lt;bool&gt;() ?? true);
+                    } catch { return false; }
+                }">
                     <return-response>
                         <set-status code="503" reason="PII Redaction Unavailable" />
                         <set-header name="Content-Type" exists-action="override">
@@ -212,20 +398,39 @@
                             var piiStatus = context.Variables.GetValueOrDefault&lt;string&gt;("piiDetectionStatusCode", "unknown");
                             var duration = context.Variables.GetValueOrDefault&lt;string&gt;("piiDurationMs", "unknown");
                             var msi = context.Variables.GetValueOrDefault&lt;string&gt;("piiMsiTokenStatus", "unknown");
+                            var coverageJson = context.Variables.GetValueOrDefault&lt;string&gt;("piiRedactionCoverage", "{}");
                             string failureReason;
-                            if (msi == "failed" || msi == "empty") { failureReason = "msi-token-" + msi; }
-                            else if (piiStatus == "no-response") { failureReason = "network-or-dns-error"; }
-                            else if (piiStatus == "error") { failureReason = "response-read-error"; }
-                            else if (piiStatus != "200") { failureReason = "http-error-" + piiStatus; }
-                            else { failureReason = "parse-error"; }
+                            if (context.Variables.GetValueOrDefault&lt;string&gt;("piiRedactionSucceeded", "false") == "false") {
+                                if (msi == "failed" || msi == "empty") { failureReason = "msi-token-" + msi; }
+                                else if (piiStatus == "no-response") { failureReason = "network-or-dns-error"; }
+                                else if (piiStatus == "error") { failureReason = "response-read-error"; }
+                                else if (piiStatus != "200") { failureReason = "http-error-" + piiStatus; }
+                                else { failureReason = "parse-error"; }
+                            } else {
+                                try {
+                                    var cov = JObject.Parse(coverageJson);
+                                    var unscanned = cov["msgsUnscanned"]?.Value&lt;int&gt;() ?? 0;
+                                    var partial = cov["msgsPartial"]?.Value&lt;int&gt;() ?? 0;
+                                    if (unscanned > 0) { failureReason = "partial-redaction-" + unscanned + "-msgs-unscanned"; }
+                                    else if (partial > 0) { failureReason = "partial-redaction-" + partial + "-msgs-truncated"; }
+                                    else { failureReason = "partial-redaction-unknown"; }
+                                } catch { failureReason = "coverage-check-error"; }
+                            }
+                            string message;
+                            if (failureReason.StartsWith("partial-redaction")) {
+                                message = "PII redaction incomplete. Not all messages were scanned. Request blocked for data protection.";
+                            } else {
+                                message = "PII redaction service is unavailable. Request blocked for data protection.";
+                            }
                             var errorResponse = new JObject {
                                 {"error", new JObject {
                                     {"code", "PiiRedactionUnavailable"},
-                                    {"message", "PII redaction service is unavailable. Request blocked for data protection."},
+                                    {"message", message},
                                     {"request_id", context.RequestId.ToString()},
                                     {"pii_status_code", piiStatus},
                                     {"pii_duration_ms", duration},
-                                    {"failure_reason", failureReason}
+                                    {"failure_reason", failureReason},
+                                    {"coverage", JObject.Parse(coverageJson)}
                                 }}
                             };
                             return errorResponse.ToString();
@@ -267,7 +472,28 @@
                         for (int i = 0; i &lt; messages.Count; i++) {
                             var key = i.ToString();
                             if (redactedMap.ContainsKey(key)) {
+                                // Non-chunked message: direct replacement
                                 ((JObject)messages[i])[&quot;content&quot;] = redactedMap[key];
+                            } else {
+                                // Chunked message: reassemble from compound IDs (i_0, i_1, ...)
+                                var sb = new System.Text.StringBuilder();
+                                int chunkIdx = 0;
+                                while (redactedMap.ContainsKey(i + &quot;_&quot; + chunkIdx)) {
+                                    sb.Append(redactedMap[i + &quot;_&quot; + chunkIdx]);
+                                    chunkIdx++;
+                                }
+                                if (chunkIdx &gt; 0) {
+                                    var originalContent = messages[i]?[&quot;content&quot;]?.ToString() ?? &quot;&quot;;
+                                    // Only replace if all chunks are accounted for (full coverage).
+                                    // CharacterMask preserves text length, so redacted length must
+                                    // match original. If shorter, chunks were truncated by the
+                                    // 25-doc limit — keep original content to avoid silent data loss.
+                                    // Fail-closed mode will have already blocked the request.
+                                    if (sb.Length &gt;= originalContent.Length) {
+                                        ((JObject)messages[i])[&quot;content&quot;] = sb.ToString();
+                                    }
+                                    // Else: partial coverage — keep original unredacted content
+                                }
                             }
                         }
                     }
@@ -319,6 +545,16 @@
                         {&quot;entityCount&quot;, totalEntities},
                         {&quot;entityTypes&quot;, categories.Count &gt; 0 ? string.Join(&quot;,&quot;, categories) : &quot;none&quot;}
                     };
+                    // Merge redaction coverage metrics for unified diagnostics
+                    try {
+                        var covJson = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactionCoverage&quot;, &quot;{}&quot;);
+                        var cov = JObject.Parse(covJson);
+                        result[&quot;msgsWithContent&quot;] = cov[&quot;msgsWithContent&quot;];
+                        result[&quot;msgsRedacted&quot;] = cov[&quot;msgsRedacted&quot;];
+                        result[&quot;msgsPartial&quot;] = cov[&quot;msgsPartial&quot;];
+                        result[&quot;msgsUnscanned&quot;] = cov[&quot;msgsUnscanned&quot;];
+                        result[&quot;fullCoverage&quot;] = cov[&quot;fullCoverage&quot;];
+                    } catch { }
                     return result.ToString(Newtonsoft.Json.Formatting.None);
                 } catch (Exception ex) {
                     return &quot;{}&quot;;
@@ -358,6 +594,18 @@
                 }" />
                 <metadata name="pii-document-errors" value="@{
                     try { return JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDiagnostics&quot;, &quot;{}&quot;))[&quot;docErrors&quot;]?.ToString() ?? &quot;none&quot;; } catch { return &quot;none&quot;; }
+                }" />
+                <metadata name="pii-coverage-full" value="@{
+                    try { return JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactionCoverage&quot;, &quot;{}&quot;))[&quot;fullCoverage&quot;]?.ToString() ?? &quot;unknown&quot;; } catch { return &quot;unknown&quot;; }
+                }" />
+                <metadata name="pii-msgs-with-content" value="@{
+                    try { return JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactionCoverage&quot;, &quot;{}&quot;))[&quot;msgsWithContent&quot;]?.ToString() ?? &quot;0&quot;; } catch { return &quot;0&quot;; }
+                }" />
+                <metadata name="pii-msgs-unscanned" value="@{
+                    try { return JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactionCoverage&quot;, &quot;{}&quot;))[&quot;msgsUnscanned&quot;]?.ToString() ?? &quot;0&quot;; } catch { return &quot;0&quot;; }
+                }" />
+                <metadata name="pii-msgs-partial" value="@{
+                    try { return JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactionCoverage&quot;, &quot;{}&quot;))[&quot;msgsPartial&quot;]?.ToString() ?? &quot;0&quot;; } catch { return &quot;0&quot;; }
                 }" />
             </trace>
         </when>

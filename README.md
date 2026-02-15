@@ -90,17 +90,20 @@ ai-hub-tracking/
 │   │   └── prod/                       # Production environment config
 │   │
 │   ├── scripts/                        # Deployment and utility scripts
-│   │   ├── deploy-terraform.sh         # Phased deployment (init, plan, apply with retry)
+│   │   ├── deploy-terraform.sh         # Stack-based deployment (init, plan, apply with auto-recovery)
 │   │   ├── extract-import-target.sh    # Extract Terraform import targets from errors
 │   │   ├── purge-ai-foundry.sh         # Purge AI Foundry soft-deleted resources
 │   │   └── wait-for-dns-zone.sh        # Wait for DNS zone propagation
 │   │
-│   ├── functions/                      # Azure Functions source code
-│   │   └── key-rotation/               # APIM subscription key rotation function
+│   ├── stacks/                         # Isolated Terraform root modules (one state file each)
+│   │   ├── shared/                     # VNet, AI Foundry Hub, App GW, WAF, monitoring
+│   │   ├── tenant/                     # Per-tenant resources (template, runs per tenant)
+│   │   ├── foundry/                    # AI Foundry projects per tenant
+│   │   ├── apim/                       # API Management gateway and policies
+│   │   └── tenant-user-mgmt/          # Entra ID user/group assignments
 │   │
-│   └── tenant-user-mgmt/              # Separate Terraform workspace for tenant user management
-│       ├── main.tf                     # Entra ID user/group assignments
-│       └── README.md                   # Tenant user management documentation
+│   └── functions/                      # Azure Functions source code
+│       └── key-rotation/               # APIM subscription key rotation function
 │
 ├── tests/                              # Integration test suite
 │   └── integration/                    # BATS-based integration tests
@@ -214,8 +217,8 @@ Multi-tenant AI Services Hub infrastructure. Manages APIM gateway, AI Foundry, p
 
 - **modules/**: 16 Terraform modules for all Azure resources
 - **params/**: Environment configs (dev/test/prod) with per-tenant tfvars and APIM policy templates
-- **scripts/**: Phased deployment script with import-on-conflict and retry logic
-- **tenant-user-mgmt/**: Separate Terraform workspace for Entra ID user/group management
+- **scripts/**: Deployment script with stack-based orchestration, import-on-conflict, and retry logic
+- **stacks/**: Isolated Terraform root modules (`shared`, `tenant`, `foundry`, `apim`, `tenant-user-mgmt`) with separate state files
 
 ### `tests/`
 BATS-based integration test suite for validating deployed infrastructure. Tests cover chat completions, document intelligence, PII redaction (fail-closed/fail-open), tenant isolation, binary uploads, and user management.
