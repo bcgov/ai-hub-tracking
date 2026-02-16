@@ -366,12 +366,13 @@
         <li><strong>Container Build Validation</strong>: Invokes <code>.builds.yml</code> for proxy images</li>
         <li><strong>Tools Proxy Bootstrap</strong>: Invokes <code>.deployer.yml</code> to deploy <code>azure_proxy</code> in <code>tools</code></li>
         <li><strong>Plan Against Test</strong>: Invokes <code>.deployer-using-secure-tunnel.yml</code> with <code>command=plan</code></li>
+        <li><strong>PR Description Update</strong>: Appends the test plan summary to the PR description under <em>AI Hub Infra Changes</em></li>
         <li><strong>PR Signal</strong>: Fails fast if any checks are broken</li>
     </ul>
 </div>
 
 <div class="alert alert-info">
-    <strong>Note:</strong> The pr-open workflow must pass before a PR can be merged. Address any failures shown in the PR checks.
+    <strong>Note:</strong> The pr-open workflow must pass before a PR can be merged. The plan step appends an <em>AI Hub Infra Changes</em> section to the PR description with a readable plan summary; when there are no infra diffs the section says <code>No Changes to AI Hub Infra in this PR</code>.
 </div>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
