@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: write
 
 jobs:
   terraform-lint:
@@ -60,3 +61,28 @@ jobs:
             echo "Falling back to full pre-commit run: base/head commit not available in local checkout."
             pre-commit run --all-files --show-diff-on-failure
           fi
+      - name: Conventional Commits
+        id: conventional_commits
+        if: github.event_name == 'pull_request'
+        uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fork Check
+        id: fork_check
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork
+        run: |
+          echo "::error::Forks are not supported for this repository."
+          exit 1
+
+      - name: Summary on failure
+        if: failure()
+        shell: bash
+        run: |
+          echo "::error::Validation failed. Review the individual step results above."
+          echo ""
+          echo "Common failure reasons:"
+          echo "  - pre-commit hooks failed (terraform fmt, tflint)"
+          echo "  - PR title does not follow Conventional Commits (https://www.conventionalcommits.org/en/v1.0.0/)"
+          echo "  - Pull requests from forks are not supported"
+          exit 1

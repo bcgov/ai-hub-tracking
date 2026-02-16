@@ -112,13 +112,37 @@ jobs:
         run: |
           set -euo pipefail
 
-          echo "Lint:   ${{ needs.lint.result }}"
-          echo "Builds: ${{ needs.builds.result }}"
-          echo "Plan:   ${{ needs.plan-against-test-environment.result }}"
-          echo "PR Desc:${{ needs.update-pr-description.result }}"
+          declare -A results=(
+            [Lint]="${{ needs.lint.result }}"
+            [Builds]="${{ needs.builds.result }}"
+            [Plan]="${{ needs.plan-against-test-environment.result }}"
+            [PR-Description]="${{ needs.update-pr-description.result }}"
+          )
 
-          if [[ "${{ needs.lint.result }}" != "success" || "${{ needs.builds.result }}" != "success" || "${{ needs.plan-against-test-environment.result }}" != "success" ]]; then
-            echo "One or more prerequisite jobs failed."
+          echo "===== PR Check Results ====="
+          failed=()
+          for job in Lint Builds Plan PR-Description; do
+            status="${results[$job]}"
+            if [[ "$status" == "success" || "$status" == "skipped" ]]; then
+              echo "  ✅ ${job}: ${status}"
+            else
+              echo "  ❌ ${job}: ${status}"
+              failed+=("$job")
+            fi
+          done
+          echo "============================"
+
+          # PR-Description is non-blocking (only cosmetic)
+          critical_failures=()
+          for f in "${failed[@]}"; do
+            if [[ "$f" != "PR-Description" ]]; then
+              critical_failures+=("$f")
+            fi
+          done
+
+          if [[ ${#critical_failures[@]} -gt 0 ]]; then
+            echo ""
+            echo "::error::PR checks failed: ${critical_failures[*]}"
             exit 1
           fi
 

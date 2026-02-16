@@ -285,10 +285,13 @@ az webapp log tail --resource-group <rg-name> --name <web-app-name>
 
 ## Contributing
 
+All changes follow the project's [Developer SDLC](https://bcgov.github.io/ai-hub-tracking/workflows.html) — branch, PR with automated checks, merge to main.
+
 When modifying the proxy:
 
-1. Update `Dockerfile` for image changes
-2. Update `start-chisel.sh` for startup logic changes
-3. Test locally with the Docker command above
-4. Update this README with any new features or configuration options
-5. Push the updated image to the container registry
+1. Create a feature branch from `main`
+2. Update `Dockerfile` for image changes
+3. Update `start-chisel.sh` for startup logic changes
+4. Test locally with the Docker command above
+5. Update this README with any new features or configuration options
+6. Open a PR (must follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) title format) — container builds run automatically via `.builds.yml`

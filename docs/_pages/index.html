@@ -353,10 +353,13 @@
 
 <h2>Contributing</h2>
 
-<p>This documentation is built automatically from the <code>docs/</code> folder. To add or update pages:</p>
+<p>All changes follow the project's <a href="workflows.html">Developer SDLC</a> — branch, PR, merge to main, promote to prod. This documentation is built automatically from the <code>docs/</code> folder. To add or update pages:</p>
 
 <ol>
-    <li>Edit files in <code>docs/_pages/</code></li>
+    <li>Create a feature branch and edit files in <code>docs/_pages/</code></li>
     <li>Run <code>./docs/build.sh</code> to test locally</li>
-    <li>Push to main - GitHub Actions deploys automatically</li>
+    <li>Open a PR — lint checks and Terraform plan run automatically</li>
+    <li>Merge to main — GitHub Actions deploys to GitHub Pages automatically</li>
 </ol>
+
+<p>See <a href="workflows.html">Workflows</a> for the full SDLC flow, branching patterns (stacked PRs, release PRs), and release process.</p>

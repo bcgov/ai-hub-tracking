@@ -777,7 +777,7 @@
         <tr>
             <td><strong>.lint.yml</strong></td>
             <td>Called by other workflows</td>
-            <td>Reusable Terraform lint/format checks via pre-commit (<code>terraform fmt</code> + <code>tflint</code>)</td>
+            <td>Reusable validation: pre-commit (<code>terraform fmt</code> + <code>tflint</code>), conventional commits, fork check</td>
         </tr>
         <tr>
             <td><strong>add-or-remove-module.yml</strong></td>
@@ -787,12 +787,12 @@
         <tr>
             <td><strong>manual-dispatch.yml</strong></td>
             <td>Manual (workflow_dispatch)</td>
-            <td>Run <code>plan/apply/destroy</code> for dev/test/prod after provisioning proxy in tools</td>
+            <td>Run <code>plan/apply/destroy</code> for dev/test/prod; prod apply requires a semver tag (e.g. <code>v1.2.3</code>) and creates a GitHub Release</td>
         </tr>
         <tr>
-            <td><strong>main-merge-test-deploy.yml</strong></td>
+            <td><strong>merge-main.yml</strong></td>
             <td>Push to <code>main</code></td>
-            <td>Automatic post-merge deployment: applies latest infrastructure to test environment</td>
+            <td>Automatic post-merge: semantic version tag via conventional commits, apply infrastructure to test</td>
         </tr>
         <tr>
             <td><strong>pr-open.yml</strong></td>
@@ -819,40 +819,194 @@
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>Developer SDLC Flow (Branch → PR → DEV/TEST/PROD)</h2>
+<h2>Developer SDLC Flow (Branch → PR → TEST → PROD)</h2>
 
-<p>The repository currently supports this sequence:</p>
+<p>The repository enforces a promote-through-environments workflow. Every change flows through a validated path before reaching production.</p>
 
 <ol>
-    <li><strong>Create feature branch</strong> from <code>main</code> (for example: <code>feature/&lt;work-item&gt;</code>) and commit changes.</li>
-    <li><strong>Open PR</strong> to <code>main</code>, which triggers <code>pr-open.yml</code>.</li>
-    <li><strong>PR validation</strong> runs lint + image builds + test-environment Terraform plan (via secure tunnel).</li>
-    <li><strong>Merge to main</strong> once PR checks and repository review requirements pass.</li>
-    <li><strong>Auto-apply to test</strong> runs through <code>main-merge-test-deploy.yml</code> on every merge/push to <code>main</code>.</li>
-    <li><strong>Promote or experiment</strong> using <code>manual-dispatch.yml</code> by selecting <code>dev</code>, <code>test</code>, or <code>prod</code> with <code>plan/apply/destroy</code>.</li>
-    <li><strong>Developer branch testing (occasional)</strong>: developers can run manual dispatch to <code>dev</code> from a feature/PR branch for targeted validation; use this sparingly and co-ordinate with other devs in the team.</li>
-    <li><strong>Environment scope</strong>: <code>dev</code> does not include App Gateway or DNS Zone. Full ingress path validation is only available in <code>test</code> and <code>prod</code>.</li>
-    <li><strong>Environment gating</strong> for <code>test</code> and <code>prod</code> is enforced through GitHub Environment protection rules (required reviewers/waits), because these workflows target environment-scoped jobs.</li>
+    <li><strong>Create feature branch</strong> from <code>main</code> (e.g. <code>feat/&lt;work-item&gt;</code>, <code>fix/&lt;issue&gt;</code>) and commit changes.</li>
+    <li><strong>Open PR</strong> to <code>main</code>, which triggers <code>pr-open.yml</code>:
+        <ul>
+            <li>Lint (pre-commit: terraform fmt + tflint, conventional commit title, fork check)</li>
+            <li>Container image builds</li>
+            <li>Terraform plan against <code>test</code> (via secure tunnel) — summary appended to PR description</li>
+        </ul>
+    </li>
+    <li><strong>Merge to main</strong> once PR checks and code review pass.</li>
+    <li><strong>Auto-apply to test + semver tag</strong>: <code>merge-main.yml</code> creates a semantic version tag (e.g. <code>v1.2.3</code>) from conventional commit history, then applies to <code>test</code>.</li>
+    <li><strong>Promote to prod</strong>: Use <code>manual-dispatch.yml</code>, select <code>prod</code> + <code>apply</code>, and provide the semver tag. <strong>This is gated — requires approval from designated reviewers</strong> (configured in the GitHub <code>prod</code> environment protection rules).</li>
+    <li><strong>Release created</strong>: After successful prod apply, a GitHub Release is automatically created from the deployed tag with deployment metadata.</li>
 </ol>
+
+<div class="alert alert-warning">
+    <div><strong>PROD is gated:</strong> The <code>prod</code> environment has required reviewers configured as a GitHub Environment protection rule. Any workflow job targeting <code>prod</code> will pause and wait for manual approval before executing. Only designated reviewers can approve.</div>
+</div>
+
+<div class="alert alert-info">
+    <div><strong>Developer branch testing (occasional):</strong> Developers can run manual dispatch to <code>dev</code> from a feature/PR branch for targeted validation; use this sparingly and co-ordinate with other devs. The <code>dev</code> environment does <strong>not</strong> include App Gateway or DNS Zone — full ingress path validation is only available in <code>test</code> and <code>prod</code>.</div>
+</div>
 
 <pre>Feature Branch
    │
    └── Pull Request ──► pr-open.yml
-                        ├─ .lint.yml
+                        ├─ .lint.yml (fmt, tflint, conventional commits, fork check)
                         ├─ .builds.yml
                         ├─ .deployer.yml (tools/azure_proxy)
-                        └─ .deployer-using-secure-tunnel.yml (test plan)
+                        ├─ .deployer-using-secure-tunnel.yml (test plan)
+                        └─ Update PR description with plan summary
                                   │
                                   ▼
                              Merge to main
                                   │
-                                    ├──► main-merge-test-deploy.yml (apply test)
-                                    │
                                   ▼
-                         manual-dispatch.yml
-                      (dev/test/prod plan|apply|destroy)
+                        merge-main.yml
+                        ├─ Semantic version tag (v1.2.3)
+                        └─ Apply to test
                                   │
-                                  └─ Environment approval gates for test/prod</pre>
+                                  ▼
+                        manual-dispatch.yml (prod + apply + tag)
+                        ├─ ⏸ Requires prod environment approval
+                        ├─ Apply to prod using tagged commit
+                        └─ Create GitHub Release</pre>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>Advanced Branching Patterns</h2>
+
+<p>The basic SDLC flow above covers the single-feature-per-PR path. In practice, teams often need to coordinate dependent work or bundle multiple features into a single release. Two patterns handle this: <strong>Stacked PRs</strong> and <strong>Release PRs</strong>.</p>
+
+<h3>Stacked PRs (Dependent Feature Chains)</h3>
+
+<p>Use stacked PRs when a feature depends on another feature that hasn't merged to <code>main</code> yet. Each PR in the stack targets the previous branch instead of <code>main</code>.</p>
+
+<div class="card card-gold">
+    <h3>When to Use</h3>
+    <ul>
+        <li>Feature B requires infrastructure created by Feature A (e.g. a new subnet added in A is referenced in B)</li>
+        <li>Breaking a large change into reviewable, incremental PRs</li>
+        <li>Multiple developers working on sequential pieces of a story</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h3>How It Works</h3>
+    <ol>
+        <li>Create <code>feat/base-network</code> from <code>main</code> → open <strong>PR #1</strong> targeting <code>main</code></li>
+        <li>Create <code>feat/add-apim-policy</code> from <code>feat/base-network</code> → open <strong>PR #2</strong> targeting <code>feat/base-network</code></li>
+        <li>Each PR triggers <code>pr-open.yml</code> independently for lint and plan</li>
+        <li>Merge <strong>PR #1</strong> first (bottom of the stack) — this triggers <code>merge-main.yml</code></li>
+        <li><strong>Retarget PR #2</strong> to <code>main</code> and rebase onto updated <code>main</code></li>
+        <li>Merge <strong>PR #2</strong> — triggers another <code>merge-main.yml</code> run with its own semver tag</li>
+    </ol>
+</div>
+
+<pre>main ─────────────────────────┬───────────────────┬──────►
+   \                          │ merge PR #1        │ merge PR #2
+    └─ feat/base-network ─────┘   (v1.3.0)        │
+         \                                         │
+          └─ feat/add-apim-policy ─── rebase ──────┘
+                                                 (v1.4.0)</pre>
+
+<div class="alert alert-warning">
+    <div><strong>Important:</strong> Always merge bottom-up. If you merge PR #2 before PR #1, the diff will include both sets of changes and the base branch won't exist in <code>main</code> yet. After merging the base PR, <strong>rebase</strong> the dependent branch onto <code>main</code> to pick up any squash-merge differences before merging.</div>
+</div>
+
+<div class="alert alert-info">
+    <div><strong>CI Behaviour:</strong> Each PR in the stack runs <code>pr-open.yml</code> against <code>test</code>. The plan for PR #2 will show changes from both branches while PR #1 is open (because the diff includes the base). After PR #1 merges, re-running PR #2's checks shows only its own changes. Each merge to <code>main</code> produces its own semver tag.</div>
+</div>
+
+<h3>Release PRs (Bundled Multi-Feature Releases)</h3>
+
+<p>Use a Release PR when multiple developers are working on separate features that should ship together as a single coordinated release. All feature branches merge into a shared <strong>release branch</strong>, which then opens one PR to <code>main</code>.</p>
+
+<div class="card card-gold">
+    <h3>When to Use</h3>
+    <ul>
+        <li>A planned release includes work from multiple developers across different modules</li>
+        <li>Features need integration testing together before merging to <code>main</code></li>
+        <li>You want one semver tag to represent the entire release bundle (e.g. a sprint deliverable)</li>
+        <li>Coordinating breaking changes that span multiple Terraform stacks</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h3>How It Works</h3>
+    <ol>
+        <li>Create a release branch from <code>main</code>: <code>release/sprint-42</code> (or <code>release/apim-v2</code>, etc.)</li>
+        <li>Developers create feature branches from the release branch:
+            <ul>
+                <li><code>feat/new-tenant-config</code> → PR targeting <code>release/sprint-42</code></li>
+                <li><code>feat/apim-rate-limits</code> → PR targeting <code>release/sprint-42</code></li>
+                <li><code>fix/dns-zone-ttl</code> → PR targeting <code>release/sprint-42</code></li>
+            </ul>
+        </li>
+        <li>Feature PRs are reviewed and merged into the release branch (these merges do <strong>not</strong> trigger <code>merge-main.yml</code> since they don't target <code>main</code>)</li>
+        <li>Optionally deploy the release branch to <code>dev</code> via <code>manual-dispatch.yml</code> to validate the combined changes</li>
+        <li>When all features are complete, open one <strong>Release PR</strong>: <code>release/sprint-42</code> → <code>main</code></li>
+        <li>The Release PR triggers <code>pr-open.yml</code> — the plan shows the aggregate of all bundled changes</li>
+        <li>Merge the Release PR → <code>merge-main.yml</code> creates one semver tag and applies to <code>test</code></li>
+    </ol>
+</div>
+
+<pre>main ─────────────────────────────────────────┬──────────►
+   \                                           │ merge Release PR
+    └─ release/sprint-42 ───┬──────┬──────────┘  (v2.0.0)
+         \                  │      │
+          ├─ feat/tenant ───┘      │
+          │                        │
+          └─ feat/rate-limits ─────┘</pre>
+
+<div class="alert alert-info">
+    <div><strong>CI Behaviour:</strong> PRs targeting the release branch still trigger <code>pr-open.yml</code> (lint and plan), giving each feature its own review cycle. The final Release PR to <code>main</code> runs the full pipeline and shows a combined plan. Only the merge to <code>main</code> triggers <code>merge-main.yml</code> for semver tagging and test apply.</div>
+</div>
+
+<div class="alert alert-warning">
+    <div><strong>PR Title Convention:</strong> The Release PR title must follow <a href="https://www.conventionalcommits.org/en/v1.0.0/">Conventional Commits</a> (e.g. <code>feat: sprint 42 release — tenant config and rate limits</code>) since it controls the semver bump. Use <code>feat:</code> for minor, <code>fix:</code> for patch, or include <code>BREAKING CHANGE</code> in the body for major.</div>
+</div>
+
+<h3>Choosing Between Stacked PRs and Release PRs</h3>
+
+<table>
+    <thead>
+        <tr>
+            <th></th>
+            <th>Stacked PRs</th>
+            <th>Release PR</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>Best for</strong></td>
+            <td>Sequential/dependent changes by 1–2 developers</td>
+            <td>Parallel independent features by multiple developers</td>
+        </tr>
+        <tr>
+            <td><strong>Semver tags</strong></td>
+            <td>One tag per merged PR (e.g. v1.3.0, v1.4.0)</td>
+            <td>One tag for the entire bundle (e.g. v2.0.0)</td>
+        </tr>
+        <tr>
+            <td><strong>Review granularity</strong></td>
+            <td>Each PR is reviewed independently with a focused diff</td>
+            <td>Feature PRs reviewed individually; Release PR shows combined diff</td>
+        </tr>
+        <tr>
+            <td><strong>merge-main.yml runs</strong></td>
+            <td>Triggers once per PR merged to main</td>
+            <td>Triggers once for the entire release</td>
+        </tr>
+        <tr>
+            <td><strong>Risk</strong></td>
+            <td>Rebase conflicts after base merges</td>
+            <td>Release branch can drift from main if long-lived</td>
+        </tr>
+        <tr>
+            <td><strong>Recommendation</strong></td>
+            <td>Keep stacks shallow (2–3 deep max)</td>
+            <td>Keep release branches short-lived; rebase from main regularly</td>
+        </tr>
+    </tbody>
+</table>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
@@ -861,7 +1015,7 @@
 <p>GitHub-hosted runners (ubuntu-24.04) work for <strong>most operations</strong> because they only need control plane access. Self-hosted runners are only required when your Terraform code needs <strong>data plane access</strong> to private endpoints.</p>
 
 <div class="alert alert-info">
-    <strong>Understanding the Difference:</strong> See <a href="decisions.html#adr-011">ADR-011: Control Plane vs Data Plane</a> for a detailed explanation of why OIDC works for some operations but not others.
+    <div><strong>Understanding the Difference:</strong> See <a href="decisions.html#adr-011">ADR-011: Control Plane vs Data Plane</a> for a detailed explanation of why OIDC works for some operations but not others.</div>
 </div>
 
 <table>
@@ -935,7 +1089,7 @@
 </div>
 
 <div class="alert alert-warning">
-    <strong>Cost Tip:</strong> If your Terraform doesn't need data plane access, stick with public runners. Self-hosted runners on Container Apps add cost. Only enable <code>github_runners_aca_enabled</code> if you actually need data plane access in CI/CD.
+    <div><strong>Cost Tip:</strong> If your Terraform doesn't need data plane access, stick with public runners. Self-hosted runners on Container Apps add cost. Only enable <code>github_runners_aca_enabled</code> if you actually need data plane access in CI/CD.</div>
 </div>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
@@ -992,7 +1146,7 @@
   contents: read    # Required for repository checkout</pre>
 
 <div class="alert alert-warning">
-    <strong>Important:</strong> Without <code>id-token: write</code> permission, the workflow cannot generate the OIDC token needed for Azure authentication.
+    <div><strong>Important:</strong> Without <code>id-token: write</code> permission, the workflow cannot generate the OIDC token needed for Azure authentication.</div>
 </div>
 
 <h2>.deployer-using-secure-tunnel.yml (Reusable Workflow)</h2>
@@ -1013,14 +1167,15 @@
 
 <h2>.lint.yml (Reusable Workflow)</h2>
 
-<p>Reusable lint workflow used by PR checks. It sets up Terraform, TFLint, and Python, installs pre-commit, and runs the local pre-commit Terraform hook either diff-based or full-repo.</p>
+<p>Reusable validation workflow used by PR checks. Runs Terraform formatting and linting, enforces PR title conventions, and blocks forks.</p>
 
 <div class="card card-gold">
     <h3>What It Runs</h3>
     <ul>
-        <li><code>python -m pip install --upgrade pre-commit</code></li>
-        <li><code>pre-commit run --from-ref ... --to-ref ...</code> for PR changes</li>
-        <li>Fallback to <code>pre-commit run --all-files</code> when SHAs are not provided</li>
+        <li><strong>Pre-commit hooks</strong>: <code>terraform fmt</code> + <code>tflint</code> (diff-based when possible, full-repo fallback)</li>
+        <li><strong>Conventional Commits</strong>: Validates PR title follows <a href="https://www.conventionalcommits.org/en/v1.0.0/">Conventional Commits</a> spec (e.g. <code>feat:</code>, <code>fix:</code>, <code>chore:</code>)</li>
+        <li><strong>Fork check</strong>: Rejects PRs from forked repositories</li>
+        <li><strong>Summary on failure</strong>: When any check fails, prints a consolidated error summary with common reasons</li>
     </ul>
 </div>
 
@@ -1093,7 +1248,7 @@
 </table>
 
 <div class="alert alert-info">
-    <strong>Cost Optimization:</strong> Azure Bastion has hourly charges (~$0.19/hour for Basic SKU). Deploy only when needed and destroy when done.
+    <div><strong>Cost Optimization:</strong> Azure Bastion has hourly charges (~$0.19/hour for Basic SKU). Deploy only when needed and destroy when done.</div>
 </div>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
@@ -1105,17 +1260,17 @@
 <div class="card card-gold">
     <h3>Automated Checks</h3>
     <ul>
-        <li><strong>Terraform Linting</strong>: Invokes <code>.lint.yml</code> (pre-commit fmt + tflint)</li>
+        <li><strong>Validation</strong>: Invokes <code>.lint.yml</code> (pre-commit fmt + tflint, conventional commits, fork check)</li>
         <li><strong>Container Build Validation</strong>: Invokes <code>.builds.yml</code> for proxy images</li>
         <li><strong>Tools Proxy Bootstrap</strong>: Invokes <code>.deployer.yml</code> to deploy <code>azure_proxy</code> in <code>tools</code></li>
         <li><strong>Plan Against Test</strong>: Invokes <code>.deployer-using-secure-tunnel.yml</code> with <code>command=plan</code></li>
         <li><strong>PR Description Update</strong>: Appends the test plan summary to the PR description under <em>AI Hub Infra Changes</em></li>
-        <li><strong>PR Signal</strong>: Fails fast if any checks are broken</li>
+        <li><strong>Final Result</strong>: Reports pass/fail per job with clear ✅/❌ indicators; PR-Description is non-blocking</li>
     </ul>
 </div>
 
 <div class="alert alert-info">
-    <strong>Note:</strong> The pr-open workflow must pass before a PR can be merged. The plan step appends an <em>AI Hub Infra Changes</em> section to the PR description with a readable plan summary; when there are no infra diffs the section says <code>No Changes to AI Hub Infra in this PR</code>.
+    <div><strong>Note:</strong> The pr-open workflow must pass before a PR can be merged. The plan step appends an <em>AI Hub Infra Changes</em> section to the PR description with a readable plan summary; when there are no infra diffs the section says <code>No Changes to AI Hub Infra in this PR</code>.</div>
 </div>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
@@ -1158,33 +1313,72 @@ on:
 <div class="card">
     <h3>How It Works</h3>
     <ol>
+        <li>Validates inputs — <strong>prod apply requires a <code>deploy_tag</code></strong> (a semver tag like <code>v1.2.3</code> from a successful <code>merge-main.yml</code> run)</li>
         <li>Deploys/refreshes <code>azure_proxy</code> in <code>tools</code> via <code>.deployer.yml</code></li>
         <li>Passes encrypted proxy outputs to <code>.deployer-using-secure-tunnel.yml</code></li>
         <li>Executes selected Terraform command in chosen environment</li>
+        <li><strong>For prod apply only</strong>: Creates a GitHub Release from the deployed tag with deployment metadata</li>
     </ol>
 </div>
 
-<div class="alert alert-info">
-    <strong>Gated Promotion:</strong> Jobs in this workflow bind to GitHub Environments (<code>dev</code>, <code>test</code>, <code>prod</code>). Configure required reviewers on <code>test</code> and <code>prod</code> to enforce approval gates before deployment jobs start.
+<div class="alert alert-warning">
+    <div><strong>PROD is gated:</strong> The <code>prod</code> environment has <strong>required reviewers</strong> configured as a GitHub Environment protection rule. Any workflow job targeting <code>prod</code> will pause and wait for manual approval from designated reviewers before executing. Additionally, <code>prod apply</code> requires you to specify which semver git tag to deploy — ensuring only test-validated commits reach production.</div>
 </div>
 
-<div class="alert alert-warning">
-    <strong>Dev Environment Scope:</strong> Developers may occasionally deploy to <code>dev</code> from a PR branch using workflow dispatch to test specific features. The <code>dev</code> environment does <strong>not</strong> include App Gateway or DNS Zone; end-to-end ingress and DNS validation is only supported in <code>test</code> and <code>prod</code>.
+<div class="alert alert-info">
+    <div><strong>Dev Environment Scope:</strong> Developers may occasionally deploy to <code>dev</code> from a PR branch using workflow dispatch to test specific features. The <code>dev</code> environment does <strong>not</strong> include App Gateway or DNS Zone; end-to-end ingress and DNS validation is only supported in <code>test</code> and <code>prod</code>.</div>
 </div>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>main-merge-test-deploy.yml (Auto Apply on Main)</h2>
+<h2>merge-main.yml (Auto Apply + Semantic Version on Main)</h2>
 
-<p>This workflow runs on every push to <code>main</code> and automatically applies infrastructure to <code>test</code>.</p>
+<p>This workflow runs on every push to <code>main</code>. It creates a semantic version tag using <a href="https://www.conventionalcommits.org/en/v1.0.0/">Conventional Commits</a> and then applies infrastructure to <code>test</code>.</p>
 
 <div class="card">
     <h3>Execution Flow</h3>
     <ol>
+        <li><strong>Semantic version</strong>: Uses <code>TriPSs/conventional-changelog-action</code> to analyse commit messages since the last tag and bump the version accordingly (<code>feat:</code> → minor, <code>fix:</code> → patch, <code>BREAKING CHANGE</code> → major)</li>
+        <li>Creates a git tag (e.g. <code>v1.2.3</code>) and updates <code>CHANGELOG.md</code></li>
         <li>Deploy/update <code>azure_proxy</code> in <code>tools</code> using <code>.deployer.yml</code></li>
         <li>Pass encrypted proxy outputs to <code>.deployer-using-secure-tunnel.yml</code></li>
         <li>Run <code>apply</code> against <code>test</code></li>
     </ol>
+</div>
+
+<div class="alert alert-info">
+    <div><strong>Why semver tags?</strong> Semantic version tags serve as the input for prod deployments. When promoting to prod via <code>manual-dispatch.yml</code>, you provide a version tag (e.g. <code>v1.2.3</code>) to ensure the exact commit that passed test is what gets applied to production. The version is derived from commit messages, so <code>feat:</code> and <code>fix:</code> prefixes directly control versioning.</div>
+</div>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>Release Process (TEST → PROD)</h2>
+
+<p>Production releases follow a tag-based promotion flow:</p>
+
+<div class="card card-gold">
+    <h3>Steps to Release to Production</h3>
+    <ol>
+        <li>Merge your PR to <code>main</code> — the test deployment and semantic versioning run automatically</li>
+        <li>Verify the test deployment succeeded and a version tag was created (visible in Actions summary and repo tags, e.g. <code>v1.2.3</code>)</li>
+        <li>Go to <strong>Actions → Deploy to Environments (Manual Dispatch)</strong></li>
+        <li>Select: <code>environment=prod</code>, <code>command=apply</code>, <code>deploy_tag=v1.2.3</code></li>
+        <li>Click <strong>Run workflow</strong> — the job will pause waiting for <strong>prod environment approval</strong></li>
+        <li>A designated reviewer approves the deployment in the Actions UI</li>
+        <li>After successful apply, a <strong>GitHub Release</strong> is automatically created with deployment details</li>
+    </ol>
+</div>
+
+<div class="card">
+    <h3>Release Contents</h3>
+    <p>Each GitHub Release created for prod includes:</p>
+    <ul>
+        <li>The git tag that was deployed</li>
+        <li>Commit SHA</li>
+        <li>Who triggered the deployment</li>
+        <li>Link to the workflow run</li>
+        <li>Timestamp</li>
+    </ul>
 </div>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
@@ -1223,7 +1417,7 @@ on:
             <td>Keeps each manually triggered deployment isolated and traceable to a single run.</td>
         </tr>
         <tr>
-            <td><code>main-merge-test-deploy.yml</code></td>
+            <td><code>merge-main.yml</code></td>
             <td><code>deploy-test-on-main</code></td>
             <td>Queues merges to main so test applies execute in order and avoid state lock contention.</td>
         </tr>
@@ -1231,7 +1425,7 @@ on:
 </table>
 
 <div class="alert alert-info">
-    <strong>Practical Effect:</strong> Concurrency improves deployment reliability by reducing Terraform state lock failures, avoiding overlapping applies, and ensuring each environment converges predictably.
+    <div><strong>Practical Effect:</strong> Concurrency improves deployment reliability by reducing Terraform state lock failures, avoiding overlapping applies, and ensuring each environment converges predictably.</div>
 </div>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
@@ -1350,7 +1544,7 @@ az login
 ./infra-ai-hub/scripts/deploy-terraform.sh apply test</pre>
 
 <div class="alert alert-info">
-    <strong>Note:</strong> Local runs use your Azure CLI credentials instead of OIDC. Make sure you have the required permissions.
+    <div><strong>Note:</strong> Local runs use your Azure CLI credentials instead of OIDC. Make sure you have the required permissions.</div>
 </div>
     </main>
     <footer class="site-footer">

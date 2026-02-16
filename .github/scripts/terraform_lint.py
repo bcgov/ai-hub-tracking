@@ -3,15 +3,19 @@
 import subprocess
 import sys
 from pathlib import Path
+from typing import List, Optional
 
 
 ROOT = Path(__file__).resolve().parents[2]
 
 
-def run_command(command: list[str], cwd: Path | None = None) -> None:
+def run_command(command: List[str], cwd: Optional[Path] = None) -> None:
     process = subprocess.run(command, cwd=cwd or ROOT)
     if process.returncode != 0:
-        raise RuntimeError("Command failed")
+        cmd_str = " ".join(command)
+        raise RuntimeError(
+            f"Command failed (exit {process.returncode}): {cmd_str}"
+        )
 
 
 def is_under_terraform_roots(path: Path) -> bool:

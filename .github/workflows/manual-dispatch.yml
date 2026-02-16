@@ -20,6 +20,10 @@ on:
           - plan
           - apply
           - destroy
+      deploy_tag:
+        description: "Git tag to deploy (required for prod apply, e.g. v1.2.3 from merge-main.yml)"
+        required: false
+        type: string
       terraform_log_level:
         description: "The Terraform logging level"
         required: false
@@ -39,8 +43,30 @@ concurrency:
   group: manual-deploy-${{ github.run_id }}
   cancel-in-progress: false
 jobs:
+  validate-inputs:
+    name: Validate inputs
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require tag for prod apply
+        if: inputs.environment == 'prod' && inputs.command == 'apply' && inputs.deploy_tag == ''
+        run: |
+          echo "::error::A deploy_tag is required when applying to prod. Use a semver tag (e.g. v1.2.3) from a successful merge-main.yml run."
+          exit 1
+
+      - name: Verify tag exists
+        if: inputs.deploy_tag != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if ! git ls-remote --tags origin "refs/tags/${{ inputs.deploy_tag }}" | grep -q "${{ inputs.deploy_tag }}"; then
+            echo "::error::Tag '${{ inputs.deploy_tag }}' not found in remote. Available version tags:"
+            git ls-remote --tags origin 'refs/tags/v*' | tail -10
+            exit 1
+          fi
+
   deploy-proxy-in-tools-environment:
     name: Deploy to 'tools' Environment
+    needs: validate-inputs
     uses: ./.github/workflows/.deployer.yml
     with:
       environment_name: tools
@@ -61,3 +87,48 @@ jobs:
       tag: latest
       terraform_log_level: ${{ inputs.terraform_log_level }}
     secrets: inherit
+
+  create-prod-release:
+    name: Create GitHub release for prod
+    if: inputs.environment == 'prod' && inputs.command == 'apply'
+    needs: deploy-to-environment
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout at tag
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.deploy_tag }}
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          TAG="${{ inputs.deploy_tag }}"
+          RELEASE_NAME="Production Release — ${TAG}"
+          COMMIT_SHA=$(git rev-parse HEAD)
+          SHORT_SHA="${COMMIT_SHA:0:7}"
+          RUN_URL="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+
+          BODY=$(cat <<RELEASE_EOF
+          ## Production Deployment
+
+          | Field | Value |
+          |-------|-------|
+          | **Tag** | \`${TAG}\` |
+          | **Commit** | \`${SHORT_SHA}\` |
+          | **Deployed by** | @${GITHUB_ACTOR} |
+          | **Workflow run** | [#${GITHUB_RUN_NUMBER}](${RUN_URL}) |
+          | **Date** | $(date -u +'%Y-%m-%d %H:%M:%S UTC') |
+
+          ### What was deployed
+          This release was promoted from a successful \`test\` environment deployment.
+          The git tag \`${TAG}\` was created automatically by \`merge-main.yml\` using conventional commits.
+          RELEASE_EOF
+          )
+
+          gh release create "$TAG" \
+            --title "$RELEASE_NAME" \
+            --notes "$BODY" \
+            --verify-tag

@@ -190,7 +190,7 @@ ai-hub-tracking/
 │   │   ├── .lint.yml                   # Reusable Terraform lint workflow (pre-commit)
 │   │   ├── add-or-remove-module.yml    # Toggle infrastructure modules
 │   │   ├── apim-key-rotation.yml       # APIM key rotation workflow (scheduled + manual)
-│   │   ├── main-merge-test-deploy.yml  # Auto-apply to test on merge/push to main
+│   │   ├── merge-main.yml              # Auto-apply to test on merge to main (semantic version + changelog)
 │   │   ├── manual-dispatch.yml         # Manual deployment trigger
 │   │   ├── pages.yml                   # Documentation deployment to GitHub Pages
 │   │   ├── pr-open.yml                 # Pull request validation
@@ -269,3 +269,14 @@ Docker configurations for the secure proxy tunnel used in local development depl
 
 ### `ssl_certs/`
 SSL certificate management scripts and environment-specific certificate files. Includes CSR generation, PFX creation, and upload utilities for App Gateway and Key Vault.
+
+## Developer Workflow (SDLC)
+
+All infrastructure changes follow a promote-through-environments flow enforced by GitHub Actions:
+
+1. **Branch** from `main` (e.g. `feat/add-tenant`, `fix/dns-ttl`)
+2. **Open a PR** → automated lint, builds, and Terraform plan against `test`
+3. **Merge to main** → semantic version tag + auto-apply to `test`
+4. **Promote to prod** → manual dispatch with the semver tag, gated by environment approval
+
+For the complete SDLC documentation — including stacked PRs, release PRs, concurrency strategy, and the full release process — see the **[Workflows Documentation](https://bcgov.github.io/ai-hub-tracking/workflows.html)**.

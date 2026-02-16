@@ -1,0 +1,78 @@
+name: Deploy TEST on Main Merge
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  id-token: write
+  contents: write
+
+concurrency:
+  group: deploy-test-on-main
+  cancel-in-progress: false
+
+jobs:
+  semantic-version:
+    name: Semantic Version & Tag
+    outputs:
+      semanticVersion: ${{ steps.changelog.outputs.version }}
+      tag: ${{ steps.changelog.outputs.tag }}
+      clean_changelog: ${{ steps.changelog.outputs.clean_changelog }}
+      skipped: ${{ steps.changelog.outputs.skipped }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Conventional Changelog Update
+        uses: TriPSs/conventional-changelog-action@v6
+        id: changelog
+        continue-on-error: true
+        with:
+          preset: "conventionalcommits"
+          github-token: ${{ github.token }}
+          output-file: "CHANGELOG.md"
+          skip-version-file: "true"
+          skip-commit: "true"
+          skip-on-empty: "false"
+          git-push: "true"
+
+      - name: Tag summary
+        run: |
+          echo "### 🏷️ Semantic Version" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          if [[ "${{ steps.changelog.outputs.skipped }}" == "true" ]]; then
+            echo "No version bump (no conventional commits since last tag)." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "- **Version:** \`${{ steps.changelog.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
+            echo "- **Tag:** \`${{ steps.changelog.outputs.tag }}\`" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  deploy-proxy-in-tools-environment:
+    name: Deploy Proxy in tools
+    uses: ./.github/workflows/.deployer.yml
+    with:
+      environment_name: tools
+      command: apply
+      target_module: azure_proxy
+      tag: latest
+      terraform_log_level: INFO
+    secrets: inherit
+
+  apply-to-test-environment:
+    name: Apply to test Environment
+    needs: deploy-proxy-in-tools-environment
+    uses: ./.github/workflows/.deployer-using-secure-tunnel.yml
+    with:
+      environment_name: test
+      command: apply
+      proxy_url: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_url }}
+      proxy_auth: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_auth }}
+      tag: latest
+      terraform_log_level: INFO
+    secrets: inherit
+
