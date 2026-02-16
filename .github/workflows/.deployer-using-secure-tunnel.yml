@@ -199,23 +199,53 @@ jobs:
             exit 0
           fi
 
-          if grep -Eq "No changes\. Your infrastructure matches the configuration\." "$LOG_FILE"; then
-            echo "has_changes=false" >> "$GITHUB_OUTPUT"
-            {
-              echo "plan_comment<<EOF"
-              echo "$NO_CHANGE_TEXT"
-              echo "EOF"
-            } >> "$GITHUB_OUTPUT"
+          # The deploy script runs plan across multiple stacks (shared, tenant,
+          # foundry, apim, tenant-user-mgmt). Each stack independently prints
+          # either "No changes." or "Plan: N to add, N to change, N to destroy."
+          # We must check ALL stacks — a single "No changes" does not mean the
+          # whole plan is clean.
+
+          # Collect all Plan summary lines (only lines with actual changes)
+          PLAN_LINES=$(grep -E "^Plan: [0-9]+ to add, [0-9]+ to change, [0-9]+ to destroy\." "$LOG_FILE" || true)
+
+          if [[ -z "$PLAN_LINES" ]]; then
+            # No Plan lines found — either all stacks reported "No changes"
+            # or the plan output format was unexpected
+            if grep -q "No changes\." "$LOG_FILE"; then
+              echo "has_changes=false" >> "$GITHUB_OUTPUT"
+              {
+                echo "plan_comment<<EOF"
+                echo "$NO_CHANGE_TEXT"
+                echo "EOF"
+              } >> "$GITHUB_OUTPUT"
+            else
+              echo "has_changes=unknown" >> "$GITHUB_OUTPUT"
+              {
+                echo "plan_comment<<EOF"
+                echo "Plan completed but no recognisable summary was found in the logs."
+                echo "EOF"
+              } >> "$GITHUB_OUTPUT"
+            fi
             exit 0
           fi
 
           echo "has_changes=true" >> "$GITHUB_OUTPUT"
 
-          PLAN_LINE=$(grep -E "^Plan: [0-9]+ to add, [0-9]+ to change, [0-9]+ to destroy\." "$LOG_FILE" | tail -n 1 || true)
-          if [[ -z "$PLAN_LINE" ]]; then
-            PLAN_LINE="Plan output detected (summary line not found)."
-          fi
+          # Build a combined summary from all stacks that reported changes
+          TOTAL_ADD=0; TOTAL_CHANGE=0; TOTAL_DESTROY=0
+          while IFS= read -r line; do
+            add=$(echo "$line" | grep -oP '(\d+) to add' | grep -oP '\d+')
+            chg=$(echo "$line" | grep -oP '(\d+) to change' | grep -oP '\d+')
+            dst=$(echo "$line" | grep -oP '(\d+) to destroy' | grep -oP '\d+')
+            TOTAL_ADD=$(( TOTAL_ADD + ${add:-0} ))
+            TOTAL_CHANGE=$(( TOTAL_CHANGE + ${chg:-0} ))
+            TOTAL_DESTROY=$(( TOTAL_DESTROY + ${dst:-0} ))
+          done <<< "$PLAN_LINES"
 
+          STACK_COUNT=$(echo "$PLAN_LINES" | wc -l)
+          SUMMARY="${TOTAL_ADD} to add, ${TOTAL_CHANGE} to change, ${TOTAL_DESTROY} to destroy (across ${STACK_COUNT} stack(s))"
+
+          # Extract the first block of planned actions for the collapsible detail
           START_LINE=$(grep -n "Terraform will perform the following actions:" "$LOG_FILE" | head -n 1 | cut -d: -f1 || true)
           if [[ -n "$START_LINE" ]]; then
             SNIPPET=$(sed -n "${START_LINE},$((START_LINE + 220))p" "$LOG_FILE")
@@ -231,9 +261,7 @@ jobs:
 
           {
             echo "plan_comment<<EOF"
-            echo "### Terraform Plan (test)"
-            echo
-            echo "**Summary:** ${PLAN_LINE}"
+            echo "**Summary:** ${SUMMARY}"
             echo
             echo "<details><summary>Show plan details</summary>"
             echo
