@@ -32,6 +32,7 @@ jobs:
         ${{github.event.number}}-${{ github.run_number }}
         latest
   deploy-proxy-in-tools-environment:
+    needs: lint
     name: Deploy to 'tools' Environment
     uses: ./.github/workflows/.deployer.yml
     with:

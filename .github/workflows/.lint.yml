@@ -21,20 +21,22 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.12.2
 
       - name: Setup TFLint
-        uses: terraform-linters/setup-tflint@v4
+        uses: terraform-linters/setup-tflint@v6
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Install pre-commit
         run: python -m pip install --upgrade pre-commit
@@ -44,11 +46,17 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ -n "${{ inputs.base_sha }}" && -n "${{ inputs.head_sha }}" ]]; then
+          BASE_SHA="${{ inputs.base_sha }}"
+          HEAD_SHA="${{ inputs.head_sha }}"
+
+          if [[ -n "$BASE_SHA" && -n "$HEAD_SHA" ]] \
+            && git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null \
+            && git cat-file -e "$HEAD_SHA^{commit}" 2>/dev/null; then
             pre-commit run \
-              --from-ref "${{ inputs.base_sha }}" \
-              --to-ref "${{ inputs.head_sha }}" \
+              --from-ref "$BASE_SHA" \
+              --to-ref "$HEAD_SHA" \
               --show-diff-on-failure
           else
+            echo "Falling back to full pre-commit run: base/head commit not available in local checkout."
             pre-commit run --all-files --show-diff-on-failure
           fi
