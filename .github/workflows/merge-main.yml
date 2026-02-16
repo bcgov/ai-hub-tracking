@@ -75,4 +75,3 @@ jobs:
       tag: latest
       terraform_log_level: INFO
     secrets: inherit
-
