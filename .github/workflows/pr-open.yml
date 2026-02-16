@@ -11,7 +11,15 @@ permissions:
   pull-requests: write
 
 jobs:
+  lint:
+    uses: ./.github/workflows/.lint.yml
+    with:
+      base_sha: ${{ github.event.pull_request.base.sha || '' }}
+      head_sha: ${{ github.event.pull_request.head.sha || '' }}
+    secrets: inherit
+
   builds:
+    needs: lint
     concurrency:
       # Cancel in progress for PR open and close
       group: builds-${{ github.event.number || 'latest' }}
@@ -23,3 +31,47 @@ jobs:
         manual-${{ github.run_number }}
         ${{github.event.number}}-${{ github.run_number }}
         latest
+  deploy-proxy-in-tools-environment:
+    name: Deploy to 'tools' Environment
+    uses: ./.github/workflows/.deployer.yml
+    with:
+      environment_name: tools
+      command: apply
+      target_module: azure_proxy
+      tag: latest
+      terraform_log_level: INFO
+    secrets: inherit
+  plan-against-test-environment:
+    name: Plan against test Environment
+    needs: deploy-proxy-in-tools-environment
+    uses: ./.github/workflows/.deployer-using-secure-tunnel.yml
+    with:
+      environment_name: test
+      command: plan
+      proxy_url: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_url }}
+      proxy_auth: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_auth }}
+      tag: latest
+      terraform_log_level: INFO
+    secrets: inherit
+
+  result:
+    name: Final Result
+    if: always()
+    needs: [lint, builds, plan-against-test-environment]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Report Status
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          echo "Lint:   ${{ needs.lint.result }}"
+          echo "Builds: ${{ needs.builds.result }}"
+          echo "Plan:   ${{ needs.plan-against-test-environment.result }}"
+
+          if [[ "${{ needs.lint.result }}" != "success" || "${{ needs.builds.result }}" != "success" || "${{ needs.plan-against-test-environment.result }}" != "success" ]]; then
+            echo "One or more prerequisite jobs failed."
+            exit 1
+          fi
+
+          echo "All PR checks passed."

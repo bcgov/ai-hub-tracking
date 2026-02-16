@@ -60,6 +60,9 @@ jobs:
   terraform:
     environment: ${{ inputs.environment_name }}
     name: Terraform ${{ inputs.command }} via Secure Tunnel
+    concurrency:
+      cancel-in-progress: false
+      group: ${{ inputs.environment_name }}
     needs: validate
     runs-on: ubuntu-24.04
     steps:

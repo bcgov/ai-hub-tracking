@@ -1,0 +1,10 @@
+minimum_pre_commit_version: "3.6.0"
+
+repos:
+  - repo: local
+    hooks:
+      - id: terraform-lint
+        name: Terraform fmt and tflint
+        entry: python .github/scripts/terraform_lint.py
+        language: system
+        files: ^(initial-setup/infra|infra-ai-hub)/.*\.tf$

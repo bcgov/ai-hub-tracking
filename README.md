@@ -21,9 +21,32 @@ The `initial-setup/initial-azure-setup.sh` script automatically installs missing
 
 - **Azure CLI** - Authentication and Azure resource management
 - **Terraform** >= 1.12.0 - Infrastructure as code
+- **TFLint** - Terraform linting for Azure and Terraform best-practice checks
+- **pre-commit** - Git hook framework to enforce Terraform checks before commit
 - **GitHub CLI** (optional) - Automatic GitHub secret creation
 
 The script detects your OS and package manager (apt, yum, brew) to install tools with interactive prompts. See [Initial Setup README](initial-setup/README.md) for detailed information.
+
+## Terraform Linting and Pre-Commit
+
+This repository enforces Terraform formatting and linting using pre-commit hooks.
+
+1. Install `pre-commit` (for example: `pip install pre-commit`)
+2. Install git hooks in this repository:
+
+  ```bash
+  pre-commit install
+  ```
+
+3. Run hooks manually at any time:
+
+  ```bash
+  pre-commit run --all-files
+  ```
+
+The configured Terraform hook runs:
+- `terraform fmt -check`
+- `tflint` checks for both `initial-setup/infra` and `infra-ai-hub`
 
 ## Folder Structure
 
@@ -164,7 +187,10 @@ ai-hub-tracking/
 │   │   ├── .deployer.yml               # Reusable Terraform deployment workflow
 │   │   ├── .deployer-using-secure-tunnel.yml # Deployment via Chisel tunnel
 │   │   ├── .builds.yml                 # Reusable build workflow
+│   │   ├── .lint.yml                   # Reusable Terraform lint workflow (pre-commit)
 │   │   ├── add-or-remove-module.yml    # Toggle infrastructure modules
+│   │   ├── apim-key-rotation.yml       # APIM key rotation workflow (scheduled + manual)
+│   │   ├── main-merge-test-deploy.yml  # Auto-apply to test on merge/push to main
 │   │   ├── manual-dispatch.yml         # Manual deployment trigger
 │   │   ├── pages.yml                   # Documentation deployment to GitHub Pages
 │   │   ├── pr-open.yml                 # Pull request validation

@@ -41,6 +41,9 @@ permissions:
   id-token: write # Required for OIDC authentication
   contents: read
 
+concurrency:
+  cancel-in-progress: false
+  group: "tools" # this is always tools, so hardcoded to tools and avoids race condition for multiple PRs.
 jobs:
   terraform:
     if: inputs.target_module != 'jumpbox'

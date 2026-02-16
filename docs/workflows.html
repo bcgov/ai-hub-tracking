@@ -767,17 +767,37 @@
         <tr>
             <td><strong>.deployer.yml</strong></td>
             <td>Called by other workflows</td>
-            <td>Reusable Terraform deployment workflow (supports all modules)</td>
+            <td>Reusable Terraform deployer for <code>initial-setup/infra</code> (tools bootstrap and module-level operations)</td>
+        </tr>
+        <tr>
+            <td><strong>.deployer-using-secure-tunnel.yml</strong></td>
+            <td>Called by other workflows</td>
+            <td>Reusable Terraform deployer for <code>infra-ai-hub</code> through Chisel + Privoxy secure tunnel</td>
+        </tr>
+        <tr>
+            <td><strong>.lint.yml</strong></td>
+            <td>Called by other workflows</td>
+            <td>Reusable Terraform lint/format checks via pre-commit (<code>terraform fmt</code> + <code>tflint</code>)</td>
         </tr>
         <tr>
             <td><strong>add-or-remove-module.yml</strong></td>
             <td>Manual (workflow_dispatch)</td>
-            <td>Deploy or destroy infrastructure modules on demand</td>
+            <td>Deploy or destroy selected tools modules (bastion, azure_proxy, jumpbox, github_runners_aca)</td>
+        </tr>
+        <tr>
+            <td><strong>manual-dispatch.yml</strong></td>
+            <td>Manual (workflow_dispatch)</td>
+            <td>Run <code>plan/apply/destroy</code> for dev/test/prod after provisioning proxy in tools</td>
+        </tr>
+        <tr>
+            <td><strong>main-merge-test-deploy.yml</strong></td>
+            <td>Push to <code>main</code></td>
+            <td>Automatic post-merge deployment: applies latest infrastructure to test environment</td>
         </tr>
         <tr>
             <td><strong>pr-open.yml</strong></td>
-            <td>Pull request opened</td>
-            <td>Automated PR checks and validations</td>
+            <td>Pull request events + manual trigger</td>
+            <td>PR validation: lint, container builds, deploy proxy in tools, and plan against test</td>
         </tr>
         <tr>
             <td><strong>schedule.yml</strong></td>
@@ -785,12 +805,54 @@
             <td>Auto-destroy Bastion for cost savings</td>
         </tr>
         <tr>
+            <td><strong>apim-key-rotation.yml</strong></td>
+            <td>Daily cron + manual trigger</td>
+            <td>Rotate APIM subscription keys across environments (manual single-env or scheduled all-env flow)</td>
+        </tr>
+        <tr>
             <td><strong>pages.yml</strong></td>
-            <td>Push to main (docs/**)</td>
-            <td>Deploy this documentation site</td>
+            <td>Push to main (docs and Terraform roots) + manual trigger</td>
+            <td>Generate docs and deploy GitHub Pages site</td>
         </tr>
     </tbody>
 </table>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>Developer SDLC Flow (Branch → PR → DEV/TEST/PROD)</h2>
+
+<p>The repository currently supports this sequence:</p>
+
+<ol>
+    <li><strong>Create feature branch</strong> from <code>main</code> (for example: <code>feature/&lt;work-item&gt;</code>) and commit changes.</li>
+    <li><strong>Open PR</strong> to <code>main</code>, which triggers <code>pr-open.yml</code>.</li>
+    <li><strong>PR validation</strong> runs lint + image builds + test-environment Terraform plan (via secure tunnel).</li>
+    <li><strong>Merge to main</strong> once PR checks and repository review requirements pass.</li>
+    <li><strong>Auto-apply to test</strong> runs through <code>main-merge-test-deploy.yml</code> on every merge/push to <code>main</code>.</li>
+    <li><strong>Promote or experiment</strong> using <code>manual-dispatch.yml</code> by selecting <code>dev</code>, <code>test</code>, or <code>prod</code> with <code>plan/apply/destroy</code>.</li>
+    <li><strong>Developer branch testing (occasional)</strong>: developers can run manual dispatch to <code>dev</code> from a feature/PR branch for targeted validation; use this sparingly and co-ordinate with other devs in the team.</li>
+    <li><strong>Environment scope</strong>: <code>dev</code> does not include App Gateway or DNS Zone. Full ingress path validation is only available in <code>test</code> and <code>prod</code>.</li>
+    <li><strong>Environment gating</strong> for <code>test</code> and <code>prod</code> is enforced through GitHub Environment protection rules (required reviewers/waits), because these workflows target environment-scoped jobs.</li>
+</ol>
+
+<pre>Feature Branch
+   │
+   └── Pull Request ──► pr-open.yml
+                        ├─ .lint.yml
+                        ├─ .builds.yml
+                        ├─ .deployer.yml (tools/azure_proxy)
+                        └─ .deployer-using-secure-tunnel.yml (test plan)
+                                  │
+                                  ▼
+                             Merge to main
+                                  │
+                                    ├──► main-merge-test-deploy.yml (apply test)
+                                    │
+                                  ▼
+                         manual-dispatch.yml
+                      (dev/test/prod plan|apply|destroy)
+                                  │
+                                  └─ Environment approval gates for test/prod</pre>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
@@ -880,7 +942,7 @@
 
 <h2>.deployer.yml (Reusable Workflow)</h2>
 
-<p>The core Terraform deployment workflow, called by other workflows using <code>workflow_call</code>.</p>
+<p>Reusable Terraform workflow for <code>initial-setup/infra</code>, primarily used to manage the tools environment and targeted foundational modules.</p>
 
 <div class="card">
     <h3>Inputs</h3>
@@ -896,7 +958,7 @@
             <tr>
                 <td><code>environment_name</code></td>
                 <td>string</td>
-                <td>Target environment (tools, dev, prod)</td>
+                <td>Target environment name (commonly <code>tools</code>)</td>
             </tr>
             <tr>
                 <td><code>command</code></td>
@@ -906,7 +968,7 @@
             <tr>
                 <td><code>target_module</code></td>
                 <td>string</td>
-                <td>Optional module to target (jumpbox, bastion, network, azure_proxy, github_runners_aca, etc.)</td>
+                <td>Required module target (for example: <code>azure_proxy</code>, <code>bastion</code>, <code>jumpbox</code>)</td>
             </tr>
         </tbody>
     </table>
@@ -931,6 +993,35 @@
 
 <div class="alert alert-warning">
     <strong>Important:</strong> Without <code>id-token: write</code> permission, the workflow cannot generate the OIDC token needed for Azure authentication.
+</div>
+
+<h2>.deployer-using-secure-tunnel.yml (Reusable Workflow)</h2>
+
+<p>Reusable Terraform workflow for <code>infra-ai-hub</code>. It receives encrypted proxy outputs from <code>.deployer.yml</code>, starts Chisel + Privoxy, then runs stack deployment and (for apply in dev/test) integration tests.</p>
+
+<div class="card">
+    <h3>Highlights</h3>
+    <ul>
+        <li><strong>Validated environments</strong>: <code>dev</code>, <code>test</code>, <code>prod</code></li>
+        <li><strong>Secure tunnel bootstrap</strong>: decrypts <code>proxy_url</code>/<code>proxy_auth</code> with <code>GPG_PASSPHRASE</code></li>
+        <li><strong>Proxy-aware Terraform</strong>: sets <code>HTTP_PROXY</code>, <code>HTTPS_PROXY</code>, and <code>NO_PROXY</code></li>
+        <li><strong>Integration tests</strong>: runs <code>tests/integration/run-tests.sh --env &lt;env&gt;</code> after successful <code>apply</code> in dev/test</li>
+    </ul>
+</div>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>.lint.yml (Reusable Workflow)</h2>
+
+<p>Reusable lint workflow used by PR checks. It sets up Terraform, TFLint, and Python, installs pre-commit, and runs the local pre-commit Terraform hook either diff-based or full-repo.</p>
+
+<div class="card card-gold">
+    <h3>What It Runs</h3>
+    <ul>
+        <li><code>python -m pip install --upgrade pre-commit</code></li>
+        <li><code>pre-commit run --from-ref ... --to-ref ...</code> for PR changes</li>
+        <li>Fallback to <code>pre-commit run --all-files</code> when SHAs are not provided</li>
+    </ul>
 </div>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
@@ -967,7 +1058,7 @@
             <li>Go to Actions tab in GitHub</li>
             <li>Select "Deploy or Remove Bastion Host"</li>
             <li>Click "Run workflow"</li>
-            <li>Choose environment, module, and command</li>
+            <li>Choose <code>tools</code>, module, and command</li>
         </ol>
     </div>
 </div>
@@ -985,7 +1076,7 @@
     <tbody>
         <tr>
             <td><code>environment_name</code></td>
-            <td>tools, dev, prod</td>
+            <td>tools</td>
             <td>Target environment</td>
         </tr>
         <tr>
@@ -1009,15 +1100,16 @@
 
 <h2>pr-open.yml (Pull Request Checks)</h2>
 
-<p>Automatically runs validation checks when a pull request is opened. Helps catch issues early in the development process before code review.</p>
+<p>Runs on pull request events (and manual dispatch) to provide fast CI signal before merge.</p>
 
 <div class="card card-gold">
     <h3>Automated Checks</h3>
     <ul>
-        <li><strong>Terraform Validation</strong>: Syntax validation and format compliance</li>
-        <li><strong>Code Quality</strong>: Linting and best practices checks</li>
-        <li><strong>Documentation</strong>: Verifies docs are complete and up-to-date</li>
-        <li><strong>Security Scanning</strong>: Detects potential security issues</li>
+        <li><strong>Terraform Linting</strong>: Invokes <code>.lint.yml</code> (pre-commit fmt + tflint)</li>
+        <li><strong>Container Build Validation</strong>: Invokes <code>.builds.yml</code> for proxy images</li>
+        <li><strong>Tools Proxy Bootstrap</strong>: Invokes <code>.deployer.yml</code> to deploy <code>azure_proxy</code> in <code>tools</code></li>
+        <li><strong>Plan Against Test</strong>: Invokes <code>.deployer-using-secure-tunnel.yml</code> with <code>command=plan</code></li>
+        <li><strong>PR Signal</strong>: Fails fast if any checks are broken</li>
     </ul>
 </div>
 
@@ -1058,14 +1150,124 @@ on:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
+<h2>manual-dispatch.yml (Manual Promotion Workflow)</h2>
+
+<p>Use this workflow to run <code>plan</code>, <code>apply</code>, or <code>destroy</code> for <code>dev</code>, <code>test</code>, and <code>prod</code>.</p>
+
+<div class="card">
+    <h3>How It Works</h3>
+    <ol>
+        <li>Deploys/refreshes <code>azure_proxy</code> in <code>tools</code> via <code>.deployer.yml</code></li>
+        <li>Passes encrypted proxy outputs to <code>.deployer-using-secure-tunnel.yml</code></li>
+        <li>Executes selected Terraform command in chosen environment</li>
+    </ol>
+</div>
+
+<div class="alert alert-info">
+    <strong>Gated Promotion:</strong> Jobs in this workflow bind to GitHub Environments (<code>dev</code>, <code>test</code>, <code>prod</code>). Configure required reviewers on <code>test</code> and <code>prod</code> to enforce approval gates before deployment jobs start.
+</div>
+
+<div class="alert alert-warning">
+    <strong>Dev Environment Scope:</strong> Developers may occasionally deploy to <code>dev</code> from a PR branch using workflow dispatch to test specific features. The <code>dev</code> environment does <strong>not</strong> include App Gateway or DNS Zone; end-to-end ingress and DNS validation is only supported in <code>test</code> and <code>prod</code>.
+</div>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>main-merge-test-deploy.yml (Auto Apply on Main)</h2>
+
+<p>This workflow runs on every push to <code>main</code> and automatically applies infrastructure to <code>test</code>.</p>
+
+<div class="card">
+    <h3>Execution Flow</h3>
+    <ol>
+        <li>Deploy/update <code>azure_proxy</code> in <code>tools</code> using <code>.deployer.yml</code></li>
+        <li>Pass encrypted proxy outputs to <code>.deployer-using-secure-tunnel.yml</code></li>
+        <li>Run <code>apply</code> against <code>test</code></li>
+    </ol>
+</div>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>Concurrency Strategy</h2>
+
+<p>Several workflows and reusable jobs use <code>concurrency</code> to prevent race conditions and conflicting Terraform operations.</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Workflow/Job</th>
+            <th>Concurrency Group</th>
+            <th>Why It Helps</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>.deployer.yml</code></td>
+            <td><code>tools</code></td>
+            <td>Serializes tools/bootstrap changes so multiple runs don't mutate shared proxy infra at the same time.</td>
+        </tr>
+        <tr>
+            <td><code>.deployer-using-secure-tunnel.yml</code></td>
+            <td><code>${environment_name}</code></td>
+            <td>Ensures only one Terraform operation per environment runs at once (for example, only one test apply).</td>
+        </tr>
+        <tr>
+            <td><code>pr-open.yml</code> builds job</td>
+            <td><code>builds-${PR number}</code> (cancel in-progress)</td>
+            <td>Stops stale image builds when a newer commit arrives in the same PR.</td>
+        </tr>
+        <tr>
+            <td><code>manual-dispatch.yml</code></td>
+            <td><code>manual-deploy-${run_id}</code></td>
+            <td>Keeps each manually triggered deployment isolated and traceable to a single run.</td>
+        </tr>
+        <tr>
+            <td><code>main-merge-test-deploy.yml</code></td>
+            <td><code>deploy-test-on-main</code></td>
+            <td>Queues merges to main so test applies execute in order and avoid state lock contention.</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="alert alert-info">
+    <strong>Practical Effect:</strong> Concurrency improves deployment reliability by reducing Terraform state lock failures, avoiding overlapping applies, and ensuring each environment converges predictably.
+</div>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<h2>apim-key-rotation.yml (Scheduled + Manual)</h2>
+
+<p>Rotates APIM subscription keys using OIDC-authenticated Azure CLI execution.</p>
+
+<div class="grid grid-2">
+    <div class="card">
+        <h3>Manual Mode</h3>
+        <ul>
+            <li>Trigger with <code>workflow_dispatch</code></li>
+            <li>Select environment: <code>dev</code>, <code>test</code>, <code>prod</code></li>
+            <li>Optional <code>dry_run=true</code> for safe preview</li>
+        </ul>
+    </div>
+    <div class="card card-gold">
+        <h3>Scheduled Mode</h3>
+        <ul>
+            <li>Runs daily at <code>0 9 * * *</code> UTC</li>
+            <li>Executes dev and test first</li>
+            <li>Executes prod only after test succeeds</li>
+        </ul>
+    </div>
+</div>
+
+<hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
 <h2>pages.yml (Documentation)</h2>
 
-<p>Deploys this documentation site to GitHub Pages when changes are pushed to the <code>docs/</code> folder.</p>
+<p>Deploys this documentation site to GitHub Pages when changes are pushed to docs or Terraform roots (so generated references stay current).</p>
 
 <div class="card">
     <h3>Triggers</h3>
     <ul>
-        <li><strong>Push to main</strong>: When files in <code>docs/**</code> are changed</li>
+        <li><strong>Push to main</strong>: When files in <code>docs/**</code>, <code>initial-setup/infra/**</code>, or <code>infra-ai-hub/**</code> change</li>
         <li><strong>Manual</strong>: Can be triggered manually via <code>workflow_dispatch</code></li>
     </ul>
 </div>
@@ -1074,6 +1276,7 @@ on:
     <h3>Deployment Steps</h3>
     <ol>
         <li>Checkout repository</li>
+        <li>Run <code>docs/generate-tf-docs.sh</code> to refresh Terraform reference content</li>
         <li>Run <code>docs/build.sh</code> to generate HTML from templates</li>
         <li>Configure GitHub Pages</li>
         <li>Upload <code>docs/</code> folder as artifact</li>
@@ -1131,15 +1334,19 @@ on:
 
 <h2>Running Workflows Locally</h2>
 
-<p>For local development and testing, use the <code>deploy-terraform.sh</code> script:</p>
+<p>For local development and testing, use the deployment scripts in each Terraform root:</p>
 
 <pre># Ensure you're logged in
 az login
 
-# Run Terraform commands locally
+# Initial setup / tools
 ./initial-setup/infra/deploy-terraform.sh init
 ./initial-setup/infra/deploy-terraform.sh plan
 ./initial-setup/infra/deploy-terraform.sh apply</pre>
+
+<pre># AI Hub stacks
+./infra-ai-hub/scripts/deploy-terraform.sh plan dev
+./infra-ai-hub/scripts/deploy-terraform.sh apply test</pre>
 
 <div class="alert alert-info">
     <strong>Note:</strong> Local runs use your Azure CLI credentials instead of OIDC. Make sure you have the required permissions.
