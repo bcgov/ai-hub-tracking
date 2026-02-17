@@ -97,12 +97,16 @@ variable "exclusions" {
 }
 
 variable "custom_rules" {
-  description = "Custom WAF rules"
+  description = "Custom WAF rules (MatchRule or RateLimitRule)"
   type = list(object({
     name      = string
     priority  = number
     rule_type = string # MatchRule, RateLimitRule
     action    = string # Allow, Block, Log
+    # Rate-limit fields (required when rule_type = "RateLimitRule")
+    rate_limit_duration  = optional(string, null) # FiveMins, OneMin
+    rate_limit_threshold = optional(number, null) # Requests per duration
+    group_rate_limit_by  = optional(string, null) # ClientAddr, GeoLocation, None
     match_conditions = list(object({
       match_variable = string
       selector       = optional(string)

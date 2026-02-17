@@ -118,6 +118,10 @@ shared_config = {
     enabled             = true
     zone_name           = "test.aihub.gov.bc.ca"
     resource_group_name = "ai-hub-test-dns"
+
+    # DDoS IP Protection: disabled in test to save cost (~$199/mo)
+    # Enable if testing DDoS scenarios
+    ddos_protection_enabled = false
   }
 
   # ---------------------------------------------------------------------------

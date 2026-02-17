@@ -67,6 +67,10 @@ resource "azurerm_public_ip" "appgw" {
 
   domain_name_label = var.name_prefix
 
+  # DDoS IP Protection: per-IP adaptive L3/L4 DDoS mitigation
+  # Provides attack telemetry, alerting, and cost protection beyond Azure Basic
+  ddos_protection_mode = var.ddos_protection_enabled ? "Enabled" : "VirtualNetworkInherited"
+
   tags = merge(var.tags, {
     purpose = "appgw-static-pip"
   })
@@ -86,4 +90,57 @@ resource "azurerm_dns_a_record" "apex" {
   resource_group_name = azurerm_resource_group.dns.name
   ttl                 = var.a_record_ttl
   records             = [azurerm_public_ip.appgw.ip_address]
+}
+
+# =============================================================================
+# DIAGNOSTIC SETTINGS
+# =============================================================================
+# Always-on diagnostics for the public IP and DNS zone.
+# PIP diagnostics capture DDoS protection notifications, mitigation flow logs,
+# and mitigation reports — critical for attack visibility.
+# DNS zone diagnostics capture query logs for security monitoring.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Public IP Diagnostic Settings
+# Captures DDoS telemetry + all metrics (packets/bytes in/dropped)
+# -----------------------------------------------------------------------------
+resource "azurerm_monitor_diagnostic_setting" "pip" {
+  name                       = "${var.name_prefix}-pip-diag"
+  target_resource_id         = azurerm_public_ip.appgw.id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
+  enabled_log {
+    category = "DDoSProtectionNotifications"
+  }
+
+  enabled_log {
+    category = "DDoSMitigationFlowLogs"
+  }
+
+  enabled_log {
+    category = "DDoSMitigationReports"
+  }
+
+  enabled_metric {
+    category = "AllMetrics"
+  }
+}
+
+# -----------------------------------------------------------------------------
+# DNS Zone Diagnostic Settings
+# Captures DNS query logs for security monitoring and audit
+# -----------------------------------------------------------------------------
+resource "azurerm_monitor_diagnostic_setting" "dns_zone" {
+  name                       = "${var.name_prefix}-dns-diag"
+  target_resource_id         = azurerm_dns_zone.this.id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
+  enabled_log {
+    category = "AuditEvent"
+  }
+
+  enabled_metric {
+    category = "AllMetrics"
+  }
 }

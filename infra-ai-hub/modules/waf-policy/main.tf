@@ -63,7 +63,7 @@ resource "azurerm_web_application_firewall_policy" "this" {
     }
   }
 
-  # Custom rules
+  # Custom rules (MatchRule and RateLimitRule)
   dynamic "custom_rules" {
     for_each = var.custom_rules
     content {
@@ -71,6 +71,11 @@ resource "azurerm_web_application_firewall_policy" "this" {
       priority  = custom_rules.value.priority
       rule_type = custom_rules.value.rule_type
       action    = custom_rules.value.action
+
+      # Rate-limit fields (only used when rule_type = "RateLimitRule")
+      rate_limit_duration  = custom_rules.value.rate_limit_duration
+      rate_limit_threshold = custom_rules.value.rate_limit_threshold
+      group_rate_limit_by  = custom_rules.value.group_rate_limit_by
 
       dynamic "match_conditions" {
         for_each = custom_rules.value.match_conditions

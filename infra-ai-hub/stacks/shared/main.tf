@@ -199,6 +199,13 @@ module "dns_zone" {
   resource_group_name = local.dns_zone_config.resource_group_name
   a_record_ttl        = lookup(local.dns_zone_config, "a_record_ttl", 3600)
 
+  # DDoS IP Protection: per-IP adaptive L3/L4 DDoS mitigation (~$199/mo per IP)
+  # Enable per environment when needed (recommended for prod)
+  ddos_protection_enabled = lookup(local.dns_zone_config, "ddos_protection_enabled", false)
+
+  # Diagnostics: always-on for PIP (DDoS telemetry) and DNS zone (query logs)
+  log_analytics_workspace_id = module.ai_foundry_hub.log_analytics_workspace_id
+
   tags = var.common_tags
 }
 
@@ -218,180 +225,13 @@ module "waf_policy" {
   max_request_body_size_kb         = lookup(local.appgw_config, "max_request_body_size_kb", 128)
   file_upload_limit_mb             = lookup(local.appgw_config, "file_upload_limit_mb", 100)
 
-  # Rule set overrides for API gateway use case
-  # Default OWASP 3.2 + Bot Manager rules trigger false positives on JSON API bodies
-  managed_rule_sets = [
-    {
-      type    = "OWASP"
-      version = "3.2"
-      rule_group_overrides = [
-        {
-          # General rules - body parsing errors that false-positive on JSON payloads
-          rule_group_name = "General"
-          rules = [
-            { id = "200002", enabled = false }, # REQBODY_ERROR  — WAF can't parse JSON as form data
-            { id = "200003", enabled = false }, # MULTIPART_STRICT_ERROR — not multipart
-          ]
-        }
-      ]
-    },
-    {
-      type    = "Microsoft_BotManagerRuleSet"
-      version = "1.0"
-      rule_group_overrides = [
-        {
-          # API clients (curl, SDKs) aren't browsers — disable bot detection
-          rule_group_name = "UnknownBots"
-          rules = [
-            { id = "300700", enabled = false }, # Generic unknown bot
-            { id = "300300", enabled = false }, # curl user-agent
-            { id = "300100", enabled = false }, # Missing common browser headers
-          ]
-        }
-      ]
-    }
-  ]
+  # Managed rule sets: configurable per-env, defaults in locals.tf
+  managed_rule_sets = lookup(local.appgw_config, "managed_rule_sets", local.default_waf_managed_rule_sets)
 
-  # Keep managed rules enabled by default; use path/header-scoped allow rules
-  # for known false positives to avoid broad global exclusions.
-  exclusions = []
+  exclusions = lookup(local.appgw_config, "waf_exclusions", [])
 
-  # Custom rules with "Allow" action bypass all managed rules for matched traffic.
-  # Each service gets its own scoped rule requiring the api-key header so only
-  # APIM-authenticated requests skip OWASP/Bot inspection. Unauthenticated
-  # requests still receive full managed rule protection.
-  #
-  # Why per-service Allow rules instead of broad exclusions:
-  #   - OpenAI: user prompts trigger SQLi (942xxx), XSS (941xxx), RCE (932xxx), LFI (930xxx)
-  #   - Doc Intel JSON: base64Source triggers random OWASP signatures
-  #   - AI Search: vectorSearch.profiles.* triggers 930120 (LFI); queries trigger SQLi
-  #   - Speech: SSML XML can trigger XSS rules
-  custom_rules = [
-    {
-      # Document Intelligence file uploads (binary content types)
-      # No api-key gate needed: content-type filter is already specific enough
-      name      = "AllowDocIntelFileUploads"
-      priority  = 1
-      rule_type = "MatchRule"
-      action    = "Allow"
-      match_conditions = [
-        {
-          match_variable = "RequestUri"
-          operator       = "Contains"
-          match_values   = ["documentintelligence", "formrecognizer"]
-          transforms     = ["Lowercase"]
-        },
-        {
-          match_variable = "RequestHeaders"
-          selector       = "Content-Type"
-          operator       = "Contains"
-          match_values = [
-            "application/octet-stream",
-            "image/",
-            "application/pdf",
-            "multipart/form-data"
-          ]
-          transforms = ["Lowercase"]
-        }
-      ]
-    },
-    {
-      # Document Intelligence JSON requests (base64Source payloads)
-      # base64-encoded document bytes match random OWASP patterns
-      name      = "AllowDocIntelJsonWithApiKey"
-      priority  = 2
-      rule_type = "MatchRule"
-      action    = "Allow"
-      match_conditions = [
-        {
-          match_variable = "RequestUri"
-          operator       = "Contains"
-          match_values   = ["documentintelligence", "formrecognizer", "documentmodels"]
-          transforms     = ["Lowercase"]
-        },
-        {
-          match_variable = "RequestHeaders"
-          selector       = "Content-Type"
-          operator       = "Contains"
-          match_values   = ["application/json"]
-          transforms     = ["Lowercase"]
-        },
-        {
-          match_variable = "RequestHeaders"
-          selector       = "api-key"
-          operator       = "Regex"
-          match_values   = [".+"]
-        }
-      ]
-    },
-    {
-      # OpenAI / GPT chat completions and embeddings
-      # User prompts routinely contain SQL fragments, HTML, shell commands —
-      # all valid LLM input that triggers OWASP SQLi/XSS/RCE/LFI rules
-      name      = "AllowOpenAiWithApiKey"
-      priority  = 10
-      rule_type = "MatchRule"
-      action    = "Allow"
-      match_conditions = [
-        {
-          match_variable = "RequestUri"
-          operator       = "Contains"
-          match_values   = ["/openai/"]
-          transforms     = ["Lowercase"]
-        },
-        {
-          match_variable = "RequestHeaders"
-          selector       = "api-key"
-          operator       = "Regex"
-          match_values   = [".+"]
-        }
-      ]
-    },
-    {
-      # AI Search: index schema, queries, and vector search operations
-      # vectorSearch.profiles.* triggers 930120 (LFI); search text triggers SQLi
-      name      = "AllowAiSearchWithApiKey"
-      priority  = 11
-      rule_type = "MatchRule"
-      action    = "Allow"
-      match_conditions = [
-        {
-          match_variable = "RequestUri"
-          operator       = "Contains"
-          match_values   = ["/ai-search/"]
-          transforms     = ["Lowercase"]
-        },
-        {
-          match_variable = "RequestHeaders"
-          selector       = "api-key"
-          operator       = "Regex"
-          match_values   = [".+"]
-        }
-      ]
-    },
-    {
-      # Speech Services: TTS (SSML/XML) and STT (audio binary)
-      # SSML <speak> tags can trigger XSS rules
-      name      = "AllowSpeechWithApiKey"
-      priority  = 12
-      rule_type = "MatchRule"
-      action    = "Allow"
-      match_conditions = [
-        {
-          match_variable = "RequestUri"
-          operator       = "Contains"
-          match_values   = ["cognitiveservices", "speech/synthesis", "speech/recognition"]
-          transforms     = ["Lowercase"]
-        },
-        {
-          match_variable = "RequestHeaders"
-          selector       = "api-key"
-          operator       = "Regex"
-          match_values   = [".+"]
-        }
-      ]
-    }
-  ]
+  # Custom rules (Allow + Rate-Limit): configurable per-env, defaults in locals.tf
+  custom_rules = lookup(local.appgw_config, "custom_rules", local.default_waf_custom_rules)
 
   tags = var.common_tags
 }

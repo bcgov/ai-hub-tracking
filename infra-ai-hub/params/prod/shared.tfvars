@@ -119,6 +119,10 @@ shared_config = {
     enabled             = true
     zone_name           = "aihub.gov.bc.ca"
     resource_group_name = "ai-hub-prod-dns"
+
+    # SECURITY: DDoS IP Protection for production public IP
+    # Provides per-IP adaptive L3/L4 DDoS mitigation, attack telemetry, and alerting
+    ddos_protection_enabled = true
   }
 
   # ---------------------------------------------------------------------------
