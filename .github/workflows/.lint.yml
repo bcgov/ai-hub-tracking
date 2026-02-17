@@ -1,0 +1,88 @@
+name: .Terraform Lint
+
+on:
+  workflow_call:
+    inputs:
+      base_sha:
+        description: "Base commit SHA for diff-based pre-commit run"
+        required: false
+        type: string
+      head_sha:
+        description: "Head commit SHA for diff-based pre-commit run"
+        required: false
+        type: string
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  terraform-lint:
+    name: Terraform Lint and Format Check
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.12.2
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v6
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install pre-commit
+        run: python -m pip install --upgrade pre-commit
+
+      - name: Run pre-commit hooks
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          BASE_SHA="${{ inputs.base_sha }}"
+          HEAD_SHA="${{ inputs.head_sha }}"
+
+          if [[ -n "$BASE_SHA" && -n "$HEAD_SHA" ]] \
+            && git cat-file -e "$BASE_SHA^{commit}" 2>/dev/null \
+            && git cat-file -e "$HEAD_SHA^{commit}" 2>/dev/null; then
+            pre-commit run \
+              --from-ref "$BASE_SHA" \
+              --to-ref "$HEAD_SHA" \
+              --show-diff-on-failure
+          else
+            echo "Falling back to full pre-commit run: base/head commit not available in local checkout."
+            pre-commit run --all-files --show-diff-on-failure
+          fi
+      - name: Conventional Commits
+        id: conventional_commits
+        if: github.event_name == 'pull_request'
+        uses: amannn/action-semantic-pull-request@48f256284bd46cdaab1048c3721360e808335d50 # v6.1.1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fork Check
+        id: fork_check
+        if: github.event_name == 'pull_request' && github.event.pull_request.head.repo.fork
+        run: |
+          echo "::error::Forks are not supported for this repository."
+          exit 1
+
+      - name: Summary on failure
+        if: failure()
+        shell: bash
+        run: |
+          echo "::error::Validation failed. Review the individual step results above."
+          echo ""
+          echo "Common failure reasons:"
+          echo "  - pre-commit hooks failed (terraform fmt, tflint)"
+          echo "  - PR title does not follow Conventional Commits (https://www.conventionalcommits.org/en/v1.0.0/)"
+          echo "  - Pull requests from forks are not supported"
+          exit 1

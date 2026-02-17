@@ -666,11 +666,15 @@ The `header.html` includes a complete CSS framework. Here are the main classes:
 
 ## Contributing
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes in `_pages/` or `_partials/`
-4. Run `./build.sh` to test locally
-5. Submit a pull request
+All changes follow the project's [Developer SDLC](https://bcgov.github.io/ai-hub-tracking/workflows.html) — branch, PR with automated checks, merge to main, promote to prod.
+
+1. Create a feature branch from `main`
+2. Make your changes in `_pages/` or `_partials/`
+3. Run `./build.sh` to test locally
+4. Open a PR (must follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/) title format)
+5. Merge after review — GitHub Actions deploys automatically
+
+See [Workflows Documentation](https://bcgov.github.io/ai-hub-tracking/workflows.html) for the full SDLC, branching patterns, and release process.
 
 ---
 

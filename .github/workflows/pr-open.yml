@@ -11,7 +11,15 @@ permissions:
   pull-requests: write
 
 jobs:
+  lint:
+    uses: ./.github/workflows/.lint.yml
+    with:
+      base_sha: ${{ github.event.pull_request.base.sha || '' }}
+      head_sha: ${{ github.event.pull_request.head.sha || '' }}
+    secrets: inherit
+
   builds:
+    needs: lint
     concurrency:
       # Cancel in progress for PR open and close
       group: builds-${{ github.event.number || 'latest' }}
@@ -23,3 +31,119 @@ jobs:
         manual-${{ github.run_number }}
         ${{github.event.number}}-${{ github.run_number }}
         latest
+  deploy-proxy-in-tools-environment:
+    needs: lint
+    name: Deploy to 'tools' Environment
+    uses: ./.github/workflows/.deployer.yml
+    with:
+      environment_name: tools
+      command: apply
+      target_module: azure_proxy
+      tag: latest
+      terraform_log_level: INFO
+    secrets: inherit
+  plan-against-test-environment:
+    name: Plan against test Environment
+    needs: deploy-proxy-in-tools-environment
+    uses: ./.github/workflows/.deployer-using-secure-tunnel.yml
+    with:
+      environment_name: test
+      command: plan
+      proxy_url: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_url }}
+      proxy_auth: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_auth }}
+      tag: latest
+      terraform_log_level: INFO
+    secrets: inherit
+
+  update-pr-description:
+    name: Update PR description with plan
+    if: github.event_name == 'pull_request' && needs.plan-against-test-environment.result == 'success'
+    needs: plan-against-test-environment
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Append plan to PR description
+        uses: actions/github-script@v7
+        env:
+          PLAN_COMMENT: ${{ needs.plan-against-test-environment.outputs.plan_comment }}
+        with:
+          script: |
+            const startMarker = '<!-- ai-hub-infra-changes -->';
+            const endMarker = '<!-- /ai-hub-infra-changes -->';
+            const noChanges = 'No Changes to AI Hub Infra in this PR';
+            const rawPlan = (process.env.PLAN_COMMENT || '').trim();
+            const planContent = rawPlan.length > 0 ? rawPlan : noChanges;
+
+            const section = [
+              startMarker,
+              '## AI Hub Infra Changes',
+              '',
+              planContent,
+              '',
+              '---',
+              `_Updated by CI — plan against \`test\` environment (run [#${context.runNumber}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}))._`,
+              endMarker,
+            ].join('\n');
+
+            const { owner, repo } = context.repo;
+            const pull_number = context.payload.pull_request.number;
+
+            const { data: pr } = await github.rest.pulls.get({ owner, repo, pull_number });
+            const currentBody = pr.body || '';
+
+            let newBody;
+            const startIdx = currentBody.indexOf(startMarker);
+            const endIdx = currentBody.indexOf(endMarker);
+            if (startIdx !== -1 && endIdx !== -1) {
+              newBody = currentBody.substring(0, startIdx) + section + currentBody.substring(endIdx + endMarker.length);
+            } else {
+              newBody = currentBody.trimEnd() + '\n\n' + section;
+            }
+
+            await github.rest.pulls.update({ owner, repo, pull_number, body: newBody });
+
+  result:
+    name: Final Result
+    if: always()
+    needs: [lint, builds, plan-against-test-environment, update-pr-description]
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Report Status
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          declare -A results=(
+            [Lint]="${{ needs.lint.result }}"
+            [Builds]="${{ needs.builds.result }}"
+            [Plan]="${{ needs.plan-against-test-environment.result }}"
+            [PR-Description]="${{ needs.update-pr-description.result }}"
+          )
+
+          echo "===== PR Check Results ====="
+          failed=()
+          for job in Lint Builds Plan PR-Description; do
+            status="${results[$job]}"
+            if [[ "$status" == "success" || "$status" == "skipped" ]]; then
+              echo "  ✅ ${job}: ${status}"
+            else
+              echo "  ❌ ${job}: ${status}"
+              failed+=("$job")
+            fi
+          done
+          echo "============================"
+
+          # PR-Description is non-blocking (only cosmetic)
+          critical_failures=()
+          for f in "${failed[@]}"; do
+            if [[ "$f" != "PR-Description" ]]; then
+              critical_failures+=("$f")
+            fi
+          done
+
+          if [[ ${#critical_failures[@]} -gt 0 ]]; then
+            echo ""
+            echo "::error::PR checks failed: ${critical_failures[*]}"
+            exit 1
+          fi
+
+          echo "All PR checks passed."
