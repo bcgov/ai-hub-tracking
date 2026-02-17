@@ -206,7 +206,7 @@ jobs:
           # whole plan is clean.
 
           # Collect all Plan summary lines (only lines with actual changes)
-          PLAN_LINES=$(grep -E "^Plan: [0-9]+ to add, [0-9]+ to change, [0-9]+ to destroy\." "$LOG_FILE" || true)
+          PLAN_LINES=$(grep -E "^[[:space:]]*Plan: [0-9]+ to add, [0-9]+ to change, [0-9]+ to destroy\." "$LOG_FILE" || true)
 
           if [[ -z "$PLAN_LINES" ]]; then
             # No Plan lines found — either all stacks reported "No changes"
