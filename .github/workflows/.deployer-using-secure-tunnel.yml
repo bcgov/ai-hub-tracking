@@ -90,6 +90,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
       - name: Run proxy client
         shell: bash
         run: |
@@ -187,117 +188,10 @@ jobs:
         if: inputs.command == 'plan'
         shell: bash
         run: |
-          set -euo pipefail
-
-          NO_CHANGE_TEXT="No Changes to AI Hub Infra in this PR"
-          LOG_FILE="${{ steps.execute_deployment.outputs.log_file }}"
-          # check if log file exists
-          if [[ -z "$LOG_FILE" || ! -f "$LOG_FILE" ]]; then
-            echo "Log File Does Not Exist, cannot build plan summary. $LOG_FILE"
-          fi
-          echo "Log File Exist $LOG_FILE, moving to next step"
-          # Create a cleaned copy of the log with ANSI escape sequences removed
-          CLEAN_LOG="${LOG_FILE}.clean"
-          if [[ -n "$LOG_FILE" && -f "$LOG_FILE" ]]; then
-            # Remove ANSI escape sequences robustly (covers many variants)
-            # Use perl which handles a wider set of escape sequences than the simple sed regex
-            perl -pe 's/\e\[[\d;?]*[ -\/]*[@-~]//g' "$LOG_FILE" > "$CLEAN_LOG" || cp "$LOG_FILE" "$CLEAN_LOG"
-          else
-            CLEAN_LOG="$LOG_FILE"
-          fi
-          echo "Clean log file created at $CLEAN_LOG"
-
-          if [[ -z "$LOG_FILE" || ! -f "$LOG_FILE" ]]; then
-            echo "has_changes=unknown" >> "$GITHUB_OUTPUT"
-            {
-              echo "plan_comment<<EOF"
-              echo "Plan output was not found in logs for this run."
-              echo "EOF"
-            } >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # The deploy script runs plan across multiple stacks (shared, tenant,
-          # foundry, apim, tenant-user-mgmt). Each stack independently prints
-          # either "No changes." or "Plan: N to add, N to change, N to destroy."
-          # We must check ALL stacks — a single "No changes" does not mean the
-          # whole plan is clean.
-
-          # Collect all Plan summary lines (only lines with actual changes)
-          # Be permissive: ignore case, allow variable spacing, and don't require line-start
-          PLAN_LINES=$(grep -E -i "Plan: *[0-9]+ *to add, *[0-9]+ *to change, *[0-9]+ *to destroy\." "$CLEAN_LOG" || true)
-
-          if [[ -z "$PLAN_LINES" ]]; then
-            # No Plan lines found — either all stacks reported "No changes"
-            # or the plan output format was unexpected
-            if grep -q -i "No changes\." "$CLEAN_LOG"; then
-              echo "has_changes=false" >> "$GITHUB_OUTPUT"
-              {
-                echo "plan_comment<<EOF"
-                echo "$NO_CHANGE_TEXT"
-                echo "EOF"
-              } >> "$GITHUB_OUTPUT"
-            else
-              # Dump a short head of the cleaned log for debugging to the PR comment
-              SAMPLE=$(head -n 200 "$CLEAN_LOG" || true)
-              echo "has_changes=unknown" >> "$GITHUB_OUTPUT"
-              {
-                echo "plan_comment<<EOF"
-                echo "Plan completed but no recognisable summary was found in the logs."
-                echo
-                echo "--- Cleaned log head (debug):"
-                echo '```'
-                echo "$SAMPLE"
-                echo '```'
-                echo "EOF"
-              } >> "$GITHUB_OUTPUT"
-            fi
-            exit 0
-          fi
-
-          echo "has_changes=true" >> "$GITHUB_OUTPUT"
-
-          # Build a combined summary from all stacks that reported changes
-          TOTAL_ADD=0; TOTAL_CHANGE=0; TOTAL_DESTROY=0
-          while IFS= read -r line; do
-            add=$(echo "$line" | grep -oP '(\d+) to add' | grep -oP '\d+')
-            chg=$(echo "$line" | grep -oP '(\d+) to change' | grep -oP '\d+')
-            dst=$(echo "$line" | grep -oP '(\d+) to destroy' | grep -oP '\d+')
-            TOTAL_ADD=$(( TOTAL_ADD + ${add:-0} ))
-            TOTAL_CHANGE=$(( TOTAL_CHANGE + ${chg:-0} ))
-            TOTAL_DESTROY=$(( TOTAL_DESTROY + ${dst:-0} ))
-          done <<< "$PLAN_LINES"
-
-          STACK_COUNT=$(echo "$PLAN_LINES" | wc -l)
-          SUMMARY="${TOTAL_ADD} to add, ${TOTAL_CHANGE} to change, ${TOTAL_DESTROY} to destroy (across ${STACK_COUNT} stack(s))"
-
-          # Extract the first block of planned actions for the collapsible detail
-          START_LINE=$(grep -n "Terraform will perform the following actions:" "$CLEAN_LOG" | head -n 1 | cut -d: -f1 || true)
-          if [[ -n "$START_LINE" ]]; then
-            SNIPPET=$(sed -n "${START_LINE},$((START_LINE + 220))p" "$CLEAN_LOG")
-          else
-            SNIPPET=$(tail -n 220 "$CLEAN_LOG")
-          fi
-
-          SNIPPET=$(printf '%s' "$SNIPPET" | sed 's/```/` ` `/g')
-          if [[ ${#SNIPPET} -gt 12000 ]]; then
-            SNIPPET="${SNIPPET:0:12000}"
-            SNIPPET+=$'\n(truncated, see workflow logs for complete plan)'
-          fi
-          {
-
-            echo "plan_comment<<EOF"
-            echo "**Summary:** ${SUMMARY}"
-            echo
-            echo "<details><summary>Show plan details</summary>"
-            echo
-            echo "\`\`\`hcl"
-            echo "$SNIPPET"
-            echo "\`\`\`"
-            echo
-            echo "</details>"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+          chmod +x ./.github/scripts/build-plan-summary.sh
+          ./.github/scripts/build-plan-summary.sh \
+            "${{ steps.execute_deployment.outputs.log_file }}" \
+            "$GITHUB_OUTPUT"
 
       - name: Install bats-core
         if: inputs.command == 'apply'
