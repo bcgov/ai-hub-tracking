@@ -127,20 +127,3 @@ resource "azurerm_monitor_diagnostic_setting" "pip" {
   }
 }
 
-# -----------------------------------------------------------------------------
-# DNS Zone Diagnostic Settings
-# Captures DNS query logs for security monitoring and audit
-# -----------------------------------------------------------------------------
-resource "azurerm_monitor_diagnostic_setting" "dns_zone" {
-  name                       = "${var.name_prefix}-dns-diag"
-  target_resource_id         = azurerm_dns_zone.this.id
-  log_analytics_workspace_id = var.log_analytics_workspace_id
-
-  enabled_log {
-    category = "AuditEvent"
-  }
-
-  enabled_metric {
-    category = "AllMetrics"
-  }
-}

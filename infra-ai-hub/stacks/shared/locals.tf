@@ -171,10 +171,11 @@ locals {
       ]
     },
     # ----- Rate-Limit Rules (L7 DDoS mitigation) ----------------------------
+    # Azure WAF custom rule priorities must be 1–100 (inclusive).
     {
       # Global rate limit: max requests per source IP per minute
       name                 = "RateLimitPerSourceIP"
-      priority             = 100
+      priority             = 90
       rule_type            = "RateLimitRule"
       action               = "Block"
       rate_limit_duration  = "OneMin"
@@ -190,18 +191,26 @@ locals {
       ]
     },
     {
-      # Stricter rate limit for unauthenticated requests (no api-key header)
+      # Stricter rate limit for unauthenticated requests
+      # (both api-key and Ocp-Apim-Subscription-Key headers are missing)
       name                 = "RateLimitUnauthenticated"
-      priority             = 101
+      priority             = 91
       rule_type            = "RateLimitRule"
       action               = "Block"
       rate_limit_duration  = "OneMin"
-      rate_limit_threshold = 50
+      rate_limit_threshold = 10
       group_rate_limit_by  = "ClientAddr"
       match_conditions = [
         {
           match_variable = "RequestHeaders"
           selector       = "api-key"
+          operator       = "Regex"
+          negation       = true
+          match_values   = [".+"]
+        },
+        {
+          match_variable = "RequestHeaders"
+          selector       = "Ocp-Apim-Subscription-Key"
           operator       = "Regex"
           negation       = true
           match_values   = [".+"]

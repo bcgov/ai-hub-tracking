@@ -72,10 +72,11 @@ resource "azurerm_web_application_firewall_policy" "this" {
       rule_type = custom_rules.value.rule_type
       action    = custom_rules.value.action
 
-      # Rate-limit fields (only used when rule_type = "RateLimitRule")
-      rate_limit_duration  = custom_rules.value.rate_limit_duration
-      rate_limit_threshold = custom_rules.value.rate_limit_threshold
-      group_rate_limit_by  = custom_rules.value.group_rate_limit_by
+      # Rate-limit fields — only valid when rule_type = "RateLimitRule".
+      # Setting these on MatchRule causes Azure API errors.
+      rate_limit_duration  = custom_rules.value.rule_type == "RateLimitRule" ? custom_rules.value.rate_limit_duration : null
+      rate_limit_threshold = custom_rules.value.rule_type == "RateLimitRule" ? custom_rules.value.rate_limit_threshold : null
+      group_rate_limit_by  = custom_rules.value.rule_type == "RateLimitRule" ? custom_rules.value.group_rate_limit_by : null
 
       dynamic "match_conditions" {
         for_each = custom_rules.value.match_conditions
