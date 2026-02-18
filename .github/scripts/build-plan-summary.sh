@@ -72,6 +72,24 @@ clean_ansi() {
 }
 
 # ---------------------------------------------------------------------------
+# sanitize_secrets <text>
+#   Masks values that GitHub Actions may recognise as secrets:
+#   - UUIDs (subscription / tenant / client IDs in resource paths)
+#   - Hexadecimal strings ≥20 chars (storage keys, SAS tokens)
+#   - Bearer / SAS tokens
+#   This prevents GHA from skipping the entire output with:
+#     "Skip output 'plan_comment' since it may contain secret."
+# ---------------------------------------------------------------------------
+sanitize_secrets() {
+  local text="$1"
+  # Mask UUIDs (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
+  text=$(echo "$text" | sed -E 's/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/****/g')
+  # Mask long hex strings (≥20 chars, likely keys/tokens) that aren't part of words
+  text=$(echo "$text" | sed -E 's/[0-9a-fA-F]{20,}/****/g')
+  echo "$text"
+}
+
+# ---------------------------------------------------------------------------
 # build_plan_summary <log_file> <output_file>
 #   Main entry point.
 # ---------------------------------------------------------------------------
@@ -108,6 +126,7 @@ build_plan_summary() {
     else
       local sample
       sample=$(head -n "$DEBUG_HEAD_LINES" "$clean_log" || true)
+      sample=$(sanitize_secrets "$sample")
       gha_warning "no Plan lines and no 'No changes' found — dumping log head"
       write_output "$output_file" "has_changes" "unknown"
       local body
@@ -149,6 +168,9 @@ build_plan_summary() {
   else
     snippet=$(tail -n "$SNIPPET_LINES" "$clean_log")
   fi
+
+  # Mask secrets (UUIDs, keys) so GHA doesn't skip the output
+  snippet=$(sanitize_secrets "$snippet")
 
   # Escape triple backticks within snippet to avoid breaking markdown
   snippet=$(printf '%s' "$snippet" | sed 's/```/` ` `/g')
