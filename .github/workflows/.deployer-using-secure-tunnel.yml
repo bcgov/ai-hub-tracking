@@ -188,6 +188,20 @@ jobs:
 
           NO_CHANGE_TEXT="No Changes to AI Hub Infra in this PR"
           LOG_FILE="${{ steps.execute_deployment.outputs.log_file }}"
+          # check if log file exists
+          if [[ -z "$LOG_FILE" || ! -f "$LOG_FILE" ]]; then
+            echo "Log File Does Not Exist, cannot build plan summary. $LOG_FILE"
+          fi
+          echo "Log File Exist $LOG_FILE, moving to next step"
+          # Create a cleaned copy of the log with ANSI escape sequences removed
+          CLEAN_LOG="${LOG_FILE}.clean"
+          if [[ -n "$LOG_FILE" && -f "$LOG_FILE" ]]; then
+            # Remove common ANSI escape sequences to avoid grep misses
+            sed -r 's/\x1B\[[0-9;]*[a-zA-Z]//g' "$LOG_FILE" > "$CLEAN_LOG" || cp "$LOG_FILE" "$CLEAN_LOG"
+          else
+            CLEAN_LOG="$LOG_FILE"
+          fi
+          echo "Clean log file created at $CLEAN_LOG"
 
           if [[ -z "$LOG_FILE" || ! -f "$LOG_FILE" ]]; then
             echo "has_changes=unknown" >> "$GITHUB_OUTPUT"
@@ -206,12 +220,12 @@ jobs:
           # whole plan is clean.
 
           # Collect all Plan summary lines (only lines with actual changes)
-          PLAN_LINES=$(grep -E "^[[:space:]]*Plan: [0-9]+ to add, [0-9]+ to change, [0-9]+ to destroy\." "$LOG_FILE" || true)
+          PLAN_LINES=$(grep -E "^[[:space:]]*Plan: [0-9]+ to add, [0-9]+ to change, [0-9]+ to destroy\." "$CLEAN_LOG" || true)
 
           if [[ -z "$PLAN_LINES" ]]; then
             # No Plan lines found — either all stacks reported "No changes"
             # or the plan output format was unexpected
-            if grep -q "No changes\." "$LOG_FILE"; then
+            if grep -q "No changes\." "$CLEAN_LOG"; then
               echo "has_changes=false" >> "$GITHUB_OUTPUT"
               {
                 echo "plan_comment<<EOF"
@@ -246,11 +260,11 @@ jobs:
           SUMMARY="${TOTAL_ADD} to add, ${TOTAL_CHANGE} to change, ${TOTAL_DESTROY} to destroy (across ${STACK_COUNT} stack(s))"
 
           # Extract the first block of planned actions for the collapsible detail
-          START_LINE=$(grep -n "Terraform will perform the following actions:" "$LOG_FILE" | head -n 1 | cut -d: -f1 || true)
+          START_LINE=$(grep -n "Terraform will perform the following actions:" "$CLEAN_LOG" | head -n 1 | cut -d: -f1 || true)
           if [[ -n "$START_LINE" ]]; then
-            SNIPPET=$(sed -n "${START_LINE},$((START_LINE + 220))p" "$LOG_FILE")
+            SNIPPET=$(sed -n "${START_LINE},$((START_LINE + 220))p" "$CLEAN_LOG")
           else
-            SNIPPET=$(tail -n 220 "$LOG_FILE")
+            SNIPPET=$(tail -n 220 "$CLEAN_LOG")
           fi
 
           SNIPPET=$(printf '%s' "$SNIPPET" | sed 's/```/` ` `/g')
