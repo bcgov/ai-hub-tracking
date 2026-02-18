@@ -3,18 +3,23 @@
 # Build Plan Summary
 # =============================================================================
 # Parses a Terraform plan log file and produces structured output suitable for
-# GitHub Actions step outputs (plan_comment, has_changes).
+# GitHub Actions step outputs (has_changes) and an optional plan comment file.
 #
 # Usage:
-#   build-plan-summary.sh <log_file> <output_file>
+#   build-plan-summary.sh <log_file> <output_file> [<comment_file>]
 #
 # Arguments:
-#   log_file    - Path to the raw Terraform plan log (from deploy-terraform.sh)
-#   output_file - Path to write GHA step outputs (typically $GITHUB_OUTPUT)
+#   log_file     - Path to the raw Terraform plan log (from deploy-terraform.sh)
+#   output_file  - Path to write GHA step outputs (typically $GITHUB_OUTPUT)
+#   comment_file - (optional) Path to write the plan comment markdown.
+#                  When provided, plan_comment is written to this file instead
+#                  of $GITHUB_OUTPUT — avoids GHA secret scanning issues.
+#                  When omitted, plan_comment is written as a heredoc to output_file
+#                  (legacy behaviour).
 #
-# Outputs (written as key=value or heredoc to output_file):
-#   has_changes   - "true", "false", or "unknown"
-#   plan_comment  - Markdown-formatted plan summary for PR description
+# Outputs:
+#   has_changes  - "true", "false", or "unknown" (always to output_file)
+#   plan_comment - Markdown plan summary (to comment_file if given, else output_file)
 #
 # Exit codes:
 #   0 - Always (parsing failures are not fatal, they produce "unknown")
@@ -62,6 +67,20 @@ write_output_heredoc() {
 }
 
 # ---------------------------------------------------------------------------
+# write_comment <output_file> <comment_file> <body>
+#   Writes plan_comment to comment_file if set, else heredoc to output_file.
+# ---------------------------------------------------------------------------
+write_comment() {
+  local out_file="$1" comment_file="$2" body="$3"
+  if [[ -n "$comment_file" ]]; then
+    printf '%s\n' "$body" > "$comment_file"
+    gha_notice "plan_comment written to file: $comment_file"
+  else
+    write_output_heredoc "$out_file" "plan_comment" "$body"
+  fi
+}
+
+# ---------------------------------------------------------------------------
 # clean_ansi <input_file> <output_file>
 #   Strips ANSI escape sequences; falls back to copy on failure.
 # ---------------------------------------------------------------------------
@@ -96,12 +115,13 @@ sanitize_secrets() {
 build_plan_summary() {
   local log_file="$1"
   local output_file="$2"
+  local comment_file="${3:-}"
 
   # ------ Guard: missing log file ------
   if [[ -z "$log_file" || ! -f "$log_file" ]]; then
     gha_notice "LOG_FILE missing — setting has_changes=unknown"
     write_output "$output_file" "has_changes" "unknown"
-    write_output_heredoc "$output_file" "plan_comment" \
+    write_comment "$output_file" "$comment_file" \
       "Plan output was not found in logs for this run."
     return 0
   fi
@@ -122,7 +142,7 @@ build_plan_summary() {
     if grep -q -i "No changes\." "$clean_log"; then
       gha_notice "all stacks report No changes"
       write_output "$output_file" "has_changes" "false"
-      write_output_heredoc "$output_file" "plan_comment" "$NO_CHANGE_TEXT"
+      write_comment "$output_file" "$comment_file" "$NO_CHANGE_TEXT"
     else
       local sample
       sample=$(head -n "$DEBUG_HEAD_LINES" "$clean_log" || true)
@@ -136,7 +156,7 @@ build_plan_summary() {
         '```' \
         "$sample" \
         '```')
-      write_output_heredoc "$output_file" "plan_comment" "$body"
+      write_comment "$output_file" "$comment_file" "$body"
     fi
     return 0
   fi
@@ -194,7 +214,7 @@ ${snippet}
 INNEREOF
 )
 
-  write_output_heredoc "$output_file" "plan_comment" "$body"
+  write_comment "$output_file" "$comment_file" "$body"
 }
 
 # ---------------------------------------------------------------------------
@@ -202,8 +222,8 @@ INNEREOF
 # ---------------------------------------------------------------------------
 if [[ "${BASH_SOURCE[0]}" == "${0}" ]]; then
   if [[ $# -lt 2 ]]; then
-    echo "Usage: $0 <log_file> <output_file>" >&2
+    echo "Usage: $0 <log_file> <output_file> [<comment_file>]" >&2
     exit 1
   fi
-  build_plan_summary "$1" "$2"
+  build_plan_summary "$1" "$2" "${3:-}"
 fi

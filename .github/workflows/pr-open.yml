@@ -61,15 +61,33 @@ jobs:
     needs: plan-against-test-environment
     runs-on: ubuntu-24.04
     steps:
-      - name: debug inputs
+      - name: Download plan comment artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: plan-comment
+          path: ${{ runner.temp }}/plan-comment
+        continue-on-error: true
+
+      - name: Read plan comment from artifact
+        id: read_plan
         shell: bash
         run: |
-          echo "Plan Result: ${{ needs.plan-against-test-environment.result }}"
-          echo "PLAN_COMMENT: ${{ needs.plan-against-test-environment.outputs.plan_comment }}"
+          COMMENT_FILE="${{ runner.temp }}/plan-comment/plan-comment.md"
+          if [[ -f "$COMMENT_FILE" ]]; then
+            echo "Plan comment file found ($(wc -c < "$COMMENT_FILE") bytes)"
+            # Store in env file for the next step (no secret scanning on env files)
+            {
+              echo "PLAN_COMMENT<<GHADELIM_PLAN"
+              cat "$COMMENT_FILE"
+              echo "GHADELIM_PLAN"
+            } >> "$GITHUB_ENV"
+          else
+            echo "::warning::Plan comment artifact not found — using fallback"
+            echo "PLAN_COMMENT=No Changes to AI Hub Infra in this PR" >> "$GITHUB_ENV"
+          fi
+
       - name: Append plan to PR description
         uses: actions/github-script@v7
-        env:
-          PLAN_COMMENT: ${{ needs.plan-against-test-environment.outputs.plan_comment }}
         with:
           script: |
             const startMarker = '<!-- ai-hub-infra-changes -->';

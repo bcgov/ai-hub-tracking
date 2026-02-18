@@ -32,8 +32,8 @@ on:
         type: string
     outputs:
       plan_comment:
-        description: "Formatted Terraform plan summary markdown for PR comments"
-        value: ${{ jobs.terraform.outputs.plan_comment }}
+        description: "(deprecated) Always empty — plan comment is now passed via artifact 'plan-comment'"
+        value: ""
       plan_has_changes:
         description: "Whether Terraform plan contains infrastructure changes"
         value: ${{ jobs.terraform.outputs.plan_has_changes }}
@@ -73,7 +73,6 @@ jobs:
     needs: validate
     runs-on: ubuntu-24.04
     outputs:
-      plan_comment: ${{ steps.plan_summary.outputs.plan_comment }}
       plan_has_changes: ${{ steps.plan_summary.outputs.has_changes }}
     steps:
       - name: Checkout
@@ -187,11 +186,23 @@ jobs:
         id: plan_summary
         if: inputs.command == 'plan'
         shell: bash
+        env:
+          PLAN_COMMENT_FILE: ${{ runner.temp }}/plan-comment.md
         run: |
           chmod +x ./.github/scripts/build-plan-summary.sh
           ./.github/scripts/build-plan-summary.sh \
             "${{ steps.execute_deployment.outputs.log_file }}" \
-            "$GITHUB_OUTPUT"
+            "$GITHUB_OUTPUT" \
+            "$PLAN_COMMENT_FILE"
+
+      - name: Upload plan comment artifact
+        if: inputs.command == 'plan'
+        uses: actions/upload-artifact@v4
+        with:
+          name: plan-comment
+          path: ${{ runner.temp }}/plan-comment.md
+          retention-days: 1
+          if-no-files-found: warn
 
       - name: Install bats-core
         if: inputs.command == 'apply'
