@@ -29,3 +29,20 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+# -----------------------------------------------------------------------------
+# DDoS Protection
+# -----------------------------------------------------------------------------
+variable "ddos_protection_enabled" {
+  description = "Enable DDoS IP Protection on the App Gateway public IP. Provides per-IP adaptive L3/L4 DDoS mitigation, telemetry, and alerting. Cost: ~$199 USD/month per IP."
+  type        = bool
+  default     = false
+}
+
+# -----------------------------------------------------------------------------
+# Diagnostics
+# -----------------------------------------------------------------------------
+variable "log_analytics_workspace_id" {
+  description = "Log Analytics workspace ID for diagnostic settings on the public IP and DNS zone"
+  type        = string
+}

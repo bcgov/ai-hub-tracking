@@ -32,8 +32,8 @@ on:
         type: string
     outputs:
       plan_comment:
-        description: "Formatted Terraform plan summary markdown for PR comments"
-        value: ${{ jobs.terraform.outputs.plan_comment }}
+        description: "(deprecated) Always empty — plan comment is now passed via artifact 'plan-comment'"
+        value: ""
       plan_has_changes:
         description: "Whether Terraform plan contains infrastructure changes"
         value: ${{ jobs.terraform.outputs.plan_has_changes }}
@@ -73,7 +73,6 @@ jobs:
     needs: validate
     runs-on: ubuntu-24.04
     outputs:
-      plan_comment: ${{ steps.plan_summary.outputs.plan_comment }}
       plan_has_changes: ${{ steps.plan_summary.outputs.has_changes }}
     steps:
       - name: Checkout
@@ -90,6 +89,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
       - name: Run proxy client
         shell: bash
         run: |
@@ -160,6 +160,9 @@ jobs:
           BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
           BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
 
+          # Disable ANSI colour codes so plan output can be parsed reliably
+          TF_CLI_ARGS: "-no-color"
+
           HTTP_PROXY: "http://127.0.0.1:8118"
           HTTPS_PROXY: "http://127.0.0.1:8118"
           # Bypass proxy for Azure control plane APIs and Terraform registries; data plane uses proxy for private endpoint access
@@ -183,95 +186,23 @@ jobs:
         id: plan_summary
         if: inputs.command == 'plan'
         shell: bash
+        env:
+          PLAN_COMMENT_FILE: ${{ runner.temp }}/plan-comment.md
         run: |
-          set -euo pipefail
+          chmod +x ./.github/scripts/build-plan-summary.sh
+          ./.github/scripts/build-plan-summary.sh \
+            "${{ steps.execute_deployment.outputs.log_file }}" \
+            "$GITHUB_OUTPUT" \
+            "$PLAN_COMMENT_FILE"
 
-          NO_CHANGE_TEXT="No Changes to AI Hub Infra in this PR"
-          LOG_FILE="${{ steps.execute_deployment.outputs.log_file }}"
-
-          if [[ -z "$LOG_FILE" || ! -f "$LOG_FILE" ]]; then
-            echo "has_changes=unknown" >> "$GITHUB_OUTPUT"
-            {
-              echo "plan_comment<<EOF"
-              echo "Plan output was not found in logs for this run."
-              echo "EOF"
-            } >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-
-          # The deploy script runs plan across multiple stacks (shared, tenant,
-          # foundry, apim, tenant-user-mgmt). Each stack independently prints
-          # either "No changes." or "Plan: N to add, N to change, N to destroy."
-          # We must check ALL stacks — a single "No changes" does not mean the
-          # whole plan is clean.
-
-          # Collect all Plan summary lines (only lines with actual changes)
-          PLAN_LINES=$(grep -E "^Plan: [0-9]+ to add, [0-9]+ to change, [0-9]+ to destroy\." "$LOG_FILE" || true)
-
-          if [[ -z "$PLAN_LINES" ]]; then
-            # No Plan lines found — either all stacks reported "No changes"
-            # or the plan output format was unexpected
-            if grep -q "No changes\." "$LOG_FILE"; then
-              echo "has_changes=false" >> "$GITHUB_OUTPUT"
-              {
-                echo "plan_comment<<EOF"
-                echo "$NO_CHANGE_TEXT"
-                echo "EOF"
-              } >> "$GITHUB_OUTPUT"
-            else
-              echo "has_changes=unknown" >> "$GITHUB_OUTPUT"
-              {
-                echo "plan_comment<<EOF"
-                echo "Plan completed but no recognisable summary was found in the logs."
-                echo "EOF"
-              } >> "$GITHUB_OUTPUT"
-            fi
-            exit 0
-          fi
-
-          echo "has_changes=true" >> "$GITHUB_OUTPUT"
-
-          # Build a combined summary from all stacks that reported changes
-          TOTAL_ADD=0; TOTAL_CHANGE=0; TOTAL_DESTROY=0
-          while IFS= read -r line; do
-            add=$(echo "$line" | grep -oP '(\d+) to add' | grep -oP '\d+')
-            chg=$(echo "$line" | grep -oP '(\d+) to change' | grep -oP '\d+')
-            dst=$(echo "$line" | grep -oP '(\d+) to destroy' | grep -oP '\d+')
-            TOTAL_ADD=$(( TOTAL_ADD + ${add:-0} ))
-            TOTAL_CHANGE=$(( TOTAL_CHANGE + ${chg:-0} ))
-            TOTAL_DESTROY=$(( TOTAL_DESTROY + ${dst:-0} ))
-          done <<< "$PLAN_LINES"
-
-          STACK_COUNT=$(echo "$PLAN_LINES" | wc -l)
-          SUMMARY="${TOTAL_ADD} to add, ${TOTAL_CHANGE} to change, ${TOTAL_DESTROY} to destroy (across ${STACK_COUNT} stack(s))"
-
-          # Extract the first block of planned actions for the collapsible detail
-          START_LINE=$(grep -n "Terraform will perform the following actions:" "$LOG_FILE" | head -n 1 | cut -d: -f1 || true)
-          if [[ -n "$START_LINE" ]]; then
-            SNIPPET=$(sed -n "${START_LINE},$((START_LINE + 220))p" "$LOG_FILE")
-          else
-            SNIPPET=$(tail -n 220 "$LOG_FILE")
-          fi
-
-          SNIPPET=$(printf '%s' "$SNIPPET" | sed 's/```/` ` `/g')
-          if [[ ${#SNIPPET} -gt 12000 ]]; then
-            SNIPPET="${SNIPPET:0:12000}"
-            SNIPPET+=$'\n(truncated, see workflow logs for complete plan)'
-          fi
-
-          {
-            echo "plan_comment<<EOF"
-            echo "**Summary:** ${SUMMARY}"
-            echo
-            echo "<details><summary>Show plan details</summary>"
-            echo
-            echo "\`\`\`hcl"
-            echo "$SNIPPET"
-            echo "\`\`\`"
-            echo
-            echo "</details>"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
+      - name: Upload plan comment artifact
+        if: inputs.command == 'plan'
+        uses: actions/upload-artifact@v4
+        with:
+          name: plan-comment
+          path: ${{ runner.temp }}/plan-comment.md
+          retention-days: 1
+          if-no-files-found: warn
 
       - name: Install bats-core
         if: inputs.command == 'apply'
