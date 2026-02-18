@@ -113,7 +113,7 @@ jobs:
                   TEST_ENV: ${{ inputs.environment_name }}
                   HTTP_PROXY: "http://127.0.0.1:8118"
                   HTTPS_PROXY: "http://127.0.0.1:8118"
-                  NO_PROXY: "management.azure.com,login.microsoftonline.com,graph.microsoft.com,registry.terraform.io,releases.hashicorp.com,github.com,objects.githubusercontent.com"
+                  NO_PROXY: "management.azure.com,login.microsoftonline.com,graph.microsoft.com,registry.terraform.io,releases.hashicorp.com,github.com,objects.githubusercontent.com,blob.core.windows.net"
               run: |
                   set -euo pipefail
 

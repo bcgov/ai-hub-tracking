@@ -86,14 +86,23 @@ load_config() {
     
     # Get stack-aggregated output
     local tf_output_raw
-    if ! tf_output_raw=$(cd "${INFRA_DIR}" && ./scripts/deploy-terraform.sh output "${TEST_ENV}" 2>/dev/null); then
+    local _err_log
+    _err_log="$(mktemp)"
+    if ! tf_output_raw=$(cd "${INFRA_DIR}" && ./scripts/deploy-terraform.sh output "${TEST_ENV}" 2>"${_err_log}"); then
         log_error "Failed to get stack output"
+        if [[ -s "${_err_log}" ]]; then
+            log_error "--- deploy-terraform.sh stderr ---"
+            cat "${_err_log}" >&2
+            log_error "--- end stderr ---"
+        fi
+        rm -f "${_err_log}"
         echo "You can provide configuration via environment variables instead:"
         echo "  export APIM_GATEWAY_URL=https://your-apim.azure-api.net"
         echo "  export WLRS_SUBSCRIPTION_KEY=your-key"
         echo "  export SDPR_SUBSCRIPTION_KEY=your-key"
         exit 1
     fi
+    rm -f "${_err_log}"
 
     local tf_output
     tf_output=$(echo "${tf_output_raw}" | sed -n '/^{/,$p')

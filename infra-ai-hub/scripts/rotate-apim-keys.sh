@@ -296,6 +296,44 @@ discover_config() {
 }
 
 # =============================================================================
+# RESOURCE EXISTENCE VERIFICATION
+# =============================================================================
+# Checks that the resource group, APIM instance, and hub Key Vault actually
+# exist in Azure before proceeding. If any resource is missing (e.g. the
+# environment hasn't been deployed yet), logs an informational message and
+# exits 0 so CI pipelines remain green.
+# =============================================================================
+verify_resources_exist() {
+    log_info "Verifying Azure resources exist..."
+
+    # 1. Resource Group
+    if ! az group show --name "${RESOURCE_GROUP}" --output none 2>/dev/null; then
+        log_info "Resource group '${RESOURCE_GROUP}' does not exist. Infrastructure not yet deployed for '${ENVIRONMENT}'."
+        log_info "Nothing to rotate. Exiting successfully."
+        exit 0
+    fi
+    log_debug "Resource group '${RESOURCE_GROUP}' exists"
+
+    # 2. APIM Instance
+    if ! az apim show --name "${APIM_NAME}" --resource-group "${RESOURCE_GROUP}" --output none 2>/dev/null; then
+        log_info "APIM '${APIM_NAME}' does not exist in resource group '${RESOURCE_GROUP}'. Infrastructure not yet deployed for '${ENVIRONMENT}'."
+        log_info "Nothing to rotate. Exiting successfully."
+        exit 0
+    fi
+    log_debug "APIM '${APIM_NAME}' exists"
+
+    # 3. Hub Key Vault
+    if ! az keyvault show --name "${HUB_KEYVAULT_NAME}" --resource-group "${RESOURCE_GROUP}" --output none 2>/dev/null; then
+        log_info "Hub Key Vault '${HUB_KEYVAULT_NAME}' does not exist in resource group '${RESOURCE_GROUP}'. Infrastructure not yet deployed for '${ENVIRONMENT}'."
+        log_info "Nothing to rotate. Exiting successfully."
+        exit 0
+    fi
+    log_debug "Hub Key Vault '${HUB_KEYVAULT_NAME}' exists"
+
+    log_success "All required Azure resources verified"
+}
+
+# =============================================================================
 # HELPER FUNCTIONS
 # =============================================================================
 
@@ -633,6 +671,9 @@ main() {
 
     # Self-discover APIM, hub KV, and rotation config from tfvars
     discover_config
+
+    # Verify that all discovered resources actually exist in Azure
+    verify_resources_exist
 
     log_info "Resource Group:     ${RESOURCE_GROUP}"
     log_info "APIM Name:          ${APIM_NAME}"
