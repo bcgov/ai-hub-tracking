@@ -160,6 +160,9 @@ jobs:
           BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
           BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
 
+          # Disable ANSI colour codes so plan output can be parsed reliably
+          TF_CLI_ARGS: "-no-color"
+
           HTTP_PROXY: "http://127.0.0.1:8118"
           HTTPS_PROXY: "http://127.0.0.1:8118"
           # Bypass proxy for Azure control plane APIs and Terraform registries; data plane uses proxy for private endpoint access
@@ -196,8 +199,9 @@ jobs:
           # Create a cleaned copy of the log with ANSI escape sequences removed
           CLEAN_LOG="${LOG_FILE}.clean"
           if [[ -n "$LOG_FILE" && -f "$LOG_FILE" ]]; then
-            # Remove common ANSI escape sequences to avoid grep misses
-            sed -r 's/\x1B\[[0-9;]*[a-zA-Z]//g' "$LOG_FILE" > "$CLEAN_LOG" || cp "$LOG_FILE" "$CLEAN_LOG"
+            # Remove ANSI escape sequences robustly (covers many variants)
+            # Use perl which handles a wider set of escape sequences than the simple sed regex
+            perl -pe 's/\e\[[\d;?]*[ -\/]*[@-~]//g' "$LOG_FILE" > "$CLEAN_LOG" || cp "$LOG_FILE" "$CLEAN_LOG"
           else
             CLEAN_LOG="$LOG_FILE"
           fi
@@ -220,12 +224,13 @@ jobs:
           # whole plan is clean.
 
           # Collect all Plan summary lines (only lines with actual changes)
-          PLAN_LINES=$(grep -E "^[[:space:]]*Plan: [0-9]+ to add, [0-9]+ to change, [0-9]+ to destroy\." "$CLEAN_LOG" || true)
+          # Be permissive: ignore case, allow variable spacing, and don't require line-start
+          PLAN_LINES=$(grep -E -i "Plan: *[0-9]+ *to add, *[0-9]+ *to change, *[0-9]+ *to destroy\." "$CLEAN_LOG" || true)
 
           if [[ -z "$PLAN_LINES" ]]; then
             # No Plan lines found — either all stacks reported "No changes"
             # or the plan output format was unexpected
-            if grep -q "No changes\." "$CLEAN_LOG"; then
+            if grep -q -i "No changes\." "$CLEAN_LOG"; then
               echo "has_changes=false" >> "$GITHUB_OUTPUT"
               {
                 echo "plan_comment<<EOF"
@@ -233,10 +238,17 @@ jobs:
                 echo "EOF"
               } >> "$GITHUB_OUTPUT"
             else
+              # Dump a short head of the cleaned log for debugging to the PR comment
+              SAMPLE=$(head -n 200 "$CLEAN_LOG" || true)
               echo "has_changes=unknown" >> "$GITHUB_OUTPUT"
               {
                 echo "plan_comment<<EOF"
                 echo "Plan completed but no recognisable summary was found in the logs."
+                echo
+                echo "--- Cleaned log head (debug):"
+                echo '```'
+                echo "$SAMPLE"
+                echo '```'
                 echo "EOF"
               } >> "$GITHUB_OUTPUT"
             fi
@@ -272,8 +284,8 @@ jobs:
             SNIPPET="${SNIPPET:0:12000}"
             SNIPPET+=$'\n(truncated, see workflow logs for complete plan)'
           fi
-
           {
+
             echo "plan_comment<<EOF"
             echo "**Summary:** ${SUMMARY}"
             echo

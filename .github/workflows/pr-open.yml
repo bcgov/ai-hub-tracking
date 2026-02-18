@@ -61,6 +61,11 @@ jobs:
     needs: plan-against-test-environment
     runs-on: ubuntu-24.04
     steps:
+      - name: debug inputs
+        shell: bash
+        run: |
+          echo "Plan Result: ${{ needs.plan-against-test-environment.result }}"
+          echo "PLAN_COMMENT: ${{ needs.plan-against-test-environment.outputs.plan_comment }}"
       - name: Append plan to PR description
         uses: actions/github-script@v7
         env:
