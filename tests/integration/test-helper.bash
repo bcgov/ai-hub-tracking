@@ -216,7 +216,7 @@ parse_response() {
 MAX_RETRIES="${MAX_RETRIES:-3}"
 RETRY_DELAY="${RETRY_DELAY:-5}"
 
-# Make a request with retry logic for 429 rate limiting
+# Make a request with retry logic for transient failures and 429 rate limiting
 # Usage: apim_request_with_retry <method> <tenant> <path> [body]
 apim_request_with_retry() {
     local method="${1}"
@@ -230,7 +230,11 @@ apim_request_with_retry() {
         response=$(apim_request "${method}" "${tenant}" "${path}" "${body}")
         parse_response "${response}"
         
-        if [[ "${RESPONSE_STATUS}" == "429" ]]; then
+        if [[ "${RESPONSE_STATUS}" == "000" ]]; then
+            retries=$((retries + 1))
+            echo "Transport failure (000), retry ${retries}/${MAX_RETRIES} after ${RETRY_DELAY}s..." >&2
+            sleep "${RETRY_DELAY}"
+        elif [[ "${RESPONSE_STATUS}" == "429" ]]; then
             retries=$((retries + 1))
             # Extract retry-after from response if available, default to RETRY_DELAY
             local retry_after
@@ -247,7 +251,7 @@ apim_request_with_retry() {
     echo "${response}"
 }
 
-# Make a request with retry logic for 429 rate limiting (Ocp-Apim-Subscription-Key header)
+# Make a request with retry logic for transient failures and 429 rate limiting (Ocp-Apim-Subscription-Key header)
 # Usage: apim_request_with_retry_ocp <method> <tenant> <path> [body]
 apim_request_with_retry_ocp() {
     local method="${1}"
@@ -261,7 +265,11 @@ apim_request_with_retry_ocp() {
         response=$(apim_request_ocp "${method}" "${tenant}" "${path}" "${body}")
         parse_response "${response}"
 
-        if [[ "${RESPONSE_STATUS}" == "429" ]]; then
+        if [[ "${RESPONSE_STATUS}" == "000" ]]; then
+            retries=$((retries + 1))
+            echo "Transport failure (000), retry ${retries}/${MAX_RETRIES} after ${RETRY_DELAY}s..." >&2
+            sleep "${RETRY_DELAY}"
+        elif [[ "${RESPONSE_STATUS}" == "429" ]]; then
             retries=$((retries + 1))
             local retry_after
             retry_after=$(echo "${RESPONSE_BODY}" | grep -oP 'retry after \K[0-9]+' || echo "${RETRY_DELAY}")

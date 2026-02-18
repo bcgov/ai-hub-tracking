@@ -1,0 +1,123 @@
+name: .Integration Tests via Secure Tunnel
+
+on:
+    workflow_call:
+        inputs:
+            environment_name:
+                description: "The target environment for integration tests"
+                required: true
+                type: string
+            proxy_url:
+                description: "Encrypted proxy URL for secure tunnel"
+                required: true
+                type: string
+            proxy_auth:
+                description: "Encrypted proxy auth token for secure tunnel"
+                required: true
+                type: string
+            tag:
+                description: "Container tag for privoxy image"
+                required: false
+                type: string
+
+env:
+    CHISEL_IMAGE_VERSION: 1.11
+    CHISEL_IMAGE: jpillora/chisel
+
+permissions:
+    id-token: write
+    contents: read
+
+jobs:
+    integration-tests:
+        name: Integration Tests (${{ inputs.environment_name }})
+        runs-on: ubuntu-24.04
+        environment: ${{ inputs.environment_name }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+
+            - name: Azure CLI Login (OIDC)
+              uses: azure/login@v2
+              with:
+                  client-id: ${{ secrets.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+                  subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+            - name: Run proxy client
+              shell: bash
+              run: |
+                  set -euo pipefail
+
+                  if [[ -z "${{ inputs.proxy_url }}" || -z "${{ inputs.proxy_auth }}" ]]; then
+                    echo "proxy_url and proxy_auth are required when use_secure_tunnel=true" >&2
+                    exit 1
+                  fi
+
+                  KEY='${{ secrets.GPG_PASSPHRASE }}'
+                  if [[ -z "$KEY" ]]; then
+                    echo "GPG_PASSPHRASE secret is empty/missing" >&2
+                    exit 1
+                  fi
+
+                  decrypt_b64_gpg() {
+                    local encoded="$1"
+                    printf '%s' "$encoded" \
+                      | tr -d '\r\n' \
+                      | base64 --decode \
+                      | gpg --batch --yes --pinentry-mode loopback --passphrase "$KEY" --decrypt --output -
+                  }
+
+                  PROXY_URL="$(decrypt_b64_gpg '${{ inputs.proxy_url }}')"
+                  PROXY_AUTH="$(decrypt_b64_gpg '${{ inputs.proxy_auth }}')"
+                  echo "Proxy URL: ****${PROXY_URL: -4}"
+                  echo "Proxy Auth: ****${PROXY_AUTH: -4}"
+
+                  docker network create proxy-net >/dev/null 2>&1 || true
+                  docker run -d --name chisel-client --network proxy-net ${CHISEL_IMAGE}:${CHISEL_IMAGE_VERSION} client --auth "$PROXY_AUTH" "$PROXY_URL" 0.0.0.0:1080:socks
+                  docker run -d --name privoxy --network proxy-net -p 127.0.0.1:8118:8118 -e SOCKS_HOST=chisel-client -e SOCKS_PORT=1080 ghcr.io/${{ github.repository }}/azure-proxy/privoxy:${{ inputs.tag || 'latest' }}
+                  docker logs chisel-client
+                  docker logs privoxy
+                  curl --proxy http://127.0.0.1:8118 https://ifconfig.me
+
+            - name: Install bats-core
+              uses: bats-core/bats-action@4.0.0
+
+            - name: Run Integration Tests
+              shell: bash
+              working-directory: ./infra-ai-hub
+              env:
+                  ARM_USE_OIDC: "true"
+                  CI: "true"
+                  TF_VAR_app_name: "ai-services-hub"
+                  TF_VAR_app_env: ${{ inputs.environment_name }}
+                  TF_VAR_location: "Canada Central"
+                  TF_VAR_resource_group_name: ${{ format('{0}-{1}', 'ai-services-hub', inputs.environment_name) }}
+                  TF_VAR_common_tags: >-
+                      {"environment":"${{ inputs.environment_name }}","app_env":"${{ inputs.environment_name }}","repo_name":"${{ github.event.repository.name }}"}
+                  TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+                  TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+                  TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+                  TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
+                  TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+                  TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
+                  TF_VAR_dev_address_spaces: ${{ secrets.DEV_ADDRESS_SPACES }}
+                  TF_VAR_test_address_spaces: ${{ secrets.TEST_ADDRESS_SPACES }}
+                  TF_VAR_prod_address_spaces: ${{ secrets.PROD_ADDRESS_SPACES }}
+                  TF_VAR_target_vnet_address_spaces: ${{ secrets.TARGET_VNET_ADDRESS_SPACES }}
+                  TF_VAR_source_vnet_address_space: ${{ secrets.SOURCE_VNET_ADDRESS_SPACE }}
+                  TF_VAR_key_vault_name: ${{ format('{0}{1}{2}kv', 'aihub', inputs.environment_name, vars.SUBSCRIPTION_NAME) }}
+                  BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+                  BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+                  TF_CLI_ARGS: "-no-color"
+                  TEST_ENV: ${{ inputs.environment_name }}
+                  HTTP_PROXY: "http://127.0.0.1:8118"
+                  HTTPS_PROXY: "http://127.0.0.1:8118"
+                  NO_PROXY: "management.azure.com,login.microsoftonline.com,graph.microsoft.com,registry.terraform.io,releases.hashicorp.com,github.com,objects.githubusercontent.com"
+              run: |
+                  set -euo pipefail
+
+                  echo "=== Running Integration Tests (env-aware harness) ==="
+                  cd ../tests/integration
+                  chmod +x ./run-tests.sh
+                  ./run-tests.sh --env "${TEST_ENV}"

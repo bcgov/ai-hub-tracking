@@ -204,23 +204,14 @@ jobs:
           retention-days: 1
           if-no-files-found: warn
 
-      - name: Install bats-core
-        if: inputs.command == 'apply'
-        uses: bats-core/bats-action@4.0.0
-
-      - name: Run Integration Tests
-        if: inputs.command == 'apply' && (inputs.environment_name == 'dev' || inputs.environment_name == 'test')
-        shell: bash
-        working-directory: ./infra-ai-hub
-        env:
-          TEST_ENV: ${{ inputs.environment_name }}
-          HTTP_PROXY: "http://127.0.0.1:8118"
-          HTTPS_PROXY: "http://127.0.0.1:8118"
-          NO_PROXY: "management.azure.com,login.microsoftonline.com,graph.microsoft.com,registry.terraform.io,releases.hashicorp.com,github.com,objects.githubusercontent.com"
-        run: |
-          set -euo pipefail
-
-          echo "=== Running Integration Tests (env-aware harness) ==="
-          cd ../tests/integration
-          chmod +x ./run-tests.sh
-          ./run-tests.sh --env "${TEST_ENV}"
+  integration-tests:
+    name: Integration Tests via Secure Tunnel
+    if: inputs.command == 'apply' && (inputs.environment_name == 'dev' || inputs.environment_name == 'test')
+    needs: terraform
+    uses: ./.github/workflows/.integration-tests-using-secure-tunnel.yml
+    with:
+      environment_name: ${{ inputs.environment_name }}
+      proxy_url: ${{ inputs.proxy_url }}
+      proxy_auth: ${{ inputs.proxy_auth }}
+      tag: ${{ inputs.tag }}
+    secrets: inherit
