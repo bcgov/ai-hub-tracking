@@ -49,6 +49,7 @@ Always:
 - If `model_deployments` is empty, a single subscription-level token limit applies.
 - Emit `x-ratelimit-remaining-tokens` header for observability.
 - Controlled by `rate_limiting_enabled` flag.
+- **Rate limiting MUST be scoped to OpenAI paths only** (wrapped in `<when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;))">"`). Token counting is meaningless for DocInt/Speech/Search/Storage, and `estimate-prompt-tokens="true"` on large binary payloads (e.g., 500KB base64 images) causes APIM to hang reading/estimating the body before forwarding — resulting in curl timeouts (status 28) on the upstream caller.
 
 ## OpenAI Deployment Name Rewriting
 - Client sends a short name (e.g., `gpt-4.1-mini`); the backend expects a tenant-prefixed name (e.g., `wlrs-gpt-4.1-mini`).

@@ -454,7 +454,7 @@ TEST_FORM_JPG="${BATS_TEST_DIRNAME}/test_form.jpg"
 
     local operation_path
     operation_path=$(extract_operation_path "sdpr-invoice-automation" "${operation_location}")
-    wait_for_operation "sdpr-invoice-automation" "${operation_path}" 60
+    wait_for_operation "sdpr-invoice-automation" "${operation_path}" 120
 
     # Validate extracted content
     local content

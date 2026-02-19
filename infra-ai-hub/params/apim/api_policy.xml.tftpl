@@ -9,52 +9,46 @@
         <set-header name="X-Tenant-Id" exists-action="override">
             <value>${tenant_name}</value>
         </set-header>
-%{ if rate_limiting_enabled && length(model_deployments) > 0 ~}
-
-        <!-- Per-model token rate limiting based on tenant.tfvars model_deployments capacity -->
+%{ if openai_enabled && rate_limiting_enabled ~}
+        <!-- Per-model token rate limiting for OpenAI requests only -->
         <!-- Each model has its own rate limit matching its Azure OpenAI deployment capacity -->
+        <!-- Only applies to /openai/* paths; DocInt/Speech/Search/Storage are not rate-limited by token count -->
+        <!-- CRITICAL: estimate-prompt-tokens reads the entire request body for tokenization. -->
+        <!-- On large binary payloads (e.g., 500KB base64 DocInt images) this causes APIM to hang. -->
         <!-- Extracts deployment name from URL: /openai/deployments/{deployment-name}/... -->
-        <set-variable name="deploymentName" value="@{
-            var path = context.Request.Url.Path;
-            var match = System.Text.RegularExpressions.Regex.Match(path, @&quot;/deployments/([^/]+)/&quot;);
-            return match.Success ? match.Groups[1].Value : &quot;unknown&quot;;
-        }" />
         <choose>
+            <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;))">
+                <set-variable name="deploymentName" value="@{
+                    var path = context.Request.Url.Path;
+                    var match = System.Text.RegularExpressions.Regex.Match(path, @&quot;/deployments/([^/]+)/&quot;);
+                    return match.Success ? match.Groups[1].Value : &quot;unknown&quot;;
+                }" />
+                <choose>
 %{ for model in model_deployments ~}
-            <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;deploymentName&quot;, &quot;&quot;) == &quot;${model.name}&quot;)">
-                <!-- Rate limit for ${model.name}: ${model.capacity}k TPM (deployment capacity is in thousands of TPM) -->
-                <llm-token-limit
-                    counter-key="@(context.Subscription.Id + &quot;-${model.name}&quot;)"
-                    tokens-per-minute="${model.capacity * 1000}"
-                    estimate-prompt-tokens="true"
-                    remaining-tokens-variable-name="remainingTokens"
-                    remaining-tokens-header-name="x-ratelimit-remaining-tokens"
-                    tokens-consumed-variable-name="tokensConsumed" />
-            </when>
+                    <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;deploymentName&quot;, &quot;&quot;) == &quot;${model.name}&quot;)">
+                        <!-- Rate limit for ${model.name}: ${model.capacity}k TPM (deployment capacity is in thousands of TPM) -->
+                        <llm-token-limit
+                            counter-key="@(context.Subscription.Id + &quot;-${model.name}&quot;)"
+                            tokens-per-minute="${model.capacity * 1000}"
+                            estimate-prompt-tokens="true"
+                            remaining-tokens-variable-name="remainingTokens"
+                            remaining-tokens-header-name="x-ratelimit-remaining-tokens"
+                            tokens-consumed-variable-name="tokensConsumed" />
+                    </when>
 %{ endfor ~}
-            <otherwise>
-                <!-- Fallback rate limit for unknown models: ${tokens_per_minute} TPM -->
-                <llm-token-limit
-                    counter-key="@(context.Subscription.Id + &quot;-unknown&quot;)"
-                    tokens-per-minute="${tokens_per_minute}"
-                    estimate-prompt-tokens="true"
-                    remaining-tokens-variable-name="remainingTokens"
-                    remaining-tokens-header-name="x-ratelimit-remaining-tokens"
-                    tokens-consumed-variable-name="tokensConsumed" />
-            </otherwise>
+                    <otherwise>
+                        <!-- Fallback rate limit for unknown models: ${tokens_per_minute} TPM -->
+                        <llm-token-limit
+                            counter-key="@(context.Subscription.Id + &quot;-unknown&quot;)"
+                            tokens-per-minute="${tokens_per_minute}"
+                            estimate-prompt-tokens="true"
+                            remaining-tokens-variable-name="remainingTokens"
+                            remaining-tokens-header-name="x-ratelimit-remaining-tokens"
+                            tokens-consumed-variable-name="tokensConsumed" />
+                    </otherwise>
+                </choose>
+            </when>
         </choose>
-%{ endif ~}
-%{ if rate_limiting_enabled && length(model_deployments) == 0 ~}
-
-        <!-- Token rate limiting: ${tokens_per_minute} TPM per subscription for this tenant -->
-        <!-- Protects backend from token exhaustion, returns 429 when exceeded -->
-        <llm-token-limit
-            counter-key="@(context.Subscription.Id)"
-            tokens-per-minute="${tokens_per_minute}"
-            estimate-prompt-tokens="true"
-            remaining-tokens-variable-name="remainingTokens"
-            remaining-tokens-header-name="x-ratelimit-remaining-tokens"
-            tokens-consumed-variable-name="tokensConsumed" />
 %{ endif ~}
 
         <!-- Path-based routing to appropriate backend service -->
