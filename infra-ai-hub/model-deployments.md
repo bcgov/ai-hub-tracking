@@ -10,69 +10,97 @@ Percentage values show the share of the regional quota limit consumed by each te
 ## Regional Quota Limits (Canada East)
 
 These are the maximum TPM quotas available per model across the entire subscription.
+All models listed are available via GlobalStandard SKU without explicit access approval.
 
-| Model | Quota Limit (TPM) |
-|-------|------------------:|
-| gpt-4.1-mini | 150,000 |
-| gpt-5-mini | 10,000 |
-| gpt-5-nano | 150,000 |
-| gpt-5.1-chat | 5,000 |
-| gpt-5.1-codex-mini | 10,000 |
-| text-embedding-ada-002 | 10,000 |
-| text-embedding-3-large | 10,000 |
+| Model | Kind | Quota Limit (TPM) |
+|-------|------|------------------:|
+| gpt-4.1 | Chat | 30,000 |
+| gpt-4.1-mini | Chat | 150,000 |
+| gpt-4.1-nano | Chat | 150,000 |
+| gpt-4o | Chat | 30,000 |
+| gpt-4o-mini | Chat | 150,000 |
+| gpt-5-mini | Chat | 10,000 |
+| gpt-5-nano | Chat | 150,000 |
+| gpt-5.1-chat | Chat (Preview) | 5,000 |
+| gpt-5.1-codex-mini | Code | 10,000 |
+| o1 | Reasoning | 5,000 |
+| o3-mini | Reasoning | 5,000 |
+| o4-mini | Reasoning | 10,000 |
+| text-embedding-ada-002 | Embedding | 10,000 |
+| text-embedding-3-large | Embedding | 10,000 |
+| text-embedding-3-small | Embedding | 10,000 |
 
 ---
 
 ## TEST Environment
 
-Quota allocation strategy: **wlrs = 3%, sdpr = 2%, nr-dap = 1%** of regional limit per model.
+Quota allocation strategy: **1% per tenant** for all models.
 
-| Model | Quota Limit | wlrs-water-form-assistant | sdpr-invoice-automation | nr-dap-fish-wildlife | Total Allocated | Remaining |
-|-------|------------:|--------------------------:|------------------------:|---------------------:|----------------:|----------:|
-| gpt-4.1-mini | 150,000 | 4,500 (3%) | 3,000 (2%) | — | 7,500 (5%) | 142,500 |
-| gpt-5-mini | 10,000 | 300 (3%) | 200 (2%) | 100 (1%) | 600 (6%) | 9,400 |
-| gpt-5-nano | 150,000 | 4,500 (3%) | 3,000 (2%) | 1,500 (1%) | 9,000 (6%) | 141,000 |
-| gpt-5.1-chat | 5,000 | 150 (3%) | 100 (2%) | 50 (1%) | 300 (6%) | 4,700 |
-| gpt-5.1-codex-mini | 10,000 | 300 (3%) | 200 (2%) | 100 (1%) | 600 (6%) | 9,400 |
-| text-embedding-ada-002 | 10,000 | 300 (3%) | 200 (2%) | 100 (1%) | 600 (6%) | 9,400 |
-| text-embedding-3-large | 10,000 | 300 (3%) | — | — | 300 (3%) | 9,700 |
-
-> **Note:** `text-embedding-3-large` is not deployed for nr-dap-fish-wildlife or sdpr-invoice-automation — add when quota is freed up.
+| Model | Quota Limit | wlrs (1%) | sdpr (1%) | nr-dap (1%) | Total (3%) | Remaining |
+|-------|------------:|----------:|----------:|------------:|----------:|----------:|
+| gpt-4.1 | 30,000 | 300 | 300 | 300 | 900 (3%) | 29,100 |
+| gpt-4.1-mini | 150,000 | 1,500 | 1,500 | 1,500 | 4,500 (3%) | 145,500 |
+| gpt-4.1-nano | 150,000 | 1,500 | 1,500 | 1,500 | 4,500 (3%) | 145,500 |
+| gpt-4o | 30,000 | 300 | 300 | 300 | 900 (3%) | 29,100 |
+| gpt-4o-mini | 150,000 | 1,500 | 1,500 | 1,500 | 4,500 (3%) | 145,500 |
+| gpt-5-mini | 10,000 | 100 | 100 | 100 | 300 (3%) | 9,700 |
+| gpt-5-nano | 150,000 | 1,500 | 1,500 | 1,500 | 4,500 (3%) | 145,500 |
+| gpt-5.1-chat | 5,000 | 50 | 50 | 50 | 150 (3%) | 4,850 |
+| gpt-5.1-codex-mini | 10,000 | 100 | 100 | 100 | 300 (3%) | 9,700 |
+| o1 | 5,000 | 50 | 50 | 50 | 150 (3%) | 4,850 |
+| o3-mini | 5,000 | 50 | 50 | 50 | 150 (3%) | 4,850 |
+| o4-mini | 10,000 | 100 | 100 | 100 | 300 (3%) | 9,700 |
+| text-embedding-ada-002 | 10,000 | 100 | 100 | 100 | 300 (3%) | 9,700 |
+| text-embedding-3-large | 10,000 | 100 | 100 | 100 | 300 (3%) | 9,700 |
+| text-embedding-3-small | 10,000 | 100 | 100 | 100 | 300 (3%) | 9,700 |
 
 ---
 
 ## DEV Environment
 
-Dev capacities are higher than test for active development. No percentage-based allocation is enforced yet.
+Quota allocation strategy: **1% per tenant** for all models.
 
-| Model | Quota Limit | wlrs-water-form-assistant | sdpr-invoice-automation | nr-dap-fish-wildlife | Total Allocated | Remaining |
-|-------|------------:|--------------------------:|------------------------:|---------------------:|----------------:|----------:|
-| gpt-4.1-mini | 150,000 | 30,000 | 7,500 | — | 37,500 | 112,500 |
-| gpt-5-mini | 10,000 | 2,000 | 500 | 200 | 2,700 | 7,300 |
-| gpt-5-nano | 150,000 | 30,000 | 7,500 | 300 | 37,800 | 112,200 |
-| gpt-5.1-chat | 5,000 | 1,000 | 250 | 50 | 1,300 | 3,700 |
-| gpt-5.1-codex-mini | 10,000 | 2,000 | 500 | 20 | 2,520 | 7,480 |
-| text-embedding-ada-002 | 10,000 | 2,000 | 500 | 50 | 2,550 | 7,450 |
-| text-embedding-3-large | 10,000 | 10,000 | — | — | 10,000 | 0 |
-
-> **Note:** `text-embedding-3-large` quota is fully consumed by wlrs in dev (10,000/10,000). Other tenants cannot deploy this model until quota is increased or freed up.
+| Model | Quota Limit | wlrs (1%) | sdpr (1%) | nr-dap (1%) | Total (3%) | Remaining |
+|-------|------------:|----------:|----------:|------------:|----------:|----------:|
+| gpt-4.1 | 30,000 | 300 | 300 | 300 | 900 (3%) | 29,100 |
+| gpt-4.1-mini | 150,000 | 1,500 | 1,500 | 1,500 | 4,500 (3%) | 145,500 |
+| gpt-4.1-nano | 150,000 | 1,500 | 1,500 | 1,500 | 4,500 (3%) | 145,500 |
+| gpt-4o | 30,000 | 300 | 300 | 300 | 900 (3%) | 29,100 |
+| gpt-4o-mini | 150,000 | 1,500 | 1,500 | 1,500 | 4,500 (3%) | 145,500 |
+| gpt-5-mini | 10,000 | 100 | 100 | 100 | 300 (3%) | 9,700 |
+| gpt-5-nano | 150,000 | 1,500 | 1,500 | 1,500 | 4,500 (3%) | 145,500 |
+| gpt-5.1-chat | 5,000 | 50 | 50 | 50 | 150 (3%) | 4,850 |
+| gpt-5.1-codex-mini | 10,000 | 100 | 100 | 100 | 300 (3%) | 9,700 |
+| o1 | 5,000 | 50 | 50 | 50 | 150 (3%) | 4,850 |
+| o3-mini | 5,000 | 50 | 50 | 50 | 150 (3%) | 4,850 |
+| o4-mini | 10,000 | 100 | 100 | 100 | 300 (3%) | 9,700 |
+| text-embedding-ada-002 | 10,000 | 100 | 100 | 100 | 300 (3%) | 9,700 |
+| text-embedding-3-large | 10,000 | 100 | 100 | 100 | 300 (3%) | 9,700 |
+| text-embedding-3-small | 10,000 | 100 | 100 | 100 | 300 (3%) | 9,700 |
 
 ---
 
 ## PROD Environment
 
-Prod currently has minimal placeholder capacities (10 TPM each). Only wlrs-water-form-assistant is deployed.
+Quota allocation strategy: **1% per tenant** for all models. Only wlrs-water-form-assistant is deployed.
 
-| Model | Quota Limit | wlrs-water-form-assistant | Total Allocated | Remaining |
-|-------|------------:|--------------------------:|----------------:|----------:|
-| gpt-4.1-mini | 150,000 | 10 | 10 | 149,990 |
-| gpt-5-mini | 10,000 | 10 | 10 | 9,990 |
-| gpt-5-nano | 150,000 | 10 | 10 | 149,990 |
-| gpt-5.1-chat | 5,000 | 10 | 10 | 4,990 |
-| gpt-5.1-codex-mini | 10,000 | 10 | 10 | 9,990 |
-| text-embedding-ada-002 | 10,000 | 10 | 10 | 9,990 |
-
-> **Note:** Prod capacities are placeholder values. Adjust before production traffic begins.
+| Model | Quota Limit | wlrs (1%) | Total (1%) | Remaining |
+|-------|------------:|----------:|----------:|----------:|
+| gpt-4.1 | 30,000 | 300 | 300 (1%) | 29,700 |
+| gpt-4.1-mini | 150,000 | 1,500 | 1,500 (1%) | 148,500 |
+| gpt-4.1-nano | 150,000 | 1,500 | 1,500 (1%) | 148,500 |
+| gpt-4o | 30,000 | 300 | 300 (1%) | 29,700 |
+| gpt-4o-mini | 150,000 | 1,500 | 1,500 (1%) | 148,500 |
+| gpt-5-mini | 10,000 | 100 | 100 (1%) | 9,900 |
+| gpt-5-nano | 150,000 | 1,500 | 1,500 (1%) | 148,500 |
+| gpt-5.1-chat | 5,000 | 50 | 50 (1%) | 4,950 |
+| gpt-5.1-codex-mini | 10,000 | 100 | 100 (1%) | 9,900 |
+| o1 | 5,000 | 50 | 50 (1%) | 4,950 |
+| o3-mini | 5,000 | 50 | 50 (1%) | 4,950 |
+| o4-mini | 10,000 | 100 | 100 (1%) | 9,900 |
+| text-embedding-ada-002 | 10,000 | 100 | 100 (1%) | 9,900 |
+| text-embedding-3-large | 10,000 | 100 | 100 (1%) | 9,900 |
+| text-embedding-3-small | 10,000 | 100 | 100 (1%) | 9,900 |
 
 ---
 
@@ -91,7 +119,7 @@ When adding a new tenant or modifying model deployments:
 capacity = floor(quota_limit × percentage / 100)
 ```
 
-Example: 3% of gpt-5-mini (10,000 limit) = `floor(10000 × 0.03)` = **300**
+Example: 1% of gpt-5-mini (10,000 limit) = `floor(10000 × 0.01)` = **100**
 
 ### Checking Current Quota Usage
 

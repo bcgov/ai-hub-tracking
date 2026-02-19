@@ -178,10 +178,10 @@ tf_import_existing_resource_if_needed() {
           return trim(s)
         }
 
-        if (match(line, /\\\"[^\\\"]+\\\"/)) {
+        if (match(line, /\\"[^\\"]+\\"/)) {
           s = substr(line, RSTART, RLENGTH)
-          sub(/^\\\"/, "", s)
-          sub(/\\\"$/, "", s)
+          sub(/^\\"/, "", s)
+          sub(/\\"$/, "", s)
           return trim(s)
         }
 
@@ -356,6 +356,23 @@ tf_request_conflict_retry_if_needed() {
   return 1
 }
 
+tf_apim_validation_error_retry_if_needed() {
+  local tf_output_file="$1"
+
+  # APIM's control plane is eventually consistent. When a new API or product is
+  # just created, Azure may return 400 ValidationError or 404 Not Found for
+  # dependent resources (operations, product-api links, subscriptions) even
+  # though the parent resource creation succeeded in the same apply. A short
+  # wait before retrying is usually sufficient.
+  if grep -qiE '(ValidationError.*One or more fields contain incorrect values|ResourceNotFound.*Product not found).*azurerm_api_management|azurerm_api_management.*(ValidationError.*One or more fields contain incorrect values|ResourceNotFound.*Product not found)' "$tf_output_file" 2>/dev/null; then
+    log_warning "Detected APIM control-plane propagation lag (ValidationError/404); waiting 30 s before retry"
+    sleep 30
+    return 0
+  fi
+
+  return 1
+}
+
 tf_transient_connection_retry_if_needed() {
   local tf_output_file="$1"
 
@@ -438,6 +455,8 @@ run_terraform_with_retries() {
       handled=true
     elif tf_transient_connection_retry_if_needed "$tf_output_file"; then
       handled=true
+    elif [[ "$command" == "apply" ]] && tf_apim_validation_error_retry_if_needed "$tf_output_file"; then
+      handled=true
     elif [[ "$command" == "destroy" ]] && tf_destroy_apim_backend_policy_if_needed "$tf_output_file"; then
       handled=true
     elif [[ "$command" == "destroy" ]] && tf_destroy_subnet_in_use_retry_if_needed "$tf_output_file"; then
@@ -471,15 +490,45 @@ merge_all_tenants() {
     echo "tenants = {"
   } > "$combined_file"
 
+  # Collect files into array so we can iterate twice (once for tenants, once for tenant_tags)
+  local -a _tenant_files=()
   if [[ -d "$tenants_dir" ]]; then
     while IFS= read -r -d '' file; do
+      _tenant_files+=("$file")
       local tenant_name
       tenant_name="$(basename "$(dirname "$file")")"
       local block_content
-      block_content=$(awk '/^tenant[[:space:]]*=[[:space:]]*\{/,/^\}$/' "$file" | sed 's/^tenant[[:space:]]*=[[:space:]]*//')
+      # Strip the tags sub-block — tags are emitted in tenant_tags below
+      block_content=$(awk '/^tenant[[:space:]]*=[[:space:]]*\{/,/^\}$/' "$file" | \
+        sed 's/^tenant[[:space:]]*=[[:space:]]*//' | \
+        awk '/^[[:space:]]*tags[[:space:]]*=[[:space:]]*\{/{skip=1;next} skip&&/^[[:space:]]*\}/{skip=0;next} skip{next} {print}')
       echo "  \"${tenant_name}\" = ${block_content}" >> "$combined_file"
     done < <(find "$tenants_dir" -name "tenant.tfvars" -type f -print0 | sort -z)
   fi
+
+  # Emit per-tenant tags as map(map(string)) — allows each tenant to carry
+  # a different set of tag keys (up to 20) without HCL type-unification errors.
+  {
+    echo "}"
+    echo ""
+    echo "tenant_tags = {"
+  } >> "$combined_file"
+
+  for file in "${_tenant_files[@]}"; do
+    local tenant_name
+    tenant_name="$(basename "$(dirname "$file")")"
+    local tags_content
+    tags_content=$(awk '
+      /^[[:space:]]*tags[[:space:]]*=[[:space:]]*\{/ { in_tags=1; next }
+      in_tags && /^[[:space:]]*\}/ { in_tags=0; next }
+      in_tags { print }
+    ' "$file")
+    {
+      echo "  \"${tenant_name}\" = {"
+      echo "${tags_content}"
+      echo "  }"
+    } >> "$combined_file"
+  done
 
   echo "}" >> "$combined_file"
 }
@@ -493,13 +542,28 @@ build_single_tenant_tfvars() {
   local tenant_key
   tenant_key="$(basename "$(dirname "$tenant_file")")"
   local out_file="${INFRA_DIR}/.tenant-${ENVIRONMENT}-${tenant_key}.auto.tfvars"
+  # Strip tags sub-block from tenants map; emit it in tenant_tags instead
   local block_content
-  block_content=$(awk '/^tenant[[:space:]]*=[[:space:]]*\{/,/^\}$/' "$tenant_file" | sed 's/^tenant[[:space:]]*=[[:space:]]*//')
+  block_content=$(awk '/^tenant[[:space:]]*=[[:space:]]*\{/,/^\}$/' "$tenant_file" | \
+    sed 's/^tenant[[:space:]]*=[[:space:]]*//' | \
+    awk '/^[[:space:]]*tags[[:space:]]*=[[:space:]]*\{/{skip=1;next} skip&&/^[[:space:]]*\}/{skip=0;next} skip{next} {print}')
+  local tags_content
+  tags_content=$(awk '
+    /^[[:space:]]*tags[[:space:]]*=[[:space:]]*\{/ { in_tags=1; next }
+    in_tags && /^[[:space:]]*\}/ { in_tags=0; next }
+    in_tags { print }
+  ' "$tenant_file")
 
   {
     echo "# Auto-generated"
     echo "tenants = {"
     echo "  \"${tenant_key}\" = ${block_content}"
+    echo "}"
+    echo ""
+    echo "tenant_tags = {"
+    echo "  \"${tenant_key}\" = {"
+    echo "${tags_content}"
+    echo "  }"
     echo "}"
   } > "$out_file"
 

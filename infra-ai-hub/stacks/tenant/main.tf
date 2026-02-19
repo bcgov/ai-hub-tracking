@@ -93,5 +93,5 @@ module "tenant" {
   }
 
   ai_foundry_hub_id = data.terraform_remote_state.shared.outputs.ai_foundry_hub_id
-  tags              = merge(var.common_tags, lookup(each.value, "tags", {}))
+  tags              = merge(var.common_tags, lookup(var.tenant_tags, each.key, {}))
 }

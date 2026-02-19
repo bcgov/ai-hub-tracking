@@ -586,6 +586,13 @@ resource "azurerm_api_management_subscription" "tenant" {
   state               = each.value.state
   allow_tracing       = each.value.allow_tracing
 
+  # Wait for the entire apim module so that newly-created products are fully
+  # provisioned before we create subscriptions against them. Without this,
+  # module.apim[0].id is known at plan time (APIM service already exists) and
+  # Terraform creates subscriptions in parallel with product creation, causing
+  # transient 400 ValidationError from Azure's control plane.
+  depends_on = [module.apim]
+
   lifecycle {
     ignore_changes = [allow_tracing]
   }
@@ -692,6 +699,12 @@ resource "azurerm_api_management_api_operation" "tenant_methods" {
   url_template        = "/*"
   description         = "Catch-all ${each.value.method} operation for path-based routing to tenant services"
 
+  # Wait for the entire apim module so that newly-created APIs are fully
+  # provisioned before we add operations to them. Without this,
+  # module.apim[0].name is known at plan time and Terraform creates operations
+  # in parallel with API creation, causing transient 400 ValidationError.
+  depends_on = [module.apim]
+
   response {
     status_code = 200
   }
@@ -707,6 +720,12 @@ resource "azurerm_api_management_product_api" "tenant" {
   product_id          = each.key
   api_management_name = module.apim[0].name
   resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
+
+  # Wait for the entire apim module so that newly-created products and APIs are
+  # fully provisioned before we associate them. Without this, both api_name and
+  # product_id are string literals resolved at plan time, giving Terraform no
+  # apply-time dependency on module.apim, causing transient 404 Not Found.
+  depends_on = [module.apim]
 }
 
 resource "azapi_resource" "defender_api_collection" {

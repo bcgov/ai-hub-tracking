@@ -115,22 +115,46 @@ merge_tenants() {
         echo "tenants = {"
     } > "$output_file"
     
-    # Process each tenant file
+    # Process each tenant file — strip tags sub-block so each tenant can carry
+    # a different set of tag keys without HCL type-unification errors.
     for tenant_file in "${tenant_files[@]}"; do
         local tenant_name
         tenant_name=$(basename "$(dirname "$tenant_file")")
-        
+
         {
             echo ""
             echo "  # From: tenants/${tenant_name}/tenant.tfvars"
-            # Extract just the block content (without "tenant = ") and add key prefix
             local block_content
             block_content=$(awk '/^tenant[[:space:]]*=[[:space:]]*\{/,/^\}$/' "$tenant_file" | \
-                sed 's/^tenant[[:space:]]*=[[:space:]]*//')
+                sed 's/^tenant[[:space:]]*=[[:space:]]*//' | \
+                awk '/^[[:space:]]*tags[[:space:]]*=[[:space:]]*\{/{skip=1;next} skip&&/^[[:space:]]*\}/{skip=0;next} skip{next} {print}')
             echo "  \"${tenant_name}\" = ${block_content}"
         } >> "$output_file"
     done
-    
+
+    # Close tenants map, then emit per-tenant tags as map(map(string))
+    {
+        echo "}"
+        echo ""
+        echo "tenant_tags = {"
+    } >> "$output_file"
+
+    for tenant_file in "${tenant_files[@]}"; do
+        local tenant_name
+        tenant_name=$(basename "$(dirname "$tenant_file")")
+        local tags_content
+        tags_content=$(awk '
+            /^[[:space:]]*tags[[:space:]]*=[[:space:]]*\{/ { in_tags=1; next }
+            in_tags && /^[[:space:]]*\}/ { in_tags=0; next }
+            in_tags { print }
+        ' "$tenant_file")
+        {
+            echo "  \"${tenant_name}\" = {"
+            echo "${tags_content}"
+            echo "  }"
+        } >> "$output_file"
+    done
+
     echo "}" >> "$output_file"
 }
 
@@ -257,9 +281,10 @@ merge_tenants "$TEST_DIR/tenants" "$TEST_DIR/output.tfvars"
 content=$(cat "$TEST_DIR/output.tfvars")
 
 assert_contains "$content" '"complex-tenant" =' "Should contain complex-tenant key"
-assert_contains "$content" 'ministry    = "TEST"' "Should contain nested tags"
-assert_contains "$content" 'account_tier             = "Standard"' "Should contain storage config"
-assert_contains "$content" 'model_deployments = [' "Should contain model_deployments array"
+assert_contains "$content" 'tenant_tags = {' "Should contain tenant_tags block"
+assert_contains "$content" 'ministry    = "TEST"' "Should contain ministry tag in tenant_tags block"
+assert_contains "$content" 'account_tier             = "Standard"' "Should contain storage config in tenant object"
+assert_contains "$content" 'model_deployments = [' "Should contain model_deployments array in tenant object"
 cleanup_test_env
 
 # -----------------------------------------------------------------------------
