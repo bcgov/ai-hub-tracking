@@ -43,8 +43,20 @@ tenant = {
     local_auth_enabled = true
   }
 
+  # IMPORTANT: Even when disabled, cosmos_db MUST include all fields to match
+  # other tenants' structure. Terraform map(any) requires identical object shapes.
   cosmos_db = {
-    enabled = false
+    enabled                      = false
+    offer_type                   = "Standard"
+    kind                         = "GlobalDocumentDB"
+    consistency_level            = "Session"
+    max_interval_in_seconds      = 5
+    max_staleness_prefix         = 100
+    geo_redundant_backup_enabled = false
+    automatic_failover_enabled   = false
+    total_throughput_limit       = 1000
+    database_name                = "default"
+    container_name               = "cosmosContainer"
   }
 
   document_intelligence = {
@@ -77,6 +89,9 @@ tenant = {
       log_categories    = []
       metric_categories = ["AllMetrics"]
     }
+    # Capacity = 2% of regional quota limit per model
+    # Quota limits: gpt-4.1-mini=150k, gpt-5-mini=10k, gpt-5-nano=150k,
+    #   gpt-5.1-chat=5k, gpt-5.1-codex-mini=10k, text-embedding-ada-002=10k
     model_deployments = [
       # GPT-4.1 Series
       {
@@ -84,7 +99,7 @@ tenant = {
         model_name    = "gpt-4.1-mini"
         model_version = "2025-04-14"
         scale_type    = "GlobalStandard"
-        capacity      = 7500
+        capacity      = 3000 # 2% of 150,000
       },
       # GPT-5 Series
       {
@@ -92,14 +107,14 @@ tenant = {
         model_name    = "gpt-5-mini"
         model_version = "2025-08-07"
         scale_type    = "GlobalStandard"
-        capacity      = 500
+        capacity      = 200 # 2% of 10,000
       },
       {
         name          = "gpt-5-nano"
         model_name    = "gpt-5-nano"
         model_version = "2025-08-07"
         scale_type    = "GlobalStandard"
-        capacity      = 7500
+        capacity      = 3000 # 2% of 150,000
       },
       # GPT-5.1 Series
       {
@@ -107,14 +122,14 @@ tenant = {
         model_name    = "gpt-5.1-chat"
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
-        capacity      = 250
+        capacity      = 100 # 2% of 5,000
       },
       {
         name          = "gpt-5.1-codex-mini"
         model_name    = "gpt-5.1-codex-mini"
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
-        capacity      = 500
+        capacity      = 200 # 2% of 10,000
       },
       # Embeddings
       {
@@ -122,7 +137,7 @@ tenant = {
         model_name    = "text-embedding-ada-002"
         model_version = "2"
         scale_type    = "GlobalStandard"
-        capacity      = 500
+        capacity      = 200 # 2% of 10,000
       }
     ]
   }

@@ -9,11 +9,12 @@ tenant = {
   display_name = "NR DAP Fish Wildlife"
   enabled      = true
 
+  # IMPORTANT: All tenants MUST use the same tag keys to avoid Terraform
+  # "all map elements must have the same type" errors with map(any).
+  # Required keys: ministry, environment
   tags = {
-    ministry_imb       = "NR Sector Digital Services"
-    secondary_platform = "NRM DAP"
-    team_supporting    = "NR Dap team"
-    environment        = "dev"
+    ministry    = "NR Sector Digital Services"
+    environment = "dev"
   }
 
   key_vault = {
@@ -70,6 +71,12 @@ tenant = {
     }
   }
 
+  # Speech Services - disabled by default, enable for text-to-speech/speech-to-text capabilities
+  # IMPORTANT: This block MUST be present in every tenant (even if disabled) to keep
+  # the map(any) type consistent across all tenant entries.
+  speech_services = {
+    enabled = false
+  }
 
   log_analytics = {
     enabled        = true
@@ -124,13 +131,8 @@ tenant = {
         scale_type    = "GlobalStandard"
         capacity      = 50
       },
-      {
-        name          = "text-embedding-3-large"
-        model_name    = "text-embedding-3-large"
-        model_version = "1"
-        scale_type    = "GlobalStandard"
-        capacity      = 50
-      },
+      # NOTE: text-embedding-3-large removed — quota fully consumed by other tenants
+      # (10000/10000 TPM). Re-add when quota is increased or freed up.
     ]
   }
 
@@ -157,8 +159,11 @@ tenant = {
   # APIM Policies Configuration
   # Consolidates all APIM policy settings for this tenant
   apim_policies = {
+    # IMPORTANT: tokens_per_minute MUST be set when rate_limiting is enabled.
+    # Omitting it causes type mismatch with other tenants (map(any) requires identical shapes).
     rate_limiting = {
-      enabled = true
+      enabled           = true
+      tokens_per_minute = 1000
     }
     pii_redaction = {
       enabled     = false # Redact emails, phone numbers, addresses, etc.

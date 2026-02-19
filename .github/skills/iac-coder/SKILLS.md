@@ -146,6 +146,7 @@ env:
 3. Ensure variable descriptions are present.
 4. Keep changes minimal and consistent with repo patterns.
 5. Make sure changes are also reflected in appropriate sections in [docs](../../../docs/)
+6. **[MANDATORY]** When adding new tenants or modifying existing tenant model deployments, update the [Model Deployments & Quota Allocation](../../../infra-ai-hub/model-deployments.md) table for the affected environment(s). This keeps the quota tracking accurate and prevents over-allocation.
 
 ## Running Deployments from local machine
 1. Always use the deployment bash script over regular terraform commands

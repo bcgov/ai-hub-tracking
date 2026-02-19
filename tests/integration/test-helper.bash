@@ -212,11 +212,17 @@ parse_response() {
     export RESPONSE_STATUS RESPONSE_BODY
 }
 
-# Retry configuration for rate limiting
-MAX_RETRIES="${MAX_RETRIES:-3}"
+# Retry configuration for rate limiting and transient failures
+# With low quota allocations, rate limits are tighter — use more retries + backoff
+MAX_RETRIES="${MAX_RETRIES:-5}"
 RETRY_DELAY="${RETRY_DELAY:-5}"
+BACKOFF_MULTIPLIER="${BACKOFF_MULTIPLIER:-2}"
+MAX_RETRY_DELAY="${MAX_RETRY_DELAY:-60}"
 
-# Make a request with retry logic for transient failures and 429 rate limiting
+# Make a request with retry logic for transient failures, 429 rate limiting, and 503 service errors
+# Uses exponential backoff: delay doubles each retry (capped at MAX_RETRY_DELAY)
+# Retries on: 000 (transport), 429 (rate limit), 503 (transient service error)
+# Does NOT retry 503 with failure_reason "partial-redaction" (intentional block)
 # Usage: apim_request_with_retry <method> <tenant> <path> [body]
 apim_request_with_retry() {
     local method="${1}"
@@ -225,6 +231,7 @@ apim_request_with_retry() {
     local body="${4:-}"
     local retries=0
     local response
+    local current_delay="${RETRY_DELAY}"
     
     while [[ ${retries} -lt ${MAX_RETRIES} ]]; do
         response=$(apim_request "${method}" "${tenant}" "${path}" "${body}")
@@ -232,15 +239,30 @@ apim_request_with_retry() {
         
         if [[ "${RESPONSE_STATUS}" == "000" ]]; then
             retries=$((retries + 1))
-            echo "Transport failure (000), retry ${retries}/${MAX_RETRIES} after ${RETRY_DELAY}s..." >&2
-            sleep "${RETRY_DELAY}"
+            echo "Transport failure (000), retry ${retries}/${MAX_RETRIES} after ${current_delay}s..." >&2
+            sleep "${current_delay}"
+            current_delay=$(( current_delay * BACKOFF_MULTIPLIER > MAX_RETRY_DELAY ? MAX_RETRY_DELAY : current_delay * BACKOFF_MULTIPLIER ))
         elif [[ "${RESPONSE_STATUS}" == "429" ]]; then
             retries=$((retries + 1))
-            # Extract retry-after from response if available, default to RETRY_DELAY
+            # Extract retry-after from response if available, default to current_delay
             local retry_after
-            retry_after=$(echo "${RESPONSE_BODY}" | grep -oP 'retry after \K[0-9]+' || echo "${RETRY_DELAY}")
+            retry_after=$(echo "${RESPONSE_BODY}" | grep -oP 'retry after \K[0-9]+' || echo "${current_delay}")
             echo "Rate limited (429), retry ${retries}/${MAX_RETRIES} after ${retry_after}s..." >&2
             sleep "${retry_after}"
+            current_delay=$(( current_delay * BACKOFF_MULTIPLIER > MAX_RETRY_DELAY ? MAX_RETRY_DELAY : current_delay * BACKOFF_MULTIPLIER ))
+        elif [[ "${RESPONSE_STATUS}" == "503" ]]; then
+            # Only retry transient 503s (network/dns errors), not intentional blocks
+            local failure_reason
+            failure_reason=$(echo "${RESPONSE_BODY}" | jq -r '.error.failure_reason // ""' 2>/dev/null || echo "")
+            if [[ "${failure_reason}" == *"partial-redaction"* ]]; then
+                # Intentional 503 from PII coverage check — do not retry
+                echo "${response}"
+                return 0
+            fi
+            retries=$((retries + 1))
+            echo "Service unavailable (503, reason: ${failure_reason:-unknown}), retry ${retries}/${MAX_RETRIES} after ${current_delay}s..." >&2
+            sleep "${current_delay}"
+            current_delay=$(( current_delay * BACKOFF_MULTIPLIER > MAX_RETRY_DELAY ? MAX_RETRY_DELAY : current_delay * BACKOFF_MULTIPLIER ))
         else
             echo "${response}"
             return 0
@@ -251,7 +273,8 @@ apim_request_with_retry() {
     echo "${response}"
 }
 
-# Make a request with retry logic for transient failures and 429 rate limiting (Ocp-Apim-Subscription-Key header)
+# Make a request with retry logic for transient failures, 429 rate limiting, and 503 service errors
+# (Ocp-Apim-Subscription-Key header variant)
 # Usage: apim_request_with_retry_ocp <method> <tenant> <path> [body]
 apim_request_with_retry_ocp() {
     local method="${1}"
@@ -260,6 +283,7 @@ apim_request_with_retry_ocp() {
     local body="${4:-}"
     local retries=0
     local response
+    local current_delay="${RETRY_DELAY}"
 
     while [[ ${retries} -lt ${MAX_RETRIES} ]]; do
         response=$(apim_request_ocp "${method}" "${tenant}" "${path}" "${body}")
@@ -267,14 +291,27 @@ apim_request_with_retry_ocp() {
 
         if [[ "${RESPONSE_STATUS}" == "000" ]]; then
             retries=$((retries + 1))
-            echo "Transport failure (000), retry ${retries}/${MAX_RETRIES} after ${RETRY_DELAY}s..." >&2
-            sleep "${RETRY_DELAY}"
+            echo "Transport failure (000), retry ${retries}/${MAX_RETRIES} after ${current_delay}s..." >&2
+            sleep "${current_delay}"
+            current_delay=$(( current_delay * BACKOFF_MULTIPLIER > MAX_RETRY_DELAY ? MAX_RETRY_DELAY : current_delay * BACKOFF_MULTIPLIER ))
         elif [[ "${RESPONSE_STATUS}" == "429" ]]; then
             retries=$((retries + 1))
             local retry_after
-            retry_after=$(echo "${RESPONSE_BODY}" | grep -oP 'retry after \K[0-9]+' || echo "${RETRY_DELAY}")
+            retry_after=$(echo "${RESPONSE_BODY}" | grep -oP 'retry after \K[0-9]+' || echo "${current_delay}")
             echo "Rate limited (429), retry ${retries}/${MAX_RETRIES} after ${retry_after}s..." >&2
             sleep "${retry_after}"
+            current_delay=$(( current_delay * BACKOFF_MULTIPLIER > MAX_RETRY_DELAY ? MAX_RETRY_DELAY : current_delay * BACKOFF_MULTIPLIER ))
+        elif [[ "${RESPONSE_STATUS}" == "503" ]]; then
+            local failure_reason
+            failure_reason=$(echo "${RESPONSE_BODY}" | jq -r '.error.failure_reason // ""' 2>/dev/null || echo "")
+            if [[ "${failure_reason}" == *"partial-redaction"* ]]; then
+                echo "${response}"
+                return 0
+            fi
+            retries=$((retries + 1))
+            echo "Service unavailable (503, reason: ${failure_reason:-unknown}), retry ${retries}/${MAX_RETRIES} after ${current_delay}s..." >&2
+            sleep "${current_delay}"
+            current_delay=$(( current_delay * BACKOFF_MULTIPLIER > MAX_RETRY_DELAY ? MAX_RETRY_DELAY : current_delay * BACKOFF_MULTIPLIER ))
         else
             echo "${response}"
             return 0
@@ -292,7 +329,7 @@ chat_completion() {
     local tenant="${1}"
     local model="${2}"
     local message="${3}"
-    local max_tokens="${4:-100}"
+    local max_tokens="${4:-50}"
     
     local path="/openai/deployments/${model}/chat/completions?api-version=${OPENAI_API_VERSION}"
     local body
@@ -339,7 +376,7 @@ chat_completion_ocp() {
     local tenant="${1}"
     local model="${2}"
     local message="${3}"
-    local max_tokens="${4:-100}"
+    local max_tokens="${4:-50}"
 
     local path="/openai/deployments/${model}/chat/completions?api-version=${OPENAI_API_VERSION}"
     local body

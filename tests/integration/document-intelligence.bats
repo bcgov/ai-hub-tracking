@@ -591,6 +591,74 @@ TEST_FORM_JPG="${BATS_TEST_DIRNAME}/test_form.jpg"
 }
 
 # =============================================================================
+# NR-DAP Tenant Tests (1% quota - lightweight tests)
+# =============================================================================
+
+@test "NR-DAP: Document analysis endpoint returns 200 or 202" {
+    skip_if_no_key "nr-dap-fish-wildlife"
+    
+    if ! docint_accessible "nr-dap-fish-wildlife"; then
+        skip "Document Intelligence backend not accessible for NR-DAP"
+    fi
+    
+    response=$(docint_analyze "nr-dap-fish-wildlife" "prebuilt-layout" "${SAMPLE_PDF_BASE64}")
+    parse_response "${response}"
+    
+    [[ "${RESPONSE_STATUS}" == "200" ]] || [[ "${RESPONSE_STATUS}" == "202" ]]
+}
+
+@test "NR-DAP: Document analysis accepts JSON input" {
+    skip_if_no_key "nr-dap-fish-wildlife"
+    if ! docint_accessible "nr-dap-fish-wildlife"; then
+        skip "Document Intelligence backend not accessible for NR-DAP"
+    fi
+    
+    local body='{"base64Source": "'"${SAMPLE_PDF_BASE64}"'"}'
+    
+    response=$(apim_request "POST" "nr-dap-fish-wildlife" \
+        "/documentintelligence/documentModels/prebuilt-layout:analyze?api-version=${DOCINT_API_VERSION}" \
+        "${body}")
+    parse_response "${response}"
+    
+    [[ "${RESPONSE_STATUS}" == "200" ]] || [[ "${RESPONSE_STATUS}" == "202" ]]
+}
+
+@test "NR-DAP: Full async flow - submit JPG file, poll operation, validate" {
+    skip_if_no_key "nr-dap-fish-wildlife"
+    if ! docint_accessible "nr-dap-fish-wildlife"; then
+        skip "Document Intelligence backend not accessible for NR-DAP"
+    fi
+    
+    local test_file="${BATS_TEST_DIRNAME}/test_form_small.jpg"
+    if [[ ! -f "${test_file}" ]]; then
+        skip "Test form image not found: ${test_file}"
+    fi
+    
+    # Submit document for analysis
+    local full_response
+    full_response=$(docint_analyze_file "nr-dap-fish-wildlife" "prebuilt-layout" "${test_file}")
+    
+    local status
+    status=$(extract_http_status "${full_response}")
+    [[ "${status}" == "200" ]] || [[ "${status}" == "202" ]]
+    
+    if [[ "${status}" == "202" ]]; then
+        # Extract operation location and poll for completion
+        local operation_location
+        operation_location=$(echo "${full_response}" | grep -i "operation-location" | head -1 | sed 's/^[^:]*: //' | tr -d '\r\n')
+        
+        local operation_path
+        operation_path=$(extract_operation_path "nr-dap-fish-wildlife" "${operation_location}")
+        
+        wait_for_operation "nr-dap-fish-wildlife" "${operation_path}" 60
+        
+        local content
+        content=$(json_get "${RESPONSE_BODY}" '.analyzeResult.content')
+        [[ -n "${content}" ]]
+    fi
+}
+
+# =============================================================================
 # Helper Functions
 # =============================================================================
 

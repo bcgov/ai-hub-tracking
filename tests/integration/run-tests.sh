@@ -154,6 +154,7 @@ load_config() {
     if [[ -n "${subscriptions}" ]]; then
         export WLRS_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["wlrs-water-form-assistant"].primary_key // empty')
         export SDPR_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["sdpr-invoice-automation"].primary_key // empty')
+        export NRDAP_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["nr-dap-fish-wildlife"].primary_key // empty')
 
         export APIM_KEYS_TENANT_1="${APIM_KEYS_TENANT_1:-wlrs-water-form-assistant}"
         export APIM_KEYS_TENANT_2="${APIM_KEYS_TENANT_2:-sdpr-invoice-automation}"
@@ -168,6 +169,12 @@ load_config() {
             log_success "SDPR subscription key loaded"
         else
             log_warn "SDPR subscription key not found"
+        fi
+
+        if [[ -n "${NRDAP_SUBSCRIPTION_KEY}" ]]; then
+            log_success "NR-DAP subscription key loaded"
+        else
+            log_warn "NR-DAP subscription key not found"
         fi
 
         log_success "APIM Keys Tenant-1: ${APIM_KEYS_TENANT_1}"

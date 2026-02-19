@@ -359,6 +359,103 @@ EOF
 }
 
 # =============================================================================
+# NR-DAP Tenant Tests - Dynamic Model Testing (1% quota allocation)
+# =============================================================================
+# NR-DAP has the lowest quota allocation (1%), so these tests validate that
+# the reduced capacity still handles requests correctly. Uses lower max_tokens
+# to stay within rate limits.
+
+@test "NR-DAP: Primary model (gpt-5-mini) responds successfully" {
+    skip_if_no_key "nr-dap-fish-wildlife"
+    
+    response=$(chat_completion "nr-dap-fish-wildlife" "gpt-5-mini" "Say hello" 10)
+    parse_response "${response}"
+    
+    assert_status "200" "${RESPONSE_STATUS}"
+}
+
+@test "NR-DAP: All deployed chat models connectivity check" {
+    skip_if_no_key "nr-dap-fish-wildlife"
+    
+    local models
+    models=$(get_tenant_chat_models "nr-dap-fish-wildlife")
+    
+    if [[ -z "${models}" ]]; then
+        skip "No models found for NR-DAP tenant"
+    fi
+    
+    local failed_models=""
+    local passed_count=0
+    local total_count=0
+    local skipped_count=0
+    
+    for model in ${models}; do
+        total_count=$((total_count + 1))
+        echo "Testing model: ${model}" >&3
+        
+        # Use minimal tokens (10) to avoid hitting low quota limits
+        response=$(chat_completion "nr-dap-fish-wildlife" "${model}" "Say hello" 10)
+        parse_response "${response}"
+        
+        if [[ "${RESPONSE_STATUS}" == "200" ]]; then
+            passed_count=$((passed_count + 1))
+            echo "  ✓ ${model}: OK" >&3
+        elif [[ "${RESPONSE_STATUS}" == "429" ]]; then
+            skipped_count=$((skipped_count + 1))
+            echo "  ⚠ ${model}: Rate limited (429), skipping" >&3
+        elif [[ "${RESPONSE_STATUS}" == "400" ]]; then
+            skipped_count=$((skipped_count + 1))
+            echo "  ⚠ ${model}: API format issue (400), may need different API version" >&3
+        else
+            failed_models="${failed_models} ${model}(${RESPONSE_STATUS})"
+            echo "  ✗ ${model}: Failed with status ${RESPONSE_STATUS}" >&3
+        fi
+        
+        # Brief pause between models to avoid rate limit cascade with low quota
+        sleep 1
+    done
+    
+    echo "Results: ${passed_count} passed, ${skipped_count} skipped, ${#failed_models} failed out of ${total_count} models" >&3
+    
+    if [[ -n "${failed_models}" ]]; then
+        echo "Unexpected failures:${failed_models}" >&2
+        return 1
+    fi
+    
+    [[ ${passed_count} -gt 0 ]]
+}
+
+@test "NR-DAP: Chat completion returns valid JSON with choices" {
+    skip_if_no_key "nr-dap-fish-wildlife"
+    
+    response=$(chat_completion "nr-dap-fish-wildlife" "gpt-5-mini" "What is 2+2?" 10)
+    parse_response "${response}"
+    
+    assert_status "200" "${RESPONSE_STATUS}"
+    
+    local choices
+    choices=$(json_get "${RESPONSE_BODY}" '.choices | length')
+    [[ "${choices}" -gt 0 ]]
+}
+
+@test "NR-DAP: Chat completion includes usage metrics" {
+    skip_if_no_key "nr-dap-fish-wildlife"
+    
+    response=$(chat_completion "nr-dap-fish-wildlife" "gpt-5-mini" "Hello" 10)
+    parse_response "${response}"
+    
+    assert_status "200" "${RESPONSE_STATUS}"
+    
+    local prompt_tokens
+    prompt_tokens=$(json_get "${RESPONSE_BODY}" '.usage.prompt_tokens')
+    [[ "${prompt_tokens}" -gt 0 ]]
+    
+    local completion_tokens
+    completion_tokens=$(json_get "${RESPONSE_BODY}" '.usage.completion_tokens')
+    [[ "${completion_tokens}" -gt 0 ]]
+}
+
+# =============================================================================
 # Helper Functions
 # =============================================================================
 

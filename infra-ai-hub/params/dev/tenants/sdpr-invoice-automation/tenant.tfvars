@@ -43,8 +43,20 @@ tenant = {
     local_auth_enabled = true
   }
 
+  # IMPORTANT: Even when disabled, cosmos_db MUST include all fields to match
+  # other tenants' structure. Terraform map(any) requires identical object shapes.
   cosmos_db = {
-    enabled = false
+    enabled                      = false
+    offer_type                   = "Standard"
+    kind                         = "GlobalDocumentDB"
+    consistency_level            = "Session"
+    max_interval_in_seconds      = 5
+    max_staleness_prefix         = 100
+    geo_redundant_backup_enabled = false
+    automatic_failover_enabled   = false
+    total_throughput_limit       = 1000
+    database_name                = "default"
+    container_name               = "cosmosContainer"
   }
 
   document_intelligence = {

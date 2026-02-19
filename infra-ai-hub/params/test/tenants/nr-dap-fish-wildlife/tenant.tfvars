@@ -9,11 +9,12 @@ tenant = {
   display_name = "NR DAP Fish Wildlife"
   enabled      = true
 
+  # IMPORTANT: All tenants MUST use the same tag keys to avoid Terraform
+  # "all map elements must have the same type" errors with map(any).
+  # Required keys: ministry, environment
   tags = {
-    ministry_imb       = "NR Sector Digital Services"
-    secondary_platform = "NRM DAP"
-    team_supporting    = "NR Dap team"
-    environment        = "test"
+    ministry    = "NR Sector Digital Services"
+    environment = "test"
   }
 
   key_vault = {
@@ -70,6 +71,12 @@ tenant = {
     }
   }
 
+  # Speech Services - disabled by default, enable for text-to-speech/speech-to-text capabilities
+  # IMPORTANT: This block MUST be present in every tenant (even if disabled) to keep
+  # the map(any) type consistent across all tenant entries.
+  speech_services = {
+    enabled = false
+  }
 
   log_analytics = {
     enabled        = true
@@ -85,6 +92,9 @@ tenant = {
       log_categories    = []
       metric_categories = ["AllMetrics"]
     }
+    # Capacity = 1% of regional quota limit per model
+    # Quota limits: gpt-5-mini=10k, gpt-5-nano=150k, gpt-5.1-chat=5k,
+    #   gpt-5.1-codex-mini=10k, text-embedding-ada-002=10k
     model_deployments = [
       # GPT-5 Series
       {
@@ -92,14 +102,14 @@ tenant = {
         model_name    = "gpt-5-mini"
         model_version = "2025-08-07"
         scale_type    = "GlobalStandard"
-        capacity      = 200
+        capacity      = 100 # 1% of 10,000
       },
       {
         name          = "gpt-5-nano"
         model_name    = "gpt-5-nano"
         model_version = "2025-08-07"
         scale_type    = "GlobalStandard"
-        capacity      = 300
+        capacity      = 1500 # 1% of 150,000
       },
       # GPT-5.1 Series
       {
@@ -107,14 +117,14 @@ tenant = {
         model_name    = "gpt-5.1-chat"
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
-        capacity      = 50
+        capacity      = 50 # 1% of 5,000
       },
       {
         name          = "gpt-5.1-codex-mini"
         model_name    = "gpt-5.1-codex-mini"
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
-        capacity      = 20
+        capacity      = 100 # 1% of 10,000
       },
       # Embeddings
       {
@@ -122,15 +132,9 @@ tenant = {
         model_name    = "text-embedding-ada-002"
         model_version = "2"
         scale_type    = "GlobalStandard"
-        capacity      = 50
+        capacity      = 100 # 1% of 10,000
       },
-      {
-        name          = "text-embedding-3-large"
-        model_name    = "text-embedding-3-large"
-        model_version = "1"
-        scale_type    = "GlobalStandard"
-        capacity      = 50
-      },
+      # NOTE: text-embedding-3-large not deployed — add when quota is freed up.
     ]
   }
 
@@ -157,8 +161,11 @@ tenant = {
   # APIM Policies Configuration
   # Consolidates all APIM policy settings for this tenant
   apim_policies = {
+    # IMPORTANT: tokens_per_minute MUST be set when rate_limiting is enabled.
+    # Omitting it causes type mismatch with other tenants (map(any) requires identical shapes).
     rate_limiting = {
-      enabled = true
+      enabled           = true
+      tokens_per_minute = 1000
     }
     pii_redaction = {
       enabled     = false # Redact emails, phone numbers, addresses, etc.
