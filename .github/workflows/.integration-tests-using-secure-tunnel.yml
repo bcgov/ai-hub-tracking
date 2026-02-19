@@ -24,6 +24,12 @@ env:
     TF_VERSION: 1.12.2
     CHISEL_IMAGE_VERSION: 1.11
     CHISEL_IMAGE: jpillora/chisel
+    # Common vars shared by both integration test steps
+    ARM_USE_OIDC: "true"
+    CI: "true"
+    TF_VAR_app_name: "ai-services-hub"
+    TF_VAR_location: "Canada Central"
+    TF_CLI_ARGS: "-no-color"
 
 permissions:
     id-token: write
@@ -34,6 +40,27 @@ jobs:
         name: Integration Tests (${{ inputs.environment_name }})
         runs-on: ubuntu-24.04
         environment: ${{ inputs.environment_name }}
+        env:
+            # Dynamic vars that reference inputs/secrets/vars — available at job scope
+            TF_VAR_app_env: ${{ inputs.environment_name }}
+            TF_VAR_resource_group_name: ${{ format('{0}-{1}', 'ai-services-hub', inputs.environment_name) }}
+            TF_VAR_common_tags: >-
+                {"environment":"${{ inputs.environment_name }}","app_env":"${{ inputs.environment_name }}","repo_name":"${{ github.event.repository.name }}"}
+            TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+            TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+            TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+            TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
+            TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+            TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
+            TF_VAR_dev_address_spaces: ${{ secrets.DEV_ADDRESS_SPACES }}
+            TF_VAR_test_address_spaces: ${{ secrets.TEST_ADDRESS_SPACES }}
+            TF_VAR_prod_address_spaces: ${{ secrets.PROD_ADDRESS_SPACES }}
+            TF_VAR_target_vnet_address_spaces: ${{ secrets.TARGET_VNET_ADDRESS_SPACES }}
+            TF_VAR_source_vnet_address_space: ${{ secrets.SOURCE_VNET_ADDRESS_SPACE }}
+            TF_VAR_key_vault_name: ${{ format('{0}{1}{2}kv', 'aihub', inputs.environment_name, vars.SUBSCRIPTION_NAME) }}
+            BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+            BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+            TEST_ENV: ${{ inputs.environment_name }}
         steps:
             - name: Checkout
               uses: actions/checkout@v6
@@ -90,41 +117,34 @@ jobs:
             - name: Install bats-core
               uses: bats-core/bats-action@4.0.0
 
-            - name: Run Integration Tests
+            - name: Run Integration Tests (no proxy)
+              shell: bash
+              working-directory: ./infra-ai-hub
+              # No HTTP_PROXY — APIM and App Gateway are public endpoints.
+              # apim-key-rotation.bats is excluded because its KV fallback
+              # (az keyvault secret show) requires the tunnel (KV is private-only).
+              run: |
+                  set -euo pipefail
+
+                  echo "=== Running Integration Tests — direct (no proxy) ==="
+                  cd ../tests/integration
+                  chmod +x ./run-tests.sh
+                  ./run-tests.sh --env "${TEST_ENV}" --exclude apim-key-rotation.bats
+
+            - name: Run Key Vault Integration Tests (with proxy)
               shell: bash
               working-directory: ./infra-ai-hub
               env:
-                  ARM_USE_OIDC: "true"
-                  CI: "true"
-                  TF_VAR_app_name: "ai-services-hub"
-                  TF_VAR_app_env: ${{ inputs.environment_name }}
-                  TF_VAR_location: "Canada Central"
-                  TF_VAR_resource_group_name: ${{ format('{0}-{1}', 'ai-services-hub', inputs.environment_name) }}
-                  TF_VAR_common_tags: >-
-                      {"environment":"${{ inputs.environment_name }}","app_env":"${{ inputs.environment_name }}","repo_name":"${{ github.event.repository.name }}"}
-                  TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-                  TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-                  TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
-                  TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
-                  TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
-                  TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
-                  TF_VAR_dev_address_spaces: ${{ secrets.DEV_ADDRESS_SPACES }}
-                  TF_VAR_test_address_spaces: ${{ secrets.TEST_ADDRESS_SPACES }}
-                  TF_VAR_prod_address_spaces: ${{ secrets.PROD_ADDRESS_SPACES }}
-                  TF_VAR_target_vnet_address_spaces: ${{ secrets.TARGET_VNET_ADDRESS_SPACES }}
-                  TF_VAR_source_vnet_address_space: ${{ secrets.SOURCE_VNET_ADDRESS_SPACE }}
-                  TF_VAR_key_vault_name: ${{ format('{0}{1}{2}kv', 'aihub', inputs.environment_name, vars.SUBSCRIPTION_NAME) }}
-                  BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
-                  BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
-                  TF_CLI_ARGS: "-no-color"
-                  TEST_ENV: ${{ inputs.environment_name }}
+                  # Proxy required: Hub Key Vault has public_network_access_enabled=false
+                  # (private endpoint only). az keyvault secret show must reach vault.azure.net
+                  # through the tunnel.
                   HTTP_PROXY: "http://127.0.0.1:8118"
                   HTTPS_PROXY: "http://127.0.0.1:8118"
                   NO_PROXY: "management.azure.com,login.microsoftonline.com,graph.microsoft.com,registry.terraform.io,releases.hashicorp.com,github.com,objects.githubusercontent.com,blob.core.windows.net"
               run: |
                   set -euo pipefail
 
-                  echo "=== Running Integration Tests (env-aware harness) ==="
+                  echo "=== Running Key Vault Integration Tests — via proxy ==="
                   cd ../tests/integration
                   chmod +x ./run-tests.sh
-                  ./run-tests.sh --env "${TEST_ENV}"
+                  ./run-tests.sh --env "${TEST_ENV}" apim-key-rotation.bats

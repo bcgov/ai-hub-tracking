@@ -26,6 +26,9 @@ log_success() { echo -e "${GRAY}$(_ts)${NC} ${GREEN}[SUCCESS]${NC} $*"; }
 log_warn() { echo -e "${GRAY}$(_ts)${NC} ${YELLOW}[WARN]${NC} $*"; }
 log_error() { echo -e "${GRAY}$(_ts)${NC} ${RED}[ERROR]${NC} $*"; }
 
+# Tests excluded from this run (populated via --exclude flag)
+EXCLUDED_TESTS=()
+
 # Bats binary - check common locations
 find_bats() {
     if command -v bats >/dev/null 2>&1; then
@@ -217,6 +220,25 @@ run_tests() {
         # Run all test files
         test_files=("${SCRIPT_DIR}"/*.bats)
     fi
+
+    # Filter out excluded test files
+    if [[ ${#EXCLUDED_TESTS[@]} -gt 0 ]]; then
+        local filtered=()
+        for test_file in "${test_files[@]}"; do
+            local filename
+            filename=$(basename "${test_file}")
+            local exclude=false
+            for excl in "${EXCLUDED_TESTS[@]}"; do
+                if [[ "${filename}" == "${excl}" ]]; then
+                    exclude=true
+                    break
+                fi
+            done
+            [[ "${exclude}" == "false" ]] && filtered+=("${test_file}")
+        done
+        log_info "Excluding tests: ${EXCLUDED_TESTS[*]}"
+        test_files=("${filtered[@]}")
+    fi
     
     log_info "Running tests..."
     echo ""
@@ -277,21 +299,28 @@ main() {
                 verbose=true
                 shift
                 ;;
+            -x|--exclude)
+                IFS=',' read -ra EXCLUDED_TESTS <<< "$2"
+                shift 2
+                ;;
             -h|--help)
                 echo "Usage: $0 [options] [environment] [test-file.bats ...]"
                 echo ""
                 echo "Options:"
                 echo "  -e, --env        Environment to test (dev|test|prod). Default: TEST_ENV or test"
                 echo "  -v, --verbose    Show detailed test output"
+                echo "  -x, --exclude    Comma-separated list of test filenames to skip"
                 echo "  -h, --help       Show this help message"
                 echo ""
                 echo "The first bare argument matching dev|test|prod is treated as the environment."
                 echo ""
                 echo "Examples:"
-                echo "  $0 test                     # Run all tests against test env"
-                echo "  $0                          # Run all tests (default: test)"
-                echo "  $0 chat-completions.bats    # Run specific test file"
-                echo "  $0 -v pii-redaction.bats    # Run with verbose output"
+                echo "  $0 test                                           # Run all tests against test env"
+                echo "  $0                                                # Run all tests (default: test)"
+                echo "  $0 chat-completions.bats                          # Run specific test file"
+                echo "  $0 -v pii-redaction.bats                          # Run with verbose output"
+                echo "  $0 --exclude apim-key-rotation.bats               # Skip KV-dependent tests"
+                echo "  $0 --exclude apim-key-rotation.bats,app-gateway.bats  # Skip multiple"
                 exit 0
                 ;;
             *)
