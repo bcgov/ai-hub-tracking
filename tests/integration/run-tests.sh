@@ -90,6 +90,13 @@ load_config() {
     _err_log="$(mktemp)"
     if ! tf_output_raw=$(cd "${INFRA_DIR}" && ./scripts/deploy-terraform.sh output "${TEST_ENV}" 2>"${_err_log}"); then
         log_error "Failed to get stack output"
+        # deploy-terraform.sh logs errors to stdout (captured in tf_output_raw);
+        # show the captured stdout so CI logs reveal the root cause.
+        if [[ -n "${tf_output_raw:-}" ]]; then
+            log_error "--- deploy-terraform.sh stdout ---"
+            echo "${tf_output_raw}" >&2
+            log_error "--- end stdout ---"
+        fi
         if [[ -s "${_err_log}" ]]; then
             log_error "--- deploy-terraform.sh stderr ---"
             cat "${_err_log}" >&2
