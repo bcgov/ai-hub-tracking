@@ -59,6 +59,12 @@ Always:
 - **Document Intelligence** (`document_intelligence_enabled`): rewrites the `Operation-Location` response header to replace the backend `cognitiveservices.azure.com` URL with the App Gateway URL. This is required for async (202) polling to work through the gateway.
 - **OpenAI usage logging** (`usage_logging_enabled`): calls the `openai-usage-logging` fragment on OpenAI responses.
 
+## Document Intelligence: Model Performance
+- **`prebuilt-layout`**: Fast (~10-20s for a 500KB JPG on S0 tier). Extracts text, tables, and structure.
+- **`prebuilt-invoice`**: Very slow (~90-150s for the same file on S0 tier). Performs field extraction, table parsing, and key-value analysis on top of layout. Cold-start variance adds 20-40s.
+- Each tenant gets its own dedicated DocInt Cognitive Services account (S0, 15 TPS quota).
+- **CI tests use `prebuilt-layout`** for async flow validation because `prebuilt-invoice` exceeds reliable CI timeout thresholds. The `prebuilt-invoice` model should be validated manually or via longer-running scheduled tests.
+
 ## Backend Section
 - OpenAI requests use `buffer-request-body="true"` (required for PII redaction and token inspection).
 - All other requests use `buffer-request-body="false"`.
