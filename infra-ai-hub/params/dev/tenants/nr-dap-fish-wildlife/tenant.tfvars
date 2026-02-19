@@ -1,16 +1,16 @@
 # =============================================================================
-# TENANT: SDPR Invoice Automation - Dev ENVIRONMENT
+# TENANT: NR DAP Fish Wildlife - DEV ENVIRONMENT
 # =============================================================================
-# Dev environment configuration for SDPR Invoice Automation.
+# Development environment configuration for NR DAP Fish Wildlife.
 # =============================================================================
 
 tenant = {
-  tenant_name  = "sdpr-invoice-automation"
-  display_name = "SDPR Invoice Automation"
+  tenant_name  = "nr-dap-fish-wildlife"
+  display_name = "NR DAP Fish Wildlife"
   enabled      = true
 
   tags = {
-    ministry    = "SDPR"
+    ministry    = "NR Sector Digital Services"
     environment = "dev"
   }
 
@@ -18,7 +18,7 @@ tenant = {
     enabled                    = false
     sku                        = "standard"
     purge_protection_enabled   = true
-    soft_delete_retention_days = 30 # Shorter retention for test
+    soft_delete_retention_days = 30 # Shorter retention for dev
   }
 
   storage_account = {
@@ -43,8 +43,6 @@ tenant = {
     local_auth_enabled = true
   }
 
-  # IMPORTANT: Even when disabled, cosmos_db MUST include all fields to match
-  # other tenants' structure. Terraform map(any) requires identical object shapes.
   cosmos_db = {
     enabled                      = false
     offer_type                   = "Standard"
@@ -71,6 +69,8 @@ tenant = {
   }
 
   # Speech Services - disabled by default, enable for text-to-speech/speech-to-text capabilities
+  # IMPORTANT: This block MUST be present in every tenant (even if disabled) to keep
+  # the map(any) type consistent across all tenant entries.
   speech_services = {
     enabled = false
   }
@@ -210,20 +210,22 @@ tenant = {
     ]
   }
 
-  # APIM Authentication
+  # APIM Authentication Configuration
+  # Controls how clients authenticate to this tenant's APIs
+  # Options:
+  #   mode = "subscription_key" (default) - Simple API key in header
+  #   mode = "oauth2" - Azure AD OAuth2 with JWT tokens
+  #   store_in_keyvault = false (default) - Do NOT store in KV (avoids auto-rotation issues)
   apim_auth = {
-    mode              = "subscription_key"
-    store_in_keyvault = false
+    mode              = "subscription_key" # Start with subscription key, switch to oauth2 later
+    store_in_keyvault = false              # Keep false if KV has auto-rotation policies!
   }
 
   # Tenant user management (applies across environments)
   user_management = {
     seed_members = {
       admin = [
-        "anthony.shivakumar@gov.bc.ca",
-        "alex.struk@gov.bc.ca",
-        "kaegan.mandryk@gov.bc.ca",
-        "justin.hewitt@gov.bc.ca"
+        "andrew.schwenker@gov.bc.ca"
       ]
     }
   }
@@ -231,29 +233,31 @@ tenant = {
   # APIM Policies Configuration
   # Consolidates all APIM policy settings for this tenant
   apim_policies = {
+    # IMPORTANT: tokens_per_minute MUST be set when rate_limiting is enabled.
+    # Omitting it causes type mismatch with other tenants (map(any) requires identical shapes).
     rate_limiting = {
       enabled           = true
       tokens_per_minute = 1000
     }
     pii_redaction = {
-      enabled     = true
-      fail_closed = true # Block requests if PII service fails (not applicable when disabled)
+      enabled     = false # Redact emails, phone numbers, addresses, etc.
+      fail_closed = false # Fail-open: allow requests through if PII service fails
     }
     usage_logging = {
-      enabled = true
+      enabled = true # Log AI model token usage
     }
     streaming_metrics = {
-      enabled = true
+      enabled = true # Emit metrics for streaming requests
     }
     tracking_dimensions = {
-      enabled = true
+      enabled = true # Extract tracking headers for analytics
     }
     intelligent_routing = {
-      enabled = false
+      enabled = false # Disabled until multi-backend setup
     }
   }
 
-  # Per-tenant APIM Diagnostics
+  # Per-tenant APIM Diagnostics - logs go to tenant's own LAW
   apim_diagnostics = {
     sampling_percentage = 100
     verbosity           = "information"

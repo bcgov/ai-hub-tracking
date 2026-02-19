@@ -159,6 +159,9 @@ get_subscription_key_var_name() {
         sdpr-invoice-automation)
             echo "SDPR_SUBSCRIPTION_KEY"
             ;;
+        nr-dap-fish-wildlife)
+            echo "NRDAP_SUBSCRIPTION_KEY"
+            ;;
         *)
             return 1
             ;;
@@ -190,6 +193,9 @@ get_subscription_key() {
             ;;
         sdpr-invoice-automation)
             echo "${SDPR_SUBSCRIPTION_KEY:-}"
+            ;;
+        nr-dap-fish-wildlife)
+            echo "${NRDAP_SUBSCRIPTION_KEY:-}"
             ;;
         *)
             echo "Unknown tenant: ${tenant}" >&2
@@ -263,7 +269,7 @@ export OPENAI_API_VERSION="2024-10-21"
 export DOCINT_API_VERSION="2024-11-30"
 
 # Tenants
-export TENANTS=("wlrs-water-form-assistant" "sdpr-invoice-automation")
+export TENANTS=("wlrs-water-form-assistant" "sdpr-invoice-automation" "nr-dap-fish-wildlife")
 
 # Models available (default fallback)
 export DEFAULT_MODEL="gpt-4.1-mini"

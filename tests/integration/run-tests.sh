@@ -26,6 +26,9 @@ log_success() { echo -e "${GRAY}$(_ts)${NC} ${GREEN}[SUCCESS]${NC} $*"; }
 log_warn() { echo -e "${GRAY}$(_ts)${NC} ${YELLOW}[WARN]${NC} $*"; }
 log_error() { echo -e "${GRAY}$(_ts)${NC} ${RED}[ERROR]${NC} $*"; }
 
+# Tests excluded from this run (populated via --exclude flag)
+EXCLUDED_TESTS=()
+
 # Bats binary - check common locations
 find_bats() {
     if command -v bats >/dev/null 2>&1; then
@@ -86,14 +89,30 @@ load_config() {
     
     # Get stack-aggregated output
     local tf_output_raw
-    if ! tf_output_raw=$(cd "${INFRA_DIR}" && ./scripts/deploy-terraform.sh output "${TEST_ENV}" 2>/dev/null); then
+    local _err_log
+    _err_log="$(mktemp)"
+    if ! tf_output_raw=$(cd "${INFRA_DIR}" && ./scripts/deploy-terraform.sh output "${TEST_ENV}" 2>"${_err_log}"); then
         log_error "Failed to get stack output"
+        # deploy-terraform.sh logs errors to stdout (captured in tf_output_raw);
+        # show the captured stdout so CI logs reveal the root cause.
+        if [[ -n "${tf_output_raw:-}" ]]; then
+            log_error "--- deploy-terraform.sh stdout ---"
+            echo "${tf_output_raw}" >&2
+            log_error "--- end stdout ---"
+        fi
+        if [[ -s "${_err_log}" ]]; then
+            log_error "--- deploy-terraform.sh stderr ---"
+            cat "${_err_log}" >&2
+            log_error "--- end stderr ---"
+        fi
+        rm -f "${_err_log}"
         echo "You can provide configuration via environment variables instead:"
         echo "  export APIM_GATEWAY_URL=https://your-apim.azure-api.net"
         echo "  export WLRS_SUBSCRIPTION_KEY=your-key"
         echo "  export SDPR_SUBSCRIPTION_KEY=your-key"
         exit 1
     fi
+    rm -f "${_err_log}"
 
     local tf_output
     tf_output=$(echo "${tf_output_raw}" | sed -n '/^{/,$p')
@@ -145,6 +164,7 @@ load_config() {
     if [[ -n "${subscriptions}" ]]; then
         export WLRS_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["wlrs-water-form-assistant"].primary_key // empty')
         export SDPR_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["sdpr-invoice-automation"].primary_key // empty')
+        export NRDAP_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["nr-dap-fish-wildlife"].primary_key // empty')
 
         export APIM_KEYS_TENANT_1="${APIM_KEYS_TENANT_1:-wlrs-water-form-assistant}"
         export APIM_KEYS_TENANT_2="${APIM_KEYS_TENANT_2:-sdpr-invoice-automation}"
@@ -159,6 +179,12 @@ load_config() {
             log_success "SDPR subscription key loaded"
         else
             log_warn "SDPR subscription key not found"
+        fi
+
+        if [[ -n "${NRDAP_SUBSCRIPTION_KEY}" ]]; then
+            log_success "NR-DAP subscription key loaded"
+        else
+            log_warn "NR-DAP subscription key not found"
         fi
 
         log_success "APIM Keys Tenant-1: ${APIM_KEYS_TENANT_1}"
@@ -193,6 +219,25 @@ run_tests() {
     if [[ ${#test_files[@]} -eq 0 ]]; then
         # Run all test files
         test_files=("${SCRIPT_DIR}"/*.bats)
+    fi
+
+    # Filter out excluded test files
+    if [[ ${#EXCLUDED_TESTS[@]} -gt 0 ]]; then
+        local filtered=()
+        for test_file in "${test_files[@]}"; do
+            local filename
+            filename=$(basename "${test_file}")
+            local exclude=false
+            for excl in "${EXCLUDED_TESTS[@]}"; do
+                if [[ "${filename}" == "${excl}" ]]; then
+                    exclude=true
+                    break
+                fi
+            done
+            [[ "${exclude}" == "false" ]] && filtered+=("${test_file}")
+        done
+        log_info "Excluding tests: ${EXCLUDED_TESTS[*]}"
+        test_files=("${filtered[@]}")
     fi
     
     log_info "Running tests..."
@@ -254,21 +299,28 @@ main() {
                 verbose=true
                 shift
                 ;;
+            -x|--exclude)
+                IFS=',' read -ra EXCLUDED_TESTS <<< "$2"
+                shift 2
+                ;;
             -h|--help)
                 echo "Usage: $0 [options] [environment] [test-file.bats ...]"
                 echo ""
                 echo "Options:"
                 echo "  -e, --env        Environment to test (dev|test|prod). Default: TEST_ENV or test"
                 echo "  -v, --verbose    Show detailed test output"
+                echo "  -x, --exclude    Comma-separated list of test filenames to skip"
                 echo "  -h, --help       Show this help message"
                 echo ""
                 echo "The first bare argument matching dev|test|prod is treated as the environment."
                 echo ""
                 echo "Examples:"
-                echo "  $0 test                     # Run all tests against test env"
-                echo "  $0                          # Run all tests (default: test)"
-                echo "  $0 chat-completions.bats    # Run specific test file"
-                echo "  $0 -v pii-redaction.bats    # Run with verbose output"
+                echo "  $0 test                                           # Run all tests against test env"
+                echo "  $0                                                # Run all tests (default: test)"
+                echo "  $0 chat-completions.bats                          # Run specific test file"
+                echo "  $0 -v pii-redaction.bats                          # Run with verbose output"
+                echo "  $0 --exclude apim-key-rotation.bats               # Skip KV-dependent tests"
+                echo "  $0 --exclude apim-key-rotation.bats,app-gateway.bats  # Skip multiple"
                 exit 0
                 ;;
             *)

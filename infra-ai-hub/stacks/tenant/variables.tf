@@ -40,6 +40,17 @@ variable "tenants" {
   default = {}
 }
 
+variable "tenant_tags" {
+  description = "Per-tenant tags (up to 20 key/value pairs each). Kept separate from var.tenants to avoid HCL structural type unification errors when different tenants have different tag keys."
+  type        = map(map(string))
+  default     = {}
+
+  validation {
+    condition     = alltrue([for t, tags in var.tenant_tags : length(tags) <= 20])
+    error_message = "Each tenant may define at most 20 tags."
+  }
+}
+
 variable "backend_resource_group" {
   type = string
 }

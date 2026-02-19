@@ -84,5 +84,5 @@ module "foundry_project" {
   }
 
   project_connections = lookup(each.value, "project_connections", {})
-  tags                = merge(var.common_tags, lookup(each.value, "tags", {}))
+  tags                = merge(var.common_tags, lookup(var.tenant_tags, each.key, {}))
 }

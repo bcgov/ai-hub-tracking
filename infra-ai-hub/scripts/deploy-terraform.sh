@@ -289,22 +289,51 @@ setup_variables() {
                 local tenant_name
                 tenant_name=$(basename "$(dirname "$tenant_file")")
                 log_info "  - $tenant_name"
-                
-                # Add tenant to combined file
+
+                # Add tenant to combined file, stripping the tags sub-block.
+                # Tags are emitted separately in tenant_tags below so that each tenant
+                # can carry a different set of tag keys without triggering HCL structural
+                # type-unification errors inside the map(any) tenants map.
                 {
                     echo ""
                     echo "  # From: tenants/${tenant_name}/tenant.tfvars"
-                    # Extract just the block content (without "tenant = ") and add key prefix on same line
                     local block_content
                     block_content=$(awk '/^tenant[[:space:]]*=[[:space:]]*\{/,/^\}$/' "$tenant_file" | \
-                        sed 's/^tenant[[:space:]]*=[[:space:]]*//')
+                        sed 's/^tenant[[:space:]]*=[[:space:]]*//' | \
+                        awk '/^[[:space:]]*tags[[:space:]]*=[[:space:]]*\{/{skip=1;next} skip&&/^[[:space:]]*\}/{skip=0;next} skip{next} {print}')
                     echo "  \"${tenant_name}\" = ${block_content}"
                 } >> "$combined_tenants_file"
             done
-            
+
             # Close the tenants map
             echo "}" >> "$combined_tenants_file"
-            
+
+            # Emit per-tenant tags as a separate map(map(string)) variable.
+            # Using map(map(string)) lets each tenant define a different set of tag keys
+            # (up to 20) without any HCL type-unification constraint.
+            {
+                echo ""
+                echo "tenant_tags = {"
+            } >> "$combined_tenants_file"
+
+            for tenant_file in "${tenant_files_arr[@]}"; do
+                local tenant_name
+                tenant_name=$(basename "$(dirname "$tenant_file")")
+                local tags_content
+                tags_content=$(awk '
+                    /^[[:space:]]*tags[[:space:]]*=[[:space:]]*\{/ { in_tags=1; next }
+                    in_tags && /^[[:space:]]*\}/ { in_tags=0; next }
+                    in_tags { print }
+                ' "$tenant_file")
+                {
+                    echo "  \"${tenant_name}\" = {"
+                    echo "${tags_content}"
+                    echo "  }"
+                } >> "$combined_tenants_file"
+            done
+
+            echo "}" >> "$combined_tenants_file"
+
             log_info "Generated combined tenants file: $combined_tenants_file"
         else
             log_warning "No tenant configurations found in: $tenants_dir"
