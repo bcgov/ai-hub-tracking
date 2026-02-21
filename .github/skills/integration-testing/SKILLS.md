@@ -31,6 +31,9 @@ Every test change should deliver:
 - Assertions using existing helper functions (`assert_status`, `assert_contains`, `json_get`)
 - No hardcoded URLs, keys, or model names — use config variables
 
+## External Documentation
+- Use [External Docs Research](../external-docs/SKILLS.md) as the single source of truth for external documentation workflow and fallback approval requirements.
+
 ## Scope
 - Test framework: **bats-core** (Bash Automated Testing System)
 - Test files: `tests/integration/*.bats`

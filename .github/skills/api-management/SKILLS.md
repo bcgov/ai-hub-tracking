@@ -30,6 +30,9 @@ Every APIM policy change should deliver:
 - Updated tests/validation notes for impacted routes
 - Clear operator guidance for rollout and verification
 
+## External Documentation
+- Use [External Docs Research](../external-docs/SKILLS.md) as the single source of truth for external documentation workflow and fallback approval requirements.
+
 ## Policy Locations
 - There is **one shared policy template** for all tenants:
   `infra-ai-hub/params/apim/api_policy.xml.tftpl`

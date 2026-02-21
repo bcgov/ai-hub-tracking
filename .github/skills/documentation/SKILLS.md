@@ -31,6 +31,9 @@ Every docs update should provide:
 - Link/anchor integrity for any added or moved sections
 - Clear, concise wording aligned with existing docs tone and structure
 
+## External Documentation
+- Use [External Docs Research](../external-docs/SKILLS.md) as the single source of truth for external documentation workflow and fallback approval requirements.
+
 ## Scope
 - Static HTML pages in docs/
 - Source templates in docs/_pages/
