@@ -110,3 +110,10 @@ variable "backend_container_name" {
   type        = string
   default     = "tfstate"
 }
+
+variable "monitoring_webhook_url" {
+  description = "Teams Power Automate webhook URL for hub alert notifications. Optional — provide this and/or alert_emails in shared_config.monitoring. Store in sensitive tfvars, never in source-controlled params."
+  type        = string
+  sensitive   = true
+  default     = ""
+}

@@ -178,4 +178,29 @@ shared_config = {
     sku                           = "S"
     public_network_access_enabled = false
   }
+
+  # ---------------------------------------------------------------------------
+  # Monitoring — Resource Health + Service Health alerts → Teams webhook
+  # The Teams webhook URL is set via CI/CD secret: TF_VAR_monitoring_webhook_url.
+  # ---------------------------------------------------------------------------
+  monitoring = {
+    enabled = true
+
+    # Regions to watch for Azure Service Health events.
+    service_health_locations = ["Canada Central", "Canada East"]
+
+    # Azure services covered by the service health alert.
+    service_health_services = [
+      "Azure API Management",
+      "Azure AI model inference",
+      "Azure OpenAI",
+      "Azure Cognitive Services",
+      "Azure Key Vault",
+      "Application Gateway",
+    ]
+
+    # Email addresses to notify on hub health alerts.
+    # Teams webhook URL is set via monitoring_webhook_url in sensitive tfvars.
+    alert_emails = ["omprakash.2.mishra@gov.bc.ca"]
+  }
 }

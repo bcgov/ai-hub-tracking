@@ -1,6 +1,36 @@
 locals {
   apim_config  = var.shared_config.apim
   appgw_config = var.shared_config.app_gateway
+
+  # ---------------------------------------------------------------------------
+  # Monitoring configuration with safe defaults
+  # ---------------------------------------------------------------------------
+  monitoring_config = {
+    enabled = lookup(lookup(var.shared_config, "monitoring", {}), "enabled", false)
+
+    # Email addresses sourced from shared_config.monitoring.alert_emails (non-sensitive, env-specific).
+    alert_emails = lookup(lookup(var.shared_config, "monitoring", {}), "alert_emails", [])
+
+    # True when at least one notification channel (webhook or email) is provided.
+    # Used in the precondition that guards against monitoring being enabled with no receiver.
+    has_any_receiver = (
+      trim(var.monitoring_webhook_url, " ") != "" ||
+      length(lookup(lookup(var.shared_config, "monitoring", {}), "alert_emails", [])) > 0
+    )
+
+    # Azure regions to monitor for service health events.
+    # Should include the primary deployment region and the AI cross-region location.
+    service_health_locations = lookup(
+      lookup(var.shared_config, "monitoring", {}),
+      "service_health_locations",
+      [var.location, lookup(var.shared_config.ai_foundry, "ai_location", var.location)]
+    )
+
+    # NOTE: services filter is intentionally omitted — Azure's internal service names
+    # differ from portal display names and cause 400 errors. Omitting covers all services
+    # in the configured regions, which is more comprehensive.
+  }
+
   dns_zone_config = lookup(var.shared_config, "dns_zone", {
     enabled             = false
     zone_name           = ""
