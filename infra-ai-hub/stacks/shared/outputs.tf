@@ -104,3 +104,8 @@ output "appgw_url" {
   description = "App Gateway frontend URL (https://<frontend_hostname>). Null when App Gateway is not deployed."
   value       = length(module.app_gateway) > 0 ? "https://${lookup(local.appgw_config, "frontend_hostname", "")}" : null
 }
+
+output "hub_alerts_action_group_id" {
+  description = "Resource ID of the hub monitoring action group. Referenced by the APIM stack to attach APIM resource health alerts."
+  value       = length(azurerm_monitor_action_group.hub_alerts) > 0 ? azurerm_monitor_action_group.hub_alerts[0].id : null
+}

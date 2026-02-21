@@ -144,4 +144,11 @@ locals {
       ] if local.apim_config.enabled
     ]) : pair.key => pair
   }
+
+  # ---------------------------------------------------------------------------
+  # Monitoring configuration — mirrors the enabled flag from shared_config
+  # ---------------------------------------------------------------------------
+  monitoring_config = {
+    enabled = lookup(lookup(var.shared_config, "monitoring", {}), "enabled", false)
+  }
 }
