@@ -39,3 +39,9 @@ Use when creating or modifying APIM policies and routing.
 - Policy files under `infra-ai-hub/params/apim/`
 - Routing rules and authentication
 - Rate limiting and error handling
+
+### [Integration Testing](../skills/integration-testing/SKILLS.md)
+Use when creating, modifying, or debugging integration tests.
+- bats-core test suites under `tests/integration/`
+- Test helpers, config loading, and assertion patterns
+- Retry logic, skip guards, and async polling
