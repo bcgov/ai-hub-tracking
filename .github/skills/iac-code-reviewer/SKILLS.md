@@ -30,6 +30,9 @@ Review output must include:
 - Clear fix guidance, not only issue statements
 - Final recommendation (approve / request changes) with risk summary
 
+## External Documentation
+- Use [External Docs Research](../external-docs/SKILLS.md) as the single source of truth for external documentation workflow and fallback approval requirements.
+
 ## Scope
 - Terraform (>= 1.12.0) with Azure providers (azurerm >= 4.20, azapi >= 2.4)
 - Azure Verified Modules (AVM)

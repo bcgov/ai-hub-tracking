@@ -45,3 +45,9 @@ Use when creating, modifying, or debugging integration tests.
 - bats-core test suites under `tests/integration/`
 - Test helpers, config loading, and assertion patterns
 - Retry logic, skip guards, and async polling
+
+### [External Docs Research](../skills/external-docs/SKILLS.md)
+Use when researching authoritative external docs for platform behavior and versioned guidance.
+- Repository-first validation, then Learn/Context7 lookup
+- Upstash Context7 for non-Learn sources and targeted version/topic queries
+- Explicit fallback approval required when Context7 has no documentation
