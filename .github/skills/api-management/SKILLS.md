@@ -46,6 +46,7 @@ All routes live inside a single `<choose>` block in the inbound section. Routes 
 | Route | Path condition | Feature flag |
 |---|---|---|
 | Key rotation internal endpoint | path ends with `internal/apim-keys` | `key_rotation_enabled` |
+| Tenant info internal endpoint | path ends with `internal/tenant-info` | `tenant_info_enabled` (always `true`) |
 | Document Intelligence | path contains `documentintelligence`, `formrecognizer`, or `documentmodels` | `document_intelligence_enabled` |
 | OpenAI | path contains `openai` | `openai_enabled` (auto-set when `model_deployments` is non-empty) |
 | Speech STT | path contains `speech/recognition` or `/stt/` | `speech_services_enabled` |

@@ -439,6 +439,7 @@ fi</pre>
 
     <h4>Infrastructure</h4>
     <p>The endpoint is implemented purely in APIM policy (no backend service). APIM's system-assigned managed identity is granted <code>Key Vault Secrets User</code> on the centralized hub Key Vault via a single Terraform RBAC assignment (scales to 1000+ tenants).</p>
+    <p>See also: <a href="apim-internal-endpoints.html">APIM Internal Endpoints reference</a> &mdash; full API reference for all internal endpoints including the new <code>/internal/tenant-info</code> endpoint.</p>
 </div>
 
 <h2>Troubleshooting</h2>
