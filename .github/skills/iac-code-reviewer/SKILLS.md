@@ -7,6 +7,29 @@ description: Review checklist and standards for Terraform, GitHub Actions, Bash,
 
 Use this skill profile when reviewing IaC and CI/CD changes in this repo.
 
+## Use When
+- Reviewing Terraform, Bash, and GitHub Actions changes for correctness and compliance
+- Classifying defects by severity and producing actionable review findings
+- Verifying Landing Zone alignment, security controls, and deploy safety
+
+## Do Not Use When
+- Implementing new infrastructure changes directly (use IaC Coder)
+- Editing APIM routing/policy behavior only (use API Management)
+- Performing docs-only review under `docs/` (use Documentation)
+
+## Input Contract
+Required review inputs:
+- Diff or changed files list with environment context (`dev/test/prod`)
+- Impacted modules/workflows/scripts and expected behavior
+- Relevant constraints (Landing Zone policy, security requirements, release risk)
+
+## Output Contract
+Review output must include:
+- Findings with severity (`BLOCKER/MAJOR/MINOR/INFO`)
+- Evidence (file path + specific code behavior)
+- Clear fix guidance, not only issue statements
+- Final recommendation (approve / request changes) with risk summary
+
 ## Scope
 - Terraform (>= 1.12.0) with Azure providers (azurerm >= 4.20, azapi >= 2.4)
 - Azure Verified Modules (AVM)
@@ -72,6 +95,12 @@ Use this skill profile when reviewing IaC and CI/CD changes in this repo.
 - CI mode auto-approve handling
 - Prerequisite checks for required tools and env vars
 
+## Validation Gates (Required for High-Confidence Reviews)
+- Confirm formatting/validation expectations are met for changed Terraform roots
+- Confirm deployment path uses approved scripts, not ad-hoc direct state mutations
+- Confirm workflow auth path remains OIDC-based and secrets-safe
+- Confirm lifecycle/destroy behaviors are intentional and documented for non-idempotent Azure APIs
+
 ## Review Checklist
 **Security**
 - [ ] No hardcoded secrets or tokens
@@ -109,3 +138,25 @@ Use this skill profile when reviewing IaC and CI/CD changes in this repo.
 - Missing `sensitive = true` on credentials
 - Security controls disabled without justification
 - Resources that bypass Landing Zone policies
+
+### MAJOR
+- Unbounded lifecycle ignores masking real drift
+- Missing dependency edges causing nondeterministic applies
+- APIM/Terraform changes that can break tenant isolation or routing correctness
+- Changes that bypass repository deployment scripts/processes
+
+### MINOR
+- Inconsistent naming/style where behavior is still correct
+- Missing comments for non-obvious workaround logic
+- Documentation not updated for operator-facing behavior changes
+
+## Failure Playbook for Reviewers
+### If intent is unclear
+- Request explicit expected behavior and rollback strategy before approving.
+
+### If risk is high but evidence is incomplete
+- Mark as `MAJOR` and require targeted validation (plan output, command output, or test evidence).
+
+### If Azure API workaround is present (e.g., forced recreation patterns)
+- Verify rationale is documented and scoped narrowly to the affected resource.
+- Reject broad workaround patterns that could cause cascading replacement.

@@ -7,6 +7,29 @@ description: Guidance for APIM policies, routing, and backend configuration in a
 
 Use this skill profile when creating or modifying APIM policies and routing behavior.
 
+## Use When
+- Updating APIM inbound/backend/outbound policy logic in the shared template
+- Adding, changing, or debugging feature-flag-driven backend routing
+- Modifying APIM auth/header behavior, rate limiting, or rewrite logic
+
+## Do Not Use When
+- Changing infrastructure modules/workflows unrelated to APIM policy behavior
+- Performing review-only tasks without implementation changes
+- Editing docs-only pages under `docs/` with no policy change
+
+## Input Contract
+Required context before policy edits:
+- Target tenant feature flags and intended route behavior
+- Expected backend target(s), auth mode, and required headers
+- Affected paths and expected status codes for success/failure cases
+
+## Output Contract
+Every APIM policy change should deliver:
+- Shared-template updates only (`api_policy.xml.tftpl` + rendering vars where needed)
+- Backward-compatible conditional routing (unless breaking change explicitly requested)
+- Updated tests/validation notes for impacted routes
+- Clear operator guidance for rollout and verification
+
 ## Policy Locations
 - There is **one shared policy template** for all tenants:
   `infra-ai-hub/params/apim/api_policy.xml.tftpl`
@@ -117,3 +140,80 @@ This applies to all backends, not just speech. Any time you need to choose a bac
 - Ensure non-matching paths return 404 JSON error.
 - For Document Intelligence async ops, confirm `Operation-Location` header is rewritten to the App Gateway URL.
 - Verify Speech backends receive `/stt/` or `/tts/` path prefix after the rewrite.
+
+## Validation Gates (Required)
+1. Route matrix check: each changed path resolves to exactly one intended backend.
+2. Auth check: MSI resource/header behavior matches backend type table.
+3. Guardrail check: no dynamic backend-id expressions in `set-backend-service`.
+4. OpenAI check: deployment rewrite + rate limit scope remain OpenAI-only.
+5. Error-path check: unmatched paths and key rotation failures still return structured errors.
+
+## Route Validation Matrix Template
+Use this table for every APIM change review/runbook:
+
+| Request Path | Feature Flag | Expected Backend ID | Auth Mode | Expected Result |
+|---|---|---|---|---|
+| `/openai/...` | `openai_enabled` | `${tenant_name}-openai` | MSI (`cognitiveservices`) | 2xx/4xx from backend, not APIM 404 |
+| `/documentintelligence/...` | `document_intelligence_enabled` | `${tenant_name}-document-intelligence` | MSI (`cognitiveservices`) | 2xx/202 with rewritten `Operation-Location` |
+| `/speech/recognition...` | `speech_services_enabled` | `${tenant_name}-speech-stt` | backend credential | 2xx/4xx from speech backend |
+| `/cognitiveservices/voices...` | `speech_services_enabled` | `${tenant_name}-speech-tts` | backend credential | 2xx/4xx from speech backend |
+| `/ai-search/...` | `ai_search_enabled` | `${tenant_name}-ai-search` | MSI (`search.azure.com`) | 2xx/4xx from search backend |
+| `/storage/...` | `storage_enabled` | `${tenant_name}-storage` | MSI (`storage.azure.com`) | 2xx/4xx from storage backend |
+| unmatched path | n/a | none | n/a | APIM 404 JSON |
+
+## Key Rotation
+
+APIM subscription keys are rotated via `infra-ai-hub/scripts/rotate-apim-keys.sh`, scheduled daily by `.github/workflows/apim-key-rotation.yml`.
+
+### Alternating Pattern
+```
+Rotation 1 (first):  Regenerate SECONDARY → tenants safe on PRIMARY
+Rotation 2:          Regenerate PRIMARY   → tenants safe on SECONDARY
+Rotation 3:          Regenerate SECONDARY → tenants safe on PRIMARY
+...alternates indefinitely. One key is ALWAYS valid.
+```
+
+Default interval: 7 days (`ROTATION_INTERVAL_DAYS`).
+
+### Hub Key Vault Secret Naming
+
+All secrets are centralized in a single hub Key Vault with tenant-prefixed names:
+
+| Secret | Content |
+|---|---|
+| `{tenant}-apim-primary-key` | Current primary subscription key |
+| `{tenant}-apim-secondary-key` | Current secondary subscription key |
+| `{tenant}-apim-rotation-metadata` | JSON metadata (see below) |
+
+All secrets have a **90-day expiry** to satisfy Landing Zone policy.
+
+### Rotation Metadata Schema
+
+Stored as JSON in `{tenant}-apim-rotation-metadata`:
+
+```json
+{
+  "last_rotated_slot": "primary|secondary|none",
+  "last_rotation_at": "2026-02-20T00:00:00Z",
+  "next_rotation_at": "2026-02-27T00:00:00Z",
+  "rotation_number": 5,
+  "safe_slot": "secondary|primary"
+}
+```
+
+`safe_slot` indicates which key tenants should currently use (the one **not** regenerated). Integration tests use this for Key Vault key fallback (`get_tenant_key_from_vault` in `test-helper.bash`).
+
+## Failure Playbook
+### Portal policy view shows only `<base />`
+- Check for dynamic C# expression in `backend-id`; replace with static IDs in separate `<when>` blocks.
+
+### OpenAI requests timeout on large payloads
+- Confirm token limiting and prompt estimation are scoped to OpenAI paths only.
+
+### DocInt async polling fails
+- Verify `Operation-Location` rewrite is still active and points to App Gateway host.
+
+### Key rotation failures
+- Check `apim-key-rotation.yml` workflow logs for az CLI auth errors (OIDC token expiry).
+- Verify hub Key Vault exists and OIDC identity has `Key Vault Secrets Officer` role.
+- If a rotation is stuck, check `{tenant}-apim-rotation-metadata` for `last_rotated_slot` and manually verify which APIM slot is active.
