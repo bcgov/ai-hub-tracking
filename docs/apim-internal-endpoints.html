@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> | AI Services Hub</title>
+    <title>APIMInternalEndpoints | AI Services Hub</title>
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <style>
         :root {
@@ -747,522 +747,254 @@
         </nav>
     </header>
     <main>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Technical Deep Dive: Control vs Data Plane & Chisel Architecture</title>
-</head>
-<body>
-<h1>Technical Deep Dive: Control vs Data Plane & Chisel Architecture</h1>
 
-<p>This document provides an in-depth technical explanation of why we need Key Vault access, when terraform operations fail, and how Chisel provides a solution.</p>
+<h1>APIM Internal Endpoints</h1>
 
-<h2>Table of Contents</h2>
-<ol>
-    <li><a href="#control-vs-data-plane">Control Plane vs Data Plane: The Fundamental Divide</a></li>
-    <li><a href="#keyvault-operations">Key Vault Operations: What Requires Data Plane Access</a></li>
-    <li><a href="#terraform-keyvault">Terraform + Key Vault: When Operations Fail</a></li>
-    <li><a href="#chisel-solution">Chisel: How the Tunnel Works</a></li>
-    <li><a href="#deployment-scenarios">Deployment Scenarios: Who Needs What</a></li>
-</ol>
+<p>Each tenant API exposes two internal endpoints that are available only to authenticated callers holding a valid APIM subscription key. Neither endpoint proxies traffic to an AI backend — both are implemented entirely in APIM policy and return responses directly.</p>
 
-<h2 id="control-vs-data-plane">1. Control Plane vs Data Plane: The Fundamental Divide</h2>
-
-<h3>What is Control Plane?</h3>
-<p>The <strong>control plane</strong> is Azure's management layer that handles:</p>
-<ul>
-    <li>Creating, updating, deleting resources</li>
-    <li>Reading metadata and configuration</li>
-    <li>Managing RBAC and policies</li>
-</ul>
-
-<p><strong>Endpoint:</strong> <code>management.azure.com</code></p>
-<p><strong>Authentication:</strong> OIDC (OpenID Connect) works perfectly</p>
-
-<h3>What is Data Plane?</h3>
-<p>The <strong>data plane</strong> is where actual data operations happen:</p>
-<ul>
-    <li>Reading/writing secrets from Key Vault</li>
-    <li>Accessing storage blobs</li>
-    <li>Querying databases</li>
-    <li>Any operation that touches actual data</li>
-</ul>
-
-<p><strong>Endpoint:</strong> Service-specific (e.g., <code>*.vault.azure.net</code>, <code>*.blob.core.windows.net</code>)</p>
-<p><strong>Authentication:</strong> OIDC often fails when private endpoints exist</p>
-
-<h3>Why the Divide?</h3>
-<p>Azure separates these for security and architectural reasons:</p>
-<ul>
-    <li><strong>Control plane</strong> can use service principals and managed identities with OIDC</li>
-    <li><strong>Data plane</strong> requires direct network access to the service endpoint</li>
-    <li><strong>Private endpoints</strong> block public access to data plane endpoints</li>
-</ul>
-
-<div class="alert alert-warning">
-    <strong>Critical Insight:</strong> When you enable private endpoints, you're blocking public access to data plane endpoints. This means tools that worked via OIDC before may suddenly fail.
+<div class="alert alert-info">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    </div>
+    <div>
+        <strong>Authentication Required</strong><br>
+        All internal endpoints require a valid APIM subscription key in the <code>api-key</code> header. Unauthenticated requests receive <code>401 Unauthorized</code>. Only <code>GET</code> is accepted &mdash; any other method returns <code>405 Method Not Allowed</code>.
+    </div>
 </div>
 
-<h2 id="keyvault-operations">2. Key Vault Operations: What Requires Data Plane Access</h2>
+<div class="grid grid-2">
+    <div class="card">
+        <h3 style="margin-top:0;"><code>/internal/apim-keys</code></h3>
+        <p>Returns both subscription keys and rotation metadata sourced from the centralized hub Key Vault at request time.</p>
+        <p><strong>Requires:</strong> key rotation enabled (<code>rotation_enabled = true</code> in <code>shared.tfvars</code>).</p>
+        <a href="#apim-keys">View reference &darr;</a>
+    </div>
+    <div class="card">
+        <h3 style="margin-top:0;"><code>/internal/tenant-info</code></h3>
+        <p>Returns the tenant's deployed AI models with quota information and a list of enabled services. Always available &mdash; no Key Vault access needed.</p>
+        <p><strong>Requires:</strong> nothing beyond a valid subscription key.</p>
+        <a href="#tenant-info">View reference &darr;</a>
+    </div>
+</div>
 
-<h3>Key Vault Endpoints</h3>
-<ul>
-    <li><strong>Control Plane:</strong> <code>management.azure.com</code> (create KV, set policies, read metadata)</li>
-    <li><strong>Data Plane:</strong> <code>*.vault.azure.net</code> (read/write secrets, keys, certificates)</li>
-</ul>
+<h2 id="apim-keys"><code>GET /{tenant-name}/internal/apim-keys</code></h2>
 
-<h3>Operations That Require Data Plane Access</h3>
+<div class="card">
+    <h3>Overview</h3>
+    <p>Returns the tenant's current primary and secondary APIM subscription keys, plus rotation metadata, from the centralized hub Key Vault. Use this endpoint to programmatically refresh your stored key after a rotation event without needing direct Key Vault access.</p>
+    <p>See the <a href="apim-key-rotation.html">APIM Key Rotation guide</a> for the full operational workflow, rotation schedule, and troubleshooting information.</p>
+</div>
 
-<h4>Reading Secrets</h4>
-<pre><code>// This REQUIRES data plane access
-data "azurerm_key_vault_secret" "example" {
-  name     = "my-secret"
-  vault_id = "/subscriptions/.../keyvaults/myvault"
-}
+<div class="card">
+    <h3>Authentication</h3>
+    <p>Pass either the primary or secondary subscription key in the <code>api-key</code> header. APIM validates it before running any policy logic &mdash; the still-valid key (not the one just rotated) always works.</p>
+    <pre>curl -s -H "api-key: YOUR_SUBSCRIPTION_KEY" \
+    "https://your-apim-gateway.azure-api.net/YOUR_TENANT/internal/apim-keys" | jq .</pre>
+</div>
 
-// When private endpoints are enabled:
-// ✗ FAILS: Cannot reach myvault.vault.azure.net from GitHub runner
-// ✓ WORKS: Can reach myvault.vault.azure.net from within VNet or via Chisel
-</code></pre>
+<div class="card">
+    <h3>How It Works</h3>
+    <ol>
+        <li>APIM validates the incoming subscription key (standard APIM behavior).</li>
+        <li>APIM policy uses its <strong>system-assigned managed identity</strong> to read three secrets from the centralized hub Key Vault: <code>{tenant}-apim-primary-key</code>, <code>{tenant}-apim-secondary-key</code>, and <code>{tenant}-apim-rotation-metadata</code>.</li>
+        <li>Secrets are assembled into a JSON response and returned directly &mdash; no backend service is called.</li>
+    </ol>
+</div>
 
-<h4>Writing Secrets</h4>
-<pre><code>// This REQUIRES data plane access
-resource "azurerm_key_vault_secret" "example" {
-  name         = "my-secret"
-  value        = "secret-value"
-  key_vault_id = azurerm_key_vault.main.id
-
-  // Terraform must connect to: myvault.vault.azure.net
-  // When private endpoints are enabled:
-  // ✗ FAILS: GitHub runner cannot reach myvault.vault.azure.net
-  // ✓ WORKS: Chisel tunnel provides access to myvault.vault.azure.net
-}</code></pre>
-
-<h3>Why These Fail with OIDC + Private Endpoints</h3>
-
-<pre><code>GitHub Runner (OIDC Authentication)
-        ↓
-Azure AD (Token: aud=management.azure.com)
-        ↓
-Azure ARM API (management.azure.com) ✓ WORKS
-        ↓
-Terraform creates resource
-        ↓
-Terraform tries to write secret
-        ↓
-needs to access: myvault.vault.azure.net ✗ BLOCKED
-                ↑
-        Private endpoint blocks public access
-        GitHub runner has no route to VNet
-</code></pre>
-
-<h2 id="terraform-keyvault">3. Terraform + Key Vault: When Operations Fail</h2>
-
-<p>Looking at our actual terraform code in <code>infra-ai-hub/main.tf</code>:</p>
-
-<h3>Line 33: Creating Key Vault (Control Plane - Works)</h3>
-<pre><code>resource "azurerm_key_vault" "main" {
-  name                = var.key_vault_name
-  location            = var.location
-  resource_group_name = azurerm_resource_group.main.name
-}
-
-// ✓ WORKS with OIDC
-// Uses: management.azure.com
-// No private endpoint yet, so no blocking
-</code></pre>
-
-<h3>Line 68: Creating Private Endpoint (Control Plane - Works)</h3>
-<pre><code>resource "azurerm_private_endpoint" "key_vault_pe" {
-  name                = "${var.app_name}-kv-pe"
-  location            = var.location
-  resource_group_name = azurerm_resource_group.main.name
-  subnet_id           = module.network.private_endpoint_subnet_id
-
-  private_service_connection {
-    name                           = "${var.app_name}-kv-psc"
-    private_connection_resource_id = azurerm_key_vault.main.id
-    is_manual_connection           = false
-    subresource_names              = ["vault"]
+<div class="card">
+    <h3>Response (200 OK)</h3>
+    <pre>{
+  "tenant": "your-tenant-name",
+  "primary_key": "abc123def456...",
+  "secondary_key": "ghi789jkl012...",
+  "rotation": {
+    "last_rotated_slot": "primary",
+    "last_rotation_at": "2026-02-11T02:00:00Z",
+    "next_rotation_at": "2026-02-18T02:00:00Z",
+    "rotation_number": 5,
+    "safe_slot": "secondary"
+  },
+  "keyvault": {
+    "uri": "https://hub-kv.vault.azure.net/",
+    "primary_key_secret": "your-tenant-name-apim-primary-key",
+    "secondary_key_secret": "your-tenant-name-apim-secondary-key"
   }
-}
+}</pre>
 
-// ✓ WORKS with OIDC
-// Uses: management.azure.com
-// This BLOCKS public access to *.vault.azure.net
-</code></pre>
+    <table>
+        <thead>
+            <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>tenant</code></td><td>string</td><td>The tenant identifier (matches the API path prefix).</td></tr>
+            <tr><td><code>primary_key</code></td><td>string</td><td>Current value of the APIM primary subscription key slot.</td></tr>
+            <tr><td><code>secondary_key</code></td><td>string</td><td>Current value of the APIM secondary subscription key slot.</td></tr>
+            <tr><td><code>rotation.last_rotated_slot</code></td><td>string</td><td><code>"primary"</code> or <code>"secondary"</code> &mdash; the slot regenerated most recently.</td></tr>
+            <tr><td><code>rotation.safe_slot</code></td><td>string</td><td>The slot that was <em>not</em> just rotated. Switch to this key.</td></tr>
+            <tr><td><code>rotation.last_rotation_at</code></td><td>ISO 8601</td><td>Timestamp of the most recent rotation.</td></tr>
+            <tr><td><code>rotation.next_rotation_at</code></td><td>ISO 8601</td><td>Estimated timestamp of the next scheduled rotation.</td></tr>
+            <tr><td><code>rotation.rotation_number</code></td><td>number</td><td>Monotonically increasing rotation counter.</td></tr>
+            <tr><td><code>keyvault.uri</code></td><td>string</td><td>Hub Key Vault base URI.</td></tr>
+            <tr><td><code>keyvault.primary_key_secret</code></td><td>string</td><td>Secret name for the primary key in the hub Key Vault.</td></tr>
+            <tr><td><code>keyvault.secondary_key_secret</code></td><td>string</td><td>Secret name for the secondary key in the hub Key Vault.</td></tr>
+        </tbody>
+    </table>
+</div>
 
-<h3>Line 93-171: Waiting for DNS (Necessary Workaround)</h3>
-<pre><code>resource "null_resource" "wait_for_key_vault_private_dns" {
-  triggers = {
-    private_endpoint_id = azurerm_private_endpoint.key_vault_pe.id
-    // ... other values
-  }
+<div class="card">
+    <h3>Error Responses</h3>
+    <table>
+        <thead>
+            <tr><th>Status</th><th>Cause</th><th>Body (<code>error.code</code>)</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>401</code></td><td>Missing or invalid subscription key.</td><td>Standard APIM 401</td></tr>
+            <tr><td><code>404</code></td><td>Key rotation is disabled for this environment (<code>rotation_enabled = false</code>); route not present in policy.</td><td><code>NotFound</code></td></tr>
+            <tr><td><code>405</code></td><td>Non-GET method used.</td><td><code>MethodNotAllowed</code></td></tr>
+            <tr><td><code>502</code></td><td>APIM managed identity could not read one or more secrets from the hub Key Vault.</td><td><code>KeyVaultReadFailed</code></td></tr>
+        </tbody>
+    </table>
+</div>
 
-  provisioner "local-exec" {
-    command = &lt;&lt;EOT
-      # Wait for DNS to be ready before trying data plane operations
-      # Azure creates private DNS records asynchronously
-      # We poll until the private endpoint can resolve its DNS name
-    EOT
-  }
+<div class="card">
+    <h3>Infrastructure</h3>
+    <p>Implemented purely in APIM policy. APIM's system-assigned managed identity holds a single <code>Key Vault Secrets User</code> RBAC assignment on the centralized hub Key Vault &mdash; one assignment scales to all tenants. Enabled only when <code>shared.tfvars</code> has <code>key_rotation.rotation_enabled = true</code>.</p>
+    <p>Source: <code>infra-ai-hub/params/apim/api_policy.xml.tftpl</code> (<code>key_rotation_enabled</code> block).</p>
+</div>
 
-  depends_on = [azurerm_private_endpoint.key_vault_pe]
-}
+<h2 id="tenant-info"><code>GET /{tenant-name}/internal/tenant-info</code></h2>
 
-// Why necessary?
-// After private endpoint creation, Azure asynchronously:
-// 1. Creates private DNS zone: privatelink.vaultcore.azure.net
-// 2. Links it to the VNet
-// 3. Creates A records for the private endpoint
-// 4. This can take 30-120 seconds
-//
-// If we try to create secrets immediately:
-// ✗ FAILS: Cannot resolve myvault.vault.azure.net
-// ✓ WORKS: After DNS is ready, myvault.vault.azure.net resolves to private IP
-</code></pre>
+<div class="card">
+    <h3>Overview</h3>
+    <p>Returns the tenant's deployed AI models (with quota information) and the set of enabled AI services. The response is <strong>fully static</strong> &mdash; data is baked in at Terraform deploy time via <code>templatefile()</code>, so no Key Vault or backend calls are made at runtime. Always available; there is no feature flag that disables this endpoint.</p>
+    <p>Use this endpoint to:</p>
+    <ul>
+        <li>Discover which models are available and their per-model token-per-minute quota.</li>
+        <li>Confirm which AI services (Document Intelligence, AI Search, Speech, etc.) are enabled for your tenant.</li>
+        <li>Drive UI dropdowns or config auto-discovery without maintaining a separate config file.</li>
+    </ul>
+</div>
 
-<h3>Line 185-201: Creating Secrets (Data Plane - FAILS without Chisel)</h3>
-<pre><code>resource "azurerm_key_vault_secret" "secret_one" {
-  name            = "example-secret-test-one"
-  value           = random_password.secret_one.result
-  key_vault_id    = azurerm_key_vault.main.id
-  expiration_date = "2025-12-31T23:59:59Z"
+<div class="card">
+    <h3>Authentication</h3>
+    <p>Pass the subscription key in the <code>api-key</code> header. APIM validates it before returning any data.</p>
+    <pre>curl -s -H "api-key: YOUR_SUBSCRIPTION_KEY" \
+    "https://your-apim-gateway.azure-api.net/YOUR_TENANT/internal/tenant-info" | jq .</pre>
+</div>
 
-  depends_on = [null_resource.wait_for_key_vault_private_dns]
-}
+<div class="card">
+    <h3>How It Works</h3>
+    <ol>
+        <li>APIM validates the incoming subscription key.</li>
+        <li>The policy matches paths ending in <code>internal/tenant-info</code> and returns the pre-rendered JSON body directly &mdash; no backend service is called.</li>
+        <li>The JSON is generated once by Terraform's <code>templatefile()</code> from values in <code>tenant.tfvars</code> (<code>openai.model_deployments</code>, service feature flags) and embedded in the APIM policy at deploy time.</li>
+    </ol>
+    <div class="alert alert-info" style="margin-top: 0.75rem;">
+        <div>
+            <strong>Static data:</strong> A new Terraform <code>apim</code> stack deploy is required for model or service flag changes to be reflected in the response.
+        </div>
+    </div>
+</div>
 
-resource "azurerm_key_vault_secret" "secret_two" {
-  name            = "example-secret-test-two"
-  value           = random_password.secret_two.result
-  key_vault_id    = azurerm_key_vault.main.id
-  expiration_date = "2025-12-31T23:59:59Z"
-
-  depends_on = [null_resource.wait_for_key_vault_private_dns]
-}
-
-// ✗ FAILS with OIDC + Private Endpoints
-// Terraform tries to connect to: myvault.vault.azure.net
-// GitHub runner has no route to the private IP
-//
-// ✓ WORKS with:
-//   1. Self-hosted runner inside VNet
-//   2. Bastion + Jumpbox (VPN to VNet)
-//   3. Chisel tunnel (App Service → VNet → *.vault.azure.net)
-</code></pre>
-
-<h2 id="chisel-solution">4. Chisel: How the Tunnel Works</h2>
-
-<h3>The Problem Chisel Solves</h3>
-<pre><code>BEFORE Chisel:
-┌──────────────┐         ┌──────────────┐
-│ GitHub Runner │ ──OIDC──&gt; │ Azure ARM API │
-│ (Public)      │          │ mgmt.azure.com│
-└──────────────┘          └──────┬───────┘
-                                │
-                                │ Creates resources
-                                ↓
-┌──────────────┐         ┌──────▼───────┐
-│ GitHub Runner │         │ Private      │
-│ ✗ No route   │         │ Endpoint     │
-│ to VNet      │         │ *.vault.azure.net │
-└──────────────┘         │ BLOCKED      │
-                          └──────────────┘
-</code></pre>
-
-<pre><code>AFTER Chisel:
-┌──────────────┐         ┌──────────────┐
-│ GitHub Runner │ ──OIDC──&gt; │ Azure ARM API │
-│ (Public)      │          │ mgmt.azure.com│
-└──────┬───────┘          └──────┬───────┘
-       │                          │
-       │ Creates                  │
-       ↓                          │
-┌──────▼──────────┐         ┌─────▼──────┐
-│ App Service     │         │ Private    │
-│ (Chisel Server) │────────&gt; │ Endpoint   │
-│ VNet Integrated │         │ *.vault.azure.net │
-└──────┬──────────┘         │ ACCESSIBLE │
-       │                          │
-       │ Chisel tunnel            │
-       ↓ (HTTPS/WebSocket)        │
-┌──────▼──────────┐              │
-│ Local Machine   │ ←────────────┘
-│ (Chisel Client) │
-└─────────────────┘
-</code></pre>
-
-<h3>How Chisel Works (Technical Deep Dive)</h3>
-
-<h4>Step 1: App Service Deployment (Control Plane - Works with OIDC)</h4>
-<p>From <code>initial-setup/infra/modules/azure-proxy/main.tf</code>:</p>
-<pre><code>resource "azurerm_linux_web_app" "azure_proxy" {
-  name                      = "${var.app_name}-${var.app_env}-azure-proxy-${random_string.proxy_dns_suffix.result}"
-  resource_group_name       = var.resource_group_name
-  location                  = var.location
-  service_plan_id           = azurerm_service_plan.azure_proxy_asp.id
-
-  // ✓ KEY: VNet Integration
-  virtual_network_subnet_id = var.app_service_subnet_id
-
-  // ✓ KEY: Managed Identity for Docker pulls
-  identity {
-    type = "SystemAssigned"
-  }
-
-  site_config {
-    application_stack {
-      docker_image_name   = var.azure_proxy_image
-      docker_registry_url = var.container_registry_url
+<div class="card">
+    <h3>Response (200 OK)</h3>
+    <pre>{
+  "tenant": "wlrs-water-form-assistant",
+  "models": [
+    {
+      "name": "gpt-4.1-mini",
+      "model_name": "gpt-4.1-mini",
+      "model_version": "2025-04-14",
+      "scale_type": "GlobalStandard",
+      "capacity_k_tpm": 1500,
+      "tokens_per_minute": 1500000
+    },
+    {
+      "name": "gpt-4.1",
+      "model_name": "gpt-4.1",
+      "model_version": "2025-04-14",
+      "scale_type": "GlobalStandard",
+      "capacity_k_tpm": 300,
+      "tokens_per_minute": 300000
     }
+  ],
+  "services": {
+    "ai_search": true,
+    "document_intelligence": true,
+    "openai": true,
+    "speech_services": true,
+    "storage": true
   }
+}</pre>
 
-  app_settings = {
-    // ✓ KEY: Chisel authentication
-    CHISEL_AUTH = "${random_password.proxy_chisel_username.result}:${random_password.proxy_chisel_password.result}"
-  }
-}
+    <table>
+        <thead>
+            <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>tenant</code></td><td>string</td><td>The tenant identifier (matches the API path prefix).</td></tr>
+            <tr><td><code>models[].name</code></td><td>string</td><td>Deployment name used in API calls (e.g., <code>gpt-4.1-mini</code>).</td></tr>
+            <tr><td><code>models[].model_name</code></td><td>string</td><td>Underlying Azure OpenAI model name.</td></tr>
+            <tr><td><code>models[].model_version</code></td><td>string</td><td>Model version date string.</td></tr>
+            <tr><td><code>models[].scale_type</code></td><td>string</td><td>Deployment scale type (e.g., <code>GlobalStandard</code>).</td></tr>
+            <tr><td><code>models[].capacity_k_tpm</code></td><td>number</td><td>Allocated quota in thousands of tokens per minute (from <code>tenant.tfvars</code>).</td></tr>
+            <tr><td><code>models[].tokens_per_minute</code></td><td>number</td><td>Computed TPM limit applied by rate-limiting (<code>capacity_k_tpm &times; 1000</code>).</td></tr>
+            <tr><td><code>services.openai</code></td><td>bool</td><td><code>true</code> when OpenAI model deployments are configured for this tenant.</td></tr>
+            <tr><td><code>services.document_intelligence</code></td><td>bool</td><td><code>true</code> when Document Intelligence is enabled.</td></tr>
+            <tr><td><code>services.ai_search</code></td><td>bool</td><td><code>true</code> when AI Search is enabled.</td></tr>
+            <tr><td><code>services.speech_services</code></td><td>bool</td><td><code>true</code> when Speech Services (STT/TTS) are enabled.</td></tr>
+            <tr><td><code>services.storage</code></td><td>bool</td><td><code>true</code> when the Storage account proxy is enabled.</td></tr>
+        </tbody>
+    </table>
+</div>
 
-// ✓ This WORKS with OIDC because:
-// 1. Creates App Service (management.azure.com) ✓
-// 2. Pulls Docker image (docker.io) ✓
-// 3. Deploys to App Service (management.azure.com) ✓
-// 4. Integrates with VNet (management.azure.com) ✓
-</code></pre>
+<div class="card">
+    <h3>Error Responses</h3>
+    <table>
+        <thead>
+            <tr><th>Status</th><th>Cause</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>401</code></td><td>Missing or invalid subscription key.</td></tr>
+            <tr><td><code>405</code></td><td>Non-GET method used.</td></tr>
+        </tbody>
+    </table>
+</div>
 
-<h4>Step 2: Chisel Server Runs in App Service</h4>
-<p>From <code>azure-proxy/chisel/start-chisel.sh</code>:</p>
-<pre><code>#!/bin/sh
-set -e
+<div class="card">
+    <h3>Infrastructure</h3>
+    <p>Implemented purely in APIM policy. Enabled for every tenant unconditionally (<code>tenant_info_enabled = true</code> in <code>stacks/apim/locals.tf</code>). No Key Vault grants required.</p>
+    <p>Source: <code>infra-ai-hub/params/apim/api_policy.xml.tftpl</code> (<code>tenant_info_enabled</code> block).</p>
+</div>
 
-# Chisel runs as a server inside the App Service
-# Listens on port 80 (configured by PORT env var)
+<h2>Integration Tests</h2>
 
-chisel server \
-  --port $PORT \
-  --auth $CHISEL_AUTH \
-  --socks5 \
-  --reverse
+<div class="card">
+    <p>Both endpoints have bats integration test coverage in <code>tests/integration/</code>:</p>
+    <table>
+        <thead>
+            <tr><th>Suite</th><th>Endpoint</th><th>Proxy required</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>apim-key-rotation.bats</code></td>
+                <td><code>/internal/apim-keys</code></td>
+                <td>Yes &mdash; Key Vault is private-only. Runs via the chisel/privoxy tunnel in CI.</td>
+            </tr>
+            <tr>
+                <td><code>tenant-info.bats</code></td>
+                <td><code>/internal/tenant-info</code></td>
+                <td>No &mdash; response is static, no Key Vault calls. Runs in the direct (no-proxy) CI step.</td>
+            </tr>
+        </tbody>
+    </table>
+    <pre># Run tenant-info tests locally
+cd tests/integration
+./run-tests.sh test tenant-info.bats
 
-# What this does:
-# --port 80: Listen on HTTP (App Service handles HTTPS termination)
-# --auth: Require authentication (prevents unauthorized access)
-# --socks5: Enable SOCKS5 proxy (for general traffic)
-# --reverse: Enable reverse tunneling (clients can expose local ports)
-</code></pre>
-
-<h4>Step 3: Local Machine Connects</h4>
-<p>From <code>azure-proxy/chisel/README.md</code>:</p>
-<pre><code># Developer runs this on their laptop:
-
-docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
-  --auth "tunnel:XXXXXXX" \
-  https://${azure-proxy-app-service-url} \
-  0.0.0.0:5432:${postgres_hostname}$:5432
-
-# What happens:
-# 1. Chisel client on laptop connects to Chisel server in App Service
-# 2. Connection goes: laptop → Internet → App Service (public)
-# 3. App Service is VNet-integrated
-# 4. Chisel forwards: laptop:5432 → App Service → VNet → postgres:5432
-</code></pre>
-
-<h4>Step 4: Traffic Flow with Private Endpoints</h4>
-<pre><code>┌──────────────┐
-│ Laptop       │
-│ Chisel Client│
-│ Port 5432    │
-└──────┬───────┘
-       │
-       │ 1. Connect to App Service
-       │ HTTPS / WebSocket
-       ↓
-┌──────▼──────────┐
-│ App Service     │
-│ (Chisel Server) │
-│ Public endpoint │
-│ VNet integrated │
-└──────┬──────────┘
-       │
-       │ 2. Inside VNet
-       │ Private IPs
-       ↓
-┌──────▼──────────────────┐
-│ Private Endpoint        │
-│ Subnet                  │
-│ Routes to:              │
-│ myvault.vault.azure.net │
-└──────┬──────────────────┘
-       │
-       │ 3. Data plane access
-       │ *.vault.azure.net
-       ↓
-┌──────▼──────────┐
-│ Key Vault       │
-│ Data operations │
-│ - Get secrets   │
-│ - Set secrets   │
-│ - List secrets  │
-└────────────────┘
-
-✓ SUCCESS: Terraform can read/write secrets!
-</code></pre>
-
-<h3>Why Chisel vs Alternatives?</h3>
-
-<table>
-    <tr>
-        <th>Method</th>
-        <th>Cost</th>
-        <th>Setup</th>
-        <th>Use Case</th>
-        <th>Limitations</th>
-    </tr>
-    <tr>
-        <td><strong>Bastion + Jumpbox</strong></td>
-        <td>$200-300/mo</td>
-        <td>High</td>
-        <td>Admin access, full VM</td>
-        <td>Expensive, overkill for single developer</td>
-    </tr>
-    <tr>
-        <td><strong>Self-hosted Runner</strong></td>
-        <td>$100/mo</td>
-        <td>Medium</td>
-        <td>CI/CD with secrets</td>
-        <td>Always running, needs management</td>
-    </tr>
-    <tr>
-        <td><strong>Chisel + App Service</strong></td>
-        <td>$15/mo</td>
-        <td>Low</td>
-        <td>Local dev, on-demand access</td>
-        <td>Manual connection needed</td>
-    </tr>
-</table>
-
-<h2 id="deployment-scenarios">5. Deployment Scenarios: Who Needs What</h2>
-
-<h3>Scenario 1: Platform Team (Deploys Landing Zone)</h3>
-<p><strong>Who:</strong> Platform Services Team, Infrastructure Admins</p>
-<p><strong>What they deploy:</strong></p>
-<ul>
-    <li>✓ Network (VNets, subnets, NSGs)</li>
-    <li>✓ Key Vault + Private Endpoints</li>
-    <li>✓ App Service Plans + Azure Proxy (Chisel)</li>
-    <li>✓ Bastion + Jumpbox (optional)</li>
-    <li>✓ Self-hosted runners (optional)</li>
-    <li>✓ API Management, App Gateway</li>
-    <li>✓ Azure AI Foundry</li>
-</ul>
-
-<p><strong>When they need data plane access:</strong></p>
-<ul>
-    <li>Creating Key Vault secrets (initial setup)</li>
-    <li>Testing private endpoints</li>
-    <li>Debugging network connectivity</li>
-    <li>Manual secret rotation</li>
-</ul>
-
-<p><strong>Recommended access method:</strong></p>
-<ul>
-    <li><strong>Option 1:</strong> Chisel tunnel ($15/mo) - for most developers</li>
-    <li><strong>Option 2:</strong> Bastion + Jumpbox ($200-300/mo) - for admins who need full VM</li>
-    <li><strong>Option 3:</strong> Public GitHub runners + Self-hosted for CI/CD</li>
-</ul>
-
-<h3>Scenario 2: Project Teams (Deploy Applications)</h3>
-<p><strong>Who:</strong> Ministry Application Teams</p>
-<p><strong>What they deploy:</strong></p>
-<ul>
-    <li>✓ App Service Plans (their apps)</li>
-    <li>✓ Container Apps (their workloads)</li>
-    <li>✓ Storage Accounts (their data)</li>
-    <li>✓ Application Code</li>
-</ul>
-
-<p><strong>What they DON'T deploy:</strong></p>
-<ul>
-    <li>✗ Network infrastructure (provided by platform)</li>
-    <li>✗ Bastion/Jumpbox (platform team maintains)</li>
-    <li>✗ Chisel (platform team provides endpoint)</li>
-    <li>✗ Key Vault (may use shared or create their own)</li>
-    <li>✗ Private endpoints (configured by platform)</li>
-</ul>
-
-<p><strong>When they need data plane access:</strong></p>
-<ul>
-    <li>Reading secrets from Key Vault (their app needs secrets)</li>
-    <li>Writing secrets during deployment</li>
-    <li>Testing their apps against private endpoints</li>
-</ul>
-
-<p><strong>Recommended access method:</strong></p>
-<ul>
-    <li><strong>Use platform's Chisel endpoint</strong> - provided by platform team</li>
-    <li><strong>Public GitHub runners</strong> - for control plane operations</li>
-    <li><strong>No self-hosted needed</strong> - platform provides infrastructure</li>
-</ul>
-
-<h3>Scenario 3: Solo Developer</h3>
-<p><strong>Who:</strong> Single developer, proof-of-concept work</p>
-<p><strong>What they deploy:</strong></p>
-<ul>
-    <li>✓ Their application code</li>
-    <li>✓ Minimal infrastructure if needed</li>
-</ul>
-
-<p><strong>Recommended setup:</strong></p>
-<ul>
-    <li><strong>Chisel tunnel only ($15/mo)</strong> - connect laptop to VNet</li>
-    <li><strong>Public GitHub runners (free)</strong> - for infrastructure deploys</li>
-</ul>
-
-<p><strong>Skip:</strong></p>
-<ul>
-    <li>✗ Bastion + Jumpbox ($200-300/mo) - too expensive</li>
-    <li>✗ Self-hosted runners ($100/mo) - not needed for solo work</li>
-</ul>
-
-<h2>Summary</h2>
-
-<h3>Why We Need Key Vault Access</h3>
-<ol>
-    <li><strong>Security:</strong> Private endpoints prevent public access to secrets</li>
-    <li><strong>Compliance:</strong> BC Gov requires zero-trust, no public data plane access</li>
-    <li><strong>Operations:</strong> Applications need to read secrets at runtime</li>
-    <li><strong>Automation:</strong> Terraform needs to write secrets during deployment</li>
-</ol>
-
-<h3>Why OIDC Alone Isn't Enough</h3>
-<ol>
-    <li>OIDC provides access to <code>management.azure.com</code> (control plane)</li>
-    <li>Private endpoints block <code>*.vault.azure.net</code> (data plane)</li>
-    <li>GitHub runners have no route to VNet private IPs</li>
-    <li>Even with valid tokens, network access is required</li>
-</ol>
-
-<h3>How Chisel Solves This</h3>
-<ol>
-    <li>App Service runs in VNet (via VNet integration)</li>
-    <li>Chisel server in App Service bridges public → private</li>
-    <li>Developer connects laptop to App Service via HTTPS</li>
-    <li>Traffic flows: laptop → App Service → VNet → private endpoints</li>
-    <li>Result: Data plane access without exposing services publicly</li>
-</ol>
-
-<h3>When to Use Each Method</h3>
-<ul>
-    <li><strong>Platform Team:</strong> Deploy all, use Chisel or Bastion for access</li>
-    <li><strong>Project Teams:</strong> Deploy apps only, use platform's Chisel</li>
-    <li><strong>Solo Dev:</strong> Deploy minimal, use Chisel only</li>
-    <li><strong>CI/CD with secrets:</strong> Use self-hosted runners in VNet</li>
-    <li><strong>Admin work:</strong> Use Bastion + Jumpbox</li>
-</ul>
-</body>
-</html>
+# Run apim-keys tests (requires az login + hub Key Vault access)
+./run-tests.sh test apim-key-rotation.bats</pre>
+</div>
     </main>
     <footer class="site-footer">
         <div class="footer-content">

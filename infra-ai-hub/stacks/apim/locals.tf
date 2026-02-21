@@ -98,6 +98,7 @@ locals {
         pii_fail_closed               = try(config.apim_policies.pii_redaction.fail_closed, false)
         key_rotation_enabled          = local.key_rotation_config.rotation_enabled
         keyvault_uri                  = local.hub_keyvault_uri
+        tenant_info_enabled           = true
       }
     )
   }

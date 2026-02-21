@@ -163,6 +163,50 @@
                 </return-response>
             </when>
 %{ endif ~}
+%{ if tenant_info_enabled ~}
+            <!-- Internal endpoint: return tenant configuration summary -->
+            <!-- Reports deployed models with quotas and enabled services as JSON -->
+            <!-- Data is baked in at Terraform render time - no external calls needed -->
+            <when condition="@(context.Request.Url.Path.ToLower().EndsWith(&quot;internal/tenant-info&quot;))">
+                <!-- Only allow GET -->
+                <choose>
+                    <when condition="@(context.Request.Method != &quot;GET&quot;)">
+                        <return-response>
+                            <set-status code="405" reason="Method Not Allowed" />
+                            <set-header name="Content-Type" exists-action="override">
+                                <value>application/json</value>
+                            </set-header>
+                            <set-body>{"error":{"code":"MethodNotAllowed","message":"Only GET is supported."}}</set-body>
+                        </return-response>
+                    </when>
+                </choose>
+                <!-- Return static tenant config (rendered at Terraform deploy time, not runtime) -->
+                <return-response>
+                    <set-status code="200" reason="OK" />
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>${jsonencode({
+  tenant = tenant_name
+  models = [for m in model_deployments : {
+    name              = m.name
+    model_name        = m.model_name
+    model_version     = m.model_version
+    scale_type        = m.scale_type
+    capacity_k_tpm    = m.capacity
+    tokens_per_minute = m.capacity * 1000
+  }]
+  services = {
+    ai_search             = ai_search_enabled
+    document_intelligence = document_intelligence_enabled
+    openai                = openai_enabled
+    speech_services       = speech_services_enabled
+    storage               = storage_enabled
+  }
+})}</set-body>
+                </return-response>
+            </when>
+%{ endif ~}
 %{ if document_intelligence_enabled ~}
             <!-- Document Intelligence requests: match documentintelligence, formrecognizer, or documentModels in path -->
             <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;documentintelligence&quot;) || context.Request.Url.Path.ToLower().Contains(&quot;formrecognizer&quot;) || context.Request.Url.Path.ToLower().Contains(&quot;documentmodels&quot;))">

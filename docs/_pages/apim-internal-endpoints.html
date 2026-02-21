@@ -1,0 +1,254 @@
+<!-- TITLE: APIM Internal Endpoints -->
+<!-- NAV: apim-internal-endpoints -->
+
+<h1>APIM Internal Endpoints</h1>
+
+<p>Each tenant API exposes two internal endpoints that are available only to authenticated callers holding a valid APIM subscription key. Neither endpoint proxies traffic to an AI backend — both are implemented entirely in APIM policy and return responses directly.</p>
+
+<div class="alert alert-info">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+    </div>
+    <div>
+        <strong>Authentication Required</strong><br>
+        All internal endpoints require a valid APIM subscription key in the <code>api-key</code> header. Unauthenticated requests receive <code>401 Unauthorized</code>. Only <code>GET</code> is accepted &mdash; any other method returns <code>405 Method Not Allowed</code>.
+    </div>
+</div>
+
+<div class="grid grid-2">
+    <div class="card">
+        <h3 style="margin-top:0;"><code>/internal/apim-keys</code></h3>
+        <p>Returns both subscription keys and rotation metadata sourced from the centralized hub Key Vault at request time.</p>
+        <p><strong>Requires:</strong> key rotation enabled (<code>rotation_enabled = true</code> in <code>shared.tfvars</code>).</p>
+        <a href="#apim-keys">View reference &darr;</a>
+    </div>
+    <div class="card">
+        <h3 style="margin-top:0;"><code>/internal/tenant-info</code></h3>
+        <p>Returns the tenant's deployed AI models with quota information and a list of enabled services. Always available &mdash; no Key Vault access needed.</p>
+        <p><strong>Requires:</strong> nothing beyond a valid subscription key.</p>
+        <a href="#tenant-info">View reference &darr;</a>
+    </div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="apim-keys"><code>GET /{tenant-name}/internal/apim-keys</code></h2>
+<!-- ============================================================ -->
+
+<div class="card">
+    <h3>Overview</h3>
+    <p>Returns the tenant's current primary and secondary APIM subscription keys, plus rotation metadata, from the centralized hub Key Vault. Use this endpoint to programmatically refresh your stored key after a rotation event without needing direct Key Vault access.</p>
+    <p>See the <a href="apim-key-rotation.html">APIM Key Rotation guide</a> for the full operational workflow, rotation schedule, and troubleshooting information.</p>
+</div>
+
+<div class="card">
+    <h3>Authentication</h3>
+    <p>Pass either the primary or secondary subscription key in the <code>api-key</code> header. APIM validates it before running any policy logic &mdash; the still-valid key (not the one just rotated) always works.</p>
+    <pre>curl -s -H "api-key: YOUR_SUBSCRIPTION_KEY" \
+    "https://your-apim-gateway.azure-api.net/YOUR_TENANT/internal/apim-keys" | jq .</pre>
+</div>
+
+<div class="card">
+    <h3>How It Works</h3>
+    <ol>
+        <li>APIM validates the incoming subscription key (standard APIM behavior).</li>
+        <li>APIM policy uses its <strong>system-assigned managed identity</strong> to read three secrets from the centralized hub Key Vault: <code>{tenant}-apim-primary-key</code>, <code>{tenant}-apim-secondary-key</code>, and <code>{tenant}-apim-rotation-metadata</code>.</li>
+        <li>Secrets are assembled into a JSON response and returned directly &mdash; no backend service is called.</li>
+    </ol>
+</div>
+
+<div class="card">
+    <h3>Response (200 OK)</h3>
+    <pre>{
+  "tenant": "your-tenant-name",
+  "primary_key": "abc123def456...",
+  "secondary_key": "ghi789jkl012...",
+  "rotation": {
+    "last_rotated_slot": "primary",
+    "last_rotation_at": "2026-02-11T02:00:00Z",
+    "next_rotation_at": "2026-02-18T02:00:00Z",
+    "rotation_number": 5,
+    "safe_slot": "secondary"
+  },
+  "keyvault": {
+    "uri": "https://hub-kv.vault.azure.net/",
+    "primary_key_secret": "your-tenant-name-apim-primary-key",
+    "secondary_key_secret": "your-tenant-name-apim-secondary-key"
+  }
+}</pre>
+
+    <table>
+        <thead>
+            <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>tenant</code></td><td>string</td><td>The tenant identifier (matches the API path prefix).</td></tr>
+            <tr><td><code>primary_key</code></td><td>string</td><td>Current value of the APIM primary subscription key slot.</td></tr>
+            <tr><td><code>secondary_key</code></td><td>string</td><td>Current value of the APIM secondary subscription key slot.</td></tr>
+            <tr><td><code>rotation.last_rotated_slot</code></td><td>string</td><td><code>"primary"</code> or <code>"secondary"</code> &mdash; the slot regenerated most recently.</td></tr>
+            <tr><td><code>rotation.safe_slot</code></td><td>string</td><td>The slot that was <em>not</em> just rotated. Switch to this key.</td></tr>
+            <tr><td><code>rotation.last_rotation_at</code></td><td>ISO 8601</td><td>Timestamp of the most recent rotation.</td></tr>
+            <tr><td><code>rotation.next_rotation_at</code></td><td>ISO 8601</td><td>Estimated timestamp of the next scheduled rotation.</td></tr>
+            <tr><td><code>rotation.rotation_number</code></td><td>number</td><td>Monotonically increasing rotation counter.</td></tr>
+            <tr><td><code>keyvault.uri</code></td><td>string</td><td>Hub Key Vault base URI.</td></tr>
+            <tr><td><code>keyvault.primary_key_secret</code></td><td>string</td><td>Secret name for the primary key in the hub Key Vault.</td></tr>
+            <tr><td><code>keyvault.secondary_key_secret</code></td><td>string</td><td>Secret name for the secondary key in the hub Key Vault.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h3>Error Responses</h3>
+    <table>
+        <thead>
+            <tr><th>Status</th><th>Cause</th><th>Body (<code>error.code</code>)</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>401</code></td><td>Missing or invalid subscription key.</td><td>Standard APIM 401</td></tr>
+            <tr><td><code>404</code></td><td>Key rotation is disabled for this environment (<code>rotation_enabled = false</code>); route not present in policy.</td><td><code>NotFound</code></td></tr>
+            <tr><td><code>405</code></td><td>Non-GET method used.</td><td><code>MethodNotAllowed</code></td></tr>
+            <tr><td><code>502</code></td><td>APIM managed identity could not read one or more secrets from the hub Key Vault.</td><td><code>KeyVaultReadFailed</code></td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h3>Infrastructure</h3>
+    <p>Implemented purely in APIM policy. APIM's system-assigned managed identity holds a single <code>Key Vault Secrets User</code> RBAC assignment on the centralized hub Key Vault &mdash; one assignment scales to all tenants. Enabled only when <code>shared.tfvars</code> has <code>key_rotation.rotation_enabled = true</code>.</p>
+    <p>Source: <code>infra-ai-hub/params/apim/api_policy.xml.tftpl</code> (<code>key_rotation_enabled</code> block).</p>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="tenant-info"><code>GET /{tenant-name}/internal/tenant-info</code></h2>
+<!-- ============================================================ -->
+
+<div class="card">
+    <h3>Overview</h3>
+    <p>Returns the tenant's deployed AI models (with quota information) and the set of enabled AI services. The response is <strong>fully static</strong> &mdash; data is baked in at Terraform deploy time via <code>templatefile()</code>, so no Key Vault or backend calls are made at runtime. Always available; there is no feature flag that disables this endpoint.</p>
+    <p>Use this endpoint to:</p>
+    <ul>
+        <li>Discover which models are available and their per-model token-per-minute quota.</li>
+        <li>Confirm which AI services (Document Intelligence, AI Search, Speech, etc.) are enabled for your tenant.</li>
+        <li>Drive UI dropdowns or config auto-discovery without maintaining a separate config file.</li>
+    </ul>
+</div>
+
+<div class="card">
+    <h3>Authentication</h3>
+    <p>Pass the subscription key in the <code>api-key</code> header. APIM validates it before returning any data.</p>
+    <pre>curl -s -H "api-key: YOUR_SUBSCRIPTION_KEY" \
+    "https://your-apim-gateway.azure-api.net/YOUR_TENANT/internal/tenant-info" | jq .</pre>
+</div>
+
+<div class="card">
+    <h3>How It Works</h3>
+    <ol>
+        <li>APIM validates the incoming subscription key.</li>
+        <li>The policy matches paths ending in <code>internal/tenant-info</code> and returns the pre-rendered JSON body directly &mdash; no backend service is called.</li>
+        <li>The JSON is generated once by Terraform's <code>templatefile()</code> from values in <code>tenant.tfvars</code> (<code>openai.model_deployments</code>, service feature flags) and embedded in the APIM policy at deploy time.</li>
+    </ol>
+    <div class="alert alert-info" style="margin-top: 0.75rem;">
+        <div>
+            <strong>Static data:</strong> A new Terraform <code>apim</code> stack deploy is required for model or service flag changes to be reflected in the response.
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <h3>Response (200 OK)</h3>
+    <pre>{
+  "tenant": "wlrs-water-form-assistant",
+  "models": [
+    {
+      "name": "gpt-4.1-mini",
+      "model_name": "gpt-4.1-mini",
+      "model_version": "2025-04-14",
+      "scale_type": "GlobalStandard",
+      "capacity_k_tpm": 1500,
+      "tokens_per_minute": 1500000
+    },
+    {
+      "name": "gpt-4.1",
+      "model_name": "gpt-4.1",
+      "model_version": "2025-04-14",
+      "scale_type": "GlobalStandard",
+      "capacity_k_tpm": 300,
+      "tokens_per_minute": 300000
+    }
+  ],
+  "services": {
+    "ai_search": true,
+    "document_intelligence": true,
+    "openai": true,
+    "speech_services": true,
+    "storage": true
+  }
+}</pre>
+
+    <table>
+        <thead>
+            <tr><th>Field</th><th>Type</th><th>Description</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>tenant</code></td><td>string</td><td>The tenant identifier (matches the API path prefix).</td></tr>
+            <tr><td><code>models[].name</code></td><td>string</td><td>Deployment name used in API calls (e.g., <code>gpt-4.1-mini</code>).</td></tr>
+            <tr><td><code>models[].model_name</code></td><td>string</td><td>Underlying Azure OpenAI model name.</td></tr>
+            <tr><td><code>models[].model_version</code></td><td>string</td><td>Model version date string.</td></tr>
+            <tr><td><code>models[].scale_type</code></td><td>string</td><td>Deployment scale type (e.g., <code>GlobalStandard</code>).</td></tr>
+            <tr><td><code>models[].capacity_k_tpm</code></td><td>number</td><td>Allocated quota in thousands of tokens per minute (from <code>tenant.tfvars</code>).</td></tr>
+            <tr><td><code>models[].tokens_per_minute</code></td><td>number</td><td>Computed TPM limit applied by rate-limiting (<code>capacity_k_tpm &times; 1000</code>).</td></tr>
+            <tr><td><code>services.openai</code></td><td>bool</td><td><code>true</code> when OpenAI model deployments are configured for this tenant.</td></tr>
+            <tr><td><code>services.document_intelligence</code></td><td>bool</td><td><code>true</code> when Document Intelligence is enabled.</td></tr>
+            <tr><td><code>services.ai_search</code></td><td>bool</td><td><code>true</code> when AI Search is enabled.</td></tr>
+            <tr><td><code>services.speech_services</code></td><td>bool</td><td><code>true</code> when Speech Services (STT/TTS) are enabled.</td></tr>
+            <tr><td><code>services.storage</code></td><td>bool</td><td><code>true</code> when the Storage account proxy is enabled.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h3>Error Responses</h3>
+    <table>
+        <thead>
+            <tr><th>Status</th><th>Cause</th></tr>
+        </thead>
+        <tbody>
+            <tr><td><code>401</code></td><td>Missing or invalid subscription key.</td></tr>
+            <tr><td><code>405</code></td><td>Non-GET method used.</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
+    <h3>Infrastructure</h3>
+    <p>Implemented purely in APIM policy. Enabled for every tenant unconditionally (<code>tenant_info_enabled = true</code> in <code>stacks/apim/locals.tf</code>). No Key Vault grants required.</p>
+    <p>Source: <code>infra-ai-hub/params/apim/api_policy.xml.tftpl</code> (<code>tenant_info_enabled</code> block).</p>
+</div>
+
+<h2>Integration Tests</h2>
+
+<div class="card">
+    <p>Both endpoints have bats integration test coverage in <code>tests/integration/</code>:</p>
+    <table>
+        <thead>
+            <tr><th>Suite</th><th>Endpoint</th><th>Proxy required</th></tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><code>apim-key-rotation.bats</code></td>
+                <td><code>/internal/apim-keys</code></td>
+                <td>Yes &mdash; Key Vault is private-only. Runs via the chisel/privoxy tunnel in CI.</td>
+            </tr>
+            <tr>
+                <td><code>tenant-info.bats</code></td>
+                <td><code>/internal/tenant-info</code></td>
+                <td>No &mdash; response is static, no Key Vault calls. Runs in the direct (no-proxy) CI step.</td>
+            </tr>
+        </tbody>
+    </table>
+    <pre># Run tenant-info tests locally
+cd tests/integration
+./run-tests.sh test tenant-info.bats
+
+# Run apim-keys tests (requires az login + hub Key Vault access)
+./run-tests.sh test apim-key-rotation.bats</pre>
+</div>
