@@ -172,6 +172,14 @@
             color: var(--bc-blue);
         }
 
+        .nav-dropdown-menu a.active {
+            background: #fef9e7;
+            border-left-color: var(--bc-gold);
+            border-left-width: 4px;
+            color: var(--bc-blue);
+            font-weight: 600;
+        }
+
         .nav-dropdown-menu a small {
             display: block;
             color: var(--text-secondary);
@@ -703,45 +711,53 @@
         <nav class="bc-nav">
             <a href="index.html" class="">Home</a>
             <div class="nav-dropdown">
-                <span class="nav-trigger">Guides</span>
+                <span class="nav-trigger">For Tenants</span>
                 <div class="nav-dropdown-menu">
-                    <a href="oidc-setup.html">
-                        OIDC Setup
-                        <small>GitHub to Azure authentication</small>
+                    <a href="services.html" class="">
+                        AI Services
+                        <small>Available models &amp; services catalogue</small>
                     </a>
-                    <a href="terraform.html">
-                        Terraform Modules
-                        <small>Network, Bastion, Runners, Proxy</small>
-                    </a>
-                    <a href="language-service-pii.html">
+                    <a href="language-service-pii.html" class="">
                         Language Service PII
-                        <small>ML-based PII detection & APIM</small>
+                        <small>ML-based PII detection &amp; APIM</small>
                     </a>
-                    <a href="document-intelligence.html">
-                        Document Intelligence
-                        <small>SDK configuration & APIM integration</small>
+                    <a href="apim-internal-endpoints.html" class="">
+                        APIM Internal Endpoints
+                        <small>tenant-info &amp; apim-keys API reference</small>
                     </a>
-                    <a href="workflows.html">
-                        GitHub Workflows
-                        <small>CI/CD automation</small>
-                    </a>
-                    <a href="terraform-reference.html">
-                        TF Reference
-                        <small>Auto-generated from code</small>
-                    </a>
-                    <a href="apim-key-rotation.html">
+                    <a href="apim-key-rotation.html" class="">
                         APIM Key Rotation
                         <small>Subscription key auto-rotation</small>
                     </a>
-                    <a href="apim-internal-endpoints.html">
-                        APIM Internal Endpoints
-                        <small>tenant-info &amp; apim-keys API reference</small>
+                </div>
+            </div>
+            <div class="nav-dropdown">
+                <span class="nav-trigger">For AI Hub Admins</span>
+                <div class="nav-dropdown-menu">
+                    <a href="playbooks.html" class="">
+                        Playbooks
+                        <small>Operational runbooks &amp; how-to guides</small>
+                    </a>
+                    <a href="oidc-setup.html" class="">
+                        OIDC Setup
+                        <small>GitHub to Azure authentication</small>
+                    </a>
+                    <a href="workflows.html" class="">
+                        GitHub Workflows
+                        <small>CI/CD automation</small>
+                    </a>
+                    <a href="terraform-reference.html" class="">
+                        TF Reference
+                        <small>Auto-generated from code</small>
+                    </a>
+                    <a href="technical-deep-dive.html" class="">
+                        Technical Deep Dive
+                        <small>Control/data plane &amp; Chisel architecture</small>
                     </a>
                 </div>
             </div>
             <a href="diagrams.html" class="">Diagrams</a>
-            <a href="playbooks.html" class="">Playbooks</a>
-            <a href="decisions.html" class="">ADRs</a>
+            <a href="decisions.html" class="active">ADRs</a>
             <a href="cost.html" class="">Cost</a>
             <a href="faq.html" class="">FAQ</a>
         </nav>
@@ -816,7 +832,29 @@ details.adr.pending summary {
 details.adr.pending[open] summary {
     background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
 }
+.go-to-top {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: var(--bc-blue);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    z-index: 999;
+    transition: background 0.2s, transform 0.1s;
+}
+.go-to-top:hover {
+    background: var(--bc-gold);
+    color: var(--bc-blue);
+    transform: translateY(-2px);
+}
 </style>
+<button class="go-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">&#8679; Top</button>
 
 <h1>Architecture Decision Records</h1>
 
@@ -853,7 +891,7 @@ details.adr.pending[open] summary {
     </div>
 </div>
 
-<h2>Decision Index</h2>
+<h2 id="decision-index">Decision Index</h2>
 
 <table>
     <tr>
@@ -864,7 +902,7 @@ details.adr.pending[open] summary {
     </tr>
     <tr>
         <td><a href="#adr-001">ADR-001</a></td>
-        <td>Shared Landing Zone with Bastion/Jumpbox</td>
+        <td>Shared AI Landing Zone</td>
         <td><span class="badge badge-blue">Policy</span></td>
         <td><span class="badge badge-gold">Accepted</span></td>
     </tr>
@@ -876,7 +914,7 @@ details.adr.pending[open] summary {
     </tr>
     <tr>
         <td><a href="#adr-003">ADR-003</a></td>
-        <td>Use Azure Bastion for VM Access</td>
+        <td>Optional Use of Azure Bastion for VM Access</td>
         <td><span class="badge badge-blue">Policy</span></td>
         <td><span class="badge badge-gold">Accepted</span></td>
     </tr>
@@ -902,7 +940,7 @@ details.adr.pending[open] summary {
         <td><a href="#adr-007">ADR-007</a></td>
         <td>Client Connectivity via App Gateway + APIM</td>
         <td><span class="badge badge-blue">Policy</span></td>
-        <td><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
     </tr>
     <tr>
         <td><a href="#adr-008">ADR-008</a></td>
@@ -914,13 +952,13 @@ details.adr.pending[open] summary {
         <td><a href="#adr-009">ADR-009</a></td>
         <td>Why AI Landing Zone vs Custom Solution</td>
         <td><span class="badge" style="background:#22c55e;color:white;">Choice</span></td>
-        <td><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
     </tr>
     <tr>
         <td><a href="#adr-010">ADR-010</a></td>
         <td>Multi-Tenant Isolation Model</td>
         <td><span class="badge badge-blue">Policy</span></td>
-        <td><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
     </tr>
     <tr>
         <td><a href="#adr-011">ADR-011</a></td>
@@ -956,7 +994,7 @@ details.adr.pending[open] summary {
 
 <details class="adr" id="adr-001" open>
 <summary>
-    <span class="adr-title">ADR-001: Shared Landing Zone with Bastion/Jumpbox</span>
+    <span class="adr-title">ADR-001: Shared AI Landing Zone</span>
     <span class="adr-status"><span class="badge badge-gold">Accepted</span></span>
 </summary>
 <div class="adr-content">
@@ -973,7 +1011,7 @@ details.adr.pending[open] summary {
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
     </div>
     <div>
-        <strong>This is the foundational ADR.</strong> It explains why we need VNets, Bastion, Jumpbox, and self-hosted runners. All other ADRs build on these concepts.
+        <strong>This is the foundational ADR.</strong> It explains why we need VNets, Bastion, Jumpbox, and the Chisel tunnel CI/CD approach. All other ADRs build on these concepts.
     </div>
 </div>
 
@@ -1044,18 +1082,18 @@ details.adr.pending[open] summary {
 │   GitHub Actions          │ Azure Landing Zone (Private Network)        │
 │   (Public Internet)       │                                             │
 │                           │                                             │
-│   ┌──────────────┐        │    ┌──────────────┐    ┌─────────────────┐  │
-│   │ Workflow     │        │    │ Self-Hosted  │    │ Private         │  │
-│   │ Triggers     │OIDC ─▶│ Runner       │───▶│     | Endpoints       │  │
-│   │              │        │    │ (in VNet)    │    │ (Storage, KV)   │  │
+│   ┌──────────────┐  OIDC  │    ┌──────────────┐    ┌─────────────────┐  │
+│   │ GitHub-Hosted│───────▶│    │ Azure Proxy  │───▶│ Private         │  │
+│   │ Runner       │        │    │ (Chisel App  │    │ Endpoints       │  │
+│   │ ubuntu-24.04 │◀SOCKS5─┘    │  Service)    │    │ (Storage, KV)   │  │
 │   └──────────────┘        │    └──────────────┘    └─────────────────┘  │
-│                           │           │                                 │
-│                           │           ▼                                 │
-│                           │    ┌──────────────┐                         │
-│                           │    │ terraform    │                         │
-│                           │    │ plan/apply   │                         │
-│                           │    └──────────────┘                         │
-│                           │                                             │
+│          │                │                                             │
+│          ▼                │                                             │
+│   ┌──────────────┐        │                                             │
+│   │ terraform    │        │                                             │
+│   │ plan/apply   │        │                                             │
+│   └──────────────┘        │                                             │
+│   (via SOCKS tunnel)      │                                             │
 └─────────────────────────────────────────────────────────────────────────┘
 </pre>
 </div>
@@ -1064,46 +1102,22 @@ details.adr.pending[open] summary {
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #22c55e;">
-        <h4 style="margin-top: 0;">Option A: Self-Hosted Runners</h4>
-        <p>GitHub Actions runners deployed inside the VNet as Container App Jobs. Workflows run directly on these.</p>
+        <h4 style="margin-top: 0;">Option A: Chisel Tunnel with GitHub-Hosted Runners</h4>
+        <p>Standard GitHub-hosted runners (<code>ubuntu-24.04</code>) combined with a <strong>Chisel SOCKS5 proxy</strong> deployed as an Azure App Service inside the VNet. This eliminates the need for persistent self-hosted runner infrastructure.</p>
         <ul>
-            <li>Runner registers with GitHub</li>
-            <li>Workflow triggers, runner picks it up</li>
-            <li>Terraform runs inside VNet</li>
-            <li>Full access to private endpoints</li>
-            <li>Vnet peering is enabled in spoke VNets for tools to deploy to dev/test/prod</li>
+            <li>GitHub-hosted runner starts (ephemeral, no maintenance)</li>
+            <li>Workflow deploys/starts the Chisel proxy App Service</li>
+            <li>Runner connects through SOCKS5 tunnel into VNet</li>
+            <li>Terraform traffic routed via tunnel to private endpoints</li>
+            <li>No persistent runner pool needed — pay only for workflow minutes</li>
         </ul>
         <div class="alert alert-info" style="margin-top: 1rem;">
-            <span class="alert-icon">💰</span>
+            <span class="alert-icon">💡</span>
             <div>
-                <strong>Cost drivers (from the runner Terraform module):</strong>
-                <ul style="margin: 0.5rem 0 0;">
-                    <li><strong>Runner compute:</strong> Azure Container Apps job runtime (scales to zero when idle)</li>
-                    <li><strong>Sizing knobs:</strong> <code>container_cpu</code> (default 1 vCPU), <code>container_memory</code> (default 2Gi), concurrency capped by <code>max_runners</code> (default 4)</li>
-                    <li><strong>Supporting costs:</strong> Log Analytics ingestion + ACR Premium base cost (fixed) + storage/transfer <em>(ACR private endpoints require Premium)</em></li>
-                </ul>
-                <p style="margin: 0.75rem 0 0;"><strong>Sample usage calculation (units-first):</strong></p>
-                <pre style="margin: 0.5rem 0 0;">Assumptions: 20 jobs/day, 10 min/job, avg concurrency = 1.5
-Monthly runner hours = 30 * 20 * (10/60) * 1.5 = 150 hours
-Total seconds = 150 * 3600 = 540,000 seconds
-
-Canada Central rates (Container Apps):
-vCPU-seconds: $0.0000480/sec
-GiB-seconds:  $0.0000057/sec
-Requests:     $0.565 per million
-
-vCPU cost = 540,000 * 1 vCPU * 0.0000480 = $25.92
-Memory cost = 540,000 * 2 GiB * 0.0000057 = $6.16
-Request cost (example 1M req/mo) = $0.57
-
-Estimated runner compute total ≈ $32.65/mo
-ACR Premium base cost = $2.351/day ≈ $70.53/mo (30-day month)
-Estimated compute + ACR base ≈ $103.18/mo (excludes Log Analytics)
-
-Assumes a single-region ACR Premium registry with no geo-replication and no connected registry</pre>
+                <strong>Implementation:</strong> The <code>azure-proxy/chisel</code> container runs on an App Service Plan inside the <code>tools</code> VNet subnet. The <code>.deployer.yml</code> reusable workflow deploys it first, then subsequent steps use it as a SOCKS proxy via <code>ALL_PROXY</code> environment variable.
             </div>
         </div>
-        <p style="margin-bottom:0;color:#22c55e;"><strong>Recommended and Used for CI/CD</strong></p>
+        <p style="margin-bottom:0;color:#22c55e;"><strong>Used by this platform for all CI/CD</strong></p>
     </div>
     <div class="card" style="border-left-color: #0ea5e9;">
         <h4 style="margin-top: 0;">Option B: Jumpbox + Bastion</h4>
@@ -1151,9 +1165,9 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
         <td><strong>Yes - shared by admins</strong></td>
     </tr>
     <tr>
-        <td>Self-Hosted Runners</td>
-        <td>CI/CD execution inside VNet</td>
-        <td><strong>Yes - shared runner pool</strong></td>
+        <td>Azure Proxy (Chisel Server)</td>
+        <td>SOCKS5 tunnel for CI/CD private-endpoint access</td>
+        <td><strong>Yes - shared by all stacks</strong></td>
     </tr>
     <tr>
         <td>Private DNS Zones</td>
@@ -1199,9 +1213,9 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
     </tr>
     <tr>
         <td><strong>GitHub Actions (CI/CD)</strong></td>
-        <td>Self-hosted runners inside VNet → Private Endpoints</td>
+        <td>GitHub-hosted runner + Chisel SOCKS tunnel → Private Endpoints</td>
         <td><span class="badge" style="background:#22c55e;color:white;">None</span></td>
-        <td>Self Hosted Runners are container jobs running inside Azure Container Apps inside our VNet. They access Azure resources via private endpoints directly.</td>
+        <td>GitHub-hosted runners (<code>ubuntu-24.04</code>) route Terraform traffic through a Chisel SOCKS5 proxy (App Service inside the VNet). The runner itself is on the public internet but all data-plane calls are tunnelled privately.</td>
     </tr>
 </table>
 
@@ -1273,42 +1287,6 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
     </pre>
 </div>
 
-<h4>What Other Repos Need To Do</h4>
-<table>
-    <tr>
-        <th>Task</th>
-        <th>Why</th>
-        <th>Effort</th>
-    </tr>
-    <tr>
-        <td>Configure OIDC federation</td>
-        <td>Allow their repo to authenticate to Azure</td>
-        <td>~30 min setup</td>
-    </tr>
-    <tr>
-        <td>Use shared runner labels</td>
-        <td>Target self-hosted runners in VNet</td>
-        <td>1 line in workflow</td>
-    </tr>
-    <tr>
-        <td>Deploy into existing VNet</td>
-        <td>Resources join the private network</td>
-        <td>Reference VNet in Terraform</td>
-    </tr>
-</table>
-
-<div class="card" style="border-left-color: #22c55e; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
-    <h4 style="margin-top: 0; color: #166534;">Example: New Project Onboarding</h4>
-    <p>A new AI project wants to deploy a model endpoint. Here's what they do:</p>
-    <ol>
-        <li><strong>OIDC Setup:</strong> Platform team adds federated credential for <code>repo:bcgov/new-project:*</code></li>
-        <li><strong>Workflow:</strong> Use <code>runs-on: [self-hosted, azure-vnet]</code> instead of <code>runs-on: ubuntu-latest</code></li>
-        <li><strong>Terraform:</strong> Reference existing VNet: <code>data "azurerm_virtual_network" "hub" { ... }</code></li>
-        <li><strong>Deploy:</strong> Resources automatically use private endpoints in the shared network</li>
-    </ol>
-    <p style="margin-bottom:0;"><strong>Total setup time: ~1 hour</strong> (vs. days to build their own Landing Zone)</p>
-</div>
-
 <h3>Why Not Just Open Public Endpoints Temporarily?</h3>
 
 <div class="card" style="border-left-color: #ef4444;">
@@ -1335,15 +1313,16 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
 <h4>Negative</h4>
 <ul>
     <li><strong>Initial complexity</strong> - Landing Zone must be built first</li>
-    <li><strong>Runner maintenance</strong> - Self-hosted runners need updates</li>
+    <li><strong>Proxy dependency</strong> - Chisel App Service must be healthy before Terraform workflows run</li>
     <li><strong>VNet planning</strong> - Must allocate IP ranges carefully</li>
 </ul>
 
 <h3>References</h3>
 <ul>
     <li><a href="https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/">Azure Landing Zone Concepts</a></li>
-    <li><a href="https://docs.github.com/en/actions/hosting-your-own-runners">GitHub Self-Hosted Runners</a></li>
+    <li><a href="https://github.com/jpillora/chisel">Chisel - Fast TCP/UDP tunnel over HTTP</a></li>
     <li><a href="diagrams.html#network-arch">Network Architecture Diagram</a></li>
+    <li><a href="diagrams.html#deployment-pipeline">Deployment Pipeline Diagram</a></li>
 </ul>
 
 </div>
@@ -1502,7 +1481,7 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
 
 <details class="adr" id="adr-003">
 <summary>
-    <span class="adr-title">ADR-003: Use Azure Bastion for VM Access</span>
+    <span class="adr-title">ADR-003: Optional Use of Azure Bastion for VM Access</span>
     <span class="adr-status"><span class="badge badge-gold">Accepted</span></span>
 </summary>
 <div class="adr-content">
@@ -1747,7 +1726,7 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
 
 <h4>Challenges</h4>
 <ul>
-    <li><strong>GitHub Actions cannot reach private endpoints directly</strong> - Requires self-hosted runners inside the VNet (see <a href="#adr-001">ADR-001</a>)</li>
+    <li><strong>GitHub Actions cannot reach private endpoints directly</strong> - Requires the Chisel SOCKS tunnel or VNet-internal access (see <a href="#adr-001">ADR-001</a>)</li>
     <li><strong>Local development complexity</strong> - Developers cannot access resources without VPN/Bastion</li>
     <li><strong>DNS resolution</strong> - Must configure private DNS zones correctly</li>
     <li><strong>Debugging difficulty</strong> - Cannot easily test from outside the network</li>
@@ -1755,9 +1734,9 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
 
 <h4>Workarounds</h4>
 <ul>
-    <li><strong>Terraform State:</strong> Use self-hosted runners inside the VNet which can access the private storage endpoint directly. The <code>use_azuread_auth = true</code> setting enables Azure AD authentication for state access.</li>
+    <li><strong>Terraform State:</strong> Use the Chisel SOCKS tunnel (GitHub-hosted runner + Azure Proxy) to access the private storage endpoint. The <code>use_azuread_auth = true</code> setting enables Azure AD authentication for state access.</li>
     <li><strong>Development:</strong> Use Bastion + Jumpbox for all Azure resource access (see <a href="#adr-003">ADR-003</a>)</li>
-    <li><strong>CI/CD:</strong> Use self-hosted runners in the VNet for full private access (see <a href="#adr-001">ADR-001</a>)</li>
+    <li><strong>CI/CD:</strong> Use the Chisel SOCKS tunnel for full private-endpoint access during Terraform runs (see <a href="#adr-001">ADR-001</a>)</li>
 </ul>
 
 <h3>References</h3>
@@ -1873,7 +1852,7 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
     <li>Idempotent, reviewable changes (pull requests as the change record)</li>
     <li>Policy-driven patterns (private endpoints, NSGs, diagnostics settings)</li>
     <li>Composable modules (prefer Azure Verified Modules where possible)</li>
-    <li>Automation via GitHub Actions using OIDC and self-hosted runners</li>
+    <li>Automation via GitHub Actions using OIDC and Chisel SOCKS tunnel</li>
 </ul>
 
 <h3>Options Considered</h3>
@@ -1904,7 +1883,7 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
 <h3>Rationale</h3>
 
 <ul>
-    <li><strong>Fits Landing Zone operations:</strong> Terraform runs cleanly on self-hosted runners inside the VNet, allowing data-plane access to private endpoints when required.</li>
+    <li><strong>Fits Landing Zone operations:</strong> Terraform runs cleanly on GitHub-hosted runners via the Chisel SOCKS tunnel, providing data-plane access to private endpoints when required.</li>
     <li><strong>Standardization via modules:</strong> We can prefer Azure Verified Modules (AVM) for consistent, policy-aligned deployments.</li>
     <li><strong>Auditable change control:</strong> Plans and applies can be gated by pull request review and CI checks.</li>
     <li><strong>Multi-environment support:</strong> Variables and modules make it straightforward to deploy dev/test/prod consistently.</li>
@@ -1936,8 +1915,7 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
 
 <h3>References</h3>
 <ul>
-    <li><a href="terraform.html">Terraform Guide</a> - How this repo uses Terraform</li>
-    <li><a href="terraform-reference.html">Terraform Reference</a> - Conventions and examples</li>
+    <li><a href="terraform-reference.html">Terraform Reference</a> - Complete module, variable, and output docs</li>
     <li><a href="https://developer.hashicorp.com/terraform">Terraform Documentation</a></li>
     <li><a href="https://azure.github.io/Azure-Verified-Modules/indexes/terraform/">Azure Verified Modules (Terraform index)</a></li>
 </ul>
@@ -1947,15 +1925,15 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
 
 
 
-<details class="adr pending" id="adr-007">
+<details class="adr" id="adr-007">
 <summary>
     <span class="adr-title">ADR-007: Client Connectivity via App Gateway + APIM</span>
-    <span class="adr-status"><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></span>
+    <span class="adr-status"><span class="badge badge-gold">Accepted</span></span>
 </summary>
 <div class="adr-content">
 
 <div class="grid grid-4" style="margin-bottom: 1rem;">
-    <div><strong>Status:</strong> <span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></div>
+    <div><strong>Status:</strong> Accepted</div>
     <div><strong>Date:</strong> 2025-12</div>
     <div><strong>Driver:</strong> <span class="badge badge-blue">Policy Required</span></div>
     <div><strong>Category:</strong> Networking</div>
@@ -2203,7 +2181,7 @@ User Browser (Public Internet)
 <p>All resource provisioning and management must occur through:</p>
 <ul>
     <li><strong>Terraform/AVM modules</strong> - Infrastructure as Code</li>
-    <li><strong>Azure CLI</strong> - Via self-hosted runners or Jumpbox (admin only)</li>
+    <li><strong>Azure CLI</strong> - Via Chisel tunnel (CI/CD) or Jumpbox (admin only)</li>
     <li><strong>REST APIs</strong> - Via APIM with subscription keys</li>
 </ul>
 
@@ -2319,6 +2297,15 @@ Pipeline (VNet)  → Storage Account (Private EP)   = ✅ Works
     <p style="margin-bottom: 0; margin-top: 0.5rem;"><strong>Full catalog:</strong> <a href="https://azure.github.io/Azure-Verified-Modules/indexes/terraform/">azure.github.io/Azure-Verified-Modules</a></p>
 </div>
 
+<h3>Path Forward: Secure UI Access</h3>
+
+<div class="alert alert-warning">
+    <span class="alert-icon">⚠️</span>
+    <div>
+        <strong>Open Question:</strong> A secure and scalable way to access browser-based tooling — including Document Intelligence Studio, AI Foundry Portal, and other Azure service UIs — needs to be investigated in collaboration with the BC Gov Azure Platform Services team. Current constraints leave tenants without an interactive management interface. A solution is needed at the platform level before this ADR can be fully closed.
+    </div>
+</div>
+
 <h3>Consequences</h3>
 
 <h4>Positive</h4>
@@ -2347,15 +2334,15 @@ Pipeline (VNet)  → Storage Account (Private EP)   = ✅ Works
 </div>
 </details>
 
-<details class="adr pending" id="adr-009">
+<details class="adr" id="adr-009">
 <summary>
     <span class="adr-title">ADR-009: Why AI Landing Zone vs Custom Solution</span>
-    <span class="adr-status"><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></span>
+    <span class="adr-status"><span class="badge badge-gold">Accepted</span></span>
 </summary>
 <div class="adr-content">
 
 <div class="grid grid-4" style="margin-bottom: 1rem;">
-    <div><strong>Status:</strong> <span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></div>
+    <div><strong>Status:</strong> Accepted</div>
     <div><strong>Date:</strong> 2025-12</div>
     <div><strong>Driver:</strong> <span class="badge" style="background:#22c55e;color:white;">Choice</span></div>
     <div><strong>Category:</strong> Architecture</div>
@@ -2394,7 +2381,7 @@ Pipeline (VNet)  → Storage Account (Private EP)   = ✅ Works
         </ul>
     </div>
     <div class="card" style="border-left-color: #22c55e;">
-        <h4 style="margin-top: 0; color: #22c55e;">Using AVM Modules</h4>
+        <h4 style="margin-top: 0; color: #22c55e;">Using AVM Modules wherever possible</h4>
         <p>With Azure Verified Modules:</p>
         <ul style="margin-bottom: 0;">
             <li>~50 lines of Terraform to deploy a service</li>
@@ -2721,15 +2708,15 @@ module "storage" {
 
 </div>
 </details>
-<details class="adr pending" id="adr-010">
+<details class="adr" id="adr-010">
 <summary>
     <span class="adr-title">ADR-010: Multi-Tenant Isolation Model</span>
-    <span class="adr-status"><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></span>
+    <span class="adr-status"><span class="badge badge-gold">Accepted</span></span>
 </summary>
 <div class="adr-content">
 
 <div class="grid grid-4" style="margin-bottom: 1rem;">
-    <div><strong>Status:</strong> <span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></div>
+    <div><strong>Status:</strong> Accepted</div>
     <div><strong>Date:</strong> 2025-12</div>
     <div><strong>Driver:</strong> <span class="badge badge-blue">Policy Required</span></div>
     <div><strong>Category:</strong> Architecture</div>
@@ -2740,7 +2727,7 @@ module "storage" {
 <div class="alert alert-warning">
     <span class="alert-icon">🏛️</span>
     <div>
-        <strong>Policy Driver:</strong> BC Gov requires strict data isolation between ministries. Each ministry's data must be logically separated, with access controls preventing cross-ministry data exposure. The AI Hub serves multiple ministries (Health, SDPR, Justice, etc.) from shared infrastructure.
+        <strong>Policy Driver:</strong> BC Gov requires strict data isolation between ministries. Each ministry's data must be logically separated, with access controls preventing cross-ministry data exposure. The AI Hub serves multiple BC Government tenants (WLRS, SDPR, NR-DAP, etc.) from shared infrastructure.
     </div>
 </div>
 
@@ -2762,7 +2749,7 @@ module "storage" {
         <h4 style="margin-top: 0;">What We Can Share</h4>
         <ul style="margin-bottom: 0;">
             <li>Network infrastructure (VNets, Bastion, NSGs)</li>
-            <li>Compute resources (AI Foundry, AKS clusters)</li>
+            <li>Compute resources (AI Foundry Hub)</li>
             <li>Ingress layer (App Gateway, APIM)</li>
             <li>Monitoring and logging infrastructure</li>
         </ul>
@@ -2979,7 +2966,7 @@ module "storage" {
 │                                                                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│   From Inside VNet (Self-hosted Runners, Jumpbox, Chisel Tunnel):            │
+│   From Inside VNet (Chisel Tunnel, Jumpbox, or Optional Self-hosted Runners):│
 │                                                                              │
 │   ✅ CONTROL PLANE → Still works (ARM is public)                             │
 │   ✅ DATA PLANE    → Works via Private Endpoints (network path exists)       │
@@ -3050,8 +3037,8 @@ module "storage" {
     <tr>
         <td><strong>Self-Hosted Runners</strong></td>
         <td><code>github_runners_aca_enabled</code></td>
-        <td>CI/CD Automation</td>
-        <td>Terraform deployments that need data plane (state, secrets)</td>
+        <td>Other tenant repos</td>
+        <td>Optional: persistent VNet compute for CI/CD workloads that can't use Chisel</td>
         <td>Control + Data</td>
     </tr>
     <tr>
@@ -3207,7 +3194,7 @@ module "storage" {
 │  ┌────────────────────────────────────────────────────────────────────────┐ │
 │  │ Method              │ Toggle Variable              │ Use Case          │ │
 │  ├────────────────────────────────────────────────────────────────────────┤ │
-│  │ Self-hosted Runners │ github_runners_aca_enabled   │ CI/CD automation  │ │
+│  │ Self-hosted Runners │ github_runners_aca_enabled   │ Optional tenant CI/CD │ │
 │  │ Bastion + Jumpbox   │ enable_bastion/jumpbox       │ Admin access      │ │
 │  │ Chisel Tunnel       │ enable_azure_proxy           │ Local dev access  │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
@@ -3231,14 +3218,14 @@ module "storage" {
 <h4>Negative</h4>
 <ul>
     <li><strong>Complexity</strong> - Must understand two planes, not just "Azure access"</li>
-    <li><strong>Runner dependency</strong> - Most Terraform needs self-hosted runners (state is data plane)</li>
+    <li><strong>Chisel proxy dependency</strong> - Terraform workflows require the Azure Proxy App Service to be healthy before running</li>
     <li><strong>Portal limitations</strong> - Can't "see" data in Portal even with permissions</li>
 </ul>
 
 <h3>References</h3>
 <ul>
     <li><a href="playbooks.html#chisel-tunnel">Playbook: Using Chisel Tunnel for Local Development</a></li>
-    <li><a href="terraform.html">Terraform Module: azure-proxy (Chisel)</a></li>
+    <li><a href="terraform-reference.html">Terraform Reference: azure-proxy module (Chisel)</a></li>
     <li><a href="#adr-001">ADR-001: Shared Landing Zone</a></li>
     <li><a href="#adr-002">ADR-002: OIDC Authentication</a></li>
     <li><a href="#adr-008">ADR-008: No Azure Portal UI Access</a></li>
@@ -3750,6 +3737,13 @@ module "storage" {
 ### References
 - [Links to relevant docs, diagrams, discussions]</pre>
 </div>
+
+<div style="text-align: center; margin-top: 3rem; padding: 2rem; background: var(--white); border-radius: 12px; box-shadow: var(--shadow-sm);">
+    <p style="color: var(--text-secondary); margin-bottom: 1rem;">You have reached the end of the ADR list.</p>
+    <a href="#decision-index" style="display: inline-flex; align-items: center; gap: 0.5rem; background: var(--bc-gold); color: var(--bc-blue); font-weight: 700; padding: 0.75rem 1.5rem; border-radius: 6px; text-decoration: none; transition: var(--transition);">
+        ↑ Back to Decision Index
+    </a>
+</div>
     </main>
     <footer class="site-footer">
         <div class="footer-content">
@@ -3762,6 +3756,16 @@ module "storage" {
                 <ul>
                     <li><a href="https://github.com/bcgov/ai-hub-tracking">GitHub Repository</a></li>
                     <li><a href="assets/azure-oidc-complete-guide.svg" target="_blank">Architecture Diagram</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>Documentation</h4>
+                <ul>
+                    <li><a href="services.html">AI Services</a></li>
+                    <li><a href="diagrams.html">Architecture Diagrams</a></li>
+                    <li><a href="playbooks.html">Playbooks</a></li>
+                    <li><a href="decisions.html">ADRs</a></li>
+                    <li><a href="faq.html">FAQ</a></li>
                 </ul>
             </div>
             <div class="footer-links">

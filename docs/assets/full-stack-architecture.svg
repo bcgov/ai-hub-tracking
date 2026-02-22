@@ -258,8 +258,8 @@
 
     <g transform="translate(360, 860)">
       <rect x="0" y="0" width="250" height="40" rx="5" fill="#4c1d95" stroke="#8b5cf6" stroke-width="1"/>
-      <text x="125" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Self-Hosted Runners</text>
-      <text x="125" y="32" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#c4b5fd">VNet Integrated</text>
+      <text x="125" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Chisel Tunnel (CI/CD)</text>
+      <text x="125" y="32" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#c4b5fd">App Service + GH Runners</text>
     </g>
 
     <g transform="translate(630, 860)">

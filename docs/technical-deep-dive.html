@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title> | AI Services Hub</title>
+    <title>TechnicalDeepDive | AI Services Hub</title>
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <style>
         :root {
@@ -170,6 +170,14 @@
             background: var(--bg-light);
             border-left-color: var(--bc-gold);
             color: var(--bc-blue);
+        }
+
+        .nav-dropdown-menu a.active {
+            background: #fef9e7;
+            border-left-color: var(--bc-gold);
+            border-left-width: 4px;
+            color: var(--bc-blue);
+            font-weight: 600;
         }
 
         .nav-dropdown-menu a small {
@@ -703,59 +711,60 @@
         <nav class="bc-nav">
             <a href="index.html" class="">Home</a>
             <div class="nav-dropdown">
-                <span class="nav-trigger">Guides</span>
+                <span class="nav-trigger">For Tenants</span>
                 <div class="nav-dropdown-menu">
-                    <a href="oidc-setup.html">
-                        OIDC Setup
-                        <small>GitHub to Azure authentication</small>
+                    <a href="services.html" class="">
+                        AI Services
+                        <small>Available models &amp; services catalogue</small>
                     </a>
-                    <a href="terraform.html">
-                        Terraform Modules
-                        <small>Network, Bastion, Runners, Proxy</small>
-                    </a>
-                    <a href="language-service-pii.html">
+                    <a href="language-service-pii.html" class="">
                         Language Service PII
-                        <small>ML-based PII detection & APIM</small>
+                        <small>ML-based PII detection &amp; APIM</small>
                     </a>
-                    <a href="document-intelligence.html">
-                        Document Intelligence
-                        <small>SDK configuration & APIM integration</small>
+                    <a href="apim-internal-endpoints.html" class="">
+                        APIM Internal Endpoints
+                        <small>tenant-info &amp; apim-keys API reference</small>
                     </a>
-                    <a href="workflows.html">
-                        GitHub Workflows
-                        <small>CI/CD automation</small>
-                    </a>
-                    <a href="terraform-reference.html">
-                        TF Reference
-                        <small>Auto-generated from code</small>
-                    </a>
-                    <a href="apim-key-rotation.html">
+                    <a href="apim-key-rotation.html" class="">
                         APIM Key Rotation
                         <small>Subscription key auto-rotation</small>
                     </a>
-                    <a href="apim-internal-endpoints.html">
-                        APIM Internal Endpoints
-                        <small>tenant-info &amp; apim-keys API reference</small>
+                </div>
+            </div>
+            <div class="nav-dropdown">
+                <span class="nav-trigger">For AI Hub Admins</span>
+                <div class="nav-dropdown-menu">
+                    <a href="playbooks.html" class="">
+                        Playbooks
+                        <small>Operational runbooks &amp; how-to guides</small>
+                    </a>
+                    <a href="oidc-setup.html" class="">
+                        OIDC Setup
+                        <small>GitHub to Azure authentication</small>
+                    </a>
+                    <a href="workflows.html" class="">
+                        GitHub Workflows
+                        <small>CI/CD automation</small>
+                    </a>
+                    <a href="terraform-reference.html" class="">
+                        TF Reference
+                        <small>Auto-generated from code</small>
+                    </a>
+                    <a href="technical-deep-dive.html" class="active">
+                        Technical Deep Dive
+                        <small>Control/data plane &amp; Chisel architecture</small>
                     </a>
                 </div>
             </div>
             <a href="diagrams.html" class="">Diagrams</a>
-            <a href="playbooks.html" class="">Playbooks</a>
             <a href="decisions.html" class="">ADRs</a>
             <a href="cost.html" class="">Cost</a>
             <a href="faq.html" class="">FAQ</a>
         </nav>
     </header>
     <main>
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Technical Deep Dive: Control vs Data Plane & Chisel Architecture</title>
-</head>
-<body>
-<h1>Technical Deep Dive: Control vs Data Plane & Chisel Architecture</h1>
+
+<h1>Technical Deep Dive: Control vs Data Plane &amp; Chisel Architecture</h1>
 
 <p>This document provides an in-depth technical explanation of why we need Key Vault access, when terraform operations fail, and how Chisel provides a solution.</p>
 
@@ -802,7 +811,12 @@
 </ul>
 
 <div class="alert alert-warning">
-    <strong>Critical Insight:</strong> When you enable private endpoints, you're blocking public access to data plane endpoints. This means tools that worked via OIDC before may suddenly fail.
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div>
+        <strong>Critical Insight:</strong> When you enable private endpoints, you are blocking public access to data plane endpoints. This means tools that worked via OIDC before may suddenly fail.
+    </div>
 </div>
 
 <h2 id="keyvault-operations">2. Key Vault Operations: What Requires Data Plane Access</h2>
@@ -860,9 +874,9 @@ needs to access: myvault.vault.azure.net ✗ BLOCKED
 
 <h2 id="terraform-keyvault">3. Terraform + Key Vault: When Operations Fail</h2>
 
-<p>Looking at our actual terraform code in <code>infra-ai-hub/main.tf</code>:</p>
+<p>The following examples illustrate how Terraform operations interact with Key Vault. The actual implementation is spread across <code>infra-ai-hub/stacks/</code> (the hub no longer uses a single monolithic <code>main.tf</code>).</p>
 
-<h3>Line 33: Creating Key Vault (Control Plane - Works)</h3>
+<h3>Creating Key Vault (Control Plane - Works)</h3>
 <pre><code>resource "azurerm_key_vault" "main" {
   name                = var.key_vault_name
   location            = var.location
@@ -874,7 +888,7 @@ needs to access: myvault.vault.azure.net ✗ BLOCKED
 // No private endpoint yet, so no blocking
 </code></pre>
 
-<h3>Line 68: Creating Private Endpoint (Control Plane - Works)</h3>
+<h3>Creating Private Endpoint (Control Plane - Works)</h3>
 <pre><code>resource "azurerm_private_endpoint" "key_vault_pe" {
   name                = "${var.app_name}-kv-pe"
   location            = var.location
@@ -894,7 +908,7 @@ needs to access: myvault.vault.azure.net ✗ BLOCKED
 // This BLOCKS public access to *.vault.azure.net
 </code></pre>
 
-<h3>Line 93-171: Waiting for DNS (Necessary Workaround)</h3>
+<h3>Waiting for DNS (DNS Propagation Workaround)</h3>
 <pre><code>resource "null_resource" "wait_for_key_vault_private_dns" {
   triggers = {
     private_endpoint_id = azurerm_private_endpoint.key_vault_pe.id
@@ -924,7 +938,7 @@ needs to access: myvault.vault.azure.net ✗ BLOCKED
 // ✓ WORKS: After DNS is ready, myvault.vault.azure.net resolves to private IP
 </code></pre>
 
-<h3>Line 185-201: Creating Secrets (Data Plane - FAILS without Chisel)</h3>
+<h3>Creating Secrets (Data Plane - FAILS without Chisel)</h3>
 <pre><code>resource "azurerm_key_vault_secret" "secret_one" {
   name            = "example-secret-test-one"
   value           = random_password.secret_one.result
@@ -1021,7 +1035,7 @@ resource "azurerm_key_vault_secret" "secret_two" {
 
   app_settings = {
     // ✓ KEY: Chisel authentication
-    CHISEL_AUTH = "${random_password.proxy_chisel_username.result}:${random_password.proxy_chisel_password.result}"
+    CHISEL_AUTH = "${random_uuid.proxy_chisel_username.result}:${random_password.proxy_chisel_password.result}"
   }
 }
 
@@ -1170,7 +1184,7 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
 <ul>
     <li><strong>Option 1:</strong> Chisel tunnel ($15/mo) - for most developers</li>
     <li><strong>Option 2:</strong> Bastion + Jumpbox ($200-300/mo) - for admins who need full VM</li>
-    <li><strong>Option 3:</strong> Public GitHub runners + Self-hosted for CI/CD</li>
+    <li><strong>Option 3:</strong> GitHub-hosted runners + Chisel tunnel — for CI/CD (use <code>.deployer-using-secure-tunnel</code>)</li>
 </ul>
 
 <h3>Scenario 2: Project Teams (Deploy Applications)</h3>
@@ -1258,11 +1272,9 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
     <li><strong>Platform Team:</strong> Deploy all, use Chisel or Bastion for access</li>
     <li><strong>Project Teams:</strong> Deploy apps only, use platform's Chisel</li>
     <li><strong>Solo Dev:</strong> Deploy minimal, use Chisel only</li>
-    <li><strong>CI/CD with secrets:</strong> Use self-hosted runners in VNet</li>
+    <li><strong>CI/CD with secrets:</strong> Use GitHub-hosted runners + Chisel tunnel (<code>.deployer-using-secure-tunnel</code> workflow)</li>
     <li><strong>Admin work:</strong> Use Bastion + Jumpbox</li>
 </ul>
-</body>
-</html>
     </main>
     <footer class="site-footer">
         <div class="footer-content">
@@ -1275,6 +1287,16 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
                 <ul>
                     <li><a href="https://github.com/bcgov/ai-hub-tracking">GitHub Repository</a></li>
                     <li><a href="assets/azure-oidc-complete-guide.svg" target="_blank">Architecture Diagram</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>Documentation</h4>
+                <ul>
+                    <li><a href="services.html">AI Services</a></li>
+                    <li><a href="diagrams.html">Architecture Diagrams</a></li>
+                    <li><a href="playbooks.html">Playbooks</a></li>
+                    <li><a href="decisions.html">ADRs</a></li>
+                    <li><a href="faq.html">FAQ</a></li>
                 </ul>
             </div>
             <div class="footer-links">

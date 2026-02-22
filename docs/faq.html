@@ -172,6 +172,14 @@
             color: var(--bc-blue);
         }
 
+        .nav-dropdown-menu a.active {
+            background: #fef9e7;
+            border-left-color: var(--bc-gold);
+            border-left-width: 4px;
+            color: var(--bc-blue);
+            font-weight: 600;
+        }
+
         .nav-dropdown-menu a small {
             display: block;
             color: var(--text-secondary);
@@ -703,47 +711,55 @@
         <nav class="bc-nav">
             <a href="index.html" class="">Home</a>
             <div class="nav-dropdown">
-                <span class="nav-trigger">Guides</span>
+                <span class="nav-trigger">For Tenants</span>
                 <div class="nav-dropdown-menu">
-                    <a href="oidc-setup.html">
-                        OIDC Setup
-                        <small>GitHub to Azure authentication</small>
+                    <a href="services.html" class="">
+                        AI Services
+                        <small>Available models &amp; services catalogue</small>
                     </a>
-                    <a href="terraform.html">
-                        Terraform Modules
-                        <small>Network, Bastion, Runners, Proxy</small>
-                    </a>
-                    <a href="language-service-pii.html">
+                    <a href="language-service-pii.html" class="">
                         Language Service PII
-                        <small>ML-based PII detection & APIM</small>
+                        <small>ML-based PII detection &amp; APIM</small>
                     </a>
-                    <a href="document-intelligence.html">
-                        Document Intelligence
-                        <small>SDK configuration & APIM integration</small>
+                    <a href="apim-internal-endpoints.html" class="">
+                        APIM Internal Endpoints
+                        <small>tenant-info &amp; apim-keys API reference</small>
                     </a>
-                    <a href="workflows.html">
-                        GitHub Workflows
-                        <small>CI/CD automation</small>
-                    </a>
-                    <a href="terraform-reference.html">
-                        TF Reference
-                        <small>Auto-generated from code</small>
-                    </a>
-                    <a href="apim-key-rotation.html">
+                    <a href="apim-key-rotation.html" class="">
                         APIM Key Rotation
                         <small>Subscription key auto-rotation</small>
                     </a>
-                    <a href="apim-internal-endpoints.html">
-                        APIM Internal Endpoints
-                        <small>tenant-info &amp; apim-keys API reference</small>
+                </div>
+            </div>
+            <div class="nav-dropdown">
+                <span class="nav-trigger">For AI Hub Admins</span>
+                <div class="nav-dropdown-menu">
+                    <a href="playbooks.html" class="">
+                        Playbooks
+                        <small>Operational runbooks &amp; how-to guides</small>
+                    </a>
+                    <a href="oidc-setup.html" class="">
+                        OIDC Setup
+                        <small>GitHub to Azure authentication</small>
+                    </a>
+                    <a href="workflows.html" class="">
+                        GitHub Workflows
+                        <small>CI/CD automation</small>
+                    </a>
+                    <a href="terraform-reference.html" class="">
+                        TF Reference
+                        <small>Auto-generated from code</small>
+                    </a>
+                    <a href="technical-deep-dive.html" class="">
+                        Technical Deep Dive
+                        <small>Control/data plane &amp; Chisel architecture</small>
                     </a>
                 </div>
             </div>
             <a href="diagrams.html" class="">Diagrams</a>
-            <a href="playbooks.html" class="">Playbooks</a>
             <a href="decisions.html" class="">ADRs</a>
             <a href="cost.html" class="">Cost</a>
-            <a href="faq.html" class="">FAQ</a>
+            <a href="faq.html" class="active">FAQ</a>
         </nav>
     </header>
     <main>
@@ -757,11 +773,44 @@
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h.01"/><path d="M12 16v-4"/><path d="M12 8h.01"/><circle cx="12" cy="12" r="10"/></svg>
     </div>
     <div>
-        <strong>Questions pending answers are marked with</strong> <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+        Questions still being researched or awaiting a decision are marked with <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
     </div>
 </div>
 
-<h2>Network & Subscription Setup</h2>
+<div class="grid grid-3" style="margin-bottom: 2rem;">
+    <a href="#network-subscription-setup" class="card-link">
+        <div class="card" style="text-align:center; padding: 1rem;">
+            <strong>Network &amp; Subscriptions</strong>
+        </div>
+    </a>
+    <a href="#control-plane-vs-data-plane" class="card-link">
+        <div class="card" style="text-align:center; padding: 1rem;">
+            <strong>Control vs Data Plane</strong>
+        </div>
+    </a>
+    <a href="#onboarding-access" class="card-link">
+        <div class="card" style="text-align:center; padding: 1rem;">
+            <strong>Onboarding &amp; Access</strong>
+        </div>
+    </a>
+    <a href="#technical-architecture" class="card-link">
+        <div class="card" style="text-align:center; padding: 1rem;">
+            <strong>Technical Architecture</strong>
+        </div>
+    </a>
+    <a href="#questions-for-microsoft" class="card-link">
+        <div class="card" style="text-align:center; padding: 1rem;">
+            <strong>Questions for Microsoft</strong>
+        </div>
+    </a>
+    <a href="#pending-decisions" class="card-link">
+        <div class="card" style="text-align:center; padding: 1rem;">
+            <strong>Pending Decisions</strong>
+        </div>
+    </a>
+</div>
+
+<h2 id="network-subscription-setup">Network &amp; Subscription Setup</h2>
 
 <div class="card">
     <h3 style="margin-top:0;">What network sizes were allocated for the AI Hub?</h3>
@@ -835,26 +884,7 @@
     <p style="margin-top: 1rem;"><strong>Total:</strong> This exceeds the standard /24 (256 IPs), requiring at least a /22 for production.</p>
 </div>
 
-<div class="card">
-    <h3 style="margin-top:0;">What is the non-routable IP range for Canada East?</h3>
-    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
-    <p>Non-prod resources in Canada East will use a portion of the non-routable IP range (10.10.x.x). PrivateLink will be used to access these resources over the routable network.</p>
-    <div class="alert alert-warning" style="margin-top: 1rem;">
-        <div class="alert-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        </div>
-        <div>
-            <strong>Open Questions:</strong>
-            <ul style="margin-bottom: 0;">
-                <li>What specific 10.10.x.x range will be assigned?</li>
-                <li>How will PrivateLink routing be configured?</li>
-                <li>What's the process to request additional IP blocks if needed?</li>
-            </ul>
-        </div>
-    </div>
-</div>
-
-<h2>Control Plane vs Data Plane</h2>
+<h2 id="control-plane-vs-data-plane">Control Plane vs Data Plane</h2>
 
 <div class="card">
     <h3 style="margin-top:0;">What's the difference between control plane and data plane?</h3>
@@ -923,14 +953,14 @@
         </tr>
         <tr>
             <td>CI/CD with data plane (secrets, state)</td>
-            <td>Self-hosted runners (<code>github_runners_aca_enabled</code>)</td>
+            <td>Chisel tunnel (<code>enable_azure_proxy</code>)</td>
         </tr>
         <tr>
-            <td>Admin access, debugging, CLI tools</td>
-            <td>Bastion + Jumpbox</td>
+            <td>Admin access, debugging, CLI tools as platform admin</td>
+            <td>Chisel tunnel (<code>enable_azure_proxy</code>)</td>
         </tr>
         <tr>
-            <td>Local dev access to private databases</td>
+            <td>Local dev access to private databases or Azure services</td>
             <td>Chisel tunnel (<code>enable_azure_proxy</code>)</td>
         </tr>
         <tr>
@@ -938,14 +968,14 @@
             <td>Public GitHub runners (default)</td>
         </tr>
     </table>
-    <p style="margin-top: 1rem;">See <a href="terraform.html#choosing-your-access-method">Choosing Your Access Method</a> and <a href="diagrams.html#access-methods">Access Methods Diagram</a>.</p>
+    <p style="margin-top: 1rem;">See <a href="technical-deep-dive.html">Choosing Your Access Method</a> and <a href="diagrams.html#access-methods">Access Methods Diagram</a>.</p>
 </div>
 
-<h2>Onboarding & Access</h2>
+<h2 id="onboarding-access">Onboarding &amp; Access</h2>
 
 <div class="card">
     <h3 style="margin-top:0;">How do other teams onboard to the AI Hub?</h3>
-    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
     <p>The onboarding process for other BC Gov teams to use the AI Hub is being developed.</p>
     <div class="alert alert-warning" style="margin-top: 1rem;">
         <div class="alert-icon">
@@ -965,7 +995,7 @@
 
 <div class="card">
     <h3 style="margin-top:0;">What's the 3-6-9 month roadmap?</h3>
-    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+    <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
     <p>A planning/whiteboarding session was proposed with the following agenda:</p>
     <ul>
         <li>Roles Overview</li>
@@ -985,62 +1015,41 @@
     </div>
 </div>
 
-<h2>Technical Architecture</h2>
+<h2 id="technical-architecture">Technical Architecture</h2>
 
 <div class="card">
     <h3 style="margin-top:0;">Why can't GitHub Actions run Terraform directly?</h3>
     <span class="badge badge-gold">Answered</span>
     <p>See <a href="decisions.html#adr-001">ADR-001: Shared Landing Zone</a> for the full explanation.</p>
-    <p><strong>Short answer:</strong> BC Gov policy requires all Azure services to use private endpoints. GitHub-hosted runners are on the public internet and cannot reach private endpoints. Self-hosted runners inside the VNet are required.</p>
-    <p style="margin-bottom: 0;"><strong>Cost note:</strong> Runner compute is primarily usage-based (Container Apps job runtime) because the runners are configured to scale to zero when idle. See <a href="cost.html#cicd-runner-costs">Cost Tracking: CI/CD Runner Costs</a>.</p>
+    <p><strong>Short answer:</strong> GitHub-hosted runners cannot reach private endpoints directly. The platform solves this with a <strong>Chisel SOCKS5 tunnel</strong>: an Azure App Service running Chisel inside the VNet acts as a proxy, routing Terraform’s private-endpoint traffic from the public runner through the VNet. An optional <code>github_runners_aca</code> module for persistent self-hosted runners is available but not used by this platform’s own CI/CD.</p>
+    <p style="margin-bottom: 0;"><strong>Cost note:</strong> The Chisel proxy runs as an App Service (billed by plan tier), which scales independently of workflow run frequency. See <a href="cost.html">Cost Tracking</a> for details.</p>
 </div>
 
 <div class="card">
     <h3 style="margin-top:0;">What Azure services will the AI Hub provide?</h3>
-    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
-    <p>The AI Hub is intended to provide shared AI services for BC Gov teams. Services under consideration:</p>
+    <span class="badge badge-gold">Answered</span>
+    <p>The AI Hub provides shared AI services for BC Gov teams through a fully automated, multi-tenant platform. The following services are live in <strong>dev</strong> and <strong>test</strong>:</p>
     <ul>
-        <li>Azure AI Foundry</li>
-        <li>API Management (APIM) for model access</li>
-        <li>Azure Kubernetes Service (AKS)</li>
-        <li>App Gateway for ingress</li>
+        <li><strong>Azure AI Foundry</strong> — GPT-4.1, GPT-4o, GPT-5 chat models; o1/o3-mini/o4-mini reasoning models; text-embedding models</li>
+        <li><strong>API Management (APIM)</strong> — Per-tenant subscription keys, rate limiting (<code>x-ms-tenant</code> header routing), and TPM quota metering</li>
+        <li><strong>App Gateway + WAF</strong> — Public ingress with TLS termination and cognitive service routing (Document Intelligence OCR, Language PII)</li>
+        <li><strong>Language Service (PII detection)</strong> — ML-based PII detection via APIM, available to all tenants</li>
+        <li><strong>Azure AI Search, Speech, Document Intelligence</strong> — Shared cognitive services routed via App Gateway</li>
     </ul>
-    <div class="alert alert-warning" style="margin-top: 1rem;">
-        <div class="alert-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        </div>
-        <div>
-            <strong>Open Questions:</strong>
-            <ul style="margin-bottom: 0;">
-                <li>Which AI models will be available?</li>
-                <li>What's the governance model for model usage?</li>
-                <li>How will prompt logging/auditing work?</li>
-                <li>What data residency requirements apply?</li>
-            </ul>
-        </div>
-    </div>
+    <p style="margin-bottom: 0;">See the <a href="services.html">AI Services Catalogue</a> for the full model list, TPM quotas, and per-tenant allocation details.</p>
 </div>
 
 <div class="card">
     <h3 style="margin-top:0;">How does VNet peering work between environments?</h3>
-    <span class="badge" style="background:#ef4444;color:white;">Pending</span>
-    <p>Non-prod environments (dev, test, tools) will use VNet peering.</p>
-    <div class="alert alert-warning" style="margin-top: 1rem;">
-        <div class="alert-icon">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-        </div>
-        <div>
-            <strong>Open Questions:</strong>
-            <ul style="margin-bottom: 0;">
-                <li>Will dev/test/tools be peered together or separate?</li>
-                <li>What's the traffic flow between environments?</li>
-                <li>Are there NSG rules restricting cross-environment access?</li>
-            </ul>
-        </div>
-    </div>
+     <span class="badge badge-gold">Answered</span>
+    <p>AI Hub uses VNet peering for CI/CD.</p>
+    <ul>
+        <li><strong>tools-> dev, test, prod</strong> Outbound traffic from tools is allowed to dev, test, prod for CI/CD purposes.</li>
+    </ul>
+
 </div>
 
-<h2>Questions for Microsoft</h2>
+<h2 id="questions-for-microsoft">Questions for Microsoft</h2>
 
 <div class="alert alert-info">
     <div class="alert-icon">
@@ -1052,67 +1061,13 @@
     </div>
 </div>
 
-<h3>Repository & Deployment Strategy</h3>
-
-<div class="accordion-group">
-    <details>
-        <summary>
-            1. Should we use a forked repo or overlay repo approach?
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
-        </summary>
-        <div class="accordion-content">
-            <p>The upstream <a href="https://github.com/Azure/AI-Landing-Zones">Azure AI Landing Zones</a> repo may become archived. What's the recommended approach for maintaining our customizations?</p>
-            <p><strong>Context:</strong> We need to decide whether to fork the entire repo and maintain our own copy, or create an overlay that references the upstream modules.</p>
-        </div>
-    </details>
-
-    <details>
-        <summary>
-            2. What's the long-term support outlook for AI Landing Zones?
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
-        </summary>
-        <div class="accordion-content">
-            <p>Given the archival risk, what's Microsoft's commitment to maintaining the upstream reference architecture?</p>
-            <p><strong>Concern:</strong> If the repo is archived, we need a plan for ongoing security patches and feature updates.</p>
-        </div>
-    </details>
-
-    <details>
-        <summary>
-            3. Fork sync strategy
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
-        </summary>
-        <div class="accordion-content">
-            <p>If we fork, how should we handle syncing upstream changes while preserving BC Gov customizations?</p>
-            <p><strong>Options to discuss:</strong></p>
-            <ul>
-                <li>Git submodules</li>
-                <li>Regular merge from upstream</li>
-                <li>Cherry-pick specific commits</li>
-                <li>Terragrunt wrapper</li>
-            </ul>
-        </div>
-    </details>
-
-    <details>
-        <summary>
-            4. Policy overlay management
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
-        </summary>
-        <div class="accordion-content">
-            <p>How do we layer BC Gov-specific Azure policies on top of the base landing zone without conflicts?</p>
-            <p><strong>Considerations:</strong> BC Gov has specific compliance requirements (data residency, encryption) that may need custom policies.</p>
-        </div>
-    </details>
-</div>
-
 <h3>Access & Security</h3>
 
 <div class="accordion-group">
     <details>
         <summary>
-            5. User access model for AI Foundry
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+            1. User access model for AI Foundry
+            <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
         </summary>
         <div class="accordion-content">
             <p>How will end users (data scientists, developers) access AI Foundry? What's the authentication/authorization model?</p>
@@ -1127,8 +1082,8 @@
 
     <details>
         <summary>
-            6. RBAC model
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+            2. RBAC model
+            <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
         </summary>
         <div class="accordion-content">
             <p>What RBAC roles are needed for different user personas (platform admins, team leads, developers, data scientists)?</p>
@@ -1145,8 +1100,8 @@
 
     <details>
         <summary>
-            7. Governance automation
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+            3. Governance automation
+            <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
         </summary>
         <div class="accordion-content">
             <p>How can we automate governance policies (data classification, model approval, prompt logging)?</p>
@@ -1166,71 +1121,39 @@
 <div class="accordion-group">
     <details>
         <summary>
-            8. Cost-effective IaC deployment without Bastion+VM
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+            4. Cost-effective IaC deployment without Bastion+VM
+            <span class="badge badge-gold">Answered</span>
         </summary>
         <div class="accordion-content">
-            <p>Running Bastion ($140/month) + Jumpbox just for Terraform deployments is expensive. Are there cheaper alternatives that still meet private endpoint requirements?</p>
-            <p><strong>Alternatives to explore:</strong></p>
-            <ul>
-                <li>Azure Container Instances with VNet injection</li>
-                <li>Ephemeral VMs spun up only during deployments</li>
-                <li>Azure DevOps self-hosted agents</li>
-                <li>GitHub Actions with Azure Arc-enabled runners</li>
-            </ul>
+            <p><strong>Resolved:</strong> The platform uses <strong>standard GitHub-hosted runners</strong> (<code>ubuntu-24.04</code>) for all CI/CD, including Terraform operations that touch private endpoints. No persistent Bastion or Jumpbox is needed for automated deployments.</p>
+            <p>The mechanism is a <strong>Docker-based Chisel SOCKS tunnel + Privoxy</strong> running directly on the GitHub-hosted runner:</p>
+            <ol>
+                <li>A Chisel server (<code>azure-proxy/chisel</code> container) is first deployed into the <code>tools</code> VNet via <code>.deployer.yml</code></li>
+                <li>The Terraform deployer job starts a Chisel <em>client</em> container + Privoxy on the runner, creating an encrypted SOCKS tunnel into the VNet at <code>localhost:8118</code></li>
+                <li>Terraform sets <code>HTTP_PROXY</code>/<code>HTTPS_PROXY</code> to route data-plane traffic (Key Vault, private state) through the tunnel; Azure control-plane endpoints bypass it via <code>NO_PROXY</code></li>
+            </ol>
+            <p>Bastion + Jumpbox remains available for <em>interactive</em> admin sessions (portal access, CLI debugging) but is not needed in CI/CD pipelines, and is auto-destroyed nightly by <code>schedule.yml</code>.</p>
+            <p style="margin-bottom: 0;">An optional <code>github_runners_aca</code> module (Container Apps self-hosted runners in the VNet) is also available for workloads in other repos that can't use the Chisel proxy approach.</p>
         </div>
     </details>
 
     <details>
         <summary>
-            9. GitHub self-hosted runners vs Azure DevOps
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+            5. GitHub self-hosted runners vs Azure DevOps
+            <span class="badge badge-gold">Answered — GitHub (public runners + Chisel tunnel)</span>
         </summary>
         <div class="accordion-content">
-            <p>What's the recommended CI/CD approach for private endpoint deployments? Self-hosted GitHub runners in VNet vs Azure DevOps agents?</p>
-            <p><strong>Trade-offs:</strong></p>
-            <ul>
-                <li>GitHub: Better integration with existing repos, but runner management overhead</li>
-                <li>Azure DevOps: Native Azure integration, but separate system to manage</li>
-            </ul>
-            <div class="alert alert-info" style="margin-top: 1rem;">
-                <span class="alert-icon">💰</span>
-                <div>
-                    <strong>Cost drivers (GitHub self-hosted runners on Container Apps):</strong>
-                    <ul style="margin: 0.5rem 0 0;">
-                        <li><strong>Runner compute:</strong> billed on runtime (scale-to-zero when idle)</li>
-                        <li><strong>Sizing knobs:</strong> <code>container_cpu</code>, <code>container_memory</code>, and <code>max_runners</code> (concurrency cap)</li>
-                        <li><strong>Supporting costs:</strong> Log Analytics ingestion + ACR Premium base cost (fixed) + storage/transfer <em>(ACR private endpoints require Premium)</em></li>
-                    </ul>
-                    <p style="margin: 0.75rem 0 0;"><strong>Sample calculation (module defaults):</strong></p>
-                    <pre style="margin: 0.5rem 0 0;">Assumptions: 20 jobs/day, 10 min/job, avg concurrency = 1.5
-Monthly runner hours = 30 * 20 * (10/60) * 1.5 = 150 hours
-Total seconds = 150 * 3600 = 540,000 seconds
-
-Canada Central rates (Container Apps):
-vCPU-seconds: $0.0000480/sec
-GiB-seconds:  $0.0000057/sec
-Requests:     $0.565 per million
-
-vCPU cost = 540,000 * 1 vCPU * 0.0000480 = $25.92
-Memory cost = 540,000 * 2 GiB * 0.0000057 = $6.16
-Request cost (example 1M req/mo) = $0.57
-
-Estimated runner compute total ≈ $32.65/mo
-ACR Premium base cost = $2.351/day ≈ $70.53/mo (30-day month)
-Estimated compute + ACR base ≈ $103.18/mo (excludes Log Analytics)
-
-Assumes a single-region ACR Premium registry with no geo-replication and no connected registry</pre>
-                    <p style="margin: 0.75rem 0 0;">See <a href="cost.html#cicd-runner-costs">Cost Tracking: CI/CD Runner Costs</a> for the full breakdown.</p>
-                </div>
-            </div>
+            <p><strong>Decision:</strong> GitHub Actions was chosen over Azure DevOps. CI/CD jobs run on standard <strong>GitHub-hosted runners</strong> (<code>ubuntu-24.04</code>), not self-hosted runners inside the VNet.</p>
+            <p>Private-endpoint access is handled by the <strong>Chisel SOCKS tunnel</strong> approach: a proxy server in the <code>tools</code> VNet tunnels data-plane traffic for Terraform runners on demand. This avoids the ongoing cost and management overhead of persistent self-hosted agents (GitHub or Azure DevOps).</p>
+            <p>The optional <strong><code>github_runners_aca</code></strong> module provisions Container Apps-based self-hosted runners when a workload genuinely needs persistent VNet-internal compute. These scale to zero when idle.</p>
+            <p style="margin-bottom: 0;">See <a href="cost.html#cicd-runner-costs">Cost Tracking: CI/CD Runner Costs</a> for a detailed cost breakdown of the optional self-hosted runner module.</p>
         </div>
     </details>
 
     <details>
         <summary>
-            10. Shared vs dedicated resources per team
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+            6. Shared vs dedicated resources per team
+            <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
         </summary>
         <div class="accordion-content">
             <p>Which resources should be shared across teams (APIM, AI models) vs dedicated per team (compute, storage)?</p>
@@ -1247,8 +1170,8 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
 
     <details>
         <summary>
-            11. Cost allocation and chargeback
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+            7. Cost allocation and chargeback
+            <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
         </summary>
         <div class="accordion-content">
             <p>How do we track and allocate costs to individual teams/projects using shared AI services?</p>
@@ -1264,8 +1187,8 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
 
     <details>
         <summary>
-            12. Telemetry and tagging strategy
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+            8. Telemetry and tagging strategy
+            <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
         </summary>
         <div class="accordion-content">
             <p>What tagging conventions and telemetry should be implemented for cost tracking and observability?</p>
@@ -1282,8 +1205,8 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
 
     <details>
         <summary>
-            13. Noisy neighbor mitigation
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+            9. Noisy neighbor mitigation
+            <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
         </summary>
         <div class="accordion-content">
             <p>How do we prevent one team's workload from impacting others in a shared environment (rate limiting, quotas)?</p>
@@ -1303,8 +1226,8 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
 <div class="accordion-group">
     <details>
         <summary>
-            14. Project namespace concept
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+            10. Project namespace concept
+            <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
         </summary>
         <div class="accordion-content">
             <p>How should we isolate team workloads? Resource groups per team? Subscriptions? Kubernetes namespaces?</p>
@@ -1320,8 +1243,8 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
 
     <details>
         <summary>
-            15. Non-Foundry services governance
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+            11. Non-Foundry services governance
+            <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
         </summary>
         <div class="accordion-content">
             <p>How do we govern teams that want to deploy their own AI services (Ollama, vLLM) outside of AI Foundry?</p>
@@ -1337,8 +1260,8 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
 
     <details>
         <summary>
-            16. Onboarding journey
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+            12. Onboarding journey
+            <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
         </summary>
         <div class="accordion-content">
             <p>What's the end-to-end flow for a new team to request access, get approved, and start using AI services?</p>
@@ -1356,42 +1279,34 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
 
     <details>
         <summary>
-            17. Runbooks and playbooks
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+            13. Runbooks and playbooks
+            <span class="badge badge-gold">Answered</span>
         </summary>
         <div class="accordion-content">
-            <p>What operational runbooks are needed for Day 2 operations (incident response, scaling, maintenance)?</p>
-            <p><strong>Required runbooks:</strong></p>
+            <p>The <a href="playbooks.html">Playbooks</a> page documents operational runbooks for Day 2 operations, including:</p>
             <ul>
-                <li>Incident response (outage, security breach)</li>
-                <li>Scaling up/down AI model deployments</li>
-                <li>Certificate rotation</li>
-                <li>Disaster recovery</li>
-                <li>Cost spike investigation</li>
+                <li>Chisel tunnel setup for private endpoint access</li>
+                <li>Bastion + Jumpbox access</li>
+                <li>APIM key rotation</li>
+                <li>Chisel tunnel setup and proxy operations</li>
             </ul>
+            <p style="margin-bottom: 0;">Additional runbooks (incident response, disaster recovery, cost spike investigation) are in progress.</p>
         </div>
     </details>
 
     <details>
         <summary>
-            18. SDPR OCR scope
-            <span class="badge" style="background:#ef4444;color:white;">Pending</span>
+            14. SDPR OCR scope
+            <span class="badge badge-gold">Answered</span>
         </summary>
         <div class="accordion-content">
-            <p>What's the scope of SDPR's OCR (Document Intelligence) requirements and how does it fit into the shared platform?</p>
-            <p><strong>Questions for SDPR:</strong></p>
-            <ul>
-                <li>Volume of documents to process?</li>
-                <li>Document types (forms, invoices, letters)?</li>
-                <li>Data classification of documents?</li>
-                <li>Integration with existing systems?</li>
-                <li>Real-time vs batch processing?</li>
-            </ul>
+            <p>Document Intelligence (OCR) for SDPR is handled at the <strong>App Gateway layer</strong>. SDPR's applications call the App Gateway endpoint, which routes requests to the shared Document Intelligence cognitive service — no tenant-specific configuration required.</p>
+            <p>The integration is operational. SDPR is one of three active tenants (<code>wlrs</code>, <code>sdpr</code>, <code>nr-dap</code>) in the test environment.</p>
         </div>
     </details>
 </div>
 
-<h2>Pending Decisions</h2>
+<h2 id="pending-decisions">Pending Decisions</h2>
 
 <div class="alert alert-warning">
     <span class="alert-icon">📝</span>
@@ -1409,36 +1324,30 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
     </tr>
     <tr>
         <td>1</td>
-        <td>Canada East non-routable IP range assignment</td>
-        <td>Platform Team</td>
-        <td><span class="badge" style="background:#f59e0b;color:white;">Waiting</span></td>
-    </tr>
-    <tr>
-        <td>2</td>
         <td>Team onboarding process documentation</td>
         <td>Product Management</td>
         <td><span class="badge" style="background:#f59e0b;color:white;">In Progress</span></td>
     </tr>
     <tr>
-        <td>3</td>
+        <td>2</td>
         <td>3-6-9 month roadmap</td>
         <td>Microsoft</td>
         <td><span class="badge" style="background:#f59e0b;color:white;">In Progress</span></td>
     </tr>
     <tr>
-        <td>4</td>
+        <td>3</td>
         <td>Cost model / chargeback for AI services</td>
         <td>Executive Sponsor</td>
         <td><span class="badge" style="background:#ef4444;color:white;">Not Started</span></td>
     </tr>
     <tr>
-        <td>5</td>
-        <td>Self-hosted runner setup in VNet</td>
+        <td>4</td>
+        <td>Chisel tunnel proxy setup in VNet</td>
         <td>Platform Team</td>
-        <td><span class="badge" style="background:#ef4444;color:white;">Not Started</span></td>
+        <td><span class="badge" style="background:#22c55e;color:white;">Done</span></td>
     </tr>
     <tr>
-        <td>6</td>
+        <td>5</td>
         <td>AI model governance policy</td>
         <td>TBD</td>
         <td><span class="badge" style="background:#ef4444;color:white;">Not Started</span></td>
@@ -1456,6 +1365,16 @@ Assumes a single-region ACR Premium registry with no geo-replication and no conn
                 <ul>
                     <li><a href="https://github.com/bcgov/ai-hub-tracking">GitHub Repository</a></li>
                     <li><a href="assets/azure-oidc-complete-guide.svg" target="_blank">Architecture Diagram</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>Documentation</h4>
+                <ul>
+                    <li><a href="services.html">AI Services</a></li>
+                    <li><a href="diagrams.html">Architecture Diagrams</a></li>
+                    <li><a href="playbooks.html">Playbooks</a></li>
+                    <li><a href="decisions.html">ADRs</a></li>
+                    <li><a href="faq.html">FAQ</a></li>
                 </ul>
             </div>
             <div class="footer-links">

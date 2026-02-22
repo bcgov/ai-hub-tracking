@@ -371,7 +371,7 @@ gh workflow run deploy.yml</pre>
 
 <p>If empty, Bastion may be disabled (cost-saving). Deploy it:</p>
 <pre># Via GitHub Actions
-gh workflow run bastion-add-or-remove.yml -f action=add
+gh workflow run add-or-remove-module.yml -f action=add
 
 # Or via manual trigger in GitHub UI</pre>
 
@@ -612,18 +612,7 @@ HTTPS_PROXY=socks5://localhost:1080 az keyvault secret list --vault-name &lt;key
 <h3>Related Resources</h3>
 <ul>
     <li><a href="decisions.html#adr-011">ADR-011: Control Plane vs Data Plane Access & Chisel Tunnel</a></li>
-    <li><a href="terraform.html">Terraform Module: azure-proxy</a></li>
+    <li><a href="terraform-reference.html">Terraform Reference: azure-proxy module</a></li>
     <li><a href="https://github.com/jpillora/chisel" target="_blank">Chisel GitHub Repository</a></li>
 </ul>
 
-<h2>Emergency Contacts</h2>
-
-<div class="card" style="background: var(--bc-blue); color: white; border-left-color: var(--bc-gold);">
-    <h3 style="color: var(--bc-gold); margin-top: 0;">Escalation Path</h3>
-    <ol style="margin-bottom: 0;">
-        <li><strong>First Response:</strong> Platform Team Slack channel</li>
-        <li><strong>Azure Issues:</strong> Azure Support (if support plan active)</li>
-        <li><strong>GitHub Issues:</strong> GitHub Support</li>
-        <li><strong>Security Incidents:</strong> Security Team immediately</li>
-    </ol>
-</div>

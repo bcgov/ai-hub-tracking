@@ -49,9 +49,9 @@
   <!-- Self-Hosted Runners -->
   <rect x="30" y="230" width="200" height="100" rx="10" fill="white" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
   <rect x="30" y="230" width="200" height="28" rx="10" fill="#22c55e"/>
-  <text x="130" y="250" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="white" text-anchor="middle">Self-Hosted Runners</text>
+  <text x="130" y="250" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="white" text-anchor="middle">Self-Hosted Runners (Optional)</text>
   <text x="50" y="275" font-family="Segoe UI, Arial" font-size="9" fill="#166534">Container Apps in VNet</text>
-  <text x="50" y="290" font-family="Segoe UI, Arial" font-size="9" fill="#166534">Auto-scales 0-4 replicas</text>
+  <text x="50" y="290" font-family="Segoe UI, Arial" font-size="9" fill="#166534">For other repos needing VNet compute</text>
   <rect x="50" y="300" width="80" height="18" rx="3" fill="#dcfce7"/>
   <text x="90" y="312" font-family="Segoe UI, Arial" font-size="8" fill="#166534" text-anchor="middle">Control: &#10003;</text>
   <rect x="135" y="300" width="80" height="18" rx="3" fill="#dcfce7"/>
@@ -72,8 +72,8 @@
   <rect x="30" y="470" width="200" height="100" rx="10" fill="white" stroke="#0ea5e9" stroke-width="2" filter="url(#shadow)"/>
   <rect x="30" y="470" width="200" height="28" rx="10" fill="#0ea5e9"/>
   <text x="130" y="490" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="white" text-anchor="middle">Chisel Tunnel</text>
-  <text x="50" y="515" font-family="Segoe UI, Arial" font-size="9" fill="#0369a1">HTTPS tunnel from laptop</text>
-  <text x="50" y="530" font-family="Segoe UI, Arial" font-size="9" fill="#0369a1">App Service proxy in VNet</text>
+  <text x="50" y="515" font-family="Segoe UI, Arial" font-size="9" fill="#0369a1">HTTPS tunnel from CI/CD or laptop</text>
+  <text x="50" y="530" font-family="Segoe UI, Arial" font-size="9" fill="#0369a1">App Service proxy in VNet (GHA CI/CD)</text>
   <rect x="50" y="540" width="80" height="18" rx="3" fill="#dcfce7"/>
   <text x="90" y="552" font-family="Segoe UI, Arial" font-size="8" fill="#166534" text-anchor="middle">Control: &#10003;</text>
   <rect x="135" y="540" width="80" height="18" rx="3" fill="#dcfce7"/>

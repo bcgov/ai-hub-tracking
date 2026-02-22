@@ -102,14 +102,6 @@
     <text x="360" y="155" fill="#22c55e" font-family="Arial, sans-serif" font-size="10" font-weight="bold">251</text>
     <text x="440" y="155" fill="#22c55e" font-family="Arial, sans-serif" font-size="9" font-weight="bold">TENANT PRIVATE ENDPOINTS</text>
 
-    <!-- AKS -->
-    <rect x="0" y="165" width="640" height="30" fill="white" stroke="#e5e7eb" stroke-width="1"/>
-    <text x="10" y="185" fill="#333" font-family="Arial, sans-serif" font-size="10">AKSNodeSubnet</text>
-    <text x="200" y="185" fill="#333" font-family="monospace" font-size="10">/23</text>
-    <text x="280" y="185" fill="#333" font-family="Arial, sans-serif" font-size="10">512</text>
-    <text x="360" y="185" fill="#ef4444" font-family="Arial, sans-serif" font-size="10" font-weight="bold">507</text>
-    <text x="440" y="185" fill="#666" font-family="Arial, sans-serif" font-size="9">K8s nodes + pods (if used)</text>
-
     <!-- Total -->
     <rect x="0" y="200" width="640" height="30" fill="#003366"/>
     <text x="10" y="220" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">PROD TOTAL</text>
@@ -177,7 +169,7 @@
     <text x="180" y="97" fill="#333" font-family="monospace" font-size="10">/26</text>
     <text x="250" y="97" fill="#333" font-family="Arial, sans-serif" font-size="10">64</text>
     <text x="310" y="97" fill="#0078d4" font-family="Arial, sans-serif" font-size="10" font-weight="bold">~10</text>
-    <text x="380" y="97" fill="#666" font-family="Arial, sans-serif" font-size="9">Self-hosted GitHub runners</text>
+    <text x="380" y="97" fill="#666" font-family="Arial, sans-serif" font-size="9">GitHub Actions (via Chisel proxy)</text>
 
     <rect x="0" y="105" width="620" height="25" fill="#fafafa" stroke="#e5e7eb" stroke-width="1"/>
     <text x="10" y="122" fill="#333" font-family="Arial, sans-serif" font-size="10">ToolsPrivateLink</text>
@@ -315,15 +307,15 @@
 
     <!-- Full -->
     <rect x="0" y="240" width="400" height="100" rx="5" fill="#fee" stroke="#ef4444" stroke-width="2"/>
-    <text x="200" y="260" text-anchor="middle" fill="#ef4444" font-family="Arial, sans-serif" font-size="12" font-weight="bold">FULL: Enterprise with AKS</text>
+    <text x="200" y="260" text-anchor="middle" fill="#ef4444" font-family="Arial, sans-serif" font-size="12" font-weight="bold">FULL: Extended Enterprise</text>
     <text x="20" y="280" fill="#333" font-family="Arial, sans-serif" font-size="10">Standard allocation</text>
-    <text x="20" y="295" fill="#333" font-family="Arial, sans-serif" font-size="10">+ AKS cluster (5 nodes)</text>
+    <text x="20" y="295" fill="#333" font-family="Arial, sans-serif" font-size="10">+ Container Apps Env</text>
     <text x="20" y="310" fill="#333" font-family="Arial, sans-serif" font-size="10">+ ACR + Additional buffer</text>
     <text x="300" y="280" fill="#333" font-family="Arial, sans-serif" font-size="10">= 28 IPs</text>
-    <text x="300" y="295" fill="#333" font-family="Arial, sans-serif" font-size="10">= 20 IPs</text>
+    <text x="300" y="295" fill="#333" font-family="Arial, sans-serif" font-size="10">= 10 IPs</text>
     <text x="300" y="310" fill="#333" font-family="Arial, sans-serif" font-size="10">= 12 IPs</text>
     <rect x="280" y="315" width="100" height="20" fill="#ef4444"/>
-    <text x="330" y="330" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">~60 IPs</text>
+    <text x="330" y="330" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">~50 IPs</text>
   </g>
 
   <!-- 50 IP Justification -->
@@ -342,7 +334,7 @@
     <text x="20" y="175" fill="white" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Why 50 works:</text>
     <text x="20" y="195" fill="#22c55e" font-family="Arial, sans-serif" font-size="10">✓ Covers minimal scenario (15 IPs) with room</text>
     <text x="20" y="212" fill="#22c55e" font-family="Arial, sans-serif" font-size="10">✓ Covers standard scenario (28 IPs) comfortably</text>
-    <text x="20" y="229" fill="#f59e0b" font-family="Arial, sans-serif" font-size="10">⚠ Full/AKS scenario needs increase request</text>
+    <text x="20" y="229" fill="#f59e0b" font-family="Arial, sans-serif" font-size="10">⚠ Extended scenario needs increase request</text>
 
     <rect x="20" y="245" width="380" height="2" fill="#fcba19"/>
 
@@ -372,7 +364,7 @@
 
     <!-- Tenant 1 -->
     <rect x="180" y="0" width="100" height="40" fill="#22c55e"/>
-    <text x="230" y="15" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="9" font-weight="bold">Health</text>
+    <text x="230" y="15" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="9" font-weight="bold">WLRS</text>
     <text x="230" y="30" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="10" font-weight="bold">50 IPs</text>
 
     <!-- Tenant 2 -->
@@ -382,7 +374,7 @@
 
     <!-- Tenant 3 -->
     <rect x="380" y="0" width="100" height="40" fill="#22c55e"/>
-    <text x="430" y="15" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="9" font-weight="bold">Justice</text>
+    <text x="430" y="15" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="9" font-weight="bold">NR-DAP</text>
     <text x="430" y="30" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="10" font-weight="bold">50 IPs</text>
 
     <!-- Tenant 4 -->
@@ -413,8 +405,8 @@
     <rect x="0" y="0" width="420" height="80" rx="5" fill="#fffbeb" stroke="#f59e0b" stroke-width="1"/>
     <text x="210" y="20" text-anchor="middle" fill="#92400e" font-family="Arial, sans-serif" font-size="12" font-weight="bold">EXPANSION OPTIONS</text>
     <text x="20" y="40" fill="#333" font-family="Arial, sans-serif" font-size="10">1. Increase PrivateLink subnet to /23 (512 IPs)</text>
-    <text x="20" y="55" fill="#333" font-family="Arial, sans-serif" font-size="10">2. Reduce AKS subnet if not using K8s</text>
-    <text x="20" y="70" fill="#333" font-family="Arial, sans-serif" font-size="10">3. Use shared services more aggressively</text>
+    <text x="20" y="55" fill="#333" font-family="Arial, sans-serif" font-size="10">2. Use shared services more aggressively</text>
+    <text x="20" y="70" fill="#333" font-family="Arial, sans-serif" font-size="10">3. Request IP quota increase with justification</text>
   </g>
 
   <g transform="translate(920, 1260)">
@@ -422,7 +414,7 @@
     <text x="210" y="20" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="12" font-weight="bold">KEY TAKEAWAY</text>
     <text x="20" y="42" fill="white" font-family="Arial, sans-serif" font-size="10">50 IPs/tenant is based on real capacity planning.</text>
     <text x="20" y="57" fill="white" font-family="Arial, sans-serif" font-size="10">Share services by default. Dedicated = justify the IPs.</text>
-    <text x="20" y="72" fill="#fcba19" font-family="Arial, sans-serif" font-size="10" font-weight="bold">AKS users need expansion request.</text>
+    <text x="20" y="72" fill="#fcba19" font-family="Arial, sans-serif" font-size="10" font-weight="bold">Extended deployments may need increase request.</text>
   </g>
 
   <!-- Section 5: CIDR Notation Explainer -->
@@ -453,7 +445,7 @@
     <text x="80" y="98" fill="#666" font-family="monospace" font-size="9">2^(32-23) = 2^9</text>
     <text x="220" y="98" fill="#f59e0b" font-family="Arial, sans-serif" font-size="10" font-weight="bold">512</text>
     <text x="310" y="98" fill="#333" font-family="Arial, sans-serif" font-size="10">~507</text>
-    <text x="400" y="98" fill="#666" font-family="Arial, sans-serif" font-size="9">TEST VNet, AKS subnet</text>
+    <text x="400" y="98" fill="#666" font-family="Arial, sans-serif" font-size="9">TEST VNet / large subnets</text>
 
     <rect x="0" y="104" width="620" height="22" fill="white" stroke="#e5e7eb" stroke-width="1"/>
     <text x="10" y="120" fill="#333" font-family="monospace" font-size="10" font-weight="bold">/24</text>
@@ -505,7 +497,7 @@
     <text x="20" y="60" fill="#333" font-family="Arial, sans-serif" font-size="10">PrivateLink subnet /24 = 256 IPs → 256 - 5 reserved - 10 shared = 241 usable</text>
     <text x="20" y="75" fill="#333" font-family="Arial, sans-serif" font-size="10">241 ÷ 50 IPs/tenant =</text>
     <text x="180" y="75" fill="#ef4444" font-family="Arial, sans-serif" font-size="12" font-weight="bold">4-5 tenants</text>
-    <text x="280" y="75" fill="#666" font-family="Arial, sans-serif" font-size="9">(or 8 minimal tenants, 3 full/AKS tenants)</text>
+    <text x="280" y="75" fill="#666" font-family="Arial, sans-serif" font-size="9">(or 8 minimal tenants, 3 extended tenants)</text>
 
     <!-- TEST -->
     <rect x="0" y="90" width="640" height="60" rx="5" fill="#fffbeb" stroke="#f59e0b" stroke-width="2"/>
@@ -529,9 +521,9 @@
   <text x="40" y="1705" fill="#64748b" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Notes:</text>
   <text x="40" y="1725" fill="#666" font-family="Arial, sans-serif" font-size="10">* Azure reserves 5 IPs per subnet (network address, gateway, broadcast, 2× Azure DNS). These are NOT usable for resources.</text>
   <text x="40" y="1740" fill="#666" font-family="Arial, sans-serif" font-size="10">* Private endpoints consume 1 IP each. Multi-endpoint services (Storage with blob+file+queue+table) consume multiple IPs.</text>
-  <text x="40" y="1755" fill="#666" font-family="Arial, sans-serif" font-size="10">* AKS nodes consume IPs for the node itself plus IP-per-pod (Azure CNI). A 5-node cluster can easily use 30-50 IPs.</text>
+  <text x="40" y="1755" fill="#666" font-family="Arial, sans-serif" font-size="10">* Container Apps Environments may use 10-20 IPs. Plan capacity before provisioning conditional services.</text>
   <text x="40" y="1770" fill="#666" font-family="Arial, sans-serif" font-size="10">* Shared services (Doc Intelligence, AI Search) can serve multiple tenants via RBAC - this SAVES IPs. Dedicated instances = consume tenant's IP budget.</text>
-  <text x="40" y="1785" fill="#666" font-family="Arial, sans-serif" font-size="10">* To support more tenants: (1) Expand PrivateLink subnet to /23, (2) Reduce AKS allocation if not using K8s, (3) Encourage shared services over dedicated.</text>
+  <text x="40" y="1785" fill="#666" font-family="Arial, sans-serif" font-size="10">* To support more tenants: (1) Expand PrivateLink subnet to /23, (2) Encourage shared services over dedicated, (3) Request IP increase with justification.</text>
   <text x="40" y="1800" fill="#003366" font-family="Arial, sans-serif" font-size="10" font-weight="bold">* CIDR Quick Reference: Each step up (e.g., /24 → /23) DOUBLES the IPs. Each step down (e.g., /24 → /25) HALVES the IPs.</text>
 
 </svg>

@@ -172,6 +172,14 @@
             color: var(--bc-blue);
         }
 
+        .nav-dropdown-menu a.active {
+            background: #fef9e7;
+            border-left-color: var(--bc-gold);
+            border-left-width: 4px;
+            color: var(--bc-blue);
+            font-weight: 600;
+        }
+
         .nav-dropdown-menu a small {
             display: block;
             color: var(--text-secondary);
@@ -703,46 +711,54 @@
         <nav class="bc-nav">
             <a href="index.html" class="">Home</a>
             <div class="nav-dropdown">
-                <span class="nav-trigger">Guides</span>
+                <span class="nav-trigger">For Tenants</span>
                 <div class="nav-dropdown-menu">
-                    <a href="oidc-setup.html">
-                        OIDC Setup
-                        <small>GitHub to Azure authentication</small>
+                    <a href="services.html" class="">
+                        AI Services
+                        <small>Available models &amp; services catalogue</small>
                     </a>
-                    <a href="terraform.html">
-                        Terraform Modules
-                        <small>Network, Bastion, Runners, Proxy</small>
-                    </a>
-                    <a href="language-service-pii.html">
+                    <a href="language-service-pii.html" class="">
                         Language Service PII
-                        <small>ML-based PII detection & APIM</small>
+                        <small>ML-based PII detection &amp; APIM</small>
                     </a>
-                    <a href="document-intelligence.html">
-                        Document Intelligence
-                        <small>SDK configuration & APIM integration</small>
+                    <a href="apim-internal-endpoints.html" class="">
+                        APIM Internal Endpoints
+                        <small>tenant-info &amp; apim-keys API reference</small>
                     </a>
-                    <a href="workflows.html">
-                        GitHub Workflows
-                        <small>CI/CD automation</small>
-                    </a>
-                    <a href="terraform-reference.html">
-                        TF Reference
-                        <small>Auto-generated from code</small>
-                    </a>
-                    <a href="apim-key-rotation.html">
+                    <a href="apim-key-rotation.html" class="">
                         APIM Key Rotation
                         <small>Subscription key auto-rotation</small>
                     </a>
-                    <a href="apim-internal-endpoints.html">
-                        APIM Internal Endpoints
-                        <small>tenant-info &amp; apim-keys API reference</small>
+                </div>
+            </div>
+            <div class="nav-dropdown">
+                <span class="nav-trigger">For AI Hub Admins</span>
+                <div class="nav-dropdown-menu">
+                    <a href="playbooks.html" class="">
+                        Playbooks
+                        <small>Operational runbooks &amp; how-to guides</small>
+                    </a>
+                    <a href="oidc-setup.html" class="">
+                        OIDC Setup
+                        <small>GitHub to Azure authentication</small>
+                    </a>
+                    <a href="workflows.html" class="">
+                        GitHub Workflows
+                        <small>CI/CD automation</small>
+                    </a>
+                    <a href="terraform-reference.html" class="">
+                        TF Reference
+                        <small>Auto-generated from code</small>
+                    </a>
+                    <a href="technical-deep-dive.html" class="">
+                        Technical Deep Dive
+                        <small>Control/data plane &amp; Chisel architecture</small>
                     </a>
                 </div>
             </div>
             <a href="diagrams.html" class="">Diagrams</a>
-            <a href="playbooks.html" class="">Playbooks</a>
             <a href="decisions.html" class="">ADRs</a>
-            <a href="cost.html" class="">Cost</a>
+            <a href="cost.html" class="active">Cost</a>
             <a href="faq.html" class="">FAQ</a>
         </nav>
     </header>
@@ -750,7 +766,17 @@
 
 <h1>Cost Tracking</h1>
 
-<p>⚠️ DRAFT ⚠️ How costs are tracked and allocated for each project in the AI Hub.</p>
+<div class="alert alert-warning" style="margin-bottom: 2rem;">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div>
+        <strong>Work in Progress</strong><br>
+        This page is under active development. Cost tracking architecture and chargeback processes are being finalised. See <a href="decisions.html#adr-012">ADR-012</a> for the decision record.
+    </div>
+</div>
+
+<p>How costs are tracked and allocated for each project in the AI Hub.</p>
 
 <h2>Architecture</h2>
 
@@ -807,28 +833,28 @@
         <td>Entry point infrastructure</td>
     </tr>
     <tr>
-        <td><strong>CI/CD Runners (GitHub self-hosted)</strong></td>
+        <td><strong>Azure Proxy (Chisel Server)</strong></td>
         <td><span class="badge" style="background:#f59e0b;color:white;">Shared</span></td>
-        <td>Runner platform in the VNet (Container Apps job + ACR + Log Analytics)</td>
+        <td>App Service running Chisel SOCKS5 proxy for CI/CD private-endpoint access (always-on)</td>
+    </tr>
+    <tr>
+        <td><strong>CI/CD Runners (GitHub self-hosted) <span class="badge" style="background:#6b7280;color:white;">Optional</span></strong></td>
+        <td><span class="badge" style="background:#6b7280;color:white;">Optional</span></td>
+        <td>Container Apps job + ACR + Log Analytics — provisioned only when <code>github_runners_aca_enabled = true</code>; not used by this platform’s own CI/CD</td>
     </tr>
 </table>
 
 <h2>Terraform Deploys Everything</h2>
 
-<p>One module call creates all resources for a project. All resources use <strong>Azure Verified Modules (AVM)</strong>.</p>
+<p>Tenant stacks are deployed with <code>deploy-scaled.sh</code> which runs Terraform across five isolated state files. <strong>Resource AVM modules are used where available</strong>; raw Terraform resources are used when an AVM module does not exist.</p>
 
 <pre>
-module "health_rag" {
-  source = "./modules/project"
-
-  project_name      = "health-rag"
-  ministry          = "health"
-  environment       = "prod"
-  ai_foundry_hub_id = module.hub.ai_foundry_id
-  apim_id           = module.hub.apim_id
-
-  tags = local.common_tags
-}
+# deploy-scaled.sh executes 3 phases:
+# Phase 1: shared foundation (network, KV, AppGW, WAF)
+# Phase 2: per-tenant stacks (parallel, isolated state)
+# Phase 3: foundry + apim + tenant-user-mgmt
+#
+# Each stack corresponds to an infra-ai-hub/stacks/* directory.
 </pre>
 
 <h3>AVM Modules Used</h3>
@@ -893,7 +919,7 @@ module "health_rag" {
 
 <h2 id="cicd-runner-costs">CI/CD Runner Costs (Self-hosted GitHub runners)</h2>
 
-<p>Self-hosted runners run inside the VNet (required for private endpoints). This repo provisions runners as Azure Container Apps jobs (scale-to-zero) plus supporting services (ACR + Log Analytics).</p>
+<p>The optional <code>github_runners_aca</code> module provisions self-hosted runners inside the VNet for tenant CI/CD pipelines that need private endpoint access. Runners run as Azure Container Apps jobs (scale-to-zero) with supporting services (ACR + Log Analytics). Note: this repo's own CI/CD uses public GitHub runners + the Chisel tunnel instead.</p>
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #0ea5e9;">
@@ -1447,10 +1473,10 @@ DirectCosts
             <p>Architecture diagrams</p>
         </div>
     </a>
-    <a href="terraform.html" class="card-link">
+    <a href="terraform-reference.html" class="card-link">
         <div class="card" style="border-left-color: #3b82f6;">
-            <h3 style="margin-top: 0;">Terraform</h3>
-            <p>Module documentation</p>
+            <h3 style="margin-top: 0;">Terraform Reference</h3>
+            <p>Module variable &amp; output docs</p>
         </div>
     </a>
 </div>
@@ -1466,6 +1492,16 @@ DirectCosts
                 <ul>
                     <li><a href="https://github.com/bcgov/ai-hub-tracking">GitHub Repository</a></li>
                     <li><a href="assets/azure-oidc-complete-guide.svg" target="_blank">Architecture Diagram</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>Documentation</h4>
+                <ul>
+                    <li><a href="services.html">AI Services</a></li>
+                    <li><a href="diagrams.html">Architecture Diagrams</a></li>
+                    <li><a href="playbooks.html">Playbooks</a></li>
+                    <li><a href="decisions.html">ADRs</a></li>
+                    <li><a href="faq.html">FAQ</a></li>
                 </ul>
             </div>
             <div class="footer-links">

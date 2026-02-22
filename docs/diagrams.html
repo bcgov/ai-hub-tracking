@@ -172,6 +172,14 @@
             color: var(--bc-blue);
         }
 
+        .nav-dropdown-menu a.active {
+            background: #fef9e7;
+            border-left-color: var(--bc-gold);
+            border-left-width: 4px;
+            color: var(--bc-blue);
+            font-weight: 600;
+        }
+
         .nav-dropdown-menu a small {
             display: block;
             color: var(--text-secondary);
@@ -703,44 +711,52 @@
         <nav class="bc-nav">
             <a href="index.html" class="">Home</a>
             <div class="nav-dropdown">
-                <span class="nav-trigger">Guides</span>
+                <span class="nav-trigger">For Tenants</span>
                 <div class="nav-dropdown-menu">
-                    <a href="oidc-setup.html">
-                        OIDC Setup
-                        <small>GitHub to Azure authentication</small>
+                    <a href="services.html" class="">
+                        AI Services
+                        <small>Available models &amp; services catalogue</small>
                     </a>
-                    <a href="terraform.html">
-                        Terraform Modules
-                        <small>Network, Bastion, Runners, Proxy</small>
-                    </a>
-                    <a href="language-service-pii.html">
+                    <a href="language-service-pii.html" class="">
                         Language Service PII
-                        <small>ML-based PII detection & APIM</small>
+                        <small>ML-based PII detection &amp; APIM</small>
                     </a>
-                    <a href="document-intelligence.html">
-                        Document Intelligence
-                        <small>SDK configuration & APIM integration</small>
-                    </a>
-                    <a href="workflows.html">
-                        GitHub Workflows
-                        <small>CI/CD automation</small>
-                    </a>
-                    <a href="terraform-reference.html">
-                        TF Reference
-                        <small>Auto-generated from code</small>
-                    </a>
-                    <a href="apim-key-rotation.html">
-                        APIM Key Rotation
-                        <small>Subscription key auto-rotation</small>
-                    </a>
-                    <a href="apim-internal-endpoints.html">
+                    <a href="apim-internal-endpoints.html" class="">
                         APIM Internal Endpoints
                         <small>tenant-info &amp; apim-keys API reference</small>
                     </a>
+                    <a href="apim-key-rotation.html" class="">
+                        APIM Key Rotation
+                        <small>Subscription key auto-rotation</small>
+                    </a>
                 </div>
             </div>
-            <a href="diagrams.html" class="">Diagrams</a>
-            <a href="playbooks.html" class="">Playbooks</a>
+            <div class="nav-dropdown">
+                <span class="nav-trigger">For AI Hub Admins</span>
+                <div class="nav-dropdown-menu">
+                    <a href="playbooks.html" class="">
+                        Playbooks
+                        <small>Operational runbooks &amp; how-to guides</small>
+                    </a>
+                    <a href="oidc-setup.html" class="">
+                        OIDC Setup
+                        <small>GitHub to Azure authentication</small>
+                    </a>
+                    <a href="workflows.html" class="">
+                        GitHub Workflows
+                        <small>CI/CD automation</small>
+                    </a>
+                    <a href="terraform-reference.html" class="">
+                        TF Reference
+                        <small>Auto-generated from code</small>
+                    </a>
+                    <a href="technical-deep-dive.html" class="">
+                        Technical Deep Dive
+                        <small>Control/data plane &amp; Chisel architecture</small>
+                    </a>
+                </div>
+            </div>
+            <a href="diagrams.html" class="active">Diagrams</a>
             <a href="decisions.html" class="">ADRs</a>
             <a href="cost.html" class="">Cost</a>
             <a href="faq.html" class="">FAQ</a>
@@ -1019,7 +1035,36 @@
     font-family: monospace;
     border: 1px solid #ddd;
 }
+
+/* Go to Top button */
+.go-to-top {
+    position: fixed;
+    bottom: 2rem;
+    right: 2rem;
+    background: var(--bc-blue);
+    color: var(--white);
+    border: none;
+    border-radius: 8px;
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.25);
+    transition: var(--transition);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    text-decoration: none;
+}
+.go-to-top:hover {
+    background: var(--bc-gold);
+    color: var(--bc-blue);
+    transform: translateY(-2px);
+}
 </style>
+
+<button class="go-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">&#8679; Top</button>
 
 <h1>Architecture Diagrams</h1>
 
@@ -1036,15 +1081,6 @@
         <div class="diagram-card-info">
             <h4>Architecture Layers</h4>
             <p>From Microsoft upstream to BC Gov adaptation to deployed environments</p>
-        </div>
-    </div>
-    <div class="diagram-card" onclick="loadDiagram('full-stack', this)">
-        <div class="diagram-card-preview">
-            <img src="assets/full-stack-architecture.svg" alt="Full Stack Architecture Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
-        </div>
-        <div class="diagram-card-info">
-            <h4>Full Stack Architecture</h4>
-            <p>Complete BC Gov adapted AI Landing Zone with all services and layers</p>
         </div>
     </div>
     <div class="diagram-card" onclick="loadDiagram('multi-tenant', this)">
@@ -1065,22 +1101,13 @@
             <p>Complete request path from user through App Gateway, APIM to AI response</p>
         </div>
     </div>
-    <div class="diagram-card" onclick="loadDiagram('avm-nested', this)">
-        <div class="diagram-card-preview">
-            <img src="assets/avm-nested-modules.svg" alt="AVM Nested Modules Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
-        </div>
-        <div class="diagram-card-info">
-            <h4>AVM Nested Module Pattern</h4>
-            <p>Platform deploys once, projects consume outputs - two-phase deployment</p>
-        </div>
-    </div>
     <div class="diagram-card" onclick="loadDiagram('three-steps-evolution', this)">
         <div class="diagram-card-preview">
             <img src="assets/three-steps-access-evolution.svg" alt="Three Steps Evolution Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
         </div>
         <div class="diagram-card-info">
             <h4>3-Step Access Evolution</h4>
-            <p>Bastion → Container Apps → Chisel+App Services cost comparison</p>
+            <p>Evolution from Bastion → Container Apps runners (previous) → Chisel+App Service (current) with cost comparison</p>
         </div>
     </div>
     <div class="diagram-card" onclick="loadDiagram('chisel-detail', this)">
@@ -1191,7 +1218,7 @@
         </div>
         <div class="diagram-card-info">
             <h4>Access Methods Architecture</h4>
-            <p>Four interchangeable paths: GitHub runners, self-hosted, Bastion, Chisel</p>
+            <p>Four toggleable access methods: GitHub-hosted runners (CI/CD via Chisel), optional self-hosted runners, Bastion, Chisel</p>
         </div>
     </div>
     <div class="diagram-card" onclick="loadDiagram('who-deploys-what', this)">
@@ -1487,10 +1514,6 @@ const diagrams = {
         title: 'Architecture Layers (Upstream to Deployment)',
         src: 'assets/architecture-layers.svg'
     },
-    'full-stack': {
-        title: 'Full Stack Architecture (BC Gov Adapted)',
-        src: 'assets/full-stack-architecture.svg'
-    },
     // Stakeholder Infographics (NEW)
     'tenant-rg-model': {
         title: 'Tenant Resource Group Model',
@@ -1538,10 +1561,6 @@ const diagrams = {
     'data-flow': {
         title: 'AI Request Data Flow',
         src: 'assets/data-flow.svg'
-    },
-    'avm-nested': {
-        title: 'AVM Nested Module Pattern',
-        src: 'assets/avm-nested-modules.svg'
     },
     // Platform Access & Security
     'control-data-plane': {
@@ -1622,7 +1641,7 @@ const zoomStep = 25;        // How much to zoom per click/keypress
 //   4. Resets zoom to 100%
 //   5. Scrolls the viewer into view
 
-function loadDiagram(id, element) {
+function loadDiagram(id, element, skipScroll = false) {
     // Look up the diagram configuration
     const diagram = diagrams[id];
 
@@ -1659,13 +1678,15 @@ function loadDiagram(id, element) {
     // Reset zoom to 100% for the new diagram
     resetZoom();
 
-    // Smooth scroll the viewer into view
-    // 'behavior: smooth' animates the scroll instead of jumping
-    // 'block: start' aligns the top of the viewer with the top of the viewport
-    document.getElementById('diagramViewer').scrollIntoView({
-        behavior: 'smooth',
-        block: 'start'
-    });
+    // Smooth scroll the viewer into view (only when user explicitly clicks a card)
+    // Uses an offset-aware scroll so the sticky navbar doesn't cover the viewer top
+    if (!skipScroll) {
+        const viewer = document.getElementById('diagramViewer');
+        const navbar = document.querySelector('.bc-header');
+        const navHeight = navbar ? navbar.getBoundingClientRect().height : 70;
+        const top = viewer.getBoundingClientRect().top + window.scrollY - navHeight - 8;
+        window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+    }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1912,9 +1933,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // No hash or invalid hash - load the first diagram by default
+    // No hash or invalid hash - load the first diagram by default (without scrolling)
     // querySelector returns the first matching element
-    loadDiagram('architecture-layers', document.querySelector('.diagram-card'));
+    loadDiagram('architecture-layers', document.querySelector('.diagram-card'), true);
 });
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1976,6 +1997,16 @@ window.addEventListener('hashchange', function() {
                 <ul>
                     <li><a href="https://github.com/bcgov/ai-hub-tracking">GitHub Repository</a></li>
                     <li><a href="assets/azure-oidc-complete-guide.svg" target="_blank">Architecture Diagram</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>Documentation</h4>
+                <ul>
+                    <li><a href="services.html">AI Services</a></li>
+                    <li><a href="diagrams.html">Architecture Diagrams</a></li>
+                    <li><a href="playbooks.html">Playbooks</a></li>
+                    <li><a href="decisions.html">ADRs</a></li>
+                    <li><a href="faq.html">FAQ</a></li>
                 </ul>
             </div>
             <div class="footer-links">

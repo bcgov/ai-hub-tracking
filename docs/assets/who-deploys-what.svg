@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 900" width="1100" height="900">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1100 1000" width="1100" height="1000">
   <defs>
     <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" style="stop-color:#003366"/>
@@ -11,7 +11,7 @@
   </defs>
 
   <!-- Background -->
-  <rect width="1100" height="900" fill="#f8fafc"/>
+  <rect width="1100" height="1000" fill="#f8fafc"/>
 
   <!-- Header -->
   <rect x="0" y="0" width="1100" height="65" fill="url(#headerGrad)"/>
@@ -48,8 +48,8 @@
   <text x="90" y="475" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ Chisel tunnel (optional)</text>
   <text x="110" y="495" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ For platform team local dev</text>
 
-  <text x="90" y="520" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ Self-hosted runners (optional)</text>
-  <text x="110" y="540" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ For CI/CD needing data plane</text>
+  <text x="90" y="520" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ GitHub Actions + Chisel Tunnel</text>
+  <text x="110" y="540" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ GH-hosted runners + Chisel SOCKS5</text>
 
   <text x="90" y="565" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ Monitoring (Log Analytics)</text>
   <text x="110" y="585" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ Centralized logging</text>
@@ -110,15 +110,14 @@
   <text x="610" y="745" font-family="Segoe UI, Arial" font-size="12" fill="#166534">INPUT: Use platform's Terraform outputs</text>
 
   <!-- How Project Teams Access -->
-  <rect x="590" y="820" width="440" height="90" rx="8" fill="#dcfce7" stroke="#22c55e"/>
-  <text x="810" y="843" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#166534" text-anchor="middle">HOW Project Teams ACCESS Services:</text>
-  <text x="610" y="868" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">→ Public endpoints via API Management</text>
-  <text x="610" y="885" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">→ App Gateway load balancers</text>
-  <text x="610" y="902" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">→ NO direct access to private resources</text>
+  <rect x="590" y="840" width="440" height="90" rx="8" fill="#dcfce7" stroke="#22c55e"/>
+  <text x="810" y="863" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#166534" text-anchor="middle">HOW Project Teams ACCESS Services:</text>
+  <text x="610" y="888" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">&#8594; Public endpoints via API Management</text>
+  <text x="610" y="905" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">&#8594; App Gateway load balancers</text>
+  <text x="610" y="922" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">&#8594; NO direct access to private resources</text>
 
   <!-- Bottom Summary -->
-  <rect x="50" y="850" width="1000" height="40" rx="8" fill="#e0f2fe" stroke="#0284c7" stroke-width="1"/>
-  <text x="550" y="875" font-family="Segoe UI, Arial" font-size="13" font-weight="bold" fill="#0369a1" text-anchor="middle">💡 Key Insight: Platform team deploys infrastructure ONCE. Project teams consume it many times.</text>
-  <text x="550" y="893" font-family="Segoe UI, Arial" font-size="11" fill="#0284c7" text-anchor="middle">Most teams only need to deploy their application code, not the infrastructure!</text>
+  <rect x="50" y="948" width="1000" height="42" rx="8" fill="#e0f2fe" stroke="#0284c7" stroke-width="1"/>
+  <text x="550" y="973" font-family="Segoe UI, Arial" font-size="13" font-weight="bold" fill="#0369a1" text-anchor="middle">Key Insight: Platform team deploys infrastructure ONCE. Project teams consume it many times.</text>
 
 </svg>
