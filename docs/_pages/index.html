@@ -4,7 +4,7 @@
 <div class="hero">
     <span class="badge badge-gold">Open Source</span>
     <h1>AI Services Hub</h1>
-    <p>Infrastructure as Code for Azure Landing Zone deployments with GitHub Actions OIDC authentication. Zero secrets to rotate.</p>
+    <p>Shared, secure AI services for BC Government teams — compliant by design. Private endpoints, zero secrets, full infrastructure as code.</p>
     
     <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center;">
         <a href="#quick-start" style="text-decoration: none;">
@@ -31,6 +31,41 @@
             <p><small><em>The upstream <a href="https://github.com/Azure/AI-Landing-Zones">Azure AI Landing Zones</a> reference architecture carries an archival risk, of which this project team is aware.</em></small></p>
         </div>
     </div>
+</div>
+
+<h2>Where Do You Want to Start?</h2>
+
+<div class="grid grid-3">
+    <a href="services.html" class="card-link">
+        <div class="card" style="border-left-color: var(--bc-gold); height: 100%;">
+            <div class="feature-icon gold" style="margin-bottom: 0.75rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--bc-blue)" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg>
+            </div>
+            <h3 style="margin-top: 0; color: var(--bc-blue);">I'm a Tenant</h3>
+            <p style="font-size: 0.9rem; color: var(--text-secondary);">My team wants to use AI services (OpenAI, Document Intelligence, PII detection, Speech) through the hub.</p>
+            <div class="card-arrow">See Available Services →</div>
+        </div>
+    </a>
+    <a href="playbooks.html" class="card-link">
+        <div class="card" style="border-left-color: #0078d4; height: 100%;">
+            <div class="feature-icon blue" style="margin-bottom: 0.75rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
+            </div>
+            <h3 style="margin-top: 0; color: var(--bc-blue);">I'm a Platform Admin</h3>
+            <p style="font-size: 0.9rem; color: var(--text-secondary);">I maintain the hub infrastructure — deploying, operating, and troubleshooting the landing zone.</p>
+            <div class="card-arrow">Go to Playbooks →</div>
+        </div>
+    </a>
+    <a href="diagrams.html" class="card-link">
+        <div class="card" style="border-left-color: #8b5cf6; height: 100%;">
+            <div class="feature-icon purple" style="margin-bottom: 0.75rem;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            </div>
+            <h3 style="margin-top: 0; color: var(--bc-blue);">I'm Exploring</h3>
+            <p style="font-size: 0.9rem; color: var(--text-secondary);">I want to understand the architecture and evaluate whether this platform fits my needs.</p>
+            <div class="card-arrow">View Architecture →</div>
+        </div>
+    </a>
 </div>
 
 <h2>Project Scope: Enabling AI on Azure</h2>
@@ -69,7 +104,7 @@
 <div class="grid grid-3">
     <div class="card">
         <h4 style="margin-top:0;">1. Secure Private Network</h4>
-        <p>A shared VNet isolates all resources. A <strong>Bastion Host</strong> and <strong>Jumpbox VM</strong> provide the only secure administrative access. Self-hosted runners execute deployments from within the network.</p>
+        <p>A shared VNet isolates all resources. A <strong>Bastion Host</strong> and <strong>Jumpbox VM</strong> provide secure administrative access. Public GitHub Actions runners reach private endpoints via the <strong>Chisel tunnel</strong> through the Azure Proxy App Service.</p>
         <p><small>See <a href="decisions.html#adr-001">ADR-001: Shared Landing Zone</a> and <a href="cost.html#cicd-runner-costs">CI/CD Runner Costs</a></small></p>
     </div>
     <div class="card">
@@ -132,7 +167,7 @@
     </div>
 </div>
 
-<p style="text-align: center; margin-top: 1rem;"><a href="decisions.html#adr-011">ADR-011: Control vs Data Plane</a> | <a href="terraform.html#choosing-your-access-method">Choose Your Method</a> | <a href="diagrams.html#access-methods">Architecture Diagram</a></p>
+<p style="text-align: center; margin-top: 1rem;"><a href="decisions.html#adr-011">ADR-011: Control vs Data Plane</a> | <a href="technical-deep-dive.html">Choose Your Method</a> | <a href="diagrams.html#access-methods">Architecture Diagram</a></p>
 
 <div class="card card-gold">
     <h3 style="margin-top: 0;">What Can You Run Here?</h3>
@@ -171,7 +206,7 @@
             <p style="font-size: 0.9rem; margin-bottom: 0;">Configure OIDC trust between GitHub and Azure.</p>
         </div>
     </a>
-    <a href="terraform.html" class="card-link">
+    <a href="terraform-reference.html" class="card-link">
         <div class="card" style="border-left-color: #8b5cf6; height: 100%;">
             <h4 style="margin-top: 0; color: var(--bc-blue);">Deploy Infrastructure</h4>
             <p style="font-size: 0.9rem; margin-bottom: 0;">Deploy VNet, Bastion, and Jumpbox modules.</p>
@@ -237,11 +272,11 @@
     </a>
 
     <!-- Row 2 -->
-    <a href="terraform.html" class="card-link">
+    <a href="terraform-reference.html" class="card-link">
         <div class="card">
-            <h3 style="margin-top: 0;">Modules</h3>
-            <p>Deep dive into Network, Bastion, and Jumpbox configs.</p>
-            <div class="card-arrow">View Modules →</div>
+            <h3 style="margin-top: 0;">TF Reference</h3>
+            <p>Auto-generated variable &amp; output docs for all modules.</p>
+            <div class="card-arrow">View Reference →</div>
         </div>
     </a>
     <a href="workflows.html" class="card-link">

@@ -172,6 +172,14 @@
             color: var(--bc-blue);
         }
 
+        .nav-dropdown-menu a.active {
+            background: #fef9e7;
+            border-left-color: var(--bc-gold);
+            border-left-width: 4px;
+            color: var(--bc-blue);
+            font-weight: 600;
+        }
+
         .nav-dropdown-menu a small {
             display: block;
             color: var(--text-secondary);
@@ -703,44 +711,52 @@
         <nav class="bc-nav">
             <a href="index.html" class="{{NAV_INDEX}}">Home</a>
             <div class="nav-dropdown">
-                <span class="nav-trigger">Guides</span>
+                <span class="nav-trigger">For Tenants</span>
                 <div class="nav-dropdown-menu">
-                    <a href="oidc-setup.html">
-                        OIDC Setup
-                        <small>GitHub to Azure authentication</small>
+                    <a href="services.html" class="{{NAV_SERVICES}}">
+                        AI Services
+                        <small>Available models &amp; services catalogue</small>
                     </a>
-                    <a href="terraform.html">
-                        Terraform Modules
-                        <small>Network, Bastion, Runners, Proxy</small>
-                    </a>
-                    <a href="language-service-pii.html">
+                    <a href="language-service-pii.html" class="{{NAV_LANGUAGE-SERVICE-PII}}">
                         Language Service PII
-                        <small>ML-based PII detection & APIM</small>
+                        <small>ML-based PII detection &amp; APIM</small>
                     </a>
-                    <a href="document-intelligence.html">
-                        Document Intelligence
-                        <small>SDK configuration & APIM integration</small>
+                    <a href="apim-internal-endpoints.html" class="{{NAV_APIM-INTERNAL-ENDPOINTS}}">
+                        APIM Internal Endpoints
+                        <small>tenant-info &amp; apim-keys API reference</small>
                     </a>
-                    <a href="workflows.html">
-                        GitHub Workflows
-                        <small>CI/CD automation</small>
-                    </a>
-                    <a href="terraform-reference.html">
-                        TF Reference
-                        <small>Auto-generated from code</small>
-                    </a>
-                    <a href="apim-key-rotation.html">
+                    <a href="apim-key-rotation.html" class="{{NAV_APIM-KEY-ROTATION}}">
                         APIM Key Rotation
                         <small>Subscription key auto-rotation</small>
                     </a>
-                    <a href="apim-internal-endpoints.html">
-                        APIM Internal Endpoints
-                        <small>tenant-info &amp; apim-keys API reference</small>
+                </div>
+            </div>
+            <div class="nav-dropdown">
+                <span class="nav-trigger">For AI Hub Admins</span>
+                <div class="nav-dropdown-menu">
+                    <a href="playbooks.html" class="{{NAV_PLAYBOOKS}}">
+                        Playbooks
+                        <small>Operational runbooks &amp; how-to guides</small>
+                    </a>
+                    <a href="oidc-setup.html" class="{{NAV_OIDC}}">
+                        OIDC Setup
+                        <small>GitHub to Azure authentication</small>
+                    </a>
+                    <a href="workflows.html" class="{{NAV_WORKFLOWS}}">
+                        GitHub Workflows
+                        <small>CI/CD automation</small>
+                    </a>
+                    <a href="terraform-reference.html" class="{{NAV_TERRAFORM-REFERENCE}}">
+                        TF Reference
+                        <small>Auto-generated from code</small>
+                    </a>
+                    <a href="technical-deep-dive.html" class="{{NAV_TECHDEEP}}">
+                        Technical Deep Dive
+                        <small>Control/data plane &amp; Chisel architecture</small>
                     </a>
                 </div>
             </div>
             <a href="diagrams.html" class="{{NAV_DIAGRAMS}}">Diagrams</a>
-            <a href="playbooks.html" class="{{NAV_PLAYBOOKS}}">Playbooks</a>
             <a href="decisions.html" class="{{NAV_DECISIONS}}">ADRs</a>
             <a href="cost.html" class="{{NAV_COST}}">Cost</a>
             <a href="faq.html" class="{{NAV_FAQ}}">FAQ</a>

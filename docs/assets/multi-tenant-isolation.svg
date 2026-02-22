@@ -79,29 +79,29 @@
     <rect x="50" y="260" width="350" height="340" rx="10" fill="#14532d" stroke="#22c55e" stroke-width="3"/>
     <rect x="50" y="260" width="350" height="35" rx="10" fill="#166534"/>
     <rect x="50" y="283" width="350" height="12" fill="#166534"/>
-    <text x="225" y="285" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">Ministry of Health</text>
-    <text x="225" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#86efac">Project: Health Info Chatbot</text>
+    <text x="225" y="285" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">Env &amp; Resource Stewardship (wlrs)</text>
+    <text x="225" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#86efac">Project: Natural Resources AI</text>
 
     <!-- Ministry A Resources -->
     <g transform="translate(70, 340)">
       <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-a)" stroke="#22c55e" stroke-width="1"/>
       <rect x="0" y="0" width="140" height="50" rx="4" fill="#166534" fill-opacity="0.8"/>
       <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Storage Account</text>
-      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bbf7d0">Health Docs Only</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bbf7d0">WLRS Docs Only</text>
     </g>
 
     <g transform="translate(230, 340)">
       <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-a)" stroke="#22c55e" stroke-width="1"/>
       <rect x="0" y="0" width="140" height="50" rx="4" fill="#166534" fill-opacity="0.8"/>
       <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Key Vault</text>
-      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bbf7d0">Health Secrets</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bbf7d0">WLRS Secrets</text>
     </g>
 
     <g transform="translate(70, 405)">
       <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-a)" stroke="#22c55e" stroke-width="1"/>
       <rect x="0" y="0" width="140" height="50" rx="4" fill="#166534" fill-opacity="0.8"/>
       <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Resource Group</text>
-      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bbf7d0">rg-health-ai</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bbf7d0">da4cf6-prod-wlrs</text>
     </g>
 
     <g transform="translate(230, 405)">
@@ -113,13 +113,13 @@
 
     <g transform="translate(70, 470)">
       <rect x="0" y="0" width="300" height="50" rx="4" fill="#1f2937" stroke="#6b7280" stroke-width="1"/>
-      <text x="150" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">RBAC: Health Team Members Only</text>
-      <text x="150" y="35" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">Tags: ministry=health, cost-center=H001</text>
+      <text x="150" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">RBAC: WLRS Team Members Only</text>
+      <text x="150" y="35" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">Tags: ministry=wlrs, cost-center=WLRS01</text>
     </g>
 
     <g transform="translate(70, 535)">
       <rect x="0" y="0" width="300" height="40" rx="4" fill="#022c22" stroke="#10b981" stroke-width="1"/>
-      <text x="150" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#34d399">AI Search Index: health-knowledge-base</text>
+      <text x="150" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#34d399">AI Foundry Project: wlrs-ai</text>
     </g>
   </g>
 
@@ -150,7 +150,7 @@
       <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-b)" stroke="#0ea5e9" stroke-width="1"/>
       <rect x="0" y="0" width="140" height="50" rx="4" fill="#0369a1" fill-opacity="0.8"/>
       <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Resource Group</text>
-      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bae6fd">rg-sdpr-ai</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bae6fd">da4cf6-prod-sdpr</text>
     </g>
 
     <g transform="translate(605, 405)">
@@ -163,7 +163,7 @@
     <g transform="translate(445, 470)">
       <rect x="0" y="0" width="300" height="50" rx="4" fill="#1f2937" stroke="#6b7280" stroke-width="1"/>
       <text x="150" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">RBAC: SDPR Team Members Only</text>
-      <text x="150" y="35" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">Tags: ministry=sdpr, cost-center=S002</text>
+      <text x="150" y="35" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">Tags: ministry=sdpr, cost-center=SDPR01</text>
     </g>
 
     <g transform="translate(445, 535)">
@@ -177,29 +177,29 @@
     <rect x="800" y="260" width="350" height="340" rx="10" fill="#4c1d95" stroke="#a855f7" stroke-width="3"/>
     <rect x="800" y="260" width="350" height="35" rx="10" fill="#6b21a8"/>
     <rect x="800" y="283" width="350" height="12" fill="#6b21a8"/>
-    <text x="975" y="285" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">Ministry of Justice</text>
-    <text x="975" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#d8b4fe">Project: Legal Document Agent</text>
+    <text x="975" y="285" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" font-weight="bold" fill="white">NR Data Analytics (nr-dap)</text>
+    <text x="975" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#d8b4fe">Project: Data Analytics AI</text>
 
     <!-- Ministry C Resources -->
     <g transform="translate(820, 340)">
       <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-c)" stroke="#a855f7" stroke-width="1"/>
       <rect x="0" y="0" width="140" height="50" rx="4" fill="#6b21a8" fill-opacity="0.8"/>
       <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Storage Account</text>
-      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#e9d5ff">Justice Docs Only</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#e9d5ff">NR-DAP Docs Only</text>
     </g>
 
     <g transform="translate(980, 340)">
       <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-c)" stroke="#a855f7" stroke-width="1"/>
       <rect x="0" y="0" width="140" height="50" rx="4" fill="#6b21a8" fill-opacity="0.8"/>
       <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Key Vault</text>
-      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#e9d5ff">Justice Secrets</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#e9d5ff">NR-DAP Secrets</text>
     </g>
 
     <g transform="translate(820, 405)">
       <rect x="0" y="0" width="140" height="50" rx="4" fill="url(#stripes-c)" stroke="#a855f7" stroke-width="1"/>
       <rect x="0" y="0" width="140" height="50" rx="4" fill="#6b21a8" fill-opacity="0.8"/>
       <text x="70" y="22" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" font-weight="bold" fill="white">Resource Group</text>
-      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#e9d5ff">rg-justice-ai</text>
+      <text x="70" y="38" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#e9d5ff">da4cf6-prod-nr-dap</text>
     </g>
 
     <g transform="translate(980, 405)">
@@ -211,13 +211,13 @@
 
     <g transform="translate(820, 470)">
       <rect x="0" y="0" width="300" height="50" rx="4" fill="#1f2937" stroke="#6b7280" stroke-width="1"/>
-      <text x="150" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">RBAC: Justice Team Members Only</text>
-      <text x="150" y="35" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">Tags: ministry=justice, cost-center=J003</text>
+      <text x="150" y="18" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">RBAC: NR-DAP Team Members Only</text>
+      <text x="150" y="35" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#9ca3af">Tags: ministry=nr-dap, cost-center=NRDAP01</text>
     </g>
 
     <g transform="translate(820, 535)">
       <rect x="0" y="0" width="300" height="40" rx="4" fill="#3b0764" stroke="#a855f7" stroke-width="1"/>
-      <text x="150" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#c084fc">AI Search Index: justice-legal-docs</text>
+      <text x="150" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#c084fc">AI Foundry Project: nr-dap-ai</text>
     </g>
   </g>
 

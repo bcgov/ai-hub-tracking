@@ -90,7 +90,7 @@
         </ul>
     </li>
     <li><strong>Merge to main</strong> once PR checks and code review pass.</li>
-    <li><strong>Auto-apply to test + semver tag</strong>: <code>merge-main.yml</code> creates a semantic version tag (e.g. <code>v1.2.3</code>) from conventional commit history, then applies to <code>test</code>.</li>
+    <li><strong>Auto-apply to test + semver tag</strong>: <code>merge-main.yml</code> starts two jobs concurrently — semantic versioning (conventional commit history → <code>v1.2.3</code> tag + <code>CHANGELOG.md</code> update) and proxy bootstrap in <code>tools</code>. Once the proxy is up, it applies infrastructure to <code>test</code> through the Chisel tunnel. After a successful apply, integration tests run automatically (two phases — see below).</li>
     <li><strong>Promote to prod</strong>: Use <code>manual-dispatch.yml</code>, select <code>prod</code> + <code>apply</code>, and provide the semver tag. <strong>This is gated — requires approval from designated reviewers</strong> (configured in the GitHub <code>prod</code> environment protection rules).</li>
     <li><strong>Release created</strong>: After successful prod apply, a GitHub Release is automatically created from the deployed tag with deployment metadata.</li>
 </ol>
@@ -117,8 +117,12 @@
                                   │
                                   ▼
                         merge-main.yml
-                        ├─ Semantic version tag (v1.2.3)
-                        └─ Apply to test
+                        ├─ Semantic version tag (v1.2.3) ─────────────────── concurrent
+                        ├─ Deploy azure_proxy (tools) ───────────────────────────────┤
+                        └─ Apply to test (via Chisel tunnel)
+                             └─ Integration tests (post-apply)
+                                  ├─ Direct: all tests except apim-key-rotation.bats
+                                  └─ Via proxy: apim-key-rotation.bats (KV private endpoint)
                                   │
                                   ▼
                         manual-dispatch.yml (prod + apply + tag)
@@ -269,7 +273,15 @@
 
 <h2>When Do I Need Self-Hosted Runners?</h2>
 
-<p>GitHub-hosted runners (ubuntu-24.04) work for <strong>most operations</strong> because they only need control plane access. Self-hosted runners are only required when your Terraform code needs <strong>data plane access</strong> to private endpoints.</p>
+<div class="alert alert-info">
+    <div>
+        <strong>How this platform solves the private-endpoint problem:</strong> All CI/CD in this repo runs on <strong>standard GitHub-hosted runners</strong> (<code>ubuntu-24.04</code>). To reach private endpoints, the Terraform deployer spins up a <strong>Chisel SOCKS tunnel + Privoxy</strong> inside Docker on the runner, routing data-plane traffic through a proxy deployed in the <code>tools</code> VNet. No self-hosted runners are needed for this repo's own pipelines.
+        <br><br>
+        The optional <strong><code>github_runners_aca</code></strong> module (deployable via <code>add-or-remove-module.yml</code>) can provision self-hosted runners inside the VNet. Use this when <em>other repos</em> or workloads need persistent VNet-internal compute — not for this repo's own CI/CD.
+    </div>
+</div>
+
+<p>The table below describes the general pattern. Data-plane work that <em>can't</em> use the Chisel tunnel approach — for example, other repos without the proxy setup — would still need self-hosted runners.</p>
 
 <div class="alert alert-info">
     <div><strong>Understanding the Difference:</strong> See <a href="decisions.html#adr-011">ADR-011: Control Plane vs Data Plane</a> for a detailed explanation of why OIDC works for some operations but not others.</div>
@@ -416,7 +428,12 @@
         <li><strong>Validated environments</strong>: <code>dev</code>, <code>test</code>, <code>prod</code></li>
         <li><strong>Secure tunnel bootstrap</strong>: decrypts <code>proxy_url</code>/<code>proxy_auth</code> with <code>GPG_PASSPHRASE</code></li>
         <li><strong>Proxy-aware Terraform</strong>: sets <code>HTTP_PROXY</code>, <code>HTTPS_PROXY</code>, and <code>NO_PROXY</code></li>
-        <li><strong>Integration tests</strong>: runs <code>tests/integration/run-tests.sh --env &lt;env&gt;</code> after successful <code>apply</code> in dev/test</li>
+        <li><strong>Integration tests</strong> (after successful <code>apply</code> in dev/test) — two phases:
+            <ul>
+                <li><strong>Direct (no proxy):</strong> all suites <em>except</em> <code>apim-key-rotation.bats</code> — APIM and App Gateway are public endpoints; proxy not required</li>
+                <li><strong>Via proxy:</strong> <code>apim-key-rotation.bats</code> only — Key Vault is private-endpoint only (<code>public_network_access_enabled=false</code>), so the KV fallback (<code>az keyvault secret show</code>) must route through the Chisel tunnel</li>
+            </ul>
+        </li>
     </ul>
 </div>
 
@@ -595,11 +612,15 @@ on:
 <div class="card">
     <h3>Execution Flow</h3>
     <ol>
-        <li><strong>Semantic version</strong>: Uses <code>TriPSs/conventional-changelog-action</code> to analyse commit messages since the last tag and bump the version accordingly (<code>feat:</code> → minor, <code>fix:</code> → patch, <code>BREAKING CHANGE</code> → major)</li>
-        <li>Creates a git tag (e.g. <code>v1.2.3</code>) and updates <code>CHANGELOG.md</code></li>
-        <li>Deploy/update <code>azure_proxy</code> in <code>tools</code> using <code>.deployer.yml</code></li>
-        <li>Pass encrypted proxy outputs to <code>.deployer-using-secure-tunnel.yml</code></li>
-        <li>Run <code>apply</code> against <code>test</code></li>
+        <li><strong>Concurrently on push to main</strong>:
+            <ul>
+                <li><strong>Semantic version</strong>: <code>TriPSs/conventional-changelog-action</code> inspects commits since last tag (<code>feat:</code> → minor, <code>fix:</code> → patch, <code>BREAKING CHANGE</code> → major), creates a git tag (e.g. <code>v1.2.3</code>), and pushes an updated <code>CHANGELOG.md</code></li>
+                <li><strong>Proxy bootstrap</strong>: deploys/refreshes <code>azure_proxy</code> in <code>tools</code> via <code>.deployer.yml</code></li>
+            </ul>
+        </li>
+        <li>Once <code>azure_proxy</code> is live, its encrypted URL+auth outputs are passed to <code>.deployer-using-secure-tunnel.yml</code></li>
+        <li>Run <code>apply</code> against <code>test</code> (through Chisel tunnel)</li>
+        <li>After successful apply, integration tests run automatically in two phases (direct + via proxy — see <code>.deployer-using-secure-tunnel.yml</code> section)</li>
     </ol>
 </div>
 
@@ -703,9 +724,10 @@ on:
     <div class="card card-gold">
         <h3>Scheduled Mode</h3>
         <ul>
-            <li>Runs daily at <code>0 9 * * *</code> UTC</li>
-            <li>Executes dev and test first</li>
-            <li>Executes prod only after test succeeds</li>
+            <li>Runs daily at <code>0 9 * * *</code> UTC (1–2 AM Pacific, depending on DST)</li>
+            <li><code>rotate-dev</code> and <code>rotate-test</code> run <strong>concurrently</strong> (no dependency between them)</li>
+            <li><code>rotate-prod</code> has <code>needs: [rotate-test]</code> — waits for test to succeed first</li>
+            <li>A <code>notify</code> job (<code>if: always()</code>) prints a per-environment result summary</li>
         </ul>
     </div>
 </div>

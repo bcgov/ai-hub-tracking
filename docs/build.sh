@@ -46,7 +46,12 @@ for page in "$PAGES_DIR"/*.html; do
         # Replace template variables in header
         header="${header//\{\{PAGE_TITLE\}\}/$page_title}"
 
-        # Set active nav item
+        # Set active nav item FIRST (before clearing, so the active class survives)
+        if [ -n "$nav_active" ]; then
+            header="${header//\{\{NAV_${nav_active^^}\}\}/active}"
+        fi
+
+        # Clear all inactive nav items (already-active ones won't match these patterns)
         header="${header//\{\{NAV_INDEX\}\}/}"
         header="${header//\{\{NAV_OIDC\}\}/}"
         header="${header//\{\{NAV_TERRAFORM\}\}/}"
@@ -61,10 +66,8 @@ for page in "$PAGES_DIR"/*.html; do
         header="${header//\{\{NAV_DECISIONS\}\}/}"
         header="${header//\{\{NAV_COST\}\}/}"
         header="${header//\{\{NAV_FAQ\}\}/}"
-
-        if [ -n "$nav_active" ]; then
-            header="${header//\{\{NAV_${nav_active^^}\}\}/active}"
-        fi
+        header="${header//\{\{NAV_SERVICES\}\}/}"
+        header="${header//\{\{NAV_TECHDEEP\}\}/}"
 
         # Replace date variables in footer
         footer="${footer//\{\{YEAR\}\}/$CURRENT_YEAR}"

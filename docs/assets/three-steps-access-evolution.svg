@@ -62,8 +62,8 @@
   <!-- Step 2: Container Apps Era -->
   <rect x="375" y="80" width="350" height="360" rx="12" fill="white" stroke="#22c55e" stroke-width="2" filter="url(#shadow)"/>
   <rect x="375" y="80" width="350" height="55" rx="12" fill="#22c55e"/>
-  <text x="550" y="108" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="white" text-anchor="middle">STEP 2: Self-Hosted Runners</text>
-  <text x="550" y="125" font-family="Segoe UI, Arial" font-size="11" fill="#bbf7d0" text-anchor="middle">(Container Apps in VNet)</text>
+  <text x="550" y="108" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="white" text-anchor="middle">STEP 2: Self-Hosted Runners (Previous)</text>
+  <text x="550" y="125" font-family="Segoe UI, Arial" font-size="11" fill="#bbf7d0" text-anchor="middle">(Container Apps in VNet — replaced by Chisel)</text>
 
   <!-- GitHub Actions -->
   <rect x="395" y="145" width="150" height="80" rx="8" fill="#fef3c7" stroke="#f59e0b"/>
@@ -102,12 +102,12 @@
   <!-- Step 3: Chisel Era -->
   <rect x="730" y="80" width="350" height="360" rx="12" fill="white" stroke="#0ea5e9" stroke-width="2" filter="url(#shadow)"/>
   <rect x="730" y="80" width="350" height="55" rx="12" fill="#0ea5e9"/>
-  <text x="905" y="108" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="white" text-anchor="middle">STEP 3: Chisel + App Services</text>
-  <text x="905" y="125" font-family="Segoe UI, Arial" font-size="11" fill="#bae6fd" text-anchor="middle">(Latest - Cost Optimized)</text>
+  <text x="905" y="108" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="white" text-anchor="middle">STEP 3: Chisel + App Service</text>
+  <text x="905" y="125" font-family="Segoe UI, Arial" font-size="11" fill="#bae6fd" text-anchor="middle">(Current — CI/CD + Local Dev)</text>
 
   <!-- Your Laptop -->
   <rect x="750" y="145" width="150" height="100" rx="8" fill="#fef3c7" stroke="#f59e0b"/>
-  <text x="825" y="168" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">Your Laptop</text>
+  <text x="825" y="168" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">GH Actions / Laptop</text>
   <text x="825" y="185" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">Docker Chisel Client</text>
   <text x="825" y="200" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">Local port 5432</text>
   <text x="825" y="215" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">HTTPS Tunnel</text>
@@ -126,7 +126,7 @@
 
   <!-- GitHub Public Runner -->
   <rect x="750" y="345" width="315" height="50" rx="8" fill="#f3f4f6" stroke="#9ca3af"/>
-  <text x="908" y="368" font-family="Segoe UI, Arial" font-size="10" fill="#374151" text-anchor="middle">GitHub Public Runner (ubuntu-24.04) - Control Plane Only</text>
+  <text x="908" y="368" font-family="Segoe UI, Arial" font-size="10" fill="#374151" text-anchor="middle">GitHub Public Runner (ubuntu-24.04) + Chisel = full access</text>
   <text x="908" y="383" font-family="Segoe UI, Arial" font-size="9" fill="#6b7280" text-anchor="middle">Deploy infrastructure, manage resources</text>
 
   <!-- Arrows Step 3 -->
@@ -149,7 +149,7 @@
   <text x="390" y="533" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#5b21b6" text-anchor="middle">Step 1: Bastion + Jumpbox</text>
 
   <rect x="550" y="510" width="280" height="35" rx="6" fill="#f0fdf4"/>
-  <text x="690" y="533" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Step 2: Container Apps Runners</text>
+  <text x="690" y="533" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Step 2: Container Apps Runners (Previous)</text>
 
   <rect x="850" y="510" width="200" height="35" rx="6" fill="#f0f9ff"/>
   <text x="950" y="533" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#0369a1" text-anchor="middle">Step 3: Chisel + App Service</text>

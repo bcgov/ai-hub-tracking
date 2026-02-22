@@ -172,6 +172,14 @@
             color: var(--bc-blue);
         }
 
+        .nav-dropdown-menu a.active {
+            background: #fef9e7;
+            border-left-color: var(--bc-gold);
+            border-left-width: 4px;
+            color: var(--bc-blue);
+            font-weight: 600;
+        }
+
         .nav-dropdown-menu a small {
             display: block;
             color: var(--text-secondary);
@@ -703,44 +711,52 @@
         <nav class="bc-nav">
             <a href="index.html" class="">Home</a>
             <div class="nav-dropdown">
-                <span class="nav-trigger">Guides</span>
+                <span class="nav-trigger">For Tenants</span>
                 <div class="nav-dropdown-menu">
-                    <a href="oidc-setup.html">
-                        OIDC Setup
-                        <small>GitHub to Azure authentication</small>
+                    <a href="services.html" class="">
+                        AI Services
+                        <small>Available models &amp; services catalogue</small>
                     </a>
-                    <a href="terraform.html">
-                        Terraform Modules
-                        <small>Network, Bastion, Runners, Proxy</small>
-                    </a>
-                    <a href="language-service-pii.html">
+                    <a href="language-service-pii.html" class="">
                         Language Service PII
-                        <small>ML-based PII detection & APIM</small>
+                        <small>ML-based PII detection &amp; APIM</small>
                     </a>
-                    <a href="document-intelligence.html">
-                        Document Intelligence
-                        <small>SDK configuration & APIM integration</small>
+                    <a href="apim-internal-endpoints.html" class="">
+                        APIM Internal Endpoints
+                        <small>tenant-info &amp; apim-keys API reference</small>
                     </a>
-                    <a href="workflows.html">
-                        GitHub Workflows
-                        <small>CI/CD automation</small>
-                    </a>
-                    <a href="terraform-reference.html">
-                        TF Reference
-                        <small>Auto-generated from code</small>
-                    </a>
-                    <a href="apim-key-rotation.html">
+                    <a href="apim-key-rotation.html" class="">
                         APIM Key Rotation
                         <small>Subscription key auto-rotation</small>
                     </a>
-                    <a href="apim-internal-endpoints.html">
-                        APIM Internal Endpoints
-                        <small>tenant-info &amp; apim-keys API reference</small>
+                </div>
+            </div>
+            <div class="nav-dropdown">
+                <span class="nav-trigger">For AI Hub Admins</span>
+                <div class="nav-dropdown-menu">
+                    <a href="playbooks.html" class="">
+                        Playbooks
+                        <small>Operational runbooks &amp; how-to guides</small>
+                    </a>
+                    <a href="oidc-setup.html" class="">
+                        OIDC Setup
+                        <small>GitHub to Azure authentication</small>
+                    </a>
+                    <a href="workflows.html" class="">
+                        GitHub Workflows
+                        <small>CI/CD automation</small>
+                    </a>
+                    <a href="terraform-reference.html" class="">
+                        TF Reference
+                        <small>Auto-generated from code</small>
+                    </a>
+                    <a href="technical-deep-dive.html" class="">
+                        Technical Deep Dive
+                        <small>Control/data plane &amp; Chisel architecture</small>
                     </a>
                 </div>
             </div>
             <a href="diagrams.html" class="">Diagrams</a>
-            <a href="playbooks.html" class="">Playbooks</a>
             <a href="decisions.html" class="">ADRs</a>
             <a href="cost.html" class="">Cost</a>
             <a href="faq.html" class="">FAQ</a>
@@ -987,7 +1003,7 @@ Commands:
 </div>
 
 <div class="alert alert-info">
-    <strong>Cost Tip:</strong> Azure Bastion has hourly charges. Use the <code>bastion-add-or-remove.yml</code> workflow to deploy/destroy Bastion on demand.
+    <strong>Cost Tip:</strong> Azure Bastion has hourly charges. Use the <code>add-or-remove-module.yml</code> workflow to deploy/destroy Bastion on demand.
 </div>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
@@ -1203,7 +1219,7 @@ psql -h localhost -p 5432 -U admin -d mydb</pre>
             <td><code>github_runners_aca_enabled</code></td>
             <td style="color: #22c55e;">&#10003; Yes</td>
             <td style="color: #22c55e;">&#10003; Yes</td>
-            <td>CI/CD needing secrets/state</td>
+            <td>Tenant CI/CD pipelines needing VNet access</td>
         </tr>
         <tr>
             <td><strong>Bastion + Jumpbox</strong></td>
@@ -1345,6 +1361,16 @@ terraform {
                 <ul>
                     <li><a href="https://github.com/bcgov/ai-hub-tracking">GitHub Repository</a></li>
                     <li><a href="assets/azure-oidc-complete-guide.svg" target="_blank">Architecture Diagram</a></li>
+                </ul>
+            </div>
+            <div class="footer-links">
+                <h4>Documentation</h4>
+                <ul>
+                    <li><a href="services.html">AI Services</a></li>
+                    <li><a href="diagrams.html">Architecture Diagrams</a></li>
+                    <li><a href="playbooks.html">Playbooks</a></li>
+                    <li><a href="decisions.html">ADRs</a></li>
+                    <li><a href="faq.html">FAQ</a></li>
                 </ul>
             </div>
             <div class="footer-links">

@@ -135,20 +135,12 @@
   <g transform="translate(430, 370)">
     <rect x="0" y="0" width="340" height="60" rx="5" fill="white" stroke="#f59e0b" stroke-width="1"/>
     <text x="15" y="20" fill="#f59e0b" font-family="Arial, sans-serif" font-size="16">?</text>
-    <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">AKS Cluster</text>
-    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">For custom model hosting, containers</text>
-    <text x="40" y="50" fill="#92400e" font-family="Arial, sans-serif" font-size="9">Cost: 10-30+ IPs depending on node count</text>
-  </g>
-
-  <g transform="translate(430, 440)">
-    <rect x="0" y="0" width="340" height="60" rx="5" fill="white" stroke="#f59e0b" stroke-width="1"/>
-    <text x="15" y="20" fill="#f59e0b" font-family="Arial, sans-serif" font-size="16">?</text>
     <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Container Registry (Dedicated)</text>
     <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Default: shared. Dedicated if isolation needed</text>
     <text x="40" y="50" fill="#92400e" font-family="Arial, sans-serif" font-size="9">Cost: ~2 IPs per instance</text>
   </g>
 
-  <g transform="translate(430, 510)">
+  <g transform="translate(430, 440)">
     <rect x="0" y="0" width="340" height="60" rx="5" fill="white" stroke="#f59e0b" stroke-width="1"/>
     <text x="15" y="20" fill="#f59e0b" font-family="Arial, sans-serif" font-size="16">?</text>
     <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Additional IP Allocation</text>
@@ -156,7 +148,7 @@
     <text x="40" y="50" fill="#92400e" font-family="Arial, sans-serif" font-size="9">Requires: capacity planning justification</text>
   </g>
 
-  <g transform="translate(430, 580)">
+  <g transform="translate(430, 510)">
     <rect x="0" y="0" width="340" height="60" rx="5" fill="white" stroke="#f59e0b" stroke-width="1"/>
     <text x="15" y="20" fill="#f59e0b" font-family="Arial, sans-serif" font-size="16">?</text>
     <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">GPU Compute (AI Foundry)</text>
@@ -164,7 +156,7 @@
     <text x="40" y="50" fill="#92400e" font-family="Arial, sans-serif" font-size="9">Requires: quota request + cost approval</text>
   </g>
 
-  <g transform="translate(430, 655)">
+  <g transform="translate(430, 580)">
     <rect x="0" y="0" width="340" height="45" rx="5" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
     <text x="170" y="28" text-anchor="middle" fill="#92400e" font-family="Arial, sans-serif" font-size="11" font-weight="bold">Must justify IP cost + use AVM module</text>
   </g>
@@ -268,8 +260,7 @@
   <g transform="translate(740, 790)">
     <text x="0" y="15" fill="#003366" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Compute/API:</text>
     <text x="0" y="32" fill="#333" font-family="monospace" font-size="9">avm-res-apimanagement-service</text>
-    <text x="0" y="46" fill="#333" font-family="monospace" font-size="9">avm-res-containerservice-managedcluster</text>
-    <text x="0" y="60" fill="#333" font-family="monospace" font-size="9">avm-res-containerregistry-registry</text>
+    <text x="0" y="46" fill="#333" font-family="monospace" font-size="9">avm-res-containerregistry-registry</text>
   </g>
 
   <g transform="translate(970, 790)">
@@ -306,9 +297,9 @@
   <g transform="translate(590, 970)">
     <rect x="0" y="0" width="250" height="90" rx="5" fill="#fee" stroke="#ef4444" stroke-width="1"/>
     <text x="125" y="20" text-anchor="middle" fill="#ef4444" font-family="Arial, sans-serif" font-size="12" font-weight="bold">High IP Services (10+ IPs)</text>
-    <text x="10" y="40" fill="#333" font-family="Arial, sans-serif" font-size="10">- AKS (3 nodes): 10-15 IPs</text>
-    <text x="10" y="55" fill="#333" font-family="Arial, sans-serif" font-size="10">- AKS (10 nodes): 30-50 IPs</text>
-    <text x="10" y="70" fill="#333" font-family="Arial, sans-serif" font-size="10">- App Gateway: 10-15 IPs</text>
+    <text x="10" y="40" fill="#333" font-family="Arial, sans-serif" font-size="10">- App Gateway: 10-15 IPs</text>
+    <text x="10" y="55" fill="#333" font-family="Arial, sans-serif" font-size="10">- Container Apps Env: 10-20 IPs</text>
+    <text x="10" y="70" fill="#333" font-family="Arial, sans-serif" font-size="10">- GPU/Compute quota: varies</text>
     <text x="10" y="85" fill="#ef4444" font-family="Arial, sans-serif" font-size="10" font-weight="bold">Plan carefully!</text>
   </g>
 

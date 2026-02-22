@@ -1,12 +1,7 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Technical Deep Dive: Control vs Data Plane & Chisel Architecture</title>
-</head>
-<body>
-<h1>Technical Deep Dive: Control vs Data Plane & Chisel Architecture</h1>
+<!-- TITLE: Technical Deep Dive -->
+<!-- NAV: techdeep -->
+
+<h1>Technical Deep Dive: Control vs Data Plane &amp; Chisel Architecture</h1>
 
 <p>This document provides an in-depth technical explanation of why we need Key Vault access, when terraform operations fail, and how Chisel provides a solution.</p>
 
@@ -53,7 +48,12 @@
 </ul>
 
 <div class="alert alert-warning">
-    <strong>Critical Insight:</strong> When you enable private endpoints, you're blocking public access to data plane endpoints. This means tools that worked via OIDC before may suddenly fail.
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div>
+        <strong>Critical Insight:</strong> When you enable private endpoints, you are blocking public access to data plane endpoints. This means tools that worked via OIDC before may suddenly fail.
+    </div>
 </div>
 
 <h2 id="keyvault-operations">2. Key Vault Operations: What Requires Data Plane Access</h2>
@@ -111,9 +111,9 @@ needs to access: myvault.vault.azure.net ✗ BLOCKED
 
 <h2 id="terraform-keyvault">3. Terraform + Key Vault: When Operations Fail</h2>
 
-<p>Looking at our actual terraform code in <code>infra-ai-hub/main.tf</code>:</p>
+<p>The following examples illustrate how Terraform operations interact with Key Vault. The actual implementation is spread across <code>infra-ai-hub/stacks/</code> (the hub no longer uses a single monolithic <code>main.tf</code>).</p>
 
-<h3>Line 33: Creating Key Vault (Control Plane - Works)</h3>
+<h3>Creating Key Vault (Control Plane - Works)</h3>
 <pre><code>resource "azurerm_key_vault" "main" {
   name                = var.key_vault_name
   location            = var.location
@@ -125,7 +125,7 @@ needs to access: myvault.vault.azure.net ✗ BLOCKED
 // No private endpoint yet, so no blocking
 </code></pre>
 
-<h3>Line 68: Creating Private Endpoint (Control Plane - Works)</h3>
+<h3>Creating Private Endpoint (Control Plane - Works)</h3>
 <pre><code>resource "azurerm_private_endpoint" "key_vault_pe" {
   name                = "${var.app_name}-kv-pe"
   location            = var.location
@@ -145,7 +145,7 @@ needs to access: myvault.vault.azure.net ✗ BLOCKED
 // This BLOCKS public access to *.vault.azure.net
 </code></pre>
 
-<h3>Line 93-171: Waiting for DNS (Necessary Workaround)</h3>
+<h3>Waiting for DNS (DNS Propagation Workaround)</h3>
 <pre><code>resource "null_resource" "wait_for_key_vault_private_dns" {
   triggers = {
     private_endpoint_id = azurerm_private_endpoint.key_vault_pe.id
@@ -175,7 +175,7 @@ needs to access: myvault.vault.azure.net ✗ BLOCKED
 // ✓ WORKS: After DNS is ready, myvault.vault.azure.net resolves to private IP
 </code></pre>
 
-<h3>Line 185-201: Creating Secrets (Data Plane - FAILS without Chisel)</h3>
+<h3>Creating Secrets (Data Plane - FAILS without Chisel)</h3>
 <pre><code>resource "azurerm_key_vault_secret" "secret_one" {
   name            = "example-secret-test-one"
   value           = random_password.secret_one.result
@@ -272,7 +272,7 @@ resource "azurerm_key_vault_secret" "secret_two" {
 
   app_settings = {
     // ✓ KEY: Chisel authentication
-    CHISEL_AUTH = "${random_password.proxy_chisel_username.result}:${random_password.proxy_chisel_password.result}"
+    CHISEL_AUTH = "${random_uuid.proxy_chisel_username.result}:${random_password.proxy_chisel_password.result}"
   }
 }
 
@@ -421,7 +421,7 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
 <ul>
     <li><strong>Option 1:</strong> Chisel tunnel ($15/mo) - for most developers</li>
     <li><strong>Option 2:</strong> Bastion + Jumpbox ($200-300/mo) - for admins who need full VM</li>
-    <li><strong>Option 3:</strong> Public GitHub runners + Self-hosted for CI/CD</li>
+    <li><strong>Option 3:</strong> GitHub-hosted runners + Chisel tunnel — for CI/CD (use <code>.deployer-using-secure-tunnel</code>)</li>
 </ul>
 
 <h3>Scenario 2: Project Teams (Deploy Applications)</h3>
@@ -509,8 +509,6 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
     <li><strong>Platform Team:</strong> Deploy all, use Chisel or Bastion for access</li>
     <li><strong>Project Teams:</strong> Deploy apps only, use platform's Chisel</li>
     <li><strong>Solo Dev:</strong> Deploy minimal, use Chisel only</li>
-    <li><strong>CI/CD with secrets:</strong> Use self-hosted runners in VNet</li>
+    <li><strong>CI/CD with secrets:</strong> Use GitHub-hosted runners + Chisel tunnel (<code>.deployer-using-secure-tunnel</code> workflow)</li>
     <li><strong>Admin work:</strong> Use Bastion + Jumpbox</li>
 </ul>
-</body>
-</html>
