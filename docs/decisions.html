@@ -28,6 +28,11 @@
             box-sizing: border-box;
         }
 
+        /* Offset anchor scroll so the sticky header never covers the target */
+        html {
+            scroll-padding-top: 80px;
+        }
+
         body {
             font-family: 'BC Sans', 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
@@ -697,7 +702,282 @@
                 text-align: center;
             }
         }
+
+        /* =====================================================================
+           SEARCH – button, modal, results, breadcrumb, highlight
+           ===================================================================== */
+
+        /* Search button in header nav */
+        .search-btn {
+            color: var(--white);
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            padding: 0.45rem 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+
+        .search-btn:hover {
+            background: rgba(255,255,255,0.28);
+        }
+
+        .search-btn svg { flex-shrink: 0; }
+
+        .search-btn-kbd {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 0.72rem;
+            line-height: 1.5;
+            letter-spacing: 0.02em;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        /* Modal overlay */
+        .search-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0, 20, 50, 0.65);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            align-items: flex-start;
+            justify-content: center;
+            padding: 6vh 1rem 1rem;
+        }
+
+        .search-modal--active {
+            display: flex;
+        }
+
+        /* Modal box */
+        .search-box {
+            background: var(--white);
+            border-radius: 14px;
+            box-shadow: 0 24px 72px rgba(0,0,0,0.35);
+            width: 100%;
+            max-width: 680px;
+            max-height: 82vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: search-appear 0.18s ease;
+        }
+
+        @keyframes search-appear {
+            from { opacity: 0; transform: translateY(-14px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)  scale(1); }
+        }
+
+        /* Input row */
+        .search-input-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #e5e9f0;
+            flex-shrink: 0;
+        }
+
+        .search-input-row svg { color: var(--text-secondary); flex-shrink: 0; }
+
+        #search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 1.05rem;
+            color: var(--text-primary);
+            background: transparent;
+            font-family: inherit;
+            min-width: 0;
+        }
+
+        #search-input::placeholder { color: #a0aec0; }
+
+        .search-modal-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 1.4rem;
+            line-height: 1;
+            padding: 0.2rem 0.45rem;
+            border-radius: 6px;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .search-modal-close:hover {
+            background: var(--bg-light);
+            color: var(--text-primary);
+        }
+
+        /* Results list */
+        .search-results {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .search-count {
+            padding: 0.5rem 1.1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid #f0f3f8;
+            background: #fafbfd;
+        }
+
+        .search-result-item {
+            display: block;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #f0f3f8;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.12s;
+            outline: none;
+        }
+
+        .search-result-item:hover,
+        .search-result-item:focus {
+            background: #f4f7fc;
+        }
+
+        .search-result-meta {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #996600;
+            margin-bottom: 0.2rem;
+        }
+
+        .search-result-title {
+            font-weight: 600;
+            color: var(--bc-blue);
+            margin-bottom: 0.3rem;
+            font-size: 0.97rem;
+        }
+
+        .search-result-excerpt {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.55;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .search-result-item mark {
+            background: rgba(252, 186, 25, 0.45);
+            color: inherit;
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+
+        .search-no-results {
+            padding: 2.5rem 1rem;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .search-no-results svg {
+            display: block;
+            margin: 0 auto 0.75rem;
+            opacity: 0.4;
+        }
+
+        .search-no-results p { margin: 0; font-size: 0.95rem; }
+
+        .search-loading {
+            padding: 1.5rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Modal footer hints */
+        .search-hints {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.55rem 1.1rem;
+            border-top: 1px solid #e5e9f0;
+            background: #fafbfd;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .search-hints kbd {
+            display: inline-block;
+            background: var(--white);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: inherit;
+            font-size: 0.72rem;
+            line-height: 1.6;
+        }
+
+        /* ── Breadcrumb bar ───────────────────────────────────────────────── */
+        #search-breadcrumb {
+            display: none;
+            background: var(--white);
+            border: 1px solid #dde3ed;
+            border-radius: 8px;
+            padding: 0.65rem 1.1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .breadcrumb-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumb-nav a {
+            color: var(--bc-blue-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb-nav a:hover {
+            text-decoration: underline;
+            color: var(--bc-blue);
+        }
+
+        .breadcrumb-current {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .breadcrumb-sep { color: #94a3b8; }
+
+        /* ── Section highlight flash ──────────────────────────────────────── */
+        @keyframes section-flash {
+            0%   { background-color: rgba(252, 186, 25, 0.45); box-shadow: 0 0 0 4px rgba(252,186,25,0.25); }
+            60%  { background-color: rgba(252, 186, 25, 0.15); }
+            100% { background-color: transparent; box-shadow: none; }
+        }
+
+        .search-highlight {
+            animation: section-flash 2.2s ease-out forwards;
+            border-radius: 4px;
+        }
+
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.7.31/dist/flexsearch.bundle.js" defer></script>
+    <script src="assets/search.js" defer id="search-script"></script>
 </head>
 <body>
     <header class="bc-header">
@@ -760,9 +1040,44 @@
             <a href="decisions.html" class="active">ADRs</a>
             <a href="cost.html" class="">Cost</a>
             <a href="faq.html" class="">FAQ</a>
+
+            <!-- Search button -->
+            <button class="search-btn" id="search-btn" type="button" aria-label="Search documentation">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Search
+                <span class="search-btn-kbd" aria-label="keyboard shortcut">⌘K</span>
+            </button>
         </nav>
     </header>
+
+    <!-- ── Search modal ──────────────────────────────────────────────────── -->
+    <div class="search-modal" id="search-modal" role="dialog" aria-modal="true" aria-label="Search documentation">
+        <div class="search-box">
+            <div class="search-input-row">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                    type="search"
+                    id="search-input"
+                    placeholder="Search documentation…"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="Search query"
+                />
+                <button class="search-modal-close" id="search-modal-close" type="button" aria-label="Close search">✕</button>
+            </div>
+            <div class="search-results" id="search-results" role="listbox" aria-label="Search results"></div>
+            <div class="search-hints" aria-hidden="true">
+                <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+                <span><kbd>↵</kbd> open</span>
+                <span><kbd>Esc</kbd> close</span>
+                <span style="margin-left:auto"><kbd>⌘K</kbd> or <kbd>Ctrl+K</kbd></span>
+            </div>
+        </div>
+    </div>
+
     <main>
+        <!-- Breadcrumb: injected by search.js when arriving from a search result -->
+        <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
 
 <style>
 /* Collapsible ADR Styling */
@@ -856,7 +1171,7 @@ details.adr.pending[open] summary {
 </style>
 <button class="go-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">&#8679; Top</button>
 
-<h1>Architecture Decision Records</h1>
+<h1 id="architecture-decision-records">Architecture Decision Records</h1>
 
 <p>This page documents key architectural decisions for the AI Services Hub infrastructure. Each ADR explains the context, decision, and consequences to help future maintainers understand why things are built the way they are.</p>
 
@@ -877,7 +1192,7 @@ details.adr.pending[open] summary {
 </div>
 
 <div class="card" style="border-left-color: #003366; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);">
-    <h3 style="margin-top: 0; color: var(--bc-blue);">Start Here: ADR-001</h3>
+    <h3 id="start-here-adr-001" style="margin-top: 0; color: var(--bc-blue);">Start Here: ADR-001</h3>
     <p style="margin-bottom: 0;"><strong>ADR-001 (Shared Landing Zone)</strong> is the foundation that explains <em>why</em> all the other infrastructure exists. Read it first to understand the architecture.</p>
 </div>
 
@@ -1015,7 +1330,7 @@ details.adr.pending[open] summary {
     </div>
 </div>
 
-<h3>Context</h3>
+<h3 id="context">Context</h3>
 
 <div class="alert alert-warning">
     <div class="alert-icon">
@@ -1026,7 +1341,7 @@ details.adr.pending[open] summary {
     </div>
 </div>
 
-<h3>The Problem: Why Can't GitHub Just Run Terraform Directly?</h3>
+<h3 id="the-problem-why-cant-github-just-run-terraform-directly">The Problem: Why Can't GitHub Just Run Terraform Directly?</h3>
 
 <div class="card" style="border-left-color: #ef4444;">
     <h4 style="margin-top: 0;">The Network Barrier</h4>
@@ -1041,7 +1356,7 @@ details.adr.pending[open] summary {
     <p style="margin-bottom:0;"><strong>Result:</strong> Terraform can run from the public internet but limited to Storage account and control plane access of Azure resources.</p>
 </div>
 
-<h3>The Solution: Landing Zone Architecture</h3>
+<h3 id="the-solution-landing-zone-architecture">The Solution: Landing Zone Architecture</h3>
 
 <p>We need infrastructure <strong>inside the private network</strong> that can:</p>
 <ul>
@@ -1071,7 +1386,7 @@ details.adr.pending[open] summary {
     </div>
 </div>
 
-<h3>How Terraform Actually Runs</h3>
+<h3 id="how-terraform-actually-runs">How Terraform Actually Runs</h3>
 
 <div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
 <pre style="background: var(--bc-blue-dark); margin: 0; padding: 1rem; overflow-x: auto;">
@@ -1132,7 +1447,7 @@ details.adr.pending[open] summary {
     </div>
 </div>
 
-<h3>What About Other Repositories?</h3>
+<h3 id="what-about-other-repositories">What About Other Repositories?</h3>
 
 <div class="alert alert-success">
     <span class="alert-icon">✅</span>
@@ -1287,7 +1602,7 @@ details.adr.pending[open] summary {
     </pre>
 </div>
 
-<h3>Why Not Just Open Public Endpoints Temporarily?</h3>
+<h3 id="why-not-just-open-public-endpoints-temporarily">Why Not Just Open Public Endpoints Temporarily?</h3>
 
 <div class="card" style="border-left-color: #ef4444;">
     <p><strong>Policy prohibits this.</strong> Even temporary public access:</p>
@@ -1300,7 +1615,7 @@ details.adr.pending[open] summary {
     <p style="margin-bottom:0;">The Landing Zone approach is <strong>always private</strong> - no exemptions needed.</p>
 </div>
 
-<h3>Consequences</h3>
+<h3 id="consequences">Consequences</h3>
 
 <h4>Positive</h4>
 <ul>
@@ -1317,7 +1632,7 @@ details.adr.pending[open] summary {
     <li><strong>VNet planning</strong> - Must allocate IP ranges carefully</li>
 </ul>
 
-<h3>References</h3>
+<h3 id="references">References</h3>
 <ul>
     <li><a href="https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/">Azure Landing Zone Concepts</a></li>
     <li><a href="https://github.com/jpillora/chisel">Chisel - Fast TCP/UDP tunnel over HTTP</a></li>
@@ -1342,7 +1657,7 @@ details.adr.pending[open] summary {
     <div><strong>Category:</strong> Security</div>
 </div>
 
-<h3>Context</h3>
+<h3 id="context-1">Context</h3>
 
 <div class="alert alert-warning">
     <span class="alert-icon">🏛️</span>
@@ -1386,13 +1701,13 @@ details.adr.pending[open] summary {
     </div>
 </div>
 
-<h3>Decision</h3>
+<h3 id="decision">Decision</h3>
 
 <p><strong>We chose Option C: OIDC Federated Credentials.</strong></p>
 
 <p>While the platform team's rotating key solution (Option B) is policy compliant, it requires maintaining a cron job to continuously fetch and update credentials. OIDC eliminates this operational burden - the bearer token is obtained directly within the GitHub Actions workflow at runtime, with no external synchronization required.</p>
 
-<h3>Rationale</h3>
+<h3 id="rationale">Rationale</h3>
 
 <table>
     <tr>
@@ -1445,7 +1760,7 @@ details.adr.pending[open] summary {
     </tr>
 </table>
 
-<h3>Consequences</h3>
+<h3 id="consequences-1">Consequences</h3>
 
 <h4>Positive</h4>
 <ul>
@@ -1469,7 +1784,7 @@ details.adr.pending[open] summary {
     <li>Debugging auth failures requires knowledge of OIDC flow</li>
 </ul>
 
-<h3>References</h3>
+<h3 id="references-1">References</h3>
 <ul>
     <li><a href="https://docs.github.com/en/actions/deployment/security-hardening-your-deployments/about-security-hardening-with-openid-connect">GitHub OIDC Documentation</a></li>
     <li><a href="https://learn.microsoft.com/en-us/azure/active-directory/workload-identities/workload-identity-federation">Azure Workload Identity Federation</a></li>
@@ -1493,7 +1808,7 @@ details.adr.pending[open] summary {
     <div><strong>Category:</strong> Networking</div>
 </div>
 
-<h3>Context</h3>
+<h3 id="context-2">Context</h3>
 
 <div class="alert alert-warning">
     <span class="alert-icon">🏛️</span>
@@ -1561,11 +1876,11 @@ details.adr.pending[open] summary {
     </div>
 </div>
 
-<h3>Decision</h3>
+<h3 id="decision-1">Decision</h3>
 
 <p><strong>We chose Option C: Azure Bastion.</strong></p>
 
-<h3>Rationale</h3>
+<h3 id="rationale-1">Rationale</h3>
 
 <table>
     <tr>
@@ -1606,7 +1921,7 @@ details.adr.pending[open] summary {
     </tr>
 </table>
 
-<h3>Consequences</h3>
+<h3 id="consequences-2">Consequences</h3>
 
 <h4>Positive</h4>
 <ul>
@@ -1624,7 +1939,7 @@ details.adr.pending[open] summary {
     <li><strong>Latency</strong> - Browser-based adds some lag</li>
 </ul>
 
-<h3>References</h3>
+<h3 id="references-2">References</h3>
 <ul>
     <li><a href="https://learn.microsoft.com/en-us/azure/bastion/bastion-overview">Azure Bastion Documentation</a></li>
     <li><a href="https://learn.microsoft.com/en-us/azure/bastion/bastion-connect-vm-ssh-linux">Connect to Linux VM via Bastion</a></li>
@@ -1648,7 +1963,7 @@ details.adr.pending[open] summary {
     <div><strong>Category:</strong> Networking</div>
 </div>
 
-<h3>Context</h3>
+<h3 id="context-3">Context</h3>
 
 <div class="alert alert-warning">
     <span class="alert-icon">🏛️</span>
@@ -1659,7 +1974,7 @@ details.adr.pending[open] summary {
 
 <p>Azure PaaS services (Storage Accounts, Key Vaults, Databases, etc.) by default have public endpoints accessible from the internet. BC Gov policy requires these to be locked down.</p>
 
-<h3>Policy Requirements</h3>
+<h3 id="policy-requirements">Policy Requirements</h3>
 
 <div class="card" style="border-left-color: #ef4444;">
     <h4 style="margin-top: 0;">What Policy Prohibits</h4>
@@ -1682,7 +1997,7 @@ details.adr.pending[open] summary {
     </ul>
 </div>
 
-<h3>Implementation</h3>
+<h3 id="implementation">Implementation</h3>
 
 <div class="alert alert-info" style="margin-bottom: 1rem;">
     <span class="alert-icon">&#128274;</span>
@@ -1709,7 +2024,7 @@ details.adr.pending[open] summary {
     </tr>
 </table>
 
-<h3>Client Connectivity Model</h3>
+<h3 id="client-connectivity-model">Client Connectivity Model</h3>
 
 <div class="card" style="border-left-color: var(--bc-gold);">
     <h4 style="margin-top: 0;">ExpressRoute + App Gateway + APIM</h4>
@@ -1722,7 +2037,7 @@ details.adr.pending[open] summary {
     <p style="margin-bottom: 0;"><strong>Client flow:</strong> Client → App Gateway → APIM → Private Endpoint → Azure Service</p>
 </div>
 
-<h3>Consequences</h3>
+<h3 id="consequences-3">Consequences</h3>
 
 <h4>Challenges</h4>
 <ul>
@@ -1739,7 +2054,7 @@ details.adr.pending[open] summary {
     <li><strong>CI/CD:</strong> Use the Chisel SOCKS tunnel for full private-endpoint access during Terraform runs (see <a href="#adr-001">ADR-001</a>)</li>
 </ul>
 
-<h3>References</h3>
+<h3 id="references-3">References</h3>
 <ul>
     <li><a href="https://learn.microsoft.com/en-us/azure/private-link/private-endpoint-overview">Azure Private Endpoint Documentation</a></li>
     <li><a href="diagrams.html#network-arch">Network Architecture Diagram</a></li>
@@ -1762,7 +2077,7 @@ details.adr.pending[open] summary {
     <div><strong>Category:</strong> Documentation</div>
 </div>
 
-<h3>Context</h3>
+<h3 id="context-4">Context</h3>
 
 <p>We needed a documentation site for the project. Options considered:</p>
 
@@ -1787,11 +2102,11 @@ details.adr.pending[open] summary {
     </div>
 </div>
 
-<h3>Decision</h3>
+<h3 id="decision-2">Decision</h3>
 
 <p><strong>We built a custom Bash-based static site generator.</strong></p>
 
-<h3>Rationale</h3>
+<h3 id="rationale-2">Rationale</h3>
 
 <ul>
     <li><strong>Portability:</strong> Runs anywhere with Bash (Linux, Mac, WSL, CI)</li>
@@ -1802,7 +2117,7 @@ details.adr.pending[open] summary {
     <li><strong>AI-friendly:</strong> HTML generation is trivial for AI assistants</li>
 </ul>
 
-<h3>Consequences</h3>
+<h3 id="consequences-4">Consequences</h3>
 
 <h4>Positive</h4>
 <ul>
@@ -1843,7 +2158,7 @@ details.adr.pending[open] summary {
     <div><strong>Category:</strong> Infrastructure</div>
 </div>
 
-<h3>Context</h3>
+<h3 id="context-5">Context</h3>
 
 <p>This repo needs a repeatable, auditable way to provision and update Azure infrastructure (networking, private endpoints, RBAC, diagnostics, and PaaS services) under BC Government policy constraints.</p>
 
@@ -1855,7 +2170,7 @@ details.adr.pending[open] summary {
     <li>Automation via GitHub Actions using OIDC and Chisel SOCKS tunnel</li>
 </ul>
 
-<h3>Options Considered</h3>
+<h3 id="options-considered">Options Considered</h3>
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #22c55e;">
@@ -1876,11 +2191,11 @@ details.adr.pending[open] summary {
     </div>
 </div>
 
-<h3>Decision</h3>
+<h3 id="decision-3">Decision</h3>
 
 <p><strong>We use Terraform as the primary Infrastructure as Code (IaC) tool for this repo.</strong></p>
 
-<h3>Rationale</h3>
+<h3 id="rationale-3">Rationale</h3>
 
 <ul>
     <li><strong>Fits Landing Zone operations:</strong> Terraform runs cleanly on GitHub-hosted runners via the Chisel SOCKS tunnel, providing data-plane access to private endpoints when required.</li>
@@ -1890,7 +2205,7 @@ details.adr.pending[open] summary {
     <li><strong>Sustainability:</strong> Terraform's widespread adoption ensures long-term community and vendor support. Team members working across AWS, Azure, and OpenShift can use one IaC tool consistently across the stack</li>
 </ul>
 
-<h3>Consequences</h3>
+<h3 id="consequences-5">Consequences</h3>
 
 <h4>Positive</h4>
 <ul>
@@ -1913,7 +2228,7 @@ details.adr.pending[open] summary {
     <li>Prefer AVM modules over custom resources where feasible</li>
 </ul>
 
-<h3>References</h3>
+<h3 id="references-4">References</h3>
 <ul>
     <li><a href="terraform-reference.html">Terraform Reference</a> - Complete module, variable, and output docs</li>
     <li><a href="https://developer.hashicorp.com/terraform">Terraform Documentation</a></li>
@@ -1939,7 +2254,7 @@ details.adr.pending[open] summary {
     <div><strong>Category:</strong> Networking</div>
 </div>
 
-<h3>Context</h3>
+<h3 id="context-6">Context</h3>
 
 <div class="alert alert-warning">
     <span class="alert-icon">🏛️</span>
@@ -1950,7 +2265,7 @@ details.adr.pending[open] summary {
 
 <p>BC Government Platform Services has established ExpressRoute connectivity between on-premises networks and Azure. For this AI Hub Landing Zone, the question arose: should ministry applications connect directly to AI services via ExpressRoute, or through a managed ingress layer?</p>
 
-<h3>Options Considered</h3>
+<h3 id="options-considered-1">Options Considered</h3>
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #f59e0b;">
@@ -1977,7 +2292,7 @@ details.adr.pending[open] summary {
     </div>
 </div>
 
-<h3>Decision</h3>
+<h3 id="decision-4">Decision</h3>
 
 <p><strong>For a clear multi-tenant platform, we recommend all clients connect through App Gateway → APIM → Private Endpoints.</strong></p>
 
@@ -1990,7 +2305,7 @@ details.adr.pending[open] summary {
     </div>
 </div>
 
-<h3>Traffic Flow</h3>
+<h3 id="traffic-flow">Traffic Flow</h3>
 
 <div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
 <pre style="background: var(--bc-blue-dark); margin: 0;">
@@ -2031,7 +2346,7 @@ details.adr.pending[open] summary {
 </pre>
 </div>
 
-<h3>Security Controls at Each Layer</h3>
+<h3 id="security-controls-at-each-layer">Security Controls at Each Layer</h3>
 
 <table>
     <tr>
@@ -2081,7 +2396,7 @@ details.adr.pending[open] summary {
     </tr>
 </table>
 
-<h3>Consequences</h3>
+<h3 id="consequences-6">Consequences</h3>
 
 <h4>Positive</h4>
 <ul>
@@ -2106,7 +2421,7 @@ details.adr.pending[open] summary {
     <li>Infrastructure-as-code manages complexity</li>
 </ul>
 
-<h3>References</h3>
+<h3 id="references-5">References</h3>
 <ul>
     <li><a href="diagrams.html#data-flow">AI Request Data Flow Diagram</a></li>
     <li><a href="diagrams.html#full-stack">Full Stack Architecture Diagram</a></li>
@@ -2131,7 +2446,7 @@ details.adr.pending[open] summary {
     <div><strong>Category:</strong> Operations</div>
 </div>
 
-<h3>Context</h3>
+<h3 id="context-7">Context</h3>
 
 <div class="alert alert-warning">
     <span class="alert-icon">🏛️</span>
@@ -2149,7 +2464,7 @@ details.adr.pending[open] summary {
 
 <p>All of these require public endpoint access to the Azure services being managed.</p>
 
-<h3>The Problem: UI Requires Public Endpoints</h3>
+<h3 id="the-problem-ui-requires-public-endpoints">The Problem: UI Requires Public Endpoints</h3>
 
 <div class="card" style="background: linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%); border-left-color: #ef4444;">
 <pre style="background: #1e1e1e; margin: 0; font-size: 12px;">
@@ -2174,7 +2489,7 @@ User Browser (Public Internet)
 </pre>
 </div>
 
-<h3>Decision</h3>
+<h3 id="decision-5">Decision</h3>
 
 <p><strong>No browser-based UI access is supported for tenant management.</strong></p>
 
@@ -2185,7 +2500,7 @@ User Browser (Public Internet)
     <li><strong>REST APIs</strong> - Via APIM with subscription keys</li>
 </ul>
 
-<h3>What This Means for Tenants</h3>
+<h3 id="what-this-means-for-tenants">What This Means for Tenants</h3>
 
 <div class="alert alert-info" style="margin-bottom: 1rem;">
     <span class="alert-icon">👁️</span>
@@ -2237,7 +2552,7 @@ Pipeline (VNet)  → Storage Account (Private EP)   = ✅ Works
     <p style="margin-bottom: 0;">The UI shows the resource exists, but can't actually interact with it.</p>
 </div>
 
-<h3>Why Not Provide Bastion Access to Everyone?</h3>
+<h3 id="why-not-provide-bastion-access-to-everyone">Why Not Provide Bastion Access to Everyone?</h3>
 
 <div class="card" style="border-left-color: #f59e0b;">
     <h4 style="margin-top: 0;">This was considered and rejected:</h4>
@@ -2262,7 +2577,7 @@ Pipeline (VNet)  → Storage Account (Private EP)   = ✅ Works
     <p style="margin-bottom: 0;"><strong>Result:</strong> Bastion/Jumpbox is for platform team administration only. Tenants interact via API.</p>
 </div>
 
-<h3>AVM Module Requirement</h3>
+<h3 id="avm-module-requirement">AVM Module Requirement</h3>
 
 <p>Because all management must be IaC-based, <strong>only services with Azure Verified Modules (AVM) are supported</strong>.</p>
 
@@ -2297,7 +2612,7 @@ Pipeline (VNet)  → Storage Account (Private EP)   = ✅ Works
     <p style="margin-bottom: 0; margin-top: 0.5rem;"><strong>Full catalog:</strong> <a href="https://azure.github.io/Azure-Verified-Modules/indexes/terraform/">azure.github.io/Azure-Verified-Modules</a></p>
 </div>
 
-<h3>Path Forward: Secure UI Access</h3>
+<h3 id="path-forward-secure-ui-access">Path Forward: Secure UI Access</h3>
 
 <div class="alert alert-warning">
     <span class="alert-icon">⚠️</span>
@@ -2306,7 +2621,7 @@ Pipeline (VNet)  → Storage Account (Private EP)   = ✅ Works
     </div>
 </div>
 
-<h3>Consequences</h3>
+<h3 id="consequences-7">Consequences</h3>
 
 <h4>Positive</h4>
 <ul>
@@ -2324,7 +2639,7 @@ Pipeline (VNet)  → Storage Account (Private EP)   = ✅ Works
     <li><strong>Microsoft disconnect</strong> - Their guidance assumes UI access</li>
 </ul>
 
-<h3>References</h3>
+<h3 id="references-6">References</h3>
 <ul>
     <li><a href="diagrams.html#ms-vs-bcgov">Microsoft vs BC Gov Comparison Diagram</a></li>
     <li><a href="diagrams.html#whats-included">What's Included / Not Included Infographic</a></li>
@@ -2348,13 +2663,13 @@ Pipeline (VNet)  → Storage Account (Private EP)   = ✅ Works
     <div><strong>Category:</strong> Architecture</div>
 </div>
 
-<h3>Context</h3>
+<h3 id="context-8">Context</h3>
 
 <p>A valid question arises: <strong>If we're customizing everything for BC Gov requirements anyway, why use Microsoft's AI Landing Zone at all? Why not just build our own custom solution from scratch?</strong></p>
 
 <p>This ADR explains what value the AI Landing Zone and Azure Verified Modules (AVM) actually provide, even when we can't use Microsoft's default assumptions.</p>
 
-<h3>What AI Landing Zone Actually Provides</h3>
+<h3 id="what-ai-landing-zone-actually-provides">What AI Landing Zone Actually Provides</h3>
 
 <div class="alert alert-info">
     <span class="alert-icon">💡</span>
@@ -2363,7 +2678,7 @@ Pipeline (VNet)  → Storage Account (Private EP)   = ✅ Works
     </div>
 </div>
 
-<h3>The Real Value: AVM Modules</h3>
+<h3 id="the-real-value-avm-modules">The Real Value: AVM Modules</h3>
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #ef4444;">
@@ -2396,7 +2711,7 @@ Pipeline (VNet)  → Storage Account (Private EP)   = ✅ Works
     </div>
 </div>
 
-<h3>What We Get From AI Landing Zone Reference</h3>
+<h3 id="what-we-get-from-ai-landing-zone-reference">What We Get From AI Landing Zone Reference</h3>
 
 <table>
     <tr>
@@ -2431,7 +2746,7 @@ Pipeline (VNet)  → Storage Account (Private EP)   = ✅ Works
     </tr>
 </table>
 
-<h3>AVM Module Maturity - Honest Assessment</h3>
+<h3 id="avm-module-maturity-honest-assessment">AVM Module Maturity - Honest Assessment</h3>
 
 <div class="alert alert-warning">
     <span class="alert-icon">⚠️</span>
@@ -2560,7 +2875,7 @@ Pipeline (VNet)  → Storage Account (Private EP)   = ✅ Works
     </div>
 </div>
 
-<h3>Concrete Example: Storage Account</h3>
+<h3 id="concrete-example-storage-account">Concrete Example: Storage Account</h3>
 
 <div class="card" style="border-left-color: var(--bc-blue);">
     <h4 style="margin-top: 0;">Without AVM (Custom from scratch)</h4>
@@ -2603,7 +2918,7 @@ module "storage" {
     <p style="margin-bottom: 0;"><strong>Result:</strong> Same outcome, 10x less code, maintained by Microsoft.</p>
 </div>
 
-<h3>Why Not 100% Custom?</h3>
+<h3 id="why-not-100-custom">Why Not 100% Custom?</h3>
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #f59e0b;">
@@ -2630,7 +2945,7 @@ module "storage" {
     </div>
 </div>
 
-<h3>What We're Actually Doing</h3>
+<h3 id="what-were-actually-doing">What We're Actually Doing</h3>
 
 <div class="card" style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left-color: #22c55e;">
     <h4 style="margin-top: 0; color: #166534;">Our Approach: AVM + BC Gov Customization Layer</h4>
@@ -2669,7 +2984,7 @@ module "storage" {
     <p style="margin-bottom: 0;"><strong>We write the thin customization layer. Microsoft maintains the heavy lifting.</strong></p>
 </div>
 
-<h3>Decision</h3>
+<h3 id="decision-6">Decision</h3>
 
 <p><strong>We use AI Landing Zone reference architecture and AVM modules as our foundation, with a BC Gov customization layer on top.</strong></p>
 
@@ -2680,7 +2995,7 @@ module "storage" {
     <li><strong>Best practices</strong> - Security, networking, RBAC patterns</li>
 </ul>
 
-<h3>Consequences</h3>
+<h3 id="consequences-8">Consequences</h3>
 
 <h4>Positive</h4>
 <ul>
@@ -2698,7 +3013,7 @@ module "storage" {
     <li><strong>Abstraction leakage</strong> - Sometimes need to understand module internals</li>
 </ul>
 
-<h3>References</h3>
+<h3 id="references-7">References</h3>
 <ul>
     <li><a href="https://azure.github.io/Azure-Verified-Modules/">Azure Verified Modules (AVM)</a></li>
     <li><a href="https://github.com/Azure/terraform-azurerm-avm-ptn-aiml-landing-zone">AI/ML Landing Zone Pattern Module</a></li>
@@ -2722,7 +3037,7 @@ module "storage" {
     <div><strong>Category:</strong> Architecture</div>
 </div>
 
-<h3>Context</h3>
+<h3 id="context-9">Context</h3>
 
 <div class="alert alert-warning">
     <span class="alert-icon">🏛️</span>
@@ -2733,7 +3048,7 @@ module "storage" {
 
 <p>The AI Hub Landing Zone is designed to serve multiple BC Government ministries from a single shared infrastructure deployment. This creates a multi-tenancy challenge: how do we provide cost-efficient shared services while ensuring strict data isolation between ministries?</p>
 
-<h3>The Problem: Shared Infrastructure, Isolated Data</h3>
+<h3 id="the-problem-shared-infrastructure-isolated-data">The Problem: Shared Infrastructure, Isolated Data</h3>
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #ef4444;">
@@ -2756,7 +3071,7 @@ module "storage" {
     </div>
 </div>
 
-<h3>Decision</h3>
+<h3 id="decision-7">Decision</h3>
 
 <p><strong>We implement a four-layer isolation model:</strong></p>
 
@@ -2803,7 +3118,7 @@ module "storage" {
     </div>
 </div>
 
-<h3>Implementation Architecture</h3>
+<h3 id="implementation-architecture">Implementation Architecture</h3>
 
 <div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
 <pre style="background: var(--bc-blue-dark); margin: 0;">
@@ -2837,7 +3152,7 @@ module "storage" {
 </pre>
 </div>
 
-<h3>Consequences</h3>
+<h3 id="consequences-9">Consequences</h3>
 
 <h4>Positive</h4>
 <ul>
@@ -2855,7 +3170,7 @@ module "storage" {
     <li><strong>Cost per ministry</strong> - Base cost increases with each ministry onboarded</li>
 </ul>
 
-<h3>Cost Tracking</h3>
+<h3 id="cost-tracking">Cost Tracking</h3>
 
 <p>Multi-tenant isolation also enables per-tenant cost tracking and chargeback. See the detailed cost allocation strategy:</p>
 
@@ -2866,7 +3181,7 @@ module "storage" {
     <p style="color: var(--text-secondary); font-size: 0.875rem; margin-top: 0.5rem;">Click diagram to view full Cost Tracking documentation</p>
 </div>
 
-<h3>References</h3>
+<h3 id="references-8">References</h3>
 <ul>
     <li><a href="cost.html">Cost Tracking Documentation</a> - Full cost allocation strategy</li>
     <li><a href="diagrams.html#multi-tenant">Multi-Tenant Isolation Diagram</a></li>
@@ -2900,7 +3215,7 @@ module "storage" {
     </div>
 </div>
 
-<h3>Context</h3>
+<h3 id="context-10">Context</h3>
 
 <p>Azure services have <strong>two distinct access paths</strong> that are often confused:</p>
 
@@ -2935,7 +3250,7 @@ module "storage" {
     </div>
 </div>
 
-<h3>The Problem: Private Endpoints Block Data Plane</h3>
+<h3 id="the-problem-private-endpoints-block-data-plane">The Problem: Private Endpoints Block Data Plane</h3>
 
 <div class="alert alert-warning">
     <span class="alert-icon">🔒</span>
@@ -2975,7 +3290,7 @@ module "storage" {
 </pre>
 </div>
 
-<h3>Why Azure Portal Shows Resources But Not Data</h3>
+<h3 id="why-azure-portal-shows-resources-but-not-data">Why Azure Portal Shows Resources But Not Data</h3>
 
 <p>The <strong>Azure Portal is a Control Plane UI</strong>. When you browse to a Key Vault in the portal:</p>
 
@@ -2987,7 +3302,7 @@ module "storage" {
 
 <p>This is why <a href="#adr-008">ADR-008</a> states "No Azure Portal or Foundry Studio UI Access" for data operations - the portal physically cannot reach private data plane endpoints from your browser.</p>
 
-<h3>Why OIDC Is Used for Control Plane</h3>
+<h3 id="why-oidc-is-used-for-control-plane">Why OIDC Is Used for Control Plane</h3>
 
 <p>OIDC (OpenID Connect) federation provides <strong>passwordless authentication</strong> from GitHub Actions to Azure:</p>
 
@@ -3022,7 +3337,7 @@ module "storage" {
 </pre>
 </div>
 
-<h3>Decision: Multiple Access Methods for Different Needs</h3>
+<h3 id="decision-multiple-access-methods-for-different-needs">Decision: Multiple Access Methods for Different Needs</h3>
 
 <p>We provide <strong>four toggleable access mechanisms</strong> via Terraform, each serving a different use case:</p>
 
@@ -3064,7 +3379,7 @@ module "storage" {
     </tr>
 </table>
 
-<h3>Chisel Tunnel: Data Plane Access for Platform Maintainers</h3>
+<h3 id="chisel-tunnel-data-plane-access-for-platform-maintainers">Chisel Tunnel: Data Plane Access for Platform Maintainers</h3>
 
 <div class="alert alert-info">
     <span class="alert-icon">🔧</span>
@@ -3109,7 +3424,7 @@ module "storage" {
 </pre>
 </div>
 
-<h3>What Terraform Operations Need Data Plane?</h3>
+<h3 id="what-terraform-operations-need-data-plane">What Terraform Operations Need Data Plane?</h3>
 
 <p>Most Terraform operations are control plane only. <strong>Data plane is only needed when:</strong></p>
 
@@ -3170,7 +3485,7 @@ module "storage" {
     </tr>
 </table>
 
-<h3>Access Model Summary</h3>
+<h3 id="access-model-summary">Access Model Summary</h3>
 
 <div class="card" style="background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);">
 <pre style="background: var(--bc-blue-dark); margin: 0; padding: 1rem; overflow-x: auto; font-size: 11px;">
@@ -3205,7 +3520,7 @@ module "storage" {
 </pre>
 </div>
 
-<h3>Consequences</h3>
+<h3 id="consequences-10">Consequences</h3>
 
 <h4>Positive</h4>
 <ul>
@@ -3222,7 +3537,7 @@ module "storage" {
     <li><strong>Portal limitations</strong> - Can't "see" data in Portal even with permissions</li>
 </ul>
 
-<h3>References</h3>
+<h3 id="references-9">References</h3>
 <ul>
     <li><a href="playbooks.html#chisel-tunnel">Playbook: Using Chisel Tunnel for Local Development</a></li>
     <li><a href="terraform-reference.html">Terraform Reference: azure-proxy module (Chisel)</a></li>
@@ -3249,7 +3564,7 @@ module "storage" {
         <div><strong>Category:</strong> <span class="badge badge-blue">Observability</span></div>
     </div>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Context</h3>
+    <h3 id="context-11" style="color: var(--bc-blue); margin-top: 1.5rem;">Context</h3>
     <p>The AI Services Hub operates as a multi-tenant platform serving multiple ministries. This shared infrastructure creates a financial governance challenge: we must accurately allocate costs to specific tenants to ensure accountability and cost recovery.</p>
     <p>The architecture includes two types of resources:</p>
     <ul>
@@ -3258,7 +3573,7 @@ module "storage" {
     </ul>
     <p>We need a standardized strategy to track consumption and generate accurate chargeback invoices that account for both resource types across our dual-region deployment (Canada Central & East).</p>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Decision</h3>
+    <h3 id="decision-8" style="color: var(--bc-blue); margin-top: 1.5rem;">Decision</h3>
     <p>We will adopt a <strong>Hybrid Cost Allocation Model</strong> that combines native Azure billing with custom usage tracking:</p>
     <ol>
         <li><strong>Direct Attribution (90% of costs):</strong> We will isolate high-cost resources (AI Foundry Projects, Document Intelligence) into tenant-specific resource groups. These will be billed directly to tenants using Azure Cost Management tags (<code>tenant-id</code>), requiring no manual calculation.</li>
@@ -3272,14 +3587,14 @@ module "storage" {
         <li><strong>Custom Egress Calculation:</strong> We will implement a custom calculation pipeline using App Gateway logs to track and charge for cross-region network egress (between Canada Central and Canada East).</li>
     </ol>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
+    <h3 id="rationale-4" style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
     <ul>
         <li><strong>Minimizes Operational Overhead:</strong> By using Direct Attribution for the most expensive resources (OpenAI tokens, Search), we rely on Azure's native billing engine for the vast majority of chargebacks. We only maintain custom logic for the shared platform components.</li>
         <li><strong>Fairness:</strong> A flat fee for shared infrastructure would be unfair to smaller tenants. Proportional allocation based on request volume ensures ministries only pay for the platform capacity they actually consume.</li>
         <li><strong>Granular Visibility:</strong> Using APIM as the central logging point allows us to capture operational metrics (latency, errors, token usage) alongside billing data without adding sidecar proxies to every service.</li>
     </ul>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Consequences</h3>
+    <h3 id="consequences-11" style="color: var(--bc-blue); margin-top: 1.5rem;">Consequences</h3>
     
     <h4>Positive</h4>
     <ul>
@@ -3312,7 +3627,7 @@ module "storage" {
         <div><strong>Category:</strong> <span class="badge" style="background:#22c55e;color:white;">Infrastructure</span></div>
     </div>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Context</h3>
+    <h3 id="context-12" style="color: var(--bc-blue); margin-top: 1.5rem;">Context</h3>
     <p>The AI Services Hub infrastructure was originally deployed as a single Terraform root module with one monolithic state file containing ~174 resources. This created several operational problems:</p>
     <ul>
         <li><strong>Blast radius:</strong> Any Terraform error or state corruption could affect all 174 resources simultaneously.</li>
@@ -3322,7 +3637,7 @@ module "storage" {
         <li><strong>Phased targeting:</strong> The deployment script used <code>-target</code> flags to orchestrate a multi-phase apply (Phase 1: everything except foundry, Phase 2: foundry only, Phase 3: validation). This was fragile and hid dependency issues.</li>
     </ul>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Decision</h3>
+    <h3 id="decision-9" style="color: var(--bc-blue); margin-top: 1.5rem;">Decision</h3>
     <p>We split the monolithic root module into <strong>5 isolated Terraform stacks</strong>, each with its own state file, backend configuration, and dependency management via <code>terraform_remote_state</code> data sources:</p>
 
     <table>
@@ -3346,7 +3661,7 @@ module "storage" {
     </ul>
     <p>For <code>destroy</code>, the order is reversed: Phase 3 stacks first (parallel), then tenants (parallel), then shared last.</p>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
+    <h3 id="rationale-5" style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
     <ul>
         <li><strong>Reduced blast radius:</strong> A state corruption or failed apply in <code>apim</code> cannot affect <code>shared</code> or <code>tenant</code> resources. Each stack can be independently recovered.</li>
         <li><strong>Parallel execution:</strong> Phase 3 stacks have no dependencies on each other and can run concurrently, reducing total apply time by ~60 seconds.</li>
@@ -3355,7 +3670,7 @@ module "storage" {
         <li><strong>Cleaner dependencies:</strong> Using <code>terraform_remote_state</code> data sources makes cross-stack dependencies explicit and typed, replacing implicit module-to-module references.</li>
     </ul>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Consequences</h3>
+    <h3 id="consequences-12" style="color: var(--bc-blue); margin-top: 1.5rem;">Consequences</h3>
 
     <h4>Positive</h4>
     <ul>
@@ -3374,7 +3689,7 @@ module "storage" {
         <li><strong>Remote state coupling:</strong> Stacks are coupled via <code>terraform_remote_state</code> data sources. Adding a new output in <code>shared</code> that <code>apim</code> needs requires deploying <code>shared</code> first.</li>
     </ul>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">References</h3>
+    <h3 id="references-10" style="color: var(--bc-blue); margin-top: 1.5rem;">References</h3>
     <ul>
         <li><a href="https://developer.hashicorp.com/terraform/language/state/remote-state-data">Terraform Remote State Data Source</a></li>
         <li><code>infra-ai-hub/stacks/</code> — Stack root modules</li>
@@ -3410,7 +3725,7 @@ module "storage" {
         </div>
     </div>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Context</h3>
+    <h3 id="context-13" style="color: var(--bc-blue); margin-top: 1.5rem;">Context</h3>
     <p>APIM subscription keys authenticate tenant API calls to the AI Services Hub gateway. Without rotation, these long-lived secrets present a growing risk:</p>
     <ul>
         <li><strong>Credential staleness:</strong> Keys provisioned at tenant onboarding remain valid indefinitely unless manually changed. A compromised key grants persistent access.</li>
@@ -3419,7 +3734,7 @@ module "storage" {
         <li><strong>Multi-tenant blast radius:</strong> Each tenant has isolated subscription keys, but without rotation a single leaked key provides indefinite access to that tenant&rsquo;s API surface.</li>
     </ul>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Decision</h3>
+    <h3 id="decision-10" style="color: var(--bc-blue); margin-top: 1.5rem;">Decision</h3>
     <p>We implement an <strong>alternating primary/secondary key rotation</strong> pattern with zero downtime, driven by a scheduled GitHub Actions workflow and a self-contained Bash script:</p>
 
     <ol>
@@ -3443,7 +3758,7 @@ module "storage" {
         </tbody>
     </table>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
+    <h3 id="rationale-6" style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
     <ul>
         <li><strong>Zero downtime:</strong> The alternating slot pattern guarantees one key is always valid. Tenants are never locked out during rotation.</li>
         <li><strong>No Azure Function required:</strong> A Bash script + GHA scheduled workflow replaces what would otherwise require an Azure Function, Timer Trigger, and associated infrastructure. This keeps the solution simple and auditable.</li>
@@ -3452,7 +3767,7 @@ module "storage" {
         <li><strong>Idempotent and safe:</strong> The script checks elapsed time since last rotation before acting. Multiple runs within the interval are no-ops. A <code>--dry-run</code> flag allows validation without changes.</li>
     </ul>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Consequences</h3>
+    <h3 id="consequences-13" style="color: var(--bc-blue); margin-top: 1.5rem;">Consequences</h3>
 
     <h4>Positive</h4>
     <ul>
@@ -3469,7 +3784,7 @@ module "storage" {
         <li><strong>Tenant coordination:</strong> Tenants using hard-coded keys (rather than the self-service endpoint) must update their configuration within the rotation interval or face 401 errors.</li>
     </ul>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">References</h3>
+    <h3 id="references-11" style="color: var(--bc-blue); margin-top: 1.5rem;">References</h3>
     <ul>
         <li><a href="apim-key-rotation.html">APIM Key Rotation Guide</a> &mdash; full operational documentation</li>
         <li><code>infra-ai-hub/scripts/rotate-apim-keys.sh</code> &mdash; rotation script (704 lines)</li>
@@ -3505,7 +3820,7 @@ module "storage" {
         </div>
     </div>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Context</h3>
+    <h3 id="context-14" style="color: var(--bc-blue); margin-top: 1.5rem;">Context</h3>
     <p>The AI Services Hub serves multiple BC Government ministries from a shared Azure subscription. Tenant isolation is currently implemented at the <strong>Resource Group level</strong> &mdash; each tenant gets its own RG with dedicated data-plane resources while sharing control-plane infrastructure (VNet, App Gateway, APIM, AI Foundry Hub) in a central RG.</p>
 
     <p>As the platform scales beyond the initial 2 tenants, key <strong>Azure subscription-level quotas</strong> create hard scaling ceilings:</p>
@@ -3529,7 +3844,7 @@ module "storage" {
 
     <p>Issue <a href="https://github.com/bcgov/ai-hub-tracking/issues/74">#74</a> raises specific questions about PTU scaling: turnaround time for quota increases, dynamic scaling between PTU and pay-as-you-go, and whether the single-subscription model can support production-scale workloads.</p>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Options Evaluated</h3>
+    <h3 id="options-evaluated" style="color: var(--bc-blue); margin-top: 1.5rem;">Options Evaluated</h3>
 
     <div class="grid grid-2">
         <div class="card" style="border-left: 4px solid #22c55e;">
@@ -3542,7 +3857,7 @@ module "storage" {
         </div>
     </div>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Option A: Resource Group Isolation &mdash; Pros &amp; Cons</h3>
+    <h3 id="option-a-resource-group-isolation-mdash-pros-cons" style="color: var(--bc-blue); margin-top: 1.5rem;">Option A: Resource Group Isolation &mdash; Pros &amp; Cons</h3>
 
     <div class="grid grid-2">
         <div class="card" style="border-left-color: #22c55e;">
@@ -3570,7 +3885,7 @@ module "storage" {
         </div>
     </div>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Option B: Subscription-Per-Tenant &mdash; Pros &amp; Cons</h3>
+    <h3 id="option-b-subscription-per-tenant-mdash-pros-cons" style="color: var(--bc-blue); margin-top: 1.5rem;">Option B: Subscription-Per-Tenant &mdash; Pros &amp; Cons</h3>
 
     <div class="grid grid-2">
         <div class="card" style="border-left-color: #22c55e;">
@@ -3599,10 +3914,10 @@ module "storage" {
         </div>
     </div>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Decision</h3>
+    <h3 id="decision-11" style="color: var(--bc-blue); margin-top: 1.5rem;">Decision</h3>
     <p><strong>We continue with Resource Group isolation (Option A)</strong> as the preferred architecture, with specific mitigations for quota scaling constraints. This decision is pending confirmation from Microsoft on quota flexibility and from the Platform team on subscription provisioning options as a future fallback.</p>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Mitigations for RG-Based Scaling Limits</h3>
+    <h3 id="mitigations-for-rg-based-scaling-limits" style="color: var(--bc-blue); margin-top: 1.5rem;">Mitigations for RG-Based Scaling Limits</h3>
 
     <table>
         <thead>
@@ -3642,7 +3957,7 @@ module "storage" {
         </tbody>
     </table>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Trigger for Revisiting This Decision</h3>
+    <h3 id="trigger-for-revisiting-this-decision" style="color: var(--bc-blue); margin-top: 1.5rem;">Trigger for Revisiting This Decision</h3>
     <p>The following conditions would warrant moving specific tenants or tenant groups to dedicated subscriptions (hybrid model):</p>
     <ul>
         <li>Tenant count exceeds 10&ndash;15 and quota increase requests are denied by Microsoft</li>
@@ -3652,7 +3967,7 @@ module "storage" {
         <li>Total GlobalStandard TPM across all tenants approaches the per-model subscription ceiling</li>
     </ul>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
+    <h3 id="rationale-7" style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
     <ul>
         <li><strong>Right-sizing for now:</strong> With 2 active tenants and realistic growth to 5&ndash;10 in the near term, the RG model has headroom with mitigations. Subscription-level rearchitecture is premature.</li>
         <li><strong>Governance is the priority:</strong> BC Gov Landing Zone policies, RBAC, and audit requirements are significantly easier to enforce in a single subscription. The compliance benefit outweighs the quota risk.</li>
@@ -3661,7 +3976,7 @@ module "storage" {
         <li><strong>Hybrid escape hatch:</strong> The architecture supports a future hybrid model where high-demand or compliance-sensitive tenants move to dedicated subscriptions while most remain on the shared RG model. This is not an irreversible decision.</li>
     </ul>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Open Questions for Microsoft</h3>
+    <h3 id="open-questions-for-microsoft" style="color: var(--bc-blue); margin-top: 1.5rem;">Open Questions for Microsoft</h3>
     <div class="alert alert-info" style="margin-bottom: 1rem;">
         <span class="alert-icon">❓</span>
         <div>
@@ -3676,7 +3991,7 @@ module "storage" {
         <li>Is there a recommended pattern for multi-AI-Foundry-Hub accounts within a single subscription to distribute deployments?</li>
     </ol>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Consequences</h3>
+    <h3 id="consequences-14" style="color: var(--bc-blue); margin-top: 1.5rem;">Consequences</h3>
 
     <h4>Positive</h4>
     <ul>
@@ -3692,7 +4007,7 @@ module "storage" {
         <li><strong>Potential future migration:</strong> If the hybrid model is eventually needed, migrating a tenant from shared subscription to dedicated subscription requires re-creating resources, migrating data, and updating APIM routing &mdash; non-trivial effort.</li>
     </ul>
 
-    <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">References</h3>
+    <h3 id="references-12" style="color: var(--bc-blue); margin-top: 1.5rem;">References</h3>
     <ul>
         <li><a href="https://github.com/bcgov/ai-hub-tracking/issues/63">Issue #63: Decision | Tenant Isolation | RG Or Subscription</a></li>
         <li><a href="https://github.com/bcgov/ai-hub-tracking/issues/74">Issue #74: Foundry Hub | Single Subscription | Scaling</a> (parent issue)</li>
@@ -3706,7 +4021,7 @@ module "storage" {
 </details>
 
 
-<h2>ADR Template</h2>
+<h2 id="adr-template">ADR Template</h2>
 
 <p>Use this template when adding new ADRs:</p>
 

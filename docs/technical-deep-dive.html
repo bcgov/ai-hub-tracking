@@ -28,6 +28,11 @@
             box-sizing: border-box;
         }
 
+        /* Offset anchor scroll so the sticky header never covers the target */
+        html {
+            scroll-padding-top: 80px;
+        }
+
         body {
             font-family: 'BC Sans', 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
@@ -697,7 +702,282 @@
                 text-align: center;
             }
         }
+
+        /* =====================================================================
+           SEARCH – button, modal, results, breadcrumb, highlight
+           ===================================================================== */
+
+        /* Search button in header nav */
+        .search-btn {
+            color: var(--white);
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            padding: 0.45rem 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+
+        .search-btn:hover {
+            background: rgba(255,255,255,0.28);
+        }
+
+        .search-btn svg { flex-shrink: 0; }
+
+        .search-btn-kbd {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 0.72rem;
+            line-height: 1.5;
+            letter-spacing: 0.02em;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        /* Modal overlay */
+        .search-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0, 20, 50, 0.65);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            align-items: flex-start;
+            justify-content: center;
+            padding: 6vh 1rem 1rem;
+        }
+
+        .search-modal--active {
+            display: flex;
+        }
+
+        /* Modal box */
+        .search-box {
+            background: var(--white);
+            border-radius: 14px;
+            box-shadow: 0 24px 72px rgba(0,0,0,0.35);
+            width: 100%;
+            max-width: 680px;
+            max-height: 82vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: search-appear 0.18s ease;
+        }
+
+        @keyframes search-appear {
+            from { opacity: 0; transform: translateY(-14px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)  scale(1); }
+        }
+
+        /* Input row */
+        .search-input-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #e5e9f0;
+            flex-shrink: 0;
+        }
+
+        .search-input-row svg { color: var(--text-secondary); flex-shrink: 0; }
+
+        #search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 1.05rem;
+            color: var(--text-primary);
+            background: transparent;
+            font-family: inherit;
+            min-width: 0;
+        }
+
+        #search-input::placeholder { color: #a0aec0; }
+
+        .search-modal-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 1.4rem;
+            line-height: 1;
+            padding: 0.2rem 0.45rem;
+            border-radius: 6px;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .search-modal-close:hover {
+            background: var(--bg-light);
+            color: var(--text-primary);
+        }
+
+        /* Results list */
+        .search-results {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .search-count {
+            padding: 0.5rem 1.1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid #f0f3f8;
+            background: #fafbfd;
+        }
+
+        .search-result-item {
+            display: block;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #f0f3f8;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.12s;
+            outline: none;
+        }
+
+        .search-result-item:hover,
+        .search-result-item:focus {
+            background: #f4f7fc;
+        }
+
+        .search-result-meta {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #996600;
+            margin-bottom: 0.2rem;
+        }
+
+        .search-result-title {
+            font-weight: 600;
+            color: var(--bc-blue);
+            margin-bottom: 0.3rem;
+            font-size: 0.97rem;
+        }
+
+        .search-result-excerpt {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.55;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .search-result-item mark {
+            background: rgba(252, 186, 25, 0.45);
+            color: inherit;
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+
+        .search-no-results {
+            padding: 2.5rem 1rem;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .search-no-results svg {
+            display: block;
+            margin: 0 auto 0.75rem;
+            opacity: 0.4;
+        }
+
+        .search-no-results p { margin: 0; font-size: 0.95rem; }
+
+        .search-loading {
+            padding: 1.5rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Modal footer hints */
+        .search-hints {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.55rem 1.1rem;
+            border-top: 1px solid #e5e9f0;
+            background: #fafbfd;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .search-hints kbd {
+            display: inline-block;
+            background: var(--white);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: inherit;
+            font-size: 0.72rem;
+            line-height: 1.6;
+        }
+
+        /* ── Breadcrumb bar ───────────────────────────────────────────────── */
+        #search-breadcrumb {
+            display: none;
+            background: var(--white);
+            border: 1px solid #dde3ed;
+            border-radius: 8px;
+            padding: 0.65rem 1.1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .breadcrumb-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumb-nav a {
+            color: var(--bc-blue-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb-nav a:hover {
+            text-decoration: underline;
+            color: var(--bc-blue);
+        }
+
+        .breadcrumb-current {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .breadcrumb-sep { color: #94a3b8; }
+
+        /* ── Section highlight flash ──────────────────────────────────────── */
+        @keyframes section-flash {
+            0%   { background-color: rgba(252, 186, 25, 0.45); box-shadow: 0 0 0 4px rgba(252,186,25,0.25); }
+            60%  { background-color: rgba(252, 186, 25, 0.15); }
+            100% { background-color: transparent; box-shadow: none; }
+        }
+
+        .search-highlight {
+            animation: section-flash 2.2s ease-out forwards;
+            border-radius: 4px;
+        }
+
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.7.31/dist/flexsearch.bundle.js" defer></script>
+    <script src="assets/search.js" defer id="search-script"></script>
 </head>
 <body>
     <header class="bc-header">
@@ -760,15 +1040,50 @@
             <a href="decisions.html" class="">ADRs</a>
             <a href="cost.html" class="">Cost</a>
             <a href="faq.html" class="">FAQ</a>
+
+            <!-- Search button -->
+            <button class="search-btn" id="search-btn" type="button" aria-label="Search documentation">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Search
+                <span class="search-btn-kbd" aria-label="keyboard shortcut">⌘K</span>
+            </button>
         </nav>
     </header>
-    <main>
 
-<h1>Technical Deep Dive: Control vs Data Plane &amp; Chisel Architecture</h1>
+    <!-- ── Search modal ──────────────────────────────────────────────────── -->
+    <div class="search-modal" id="search-modal" role="dialog" aria-modal="true" aria-label="Search documentation">
+        <div class="search-box">
+            <div class="search-input-row">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                    type="search"
+                    id="search-input"
+                    placeholder="Search documentation…"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="Search query"
+                />
+                <button class="search-modal-close" id="search-modal-close" type="button" aria-label="Close search">✕</button>
+            </div>
+            <div class="search-results" id="search-results" role="listbox" aria-label="Search results"></div>
+            <div class="search-hints" aria-hidden="true">
+                <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+                <span><kbd>↵</kbd> open</span>
+                <span><kbd>Esc</kbd> close</span>
+                <span style="margin-left:auto"><kbd>⌘K</kbd> or <kbd>Ctrl+K</kbd></span>
+            </div>
+        </div>
+    </div>
+
+    <main>
+        <!-- Breadcrumb: injected by search.js when arriving from a search result -->
+        <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
+
+<h1 id="technical-deep-dive-control-vs-data-plane-chisel-architecture">Technical Deep Dive: Control vs Data Plane &amp; Chisel Architecture</h1>
 
 <p>This document provides an in-depth technical explanation of why we need Key Vault access, when terraform operations fail, and how Chisel provides a solution.</p>
 
-<h2>Table of Contents</h2>
+<h2 id="table-of-contents">Table of Contents</h2>
 <ol>
     <li><a href="#control-vs-data-plane">Control Plane vs Data Plane: The Fundamental Divide</a></li>
     <li><a href="#keyvault-operations">Key Vault Operations: What Requires Data Plane Access</a></li>
@@ -779,7 +1094,7 @@
 
 <h2 id="control-vs-data-plane">1. Control Plane vs Data Plane: The Fundamental Divide</h2>
 
-<h3>What is Control Plane?</h3>
+<h3 id="what-is-control-plane">What is Control Plane?</h3>
 <p>The <strong>control plane</strong> is Azure's management layer that handles:</p>
 <ul>
     <li>Creating, updating, deleting resources</li>
@@ -790,7 +1105,7 @@
 <p><strong>Endpoint:</strong> <code>management.azure.com</code></p>
 <p><strong>Authentication:</strong> OIDC (OpenID Connect) works perfectly</p>
 
-<h3>What is Data Plane?</h3>
+<h3 id="what-is-data-plane">What is Data Plane?</h3>
 <p>The <strong>data plane</strong> is where actual data operations happen:</p>
 <ul>
     <li>Reading/writing secrets from Key Vault</li>
@@ -802,7 +1117,7 @@
 <p><strong>Endpoint:</strong> Service-specific (e.g., <code>*.vault.azure.net</code>, <code>*.blob.core.windows.net</code>)</p>
 <p><strong>Authentication:</strong> OIDC often fails when private endpoints exist</p>
 
-<h3>Why the Divide?</h3>
+<h3 id="why-the-divide">Why the Divide?</h3>
 <p>Azure separates these for security and architectural reasons:</p>
 <ul>
     <li><strong>Control plane</strong> can use service principals and managed identities with OIDC</li>
@@ -821,13 +1136,13 @@
 
 <h2 id="keyvault-operations">2. Key Vault Operations: What Requires Data Plane Access</h2>
 
-<h3>Key Vault Endpoints</h3>
+<h3 id="key-vault-endpoints">Key Vault Endpoints</h3>
 <ul>
     <li><strong>Control Plane:</strong> <code>management.azure.com</code> (create KV, set policies, read metadata)</li>
     <li><strong>Data Plane:</strong> <code>*.vault.azure.net</code> (read/write secrets, keys, certificates)</li>
 </ul>
 
-<h3>Operations That Require Data Plane Access</h3>
+<h3 id="operations-that-require-data-plane-access">Operations That Require Data Plane Access</h3>
 
 <h4>Reading Secrets</h4>
 <pre><code>// This REQUIRES data plane access
@@ -854,7 +1169,7 @@ resource "azurerm_key_vault_secret" "example" {
   // ✓ WORKS: Chisel tunnel provides access to myvault.vault.azure.net
 }</code></pre>
 
-<h3>Why These Fail with OIDC + Private Endpoints</h3>
+<h3 id="why-these-fail-with-oidc-private-endpoints">Why These Fail with OIDC + Private Endpoints</h3>
 
 <pre><code>GitHub Runner (OIDC Authentication)
         ↓
@@ -876,7 +1191,7 @@ needs to access: myvault.vault.azure.net ✗ BLOCKED
 
 <p>The following examples illustrate how Terraform operations interact with Key Vault. The actual implementation is spread across <code>infra-ai-hub/stacks/</code> (the hub no longer uses a single monolithic <code>main.tf</code>).</p>
 
-<h3>Creating Key Vault (Control Plane - Works)</h3>
+<h3 id="creating-key-vault-control-plane-works">Creating Key Vault (Control Plane - Works)</h3>
 <pre><code>resource "azurerm_key_vault" "main" {
   name                = var.key_vault_name
   location            = var.location
@@ -888,7 +1203,7 @@ needs to access: myvault.vault.azure.net ✗ BLOCKED
 // No private endpoint yet, so no blocking
 </code></pre>
 
-<h3>Creating Private Endpoint (Control Plane - Works)</h3>
+<h3 id="creating-private-endpoint-control-plane-works">Creating Private Endpoint (Control Plane - Works)</h3>
 <pre><code>resource "azurerm_private_endpoint" "key_vault_pe" {
   name                = "${var.app_name}-kv-pe"
   location            = var.location
@@ -908,7 +1223,7 @@ needs to access: myvault.vault.azure.net ✗ BLOCKED
 // This BLOCKS public access to *.vault.azure.net
 </code></pre>
 
-<h3>Waiting for DNS (DNS Propagation Workaround)</h3>
+<h3 id="waiting-for-dns-dns-propagation-workaround">Waiting for DNS (DNS Propagation Workaround)</h3>
 <pre><code>resource "null_resource" "wait_for_key_vault_private_dns" {
   triggers = {
     private_endpoint_id = azurerm_private_endpoint.key_vault_pe.id
@@ -938,7 +1253,7 @@ needs to access: myvault.vault.azure.net ✗ BLOCKED
 // ✓ WORKS: After DNS is ready, myvault.vault.azure.net resolves to private IP
 </code></pre>
 
-<h3>Creating Secrets (Data Plane - FAILS without Chisel)</h3>
+<h3 id="creating-secrets-data-plane-fails-without-chisel">Creating Secrets (Data Plane - FAILS without Chisel)</h3>
 <pre><code>resource "azurerm_key_vault_secret" "secret_one" {
   name            = "example-secret-test-one"
   value           = random_password.secret_one.result
@@ -969,7 +1284,7 @@ resource "azurerm_key_vault_secret" "secret_two" {
 
 <h2 id="chisel-solution">4. Chisel: How the Tunnel Works</h2>
 
-<h3>The Problem Chisel Solves</h3>
+<h3 id="the-problem-chisel-solves">The Problem Chisel Solves</h3>
 <pre><code>BEFORE Chisel:
 ┌──────────────┐         ┌──────────────┐
 │ GitHub Runner │ ──OIDC──&gt; │ Azure ARM API │
@@ -1008,7 +1323,7 @@ resource "azurerm_key_vault_secret" "secret_two" {
 └─────────────────┘
 </code></pre>
 
-<h3>How Chisel Works (Technical Deep Dive)</h3>
+<h3 id="how-chisel-works-technical-deep-dive">How Chisel Works (Technical Deep Dive)</h3>
 
 <h4>Step 1: App Service Deployment (Control Plane - Works with OIDC)</h4>
 <p>From <code>initial-setup/infra/modules/azure-proxy/main.tf</code>:</p>
@@ -1124,7 +1439,7 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
 ✓ SUCCESS: Terraform can read/write secrets!
 </code></pre>
 
-<h3>Why Chisel vs Alternatives?</h3>
+<h3 id="why-chisel-vs-alternatives">Why Chisel vs Alternatives?</h3>
 
 <table>
     <tr>
@@ -1159,7 +1474,7 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
 
 <h2 id="deployment-scenarios">5. Deployment Scenarios: Who Needs What</h2>
 
-<h3>Scenario 1: Platform Team (Deploys Landing Zone)</h3>
+<h3 id="scenario-1-platform-team-deploys-landing-zone">Scenario 1: Platform Team (Deploys Landing Zone)</h3>
 <p><strong>Who:</strong> Platform Services Team, Infrastructure Admins</p>
 <p><strong>What they deploy:</strong></p>
 <ul>
@@ -1187,7 +1502,7 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
     <li><strong>Option 3:</strong> GitHub-hosted runners + Chisel tunnel — for CI/CD (use <code>.deployer-using-secure-tunnel</code>)</li>
 </ul>
 
-<h3>Scenario 2: Project Teams (Deploy Applications)</h3>
+<h3 id="scenario-2-project-teams-deploy-applications">Scenario 2: Project Teams (Deploy Applications)</h3>
 <p><strong>Who:</strong> Ministry Application Teams</p>
 <p><strong>What they deploy:</strong></p>
 <ul>
@@ -1220,7 +1535,7 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
     <li><strong>No self-hosted needed</strong> - platform provides infrastructure</li>
 </ul>
 
-<h3>Scenario 3: Solo Developer</h3>
+<h3 id="scenario-3-solo-developer">Scenario 3: Solo Developer</h3>
 <p><strong>Who:</strong> Single developer, proof-of-concept work</p>
 <p><strong>What they deploy:</strong></p>
 <ul>
@@ -1240,9 +1555,9 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
     <li>✗ Self-hosted runners ($100/mo) - not needed for solo work</li>
 </ul>
 
-<h2>Summary</h2>
+<h2 id="summary">Summary</h2>
 
-<h3>Why We Need Key Vault Access</h3>
+<h3 id="why-we-need-key-vault-access">Why We Need Key Vault Access</h3>
 <ol>
     <li><strong>Security:</strong> Private endpoints prevent public access to secrets</li>
     <li><strong>Compliance:</strong> BC Gov requires zero-trust, no public data plane access</li>
@@ -1250,7 +1565,7 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
     <li><strong>Automation:</strong> Terraform needs to write secrets during deployment</li>
 </ol>
 
-<h3>Why OIDC Alone Isn't Enough</h3>
+<h3 id="why-oidc-alone-isnt-enough">Why OIDC Alone Isn't Enough</h3>
 <ol>
     <li>OIDC provides access to <code>management.azure.com</code> (control plane)</li>
     <li>Private endpoints block <code>*.vault.azure.net</code> (data plane)</li>
@@ -1258,7 +1573,7 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
     <li>Even with valid tokens, network access is required</li>
 </ol>
 
-<h3>How Chisel Solves This</h3>
+<h3 id="how-chisel-solves-this">How Chisel Solves This</h3>
 <ol>
     <li>App Service runs in VNet (via VNet integration)</li>
     <li>Chisel server in App Service bridges public → private</li>
@@ -1267,7 +1582,7 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
     <li>Result: Data plane access without exposing services publicly</li>
 </ol>
 
-<h3>When to Use Each Method</h3>
+<h3 id="when-to-use-each-method">When to Use Each Method</h3>
 <ul>
     <li><strong>Platform Team:</strong> Deploy all, use Chisel or Bastion for access</li>
     <li><strong>Project Teams:</strong> Deploy apps only, use platform's Chisel</li>

@@ -26,6 +26,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v6
 
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
       # Generate Terraform reference docs from both infrastructure roots
       # Scans initial-setup/infra/ and infra-ai-hub/ (modules + stacks)
       - name: Generate Terraform Reference

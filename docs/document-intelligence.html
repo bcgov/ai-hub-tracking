@@ -28,6 +28,11 @@
             box-sizing: border-box;
         }
 
+        /* Offset anchor scroll so the sticky header never covers the target */
+        html {
+            scroll-padding-top: 80px;
+        }
+
         body {
             font-family: 'BC Sans', 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
@@ -697,7 +702,282 @@
                 text-align: center;
             }
         }
+
+        /* =====================================================================
+           SEARCH – button, modal, results, breadcrumb, highlight
+           ===================================================================== */
+
+        /* Search button in header nav */
+        .search-btn {
+            color: var(--white);
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            padding: 0.45rem 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+
+        .search-btn:hover {
+            background: rgba(255,255,255,0.28);
+        }
+
+        .search-btn svg { flex-shrink: 0; }
+
+        .search-btn-kbd {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 0.72rem;
+            line-height: 1.5;
+            letter-spacing: 0.02em;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        /* Modal overlay */
+        .search-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0, 20, 50, 0.65);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            align-items: flex-start;
+            justify-content: center;
+            padding: 6vh 1rem 1rem;
+        }
+
+        .search-modal--active {
+            display: flex;
+        }
+
+        /* Modal box */
+        .search-box {
+            background: var(--white);
+            border-radius: 14px;
+            box-shadow: 0 24px 72px rgba(0,0,0,0.35);
+            width: 100%;
+            max-width: 680px;
+            max-height: 82vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: search-appear 0.18s ease;
+        }
+
+        @keyframes search-appear {
+            from { opacity: 0; transform: translateY(-14px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)  scale(1); }
+        }
+
+        /* Input row */
+        .search-input-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #e5e9f0;
+            flex-shrink: 0;
+        }
+
+        .search-input-row svg { color: var(--text-secondary); flex-shrink: 0; }
+
+        #search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 1.05rem;
+            color: var(--text-primary);
+            background: transparent;
+            font-family: inherit;
+            min-width: 0;
+        }
+
+        #search-input::placeholder { color: #a0aec0; }
+
+        .search-modal-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 1.4rem;
+            line-height: 1;
+            padding: 0.2rem 0.45rem;
+            border-radius: 6px;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .search-modal-close:hover {
+            background: var(--bg-light);
+            color: var(--text-primary);
+        }
+
+        /* Results list */
+        .search-results {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .search-count {
+            padding: 0.5rem 1.1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid #f0f3f8;
+            background: #fafbfd;
+        }
+
+        .search-result-item {
+            display: block;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #f0f3f8;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.12s;
+            outline: none;
+        }
+
+        .search-result-item:hover,
+        .search-result-item:focus {
+            background: #f4f7fc;
+        }
+
+        .search-result-meta {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #996600;
+            margin-bottom: 0.2rem;
+        }
+
+        .search-result-title {
+            font-weight: 600;
+            color: var(--bc-blue);
+            margin-bottom: 0.3rem;
+            font-size: 0.97rem;
+        }
+
+        .search-result-excerpt {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.55;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .search-result-item mark {
+            background: rgba(252, 186, 25, 0.45);
+            color: inherit;
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+
+        .search-no-results {
+            padding: 2.5rem 1rem;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .search-no-results svg {
+            display: block;
+            margin: 0 auto 0.75rem;
+            opacity: 0.4;
+        }
+
+        .search-no-results p { margin: 0; font-size: 0.95rem; }
+
+        .search-loading {
+            padding: 1.5rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Modal footer hints */
+        .search-hints {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.55rem 1.1rem;
+            border-top: 1px solid #e5e9f0;
+            background: #fafbfd;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .search-hints kbd {
+            display: inline-block;
+            background: var(--white);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: inherit;
+            font-size: 0.72rem;
+            line-height: 1.6;
+        }
+
+        /* ── Breadcrumb bar ───────────────────────────────────────────────── */
+        #search-breadcrumb {
+            display: none;
+            background: var(--white);
+            border: 1px solid #dde3ed;
+            border-radius: 8px;
+            padding: 0.65rem 1.1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .breadcrumb-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumb-nav a {
+            color: var(--bc-blue-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb-nav a:hover {
+            text-decoration: underline;
+            color: var(--bc-blue);
+        }
+
+        .breadcrumb-current {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .breadcrumb-sep { color: #94a3b8; }
+
+        /* ── Section highlight flash ──────────────────────────────────────── */
+        @keyframes section-flash {
+            0%   { background-color: rgba(252, 186, 25, 0.45); box-shadow: 0 0 0 4px rgba(252,186,25,0.25); }
+            60%  { background-color: rgba(252, 186, 25, 0.15); }
+            100% { background-color: transparent; box-shadow: none; }
+        }
+
+        .search-highlight {
+            animation: section-flash 2.2s ease-out forwards;
+            border-radius: 4px;
+        }
+
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.7.31/dist/flexsearch.bundle.js" defer></script>
+    <script src="assets/search.js" defer id="search-script"></script>
 </head>
 <body>
     <header class="bc-header">
@@ -760,11 +1040,46 @@
             <a href="decisions.html" class="">ADRs</a>
             <a href="cost.html" class="">Cost</a>
             <a href="faq.html" class="">FAQ</a>
+
+            <!-- Search button -->
+            <button class="search-btn" id="search-btn" type="button" aria-label="Search documentation">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Search
+                <span class="search-btn-kbd" aria-label="keyboard shortcut">⌘K</span>
+            </button>
         </nav>
     </header>
-    <main>
 
-<h1>Document Intelligence Guide</h1>
+    <!-- ── Search modal ──────────────────────────────────────────────────── -->
+    <div class="search-modal" id="search-modal" role="dialog" aria-modal="true" aria-label="Search documentation">
+        <div class="search-box">
+            <div class="search-input-row">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                    type="search"
+                    id="search-input"
+                    placeholder="Search documentation…"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="Search query"
+                />
+                <button class="search-modal-close" id="search-modal-close" type="button" aria-label="Close search">✕</button>
+            </div>
+            <div class="search-results" id="search-results" role="listbox" aria-label="Search results"></div>
+            <div class="search-hints" aria-hidden="true">
+                <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+                <span><kbd>↵</kbd> open</span>
+                <span><kbd>Esc</kbd> close</span>
+                <span style="margin-left:auto"><kbd>⌘K</kbd> or <kbd>Ctrl+K</kbd></span>
+            </div>
+        </div>
+    </div>
+
+    <main>
+        <!-- Breadcrumb: injected by search.js when arriving from a search result -->
+        <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
+
+<h1 id="document-intelligence-guide">Document Intelligence Guide</h1>
 
 <p>This guide covers integration patterns and SDK configuration for Azure Document Intelligence through the APIM gateway.</p>
 
@@ -778,9 +1093,9 @@
     </div>
 </div>
 
-<h2>API Key Header Configuration</h2>
+<h2 id="api-key-header-configuration">API Key Header Configuration</h2>
 
-<h3>Why <code>api-key</code>?</h3>
+<h3 id="why-api-key">Why <code>api-key</code>?</h3>
 
 <p>APIM is used as a unified gateway for multiple Azure AI services (OpenAI, Document Intelligence, AI Search, Storage). Azure's API Management can only be configured with a single subscription key header name across all APIs.</p>
 
@@ -816,9 +1131,9 @@
     </table>
 </div>
 
-<h2>SDK Configuration Examples</h2>
+<h2 id="sdk-configuration-examples">SDK Configuration Examples</h2>
 
-<h3>JavaScript/TypeScript (<code>@azure-rest/ai-document-intelligence</code>)</h3>
+<h3 id="javascripttypescript-azure-restai-document-intelligence">JavaScript/TypeScript (<code>@azure-rest/ai-document-intelligence</code>)</h3>
 
 <p>When using the <code>@azure-rest/ai-document-intelligence</code> npm package, configure the client to use <code>api-key</code> header:</p>
 
@@ -854,7 +1169,7 @@ const result = await client.path("/documentModels/{modelId}:analyze", "prebuilt-
     </div>
 </div>
 
-<h3>Python (<code>azure-ai-documentintelligence</code>)</h3>
+<h3 id="python-azure-ai-documentintelligence">Python (<code>azure-ai-documentintelligence</code>)</h3>
 
 <pre><code>from azure.ai.documentintelligence import DocumentIntelligenceClient
 from azure.core.credentials import AzureKeyCredential
@@ -888,7 +1203,7 @@ client = DocumentIntelligenceClient(
     </div>
 </div>
 
-<h3>.NET (<code>Azure.AI.DocumentIntelligence</code>)</h3>
+<h3 id="net-azureaidocumentintelligence">.NET (<code>Azure.AI.DocumentIntelligence</code>)</h3>
 
 <pre><code>using Azure;
 using Azure.AI.DocumentIntelligence;
@@ -927,7 +1242,7 @@ public class AddHeaderPolicy : HttpPipelineSynchronousPolicy
 }
 </code></pre>
 
-<h3>Direct REST API (curl)</h3>
+<h3 id="direct-rest-api-curl">Direct REST API (curl)</h3>
 
 <p>If SDK configuration is complex or unavailable, use direct REST API calls:</p>
 
@@ -947,12 +1262,12 @@ curl -X POST "https://apim-gateway.azure-api.net/tenant/documentintelligence/doc
   }'
 </code></pre>
 
-<h2>Async Operations & Polling</h2>
+<h2 id="async-operations-polling">Async Operations & Polling</h2>
 
 <p>Document Intelligence async operations (document analysis, model training) return a <code>202 Accepted</code> response with an <code>Operation-Location</code> header for status polling.</p>
 
 <div class="card card-gold">
-    <h3 style="margin-top: 0;">Automatic Header Rewrite</h3>
+    <h3 id="automatic-header-rewrite" style="margin-top: 0;">Automatic Header Rewrite</h3>
     <p>APIM automatically rewrites the <code>Operation-Location</code> header to point back through the APIM gateway instead of directly to the Document Intelligence backend.</p>
 
     <p><strong>Example transformation:</strong></p>
@@ -972,7 +1287,7 @@ APIM rewrites to:
     </ul>
 </div>
 
-<h2>Troubleshooting</h2>
+<h2 id="troubleshooting">Troubleshooting</h2>
 
 <table>
     <thead>
@@ -1006,7 +1321,7 @@ APIM rewrites to:
     </tbody>
 </table>
 
-<h2>Additional Resources</h2>
+<h2 id="additional-resources">Additional Resources</h2>
 
 <ul>
     <li><a href="https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/">Azure Document Intelligence Documentation</a></li>

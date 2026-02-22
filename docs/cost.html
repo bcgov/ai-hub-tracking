@@ -28,6 +28,11 @@
             box-sizing: border-box;
         }
 
+        /* Offset anchor scroll so the sticky header never covers the target */
+        html {
+            scroll-padding-top: 80px;
+        }
+
         body {
             font-family: 'BC Sans', 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
@@ -697,7 +702,282 @@
                 text-align: center;
             }
         }
+
+        /* =====================================================================
+           SEARCH – button, modal, results, breadcrumb, highlight
+           ===================================================================== */
+
+        /* Search button in header nav */
+        .search-btn {
+            color: var(--white);
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            padding: 0.45rem 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+
+        .search-btn:hover {
+            background: rgba(255,255,255,0.28);
+        }
+
+        .search-btn svg { flex-shrink: 0; }
+
+        .search-btn-kbd {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 0.72rem;
+            line-height: 1.5;
+            letter-spacing: 0.02em;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        /* Modal overlay */
+        .search-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0, 20, 50, 0.65);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            align-items: flex-start;
+            justify-content: center;
+            padding: 6vh 1rem 1rem;
+        }
+
+        .search-modal--active {
+            display: flex;
+        }
+
+        /* Modal box */
+        .search-box {
+            background: var(--white);
+            border-radius: 14px;
+            box-shadow: 0 24px 72px rgba(0,0,0,0.35);
+            width: 100%;
+            max-width: 680px;
+            max-height: 82vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: search-appear 0.18s ease;
+        }
+
+        @keyframes search-appear {
+            from { opacity: 0; transform: translateY(-14px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)  scale(1); }
+        }
+
+        /* Input row */
+        .search-input-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #e5e9f0;
+            flex-shrink: 0;
+        }
+
+        .search-input-row svg { color: var(--text-secondary); flex-shrink: 0; }
+
+        #search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 1.05rem;
+            color: var(--text-primary);
+            background: transparent;
+            font-family: inherit;
+            min-width: 0;
+        }
+
+        #search-input::placeholder { color: #a0aec0; }
+
+        .search-modal-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 1.4rem;
+            line-height: 1;
+            padding: 0.2rem 0.45rem;
+            border-radius: 6px;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .search-modal-close:hover {
+            background: var(--bg-light);
+            color: var(--text-primary);
+        }
+
+        /* Results list */
+        .search-results {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .search-count {
+            padding: 0.5rem 1.1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid #f0f3f8;
+            background: #fafbfd;
+        }
+
+        .search-result-item {
+            display: block;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #f0f3f8;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.12s;
+            outline: none;
+        }
+
+        .search-result-item:hover,
+        .search-result-item:focus {
+            background: #f4f7fc;
+        }
+
+        .search-result-meta {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #996600;
+            margin-bottom: 0.2rem;
+        }
+
+        .search-result-title {
+            font-weight: 600;
+            color: var(--bc-blue);
+            margin-bottom: 0.3rem;
+            font-size: 0.97rem;
+        }
+
+        .search-result-excerpt {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.55;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .search-result-item mark {
+            background: rgba(252, 186, 25, 0.45);
+            color: inherit;
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+
+        .search-no-results {
+            padding: 2.5rem 1rem;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .search-no-results svg {
+            display: block;
+            margin: 0 auto 0.75rem;
+            opacity: 0.4;
+        }
+
+        .search-no-results p { margin: 0; font-size: 0.95rem; }
+
+        .search-loading {
+            padding: 1.5rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Modal footer hints */
+        .search-hints {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.55rem 1.1rem;
+            border-top: 1px solid #e5e9f0;
+            background: #fafbfd;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .search-hints kbd {
+            display: inline-block;
+            background: var(--white);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: inherit;
+            font-size: 0.72rem;
+            line-height: 1.6;
+        }
+
+        /* ── Breadcrumb bar ───────────────────────────────────────────────── */
+        #search-breadcrumb {
+            display: none;
+            background: var(--white);
+            border: 1px solid #dde3ed;
+            border-radius: 8px;
+            padding: 0.65rem 1.1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .breadcrumb-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumb-nav a {
+            color: var(--bc-blue-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb-nav a:hover {
+            text-decoration: underline;
+            color: var(--bc-blue);
+        }
+
+        .breadcrumb-current {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .breadcrumb-sep { color: #94a3b8; }
+
+        /* ── Section highlight flash ──────────────────────────────────────── */
+        @keyframes section-flash {
+            0%   { background-color: rgba(252, 186, 25, 0.45); box-shadow: 0 0 0 4px rgba(252,186,25,0.25); }
+            60%  { background-color: rgba(252, 186, 25, 0.15); }
+            100% { background-color: transparent; box-shadow: none; }
+        }
+
+        .search-highlight {
+            animation: section-flash 2.2s ease-out forwards;
+            border-radius: 4px;
+        }
+
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.7.31/dist/flexsearch.bundle.js" defer></script>
+    <script src="assets/search.js" defer id="search-script"></script>
 </head>
 <body>
     <header class="bc-header">
@@ -760,11 +1040,46 @@
             <a href="decisions.html" class="">ADRs</a>
             <a href="cost.html" class="active">Cost</a>
             <a href="faq.html" class="">FAQ</a>
+
+            <!-- Search button -->
+            <button class="search-btn" id="search-btn" type="button" aria-label="Search documentation">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Search
+                <span class="search-btn-kbd" aria-label="keyboard shortcut">⌘K</span>
+            </button>
         </nav>
     </header>
-    <main>
 
-<h1>Cost Tracking</h1>
+    <!-- ── Search modal ──────────────────────────────────────────────────── -->
+    <div class="search-modal" id="search-modal" role="dialog" aria-modal="true" aria-label="Search documentation">
+        <div class="search-box">
+            <div class="search-input-row">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                    type="search"
+                    id="search-input"
+                    placeholder="Search documentation…"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="Search query"
+                />
+                <button class="search-modal-close" id="search-modal-close" type="button" aria-label="Close search">✕</button>
+            </div>
+            <div class="search-results" id="search-results" role="listbox" aria-label="Search results"></div>
+            <div class="search-hints" aria-hidden="true">
+                <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+                <span><kbd>↵</kbd> open</span>
+                <span><kbd>Esc</kbd> close</span>
+                <span style="margin-left:auto"><kbd>⌘K</kbd> or <kbd>Ctrl+K</kbd></span>
+            </div>
+        </div>
+    </div>
+
+    <main>
+        <!-- Breadcrumb: injected by search.js when arriving from a search result -->
+        <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
+
+<h1 id="cost-tracking">Cost Tracking</h1>
 
 <div class="alert alert-warning" style="margin-bottom: 2rem;">
     <div class="alert-icon">
@@ -778,13 +1093,13 @@
 
 <p>How costs are tracked and allocated for each project in the AI Hub.</p>
 
-<h2>Architecture</h2>
+<h2 id="architecture">Architecture</h2>
 
 <div class="img-container">
     <img src="assets/cost-tracking-architecture.svg" alt="Project Resource Architecture" style="max-width: 100%;">
 </div>
 
-<h2>What Each Project Gets</h2>
+<h2 id="what-each-project-gets">What Each Project Gets</h2>
 
 <table>
     <tr>
@@ -844,7 +1159,7 @@
     </tr>
 </table>
 
-<h2>Terraform Deploys Everything</h2>
+<h2 id="terraform-deploys-everything">Terraform Deploys Everything</h2>
 
 <p>Tenant stacks are deployed with <code>deploy-scaled.sh</code> which runs Terraform across five isolated state files. <strong>Resource AVM modules are used where available</strong>; raw Terraform resources are used when an AVM module does not exist.</p>
 
@@ -857,7 +1172,7 @@
 # Each stack corresponds to an infra-ai-hub/stacks/* directory.
 </pre>
 
-<h3>AVM Modules Used</h3>
+<h3 id="avm-modules-used">AVM Modules Used</h3>
 
 <table>
     <tr>
@@ -894,23 +1209,23 @@
     </tr>
 </table>
 
-<h2>How Cost Tracking Works</h2>
+<h2 id="how-cost-tracking-works">How Cost Tracking Works</h2>
 
 <div class="grid grid-3">
     <div class="card" style="border-left-color: #22c55e;">
-        <h3 style="margin-top: 0; color: #166534;">Direct Costs</h3>
+        <h3 id="direct-costs" style="margin-top: 0; color: #166534;">Direct Costs</h3>
         <p>Storage, Search, Key Vault</p>
         <p style="font-size: 0.875rem; color: #64748b;">Tracked automatically by Azure Cost Management using Resource Group tags.</p>
         <p><strong>~40% of total</strong></p>
     </div>
     <div class="card" style="border-left-color: #7c3aed;">
-        <h3 style="margin-top: 0; color: #6b21a8;">AI Usage</h3>
+        <h3 id="ai-usage" style="margin-top: 0; color: #6b21a8;">AI Usage</h3>
         <p>Tokens, API calls</p>
         <p style="font-size: 0.875rem; color: #64748b;">Tracked by AI Foundry per project. Each AI Foundry Project has its own metrics.</p>
         <p><strong>~45% of total</strong></p>
     </div>
     <div class="card" style="border-left-color: #f59e0b;">
-        <h3 style="margin-top: 0; color: #92400e;">Platform Split</h3>
+        <h3 id="platform-split" style="margin-top: 0; color: #92400e;">Platform Split</h3>
         <p>APIM, Gateway, Firewall</p>
         <p style="font-size: 0.875rem; color: #64748b;">Split evenly across all projects (shared infrastructure).</p>
         <p><strong>~15% of total</strong></p>
@@ -923,7 +1238,7 @@
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #0ea5e9;">
-        <h3 style="margin-top: 0;">Cost Drivers</h3>
+        <h3 id="cost-drivers" style="margin-top: 0;">Cost Drivers</h3>
         <ul style="margin-bottom: 0;">
             <li><strong>Runner compute:</strong> Container Apps job runtime (primary driver; usage-based)</li>
             <li><strong>Concurrency cap:</strong> <code>max_runners</code> (default 4)</li>
@@ -933,7 +1248,7 @@
         </ul>
     </div>
     <div class="card" style="border-left-color: #22c55e;">
-        <h3 style="margin-top: 0;">Sample Calculation (module defaults)</h3>
+        <h3 id="sample-calculation-module-defaults" style="margin-top: 0;">Sample Calculation (module defaults)</h3>
         <p style="margin-bottom: 0;">Assumptions: 20 jobs/day, 10 min/job, avg concurrency = 1.5</p>
         <pre style="margin-top: 0.75rem;">Monthly runner hours = 30 * 20 * (10/60) * 1.5 = 150 hours
     Total seconds = 150 * 3600 = 540,000 seconds
@@ -955,11 +1270,11 @@
     </div>
 </div>
 
-<h2>Example Monthly Costs</h2>
+<h2 id="example-monthly-costs">Example Monthly Costs</h2>
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #3b82f6;">
-        <h3 style="margin-top: 0;">Health-RAG Project</h3>
+        <h3 id="health-rag-project" style="margin-top: 0;">Health-RAG Project</h3>
         <table style="margin: 0;">
             <tr>
                 <td>Storage + Search + KV</td>
@@ -984,7 +1299,7 @@
         </table>
     </div>
     <div class="card" style="border-left-color: #22c55e;">
-        <h3 style="margin-top: 0;">SDPR-Chatbot Project</h3>
+        <h3 id="sdpr-chatbot-project" style="margin-top: 0;">SDPR-Chatbot Project</h3>
         <table style="margin: 0;">
             <tr>
                 <td>Storage + Search + KV</td>
@@ -1010,8 +1325,8 @@
     </div>
 </div>
 
-<h2>Usage Monitoring, Cost Allocation, and Chargeback Metrics</h2>
-<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Introduction</h3>
+<h2 id="usage-monitoring-cost-allocation-and-chargeback-metrics">Usage Monitoring, Cost Allocation, and Chargeback Metrics</h2>
+<h3 id="introduction" style="color: var(--bc-blue); margin-top: 1.5rem;">Introduction</h3>
 <p>This document defines the approach for implementing <strong>Usage Monitoring</strong>, <strong>Cost Allocation</strong>, and <strong>Chargeback Metrics</strong> for the BC Government AI Services Hub multi-tenant platform. These three interconnected capabilities are essential for operating a shared AI infrastructure that serves multiple ministries while maintaining cost transparency and accountability.</p>
 
 <h4>Key Concepts</h4>
@@ -1033,7 +1348,7 @@
 
 <hr style="margin: 2rem 0;">
 
-<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Usage Monitoring Metrics</h3>
+<h3 id="usage-monitoring-metrics" style="color: var(--bc-blue); margin-top: 1.5rem;">Usage Monitoring Metrics</h3>
 <p>Azure API Management (APIM) provides centralized monitoring as all AI requests flow through the gateway. Monitoring serves two distinct purposes: tracking metrics for shared infrastructure allocation and providing operational insights.</p>
 
 <h4>Metrics for Shared Infrastructure Allocation</h4>
@@ -1074,7 +1389,7 @@
 
 <hr style="margin: 2rem 0;">
 
-<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Resource Tagging and Cost Allocation</h3>
+<h3 id="resource-tagging-and-cost-allocation" style="color: var(--bc-blue); margin-top: 1.5rem;">Resource Tagging and Cost Allocation</h3>
 
 <h4>AI Foundry Projects (Direct Attribution)</h4>
 <p>Each tenant receives a dedicated Foundry project with isolated resources. Azure automatically bills all consumption (Azure OpenAI tokens, Cosmos DB, AI Search) to the project.</p>
@@ -1133,7 +1448,7 @@ Tags:
 
 <hr style="margin: 2rem 0;">
 
-<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Infrastructure and Platform Costs (Proportional Allocation)</h3>
+<h3 id="infrastructure-and-platform-costs-proportional-allocation" style="color: var(--bc-blue); margin-top: 1.5rem;">Infrastructure and Platform Costs (Proportional Allocation)</h3>
 <p>These shared resources serve all tenants and require proportional cost allocation based on usage metrics.</p>
 
 <h4>App Gateway/WAF</h4>
@@ -1230,7 +1545,7 @@ Tags:
 
 <hr style="margin: 2rem 0;">
 
-<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Chargeback Metrics Summary</h3>
+<h3 id="chargeback-metrics-summary" style="color: var(--bc-blue); margin-top: 1.5rem;">Chargeback Metrics Summary</h3>
 <p>Monthly tenant invoices combine two cost categories:</p>
 
 <h4>Direct Costs (Azure-Billed, No Calculation Needed)</h4>
@@ -1253,7 +1568,7 @@ Tags:
 
 <hr style="margin: 2rem 0;">
 
-<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Implementation: Cost Calculation Methods</h3>
+<h3 id="implementation-cost-calculation-methods" style="color: var(--bc-blue); margin-top: 1.5rem;">Implementation: Cost Calculation Methods</h3>
 
 <h4>Method 1: Azure Cost Management (Built-in, No Code)</h4>
 <p>Azure Cost Management handles all direct attribution automatically. No custom code needed for tenant-dedicated resources.</p>
@@ -1447,7 +1762,7 @@ DirectCosts
 
 <hr style="margin: 2rem 0;">
 
-<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Summary</h3>
+<h3 id="summary" style="color: var(--bc-blue); margin-top: 1.5rem;">Summary</h3>
 <p>This document establishes a comprehensive cost tracking framework for the AI Services Hub using:</p>
 <ol>
     <li><strong>Direct attribution</strong> for tenant-dedicated resources (Foundry projects with Azure OpenAI/Cosmos/AI Search, Document Intelligence instances)—Azure automatically bills these based on actual consumption</li>
@@ -1458,24 +1773,24 @@ DirectCosts
 <p>The implementation provides full cost transparency while minimizing operational overhead—most costs are automatically tracked by Azure, with custom calculations only for shared platform services.</p>
 
 
-<h2>Related</h2>
+<h2 id="related">Related</h2>
 
 <div class="grid grid-3">
     <a href="decisions.html#adr-006" class="card-link">
         <div class="card" style="border-left-color: #f59e0b;">
-            <h3 style="margin-top: 0;">ADR-006</h3>
+            <h3 id="adr-006" style="margin-top: 0;">ADR-006</h3>
             <p>Multi-Tenant Isolation</p>
         </div>
     </a>
     <a href="diagrams.html" class="card-link">
         <div class="card" style="border-left-color: #7c3aed;">
-            <h3 style="margin-top: 0;">Diagrams</h3>
+            <h3 id="diagrams" style="margin-top: 0;">Diagrams</h3>
             <p>Architecture diagrams</p>
         </div>
     </a>
     <a href="terraform-reference.html" class="card-link">
         <div class="card" style="border-left-color: #3b82f6;">
-            <h3 style="margin-top: 0;">Terraform Reference</h3>
+            <h3 id="terraform-reference" style="margin-top: 0;">Terraform Reference</h3>
             <p>Module variable &amp; output docs</p>
         </div>
     </a>

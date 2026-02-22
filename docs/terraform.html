@@ -28,6 +28,11 @@
             box-sizing: border-box;
         }
 
+        /* Offset anchor scroll so the sticky header never covers the target */
+        html {
+            scroll-padding-top: 80px;
+        }
+
         body {
             font-family: 'BC Sans', 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
@@ -697,7 +702,282 @@
                 text-align: center;
             }
         }
+
+        /* =====================================================================
+           SEARCH – button, modal, results, breadcrumb, highlight
+           ===================================================================== */
+
+        /* Search button in header nav */
+        .search-btn {
+            color: var(--white);
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            padding: 0.45rem 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+
+        .search-btn:hover {
+            background: rgba(255,255,255,0.28);
+        }
+
+        .search-btn svg { flex-shrink: 0; }
+
+        .search-btn-kbd {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 0.72rem;
+            line-height: 1.5;
+            letter-spacing: 0.02em;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        /* Modal overlay */
+        .search-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0, 20, 50, 0.65);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            align-items: flex-start;
+            justify-content: center;
+            padding: 6vh 1rem 1rem;
+        }
+
+        .search-modal--active {
+            display: flex;
+        }
+
+        /* Modal box */
+        .search-box {
+            background: var(--white);
+            border-radius: 14px;
+            box-shadow: 0 24px 72px rgba(0,0,0,0.35);
+            width: 100%;
+            max-width: 680px;
+            max-height: 82vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: search-appear 0.18s ease;
+        }
+
+        @keyframes search-appear {
+            from { opacity: 0; transform: translateY(-14px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)  scale(1); }
+        }
+
+        /* Input row */
+        .search-input-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #e5e9f0;
+            flex-shrink: 0;
+        }
+
+        .search-input-row svg { color: var(--text-secondary); flex-shrink: 0; }
+
+        #search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 1.05rem;
+            color: var(--text-primary);
+            background: transparent;
+            font-family: inherit;
+            min-width: 0;
+        }
+
+        #search-input::placeholder { color: #a0aec0; }
+
+        .search-modal-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 1.4rem;
+            line-height: 1;
+            padding: 0.2rem 0.45rem;
+            border-radius: 6px;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .search-modal-close:hover {
+            background: var(--bg-light);
+            color: var(--text-primary);
+        }
+
+        /* Results list */
+        .search-results {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .search-count {
+            padding: 0.5rem 1.1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid #f0f3f8;
+            background: #fafbfd;
+        }
+
+        .search-result-item {
+            display: block;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #f0f3f8;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.12s;
+            outline: none;
+        }
+
+        .search-result-item:hover,
+        .search-result-item:focus {
+            background: #f4f7fc;
+        }
+
+        .search-result-meta {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #996600;
+            margin-bottom: 0.2rem;
+        }
+
+        .search-result-title {
+            font-weight: 600;
+            color: var(--bc-blue);
+            margin-bottom: 0.3rem;
+            font-size: 0.97rem;
+        }
+
+        .search-result-excerpt {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.55;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .search-result-item mark {
+            background: rgba(252, 186, 25, 0.45);
+            color: inherit;
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+
+        .search-no-results {
+            padding: 2.5rem 1rem;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .search-no-results svg {
+            display: block;
+            margin: 0 auto 0.75rem;
+            opacity: 0.4;
+        }
+
+        .search-no-results p { margin: 0; font-size: 0.95rem; }
+
+        .search-loading {
+            padding: 1.5rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Modal footer hints */
+        .search-hints {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.55rem 1.1rem;
+            border-top: 1px solid #e5e9f0;
+            background: #fafbfd;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .search-hints kbd {
+            display: inline-block;
+            background: var(--white);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: inherit;
+            font-size: 0.72rem;
+            line-height: 1.6;
+        }
+
+        /* ── Breadcrumb bar ───────────────────────────────────────────────── */
+        #search-breadcrumb {
+            display: none;
+            background: var(--white);
+            border: 1px solid #dde3ed;
+            border-radius: 8px;
+            padding: 0.65rem 1.1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .breadcrumb-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumb-nav a {
+            color: var(--bc-blue-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb-nav a:hover {
+            text-decoration: underline;
+            color: var(--bc-blue);
+        }
+
+        .breadcrumb-current {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .breadcrumb-sep { color: #94a3b8; }
+
+        /* ── Section highlight flash ──────────────────────────────────────── */
+        @keyframes section-flash {
+            0%   { background-color: rgba(252, 186, 25, 0.45); box-shadow: 0 0 0 4px rgba(252,186,25,0.25); }
+            60%  { background-color: rgba(252, 186, 25, 0.15); }
+            100% { background-color: transparent; box-shadow: none; }
+        }
+
+        .search-highlight {
+            animation: section-flash 2.2s ease-out forwards;
+            border-radius: 4px;
+        }
+
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.7.31/dist/flexsearch.bundle.js" defer></script>
+    <script src="assets/search.js" defer id="search-script"></script>
 </head>
 <body>
     <header class="bc-header">
@@ -760,15 +1040,50 @@
             <a href="decisions.html" class="">ADRs</a>
             <a href="cost.html" class="">Cost</a>
             <a href="faq.html" class="">FAQ</a>
+
+            <!-- Search button -->
+            <button class="search-btn" id="search-btn" type="button" aria-label="Search documentation">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Search
+                <span class="search-btn-kbd" aria-label="keyboard shortcut">⌘K</span>
+            </button>
         </nav>
     </header>
-    <main>
 
-<h1>Terraform Modules</h1>
+    <!-- ── Search modal ──────────────────────────────────────────────────── -->
+    <div class="search-modal" id="search-modal" role="dialog" aria-modal="true" aria-label="Search documentation">
+        <div class="search-box">
+            <div class="search-input-row">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                    type="search"
+                    id="search-input"
+                    placeholder="Search documentation…"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="Search query"
+                />
+                <button class="search-modal-close" id="search-modal-close" type="button" aria-label="Close search">✕</button>
+            </div>
+            <div class="search-results" id="search-results" role="listbox" aria-label="Search results"></div>
+            <div class="search-hints" aria-hidden="true">
+                <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+                <span><kbd>↵</kbd> open</span>
+                <span><kbd>Esc</kbd> close</span>
+                <span style="margin-left:auto"><kbd>⌘K</kbd> or <kbd>Ctrl+K</kbd></span>
+            </div>
+        </div>
+    </div>
+
+    <main>
+        <!-- Breadcrumb: injected by search.js when arriving from a search result -->
+        <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
+
+<h1 id="terraform-modules">Terraform Modules</h1>
 
 <p>This project uses modular Terraform configuration for Azure Landing Zone infrastructure. Each module is designed to be reusable and follows Azure best practices.</p>
 
-<h2>Module Overview</h2>
+<h2 id="module-overview">Module Overview</h2>
 
 <table>
     <thead>
@@ -823,11 +1138,11 @@
     <strong>Optional Modules:</strong> Modules marked as optional can be toggled on/off using their respective variables. Set them in <code>terraform.tfvars</code> or as environment variables.
 </div>
 
-<h2>Deployment Script: deploy-terraform.sh</h2>
+<h2 id="deployment-script-deploy-terraformsh">Deployment Script: deploy-terraform.sh</h2>
 
 <p>A wrapper script that simplifies Terraform operations with proper Azure authentication. Features auto-import of conflicting resources and intelligent retry logic.</p>
 
-<h3>Usage</h3>
+<h3 id="usage">Usage</h3>
 
 <pre>./initial-setup/infra/deploy-terraform.sh <command> [options]
 
@@ -839,7 +1154,7 @@ Commands:
   output   Display Terraform outputs</pre>
 
 <div class="card card-gold">
-    <h3>Smart Apply Logic</h3>
+    <h3 id="smart-apply-logic">Smart Apply Logic</h3>
     <p>The <code>apply</code> command now includes:</p>
     <ul>
         <li><strong>Auto-detection</strong>: Detects "already exists" errors from Azure</li>
@@ -849,17 +1164,17 @@ Commands:
     </ul>
 </div>
 
-<h3>Examples</h3>
+<h3 id="examples">Examples</h3>
 
 <div class="grid grid-2">
     <div class="card">
-        <h3>Full Deployment</h3>
+        <h3 id="full-deployment">Full Deployment</h3>
         <pre>./initial-setup/infra/deploy-terraform.sh init
 ./initial-setup/infra/deploy-terraform.sh plan
 ./initial-setup/infra/deploy-terraform.sh apply</pre>
     </div>
     <div class="card">
-        <h3>Target Specific Module</h3>
+        <h3 id="target-specific-module">Target Specific Module</h3>
         <pre># Deploy only bastion
 ./initial-setup/infra/deploy-terraform.sh apply \
   -target=module.bastion
@@ -872,12 +1187,12 @@ Commands:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>Monitoring Module</h2>
+<h2 id="monitoring-module">Monitoring Module</h2>
 
 <p>Provides centralized observability across all deployed resources using Azure Monitor services.</p>
 
 <div class="card">
-    <h3>Resources Created</h3>
+    <h3 id="resources-created">Resources Created</h3>
     <ul>
         <li><strong>Log Analytics Workspace</strong>: Central logs and metrics repository (default retention: 30 days, configurable)</li>
         <li><strong>Application Insights</strong>: APM for applications, connected to Log Analytics workspace</li>
@@ -885,7 +1200,7 @@ Commands:
 </div>
 
 <div class="card card-gold">
-    <h3>Key Variables</h3>
+    <h3 id="key-variables">Key Variables</h3>
     <table>
         <thead>
             <tr>
@@ -911,12 +1226,12 @@ Commands:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>Network Module</h2>
+<h2 id="network-module">Network Module</h2>
 
 <p>Configures subnets within an existing VNet and creates Network Security Groups (NSGs) for traffic control.</p>
 
 <div class="card">
-    <h3>Subnets Created</h3>
+    <h3 id="subnets-created">Subnets Created</h3>
     <table>
         <thead>
             <tr>
@@ -966,7 +1281,7 @@ Commands:
 </div>
 
 <div class="card card-gold">
-    <h3>Network Security Groups</h3>
+    <h3 id="network-security-groups">Network Security Groups</h3>
     <p>Each subnet has a dedicated NSG with rules for:</p>
     <ul>
         <li><strong>Bastion NSG</strong>: HTTPS inbound, Gateway Manager, SSH/RDP to VNet</li>
@@ -979,20 +1294,20 @@ Commands:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>Bastion Module</h2>
+<h2 id="bastion-module">Bastion Module</h2>
 
 <p>Deploys Azure Bastion for secure, browser-based SSH/RDP access to VMs without exposing public IPs.</p>
 
 <div class="grid grid-2">
     <div class="card">
-        <h3>Resources Created</h3>
+        <h3 id="resources-created-1">Resources Created</h3>
         <ul>
             <li><strong>Public IP</strong>: Static, Standard SKU (required for Bastion)</li>
             <li><strong>Bastion Host</strong>: Basic SKU for cost optimization</li>
         </ul>
     </div>
     <div class="card">
-        <h3>Features</h3>
+        <h3 id="features">Features</h3>
         <ul>
             <li>Web-based SSH/RDP from Azure Portal</li>
             <li>No public IPs needed on VMs</li>
@@ -1008,12 +1323,12 @@ Commands:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>Jumpbox Module</h2>
+<h2 id="jumpbox-module">Jumpbox Module</h2>
 
 <p>Creates a Linux VM for development and administration tasks, pre-configured with essential CLI tools.</p>
 
 <div class="card">
-    <h3>VM Configuration</h3>
+    <h3 id="vm-configuration">VM Configuration</h3>
     <table>
         <thead>
             <tr>
@@ -1047,7 +1362,7 @@ Commands:
 </div>
 
 <div class="card card-gold">
-    <h3>Pre-installed Tools</h3>
+    <h3 id="pre-installed-tools">Pre-installed Tools</h3>
     <p>The VM is bootstrapped with cloud-init to install:</p>
     <div class="grid grid-3">
         <div>
@@ -1078,7 +1393,7 @@ Commands:
 </div>
 
 <div class="card">
-    <h3>Auto-Shutdown & Start</h3>
+    <h3 id="auto-shutdown-start">Auto-Shutdown & Start</h3>
     <p>Cost optimization through scheduled operations:</p>
     <table>
         <thead>
@@ -1105,7 +1420,7 @@ Commands:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>Azure Proxy Module (Chisel Tunnel)</h2>
+<h2 id="azure-proxy-module-chisel-tunnel">Azure Proxy Module (Chisel Tunnel)</h2>
 
 <p>Deploys a <strong>Chisel</strong> secure tunnel server for accessing private Azure resources (data plane) from your local machine. This solves the problem of accessing private endpoints when you're outside the VNet.</p>
 
@@ -1115,7 +1430,7 @@ Commands:
 
 <div class="grid grid-2">
     <div class="card">
-        <h3>Resources Created</h3>
+        <h3 id="resources-created-2">Resources Created</h3>
         <ul>
             <li><strong>App Service Plan</strong>: Linux plan hosting the tunnel (configurable SKU)</li>
             <li><strong>Web App</strong>: Runs containerized Chisel server with VNet integration</li>
@@ -1124,7 +1439,7 @@ Commands:
         </ul>
     </div>
     <div class="card card-gold">
-        <h3>Security Features</h3>
+        <h3 id="security-features">Security Features</h3>
         <ul>
             <li><strong>HTTPS Only</strong>: TLS 1.3 minimum</li>
             <li><strong>Mandatory Auth</strong>: Random credentials stored in App Settings</li>
@@ -1135,7 +1450,7 @@ Commands:
 </div>
 
 <div class="card">
-    <h3>Key Variables</h3>
+    <h3 id="key-variables-1">Key Variables</h3>
     <table>
         <thead>
             <tr>
@@ -1165,7 +1480,7 @@ Commands:
 </div>
 
 <div class="card" style="border-left-color: #8b5cf6;">
-    <h3>Usage Example</h3>
+    <h3 id="usage-example">Usage Example</h3>
     <p>After deployment, connect from your laptop:</p>
     <pre># Get credentials from Terraform output
 terraform output azure_proxy_chisel_auth
@@ -1188,7 +1503,7 @@ psql -h localhost -p 5432 -U admin -d mydb</pre>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>Choosing Your Access Method</h2>
+<h2 id="choosing-your-access-method">Choosing Your Access Method</h2>
 
 <p>The infrastructure provides <strong>four interchangeable access methods</strong> for reaching Azure resources. Enable only what you need - all are optional and controlled via Terraform variables.</p>
 
@@ -1240,7 +1555,7 @@ psql -h localhost -p 5432 -U admin -d mydb</pre>
 
 <div class="grid grid-2">
     <div class="card">
-        <h3>Example: Minimal (Control Plane Only)</h3>
+        <h3 id="example-minimal-control-plane-only">Example: Minimal (Control Plane Only)</h3>
         <pre># terraform.tfvars
 enable_bastion              = false
 enable_jumpbox              = false
@@ -1251,7 +1566,7 @@ github_runners_aca_enabled  = false
 # Good for: Resource-only Terraform</pre>
     </div>
     <div class="card card-gold">
-        <h3>Example: Full Access</h3>
+        <h3 id="example-full-access">Example: Full Access</h3>
         <pre># terraform.tfvars
 enable_bastion              = true
 enable_jumpbox              = true
@@ -1264,7 +1579,7 @@ github_runners_aca_enabled  = true
 </div>
 
 <div class="card" style="border-left-color: #0ea5e9;">
-    <h3>Recommended Setup by Role</h3>
+    <h3 id="recommended-setup-by-role">Recommended Setup by Role</h3>
     <table>
         <tr>
             <td><strong>Platform Maintainers</strong></td>
@@ -1285,7 +1600,7 @@ github_runners_aca_enabled  = true
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>Backend Configuration</h2>
+<h2 id="backend-configuration">Backend Configuration</h2>
 
 <p>Terraform state is stored in Azure Blob Storage with Azure AD authentication.</p>
 
@@ -1304,7 +1619,7 @@ terraform {
     <strong>Important:</strong> The <code>use_azuread_auth = true</code> setting is required when using OIDC authentication. Without it, Terraform will fail to access the state file.
 </div>
 
-<h2>Variables Reference</h2>
+<h2 id="variables-reference">Variables Reference</h2>
 
 <p>Key variables used across modules:</p>
 

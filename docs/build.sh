@@ -86,3 +86,13 @@ done
 
 echo "Build complete! Generated files:"
 ls -la "$SCRIPT_DIR"/*.html 2>/dev/null || echo "  No HTML files generated"
+
+# Generate full-text search index (assets/search-index.json)
+# Requires Node.js (no external npm packages needed)
+echo ""
+echo "Generating search index..."
+if command -v node &>/dev/null; then
+    node "$SCRIPT_DIR/generate-search-index.js" "$SCRIPT_DIR"
+else
+    echo "  WARNING: Node.js not found – search index was NOT generated."
+fi
