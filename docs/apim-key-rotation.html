@@ -28,6 +28,11 @@
             box-sizing: border-box;
         }
 
+        /* Offset anchor scroll so the sticky header never covers the target */
+        html {
+            scroll-padding-top: 80px;
+        }
+
         body {
             font-family: 'BC Sans', 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
@@ -697,7 +702,282 @@
                 text-align: center;
             }
         }
+
+        /* =====================================================================
+           SEARCH – button, modal, results, breadcrumb, highlight
+           ===================================================================== */
+
+        /* Search button in header nav */
+        .search-btn {
+            color: var(--white);
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            padding: 0.45rem 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+
+        .search-btn:hover {
+            background: rgba(255,255,255,0.28);
+        }
+
+        .search-btn svg { flex-shrink: 0; }
+
+        .search-btn-kbd {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 0.72rem;
+            line-height: 1.5;
+            letter-spacing: 0.02em;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        /* Modal overlay */
+        .search-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0, 20, 50, 0.65);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            align-items: flex-start;
+            justify-content: center;
+            padding: 6vh 1rem 1rem;
+        }
+
+        .search-modal--active {
+            display: flex;
+        }
+
+        /* Modal box */
+        .search-box {
+            background: var(--white);
+            border-radius: 14px;
+            box-shadow: 0 24px 72px rgba(0,0,0,0.35);
+            width: 100%;
+            max-width: 680px;
+            max-height: 82vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: search-appear 0.18s ease;
+        }
+
+        @keyframes search-appear {
+            from { opacity: 0; transform: translateY(-14px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)  scale(1); }
+        }
+
+        /* Input row */
+        .search-input-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #e5e9f0;
+            flex-shrink: 0;
+        }
+
+        .search-input-row svg { color: var(--text-secondary); flex-shrink: 0; }
+
+        #search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 1.05rem;
+            color: var(--text-primary);
+            background: transparent;
+            font-family: inherit;
+            min-width: 0;
+        }
+
+        #search-input::placeholder { color: #a0aec0; }
+
+        .search-modal-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 1.4rem;
+            line-height: 1;
+            padding: 0.2rem 0.45rem;
+            border-radius: 6px;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .search-modal-close:hover {
+            background: var(--bg-light);
+            color: var(--text-primary);
+        }
+
+        /* Results list */
+        .search-results {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .search-count {
+            padding: 0.5rem 1.1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid #f0f3f8;
+            background: #fafbfd;
+        }
+
+        .search-result-item {
+            display: block;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #f0f3f8;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.12s;
+            outline: none;
+        }
+
+        .search-result-item:hover,
+        .search-result-item:focus {
+            background: #f4f7fc;
+        }
+
+        .search-result-meta {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #996600;
+            margin-bottom: 0.2rem;
+        }
+
+        .search-result-title {
+            font-weight: 600;
+            color: var(--bc-blue);
+            margin-bottom: 0.3rem;
+            font-size: 0.97rem;
+        }
+
+        .search-result-excerpt {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.55;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .search-result-item mark {
+            background: rgba(252, 186, 25, 0.45);
+            color: inherit;
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+
+        .search-no-results {
+            padding: 2.5rem 1rem;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .search-no-results svg {
+            display: block;
+            margin: 0 auto 0.75rem;
+            opacity: 0.4;
+        }
+
+        .search-no-results p { margin: 0; font-size: 0.95rem; }
+
+        .search-loading {
+            padding: 1.5rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Modal footer hints */
+        .search-hints {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.55rem 1.1rem;
+            border-top: 1px solid #e5e9f0;
+            background: #fafbfd;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .search-hints kbd {
+            display: inline-block;
+            background: var(--white);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: inherit;
+            font-size: 0.72rem;
+            line-height: 1.6;
+        }
+
+        /* ── Breadcrumb bar ───────────────────────────────────────────────── */
+        #search-breadcrumb {
+            display: none;
+            background: var(--white);
+            border: 1px solid #dde3ed;
+            border-radius: 8px;
+            padding: 0.65rem 1.1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .breadcrumb-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumb-nav a {
+            color: var(--bc-blue-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb-nav a:hover {
+            text-decoration: underline;
+            color: var(--bc-blue);
+        }
+
+        .breadcrumb-current {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .breadcrumb-sep { color: #94a3b8; }
+
+        /* ── Section highlight flash ──────────────────────────────────────── */
+        @keyframes section-flash {
+            0%   { background-color: rgba(252, 186, 25, 0.45); box-shadow: 0 0 0 4px rgba(252,186,25,0.25); }
+            60%  { background-color: rgba(252, 186, 25, 0.15); }
+            100% { background-color: transparent; box-shadow: none; }
+        }
+
+        .search-highlight {
+            animation: section-flash 2.2s ease-out forwards;
+            border-radius: 4px;
+        }
+
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.7.31/dist/flexsearch.bundle.js" defer></script>
+    <script src="assets/search.js" defer id="search-script"></script>
 </head>
 <body>
     <header class="bc-header">
@@ -760,11 +1040,46 @@
             <a href="decisions.html" class="">ADRs</a>
             <a href="cost.html" class="">Cost</a>
             <a href="faq.html" class="">FAQ</a>
+
+            <!-- Search button -->
+            <button class="search-btn" id="search-btn" type="button" aria-label="Search documentation">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Search
+                <span class="search-btn-kbd" aria-label="keyboard shortcut">⌘K</span>
+            </button>
         </nav>
     </header>
-    <main>
 
-<h1>APIM Subscription Key Rotation</h1>
+    <!-- ── Search modal ──────────────────────────────────────────────────── -->
+    <div class="search-modal" id="search-modal" role="dialog" aria-modal="true" aria-label="Search documentation">
+        <div class="search-box">
+            <div class="search-input-row">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                    type="search"
+                    id="search-input"
+                    placeholder="Search documentation…"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="Search query"
+                />
+                <button class="search-modal-close" id="search-modal-close" type="button" aria-label="Close search">✕</button>
+            </div>
+            <div class="search-results" id="search-results" role="listbox" aria-label="Search results"></div>
+            <div class="search-hints" aria-hidden="true">
+                <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+                <span><kbd>↵</kbd> open</span>
+                <span><kbd>Esc</kbd> close</span>
+                <span style="margin-left:auto"><kbd>⌘K</kbd> or <kbd>Ctrl+K</kbd></span>
+            </div>
+        </div>
+    </div>
+
+    <main>
+        <!-- Breadcrumb: injected by search.js when arriving from a search result -->
+        <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
+
+<h1 id="apim-subscription-key-rotation">APIM Subscription Key Rotation</h1>
 
 <p>This guide explains how APIM subscription keys are automatically rotated for tenant teams, and how to update your application to use the new keys.</p>
 
@@ -778,10 +1093,10 @@
     </div>
 </div>
 
-<h2>How It Works</h2>
+<h2 id="how-it-works">How It Works</h2>
 
 <div class="card">
-    <h3>Alternating Primary/Secondary Pattern</h3>
+    <h3 id="alternating-primarysecondary-pattern">Alternating Primary/Secondary Pattern</h3>
     <p>APIM subscriptions have two key slots: <strong>primary</strong> and <strong>secondary</strong>. Both are valid for API calls at all times. Each rotation cycle regenerates one slot while the other remains untouched:</p>
     <ol>
         <li><strong>Week 1: Regenerate SECONDARY</strong> &mdash; tenants continue using PRIMARY (untouched)</li>
@@ -792,7 +1107,7 @@
 </div>
 
 <div class="card">
-    <h3>Key Lifecycle Timeline</h3>
+    <h3 id="key-lifecycle-timeline">Key Lifecycle Timeline</h3>
     <table>
         <thead>
             <tr>
@@ -832,10 +1147,10 @@
     <p><em>The key NOT being rotated is always safe. You have the full rotation interval to switch to the new key.</em></p>
 </div>
 
-<h2>Platform Team Runbook (Emergency)</h2>
+<h2 id="platform-team-runbook-emergency">Platform Team Runbook (Emergency)</h2>
 
 <div class="card">
-        <h3>Compromised Keys: Rotate Both Slots Immediately</h3>
+        <h3 id="compromised-keys-rotate-both-slots-immediately">Compromised Keys: Rotate Both Slots Immediately</h3>
         <p>Use this runbook only for emergency compromise scenarios where both keys must be replaced right away. This is a manual operational procedure (documentation only).</p>
         <ol>
                 <li>Identify the APIM subscription ID and tenant name.</li>
@@ -899,7 +1214,7 @@ az keyvault secret set \
 </div>
 
 <div class="card">
-        <h3>Tenant Retrieval After Emergency Rotation</h3>
+        <h3 id="tenant-retrieval-after-emergency-rotation">Tenant Retrieval After Emergency Rotation</h3>
         <p>After platform team rotates both keys, tenant teams should fetch current keys from APIM and switch to the <code>safe_slot</code> key.</p>
         <pre>curl -s -H "api-key: YOUR_CURRENT_VALID_KEY" \
     "https://your-apim-gateway.azure-api.net/YOUR_TENANT/internal/apim-keys" | jq .
@@ -910,10 +1225,10 @@ az keyvault secret set \
         <p>If the tenant has no valid key left, platform team must provide one-time bootstrap access/key out-of-band.</p>
 </div>
 
-<h2>Configuration</h2>
+<h2 id="configuration">Configuration</h2>
 
 <div class="card">
-    <h3>Shared Config (<code>params/{env}/shared.tfvars</code>)</h3>
+    <h3 id="shared-config-paramsenvsharedtfvars">Shared Config (<code>params/{env}/shared.tfvars</code>)</h3>
     <p>Key rotation is configured globally for all tenants in the shared config:</p>
     <pre>apim = {
   # ... existing APIM config ...
@@ -950,7 +1265,7 @@ az keyvault secret set \
 </div>
 
 <div class="card">
-    <h3>Tenant Prerequisites</h3>
+    <h3 id="tenant-prerequisites">Tenant Prerequisites</h3>
     <p>For a tenant to participate in key rotation, it only needs:</p>
     <ul>
         <li><code>apim_auth.mode = "subscription_key"</code> (default)</li>
@@ -962,7 +1277,7 @@ az keyvault secret set \
     </div>
 </div>
 
-<h2>How Tenants Fetch New Keys</h2>
+<h2 id="how-tenants-fetch-new-keys">How Tenants Fetch New Keys</h2>
 
 <div class="alert alert-success">
     <div class="alert-icon">
@@ -975,7 +1290,7 @@ az keyvault secret set \
 </div>
 
 <div class="card">
-    <h3>Option 1: APIM Internal Endpoint (Simplest)</h3>
+    <h3 id="option-1-apim-internal-endpoint-simplest">Option 1: APIM Internal Endpoint (Simplest)</h3>
     <p>Call <code>GET /{your-tenant}/internal/apim-keys</code> with ANY valid subscription key. Returns both keys plus rotation metadata as JSON.</p>
 
     <h4>Bash</h4>
@@ -1038,7 +1353,7 @@ print(f"Safe slot: {safe_slot}, key: {safe_key[:8]}...")</pre>
 </div>
 
 <div class="card">
-    <h3>Option 2: Contact Platform Team</h3>
+    <h3 id="option-2-contact-platform-team">Option 2: Contact Platform Team</h3>
     <p>If you've missed a rotation schedule or need a fresh set of keys, contact the platform team directly. The platform team manages the centralized hub Key Vault and can provide your current keys or trigger an ad-hoc rotation.</p>
     <div class="alert alert-info" style="margin-top: 0.75rem;">
         <div>
@@ -1048,7 +1363,7 @@ print(f"Safe slot: {safe_slot}, key: {safe_key[:8]}...")</pre>
 </div>
 
 <div class="card">
-    <h3>Option 3: Automatic Key Refresh (Production Pattern)</h3>
+    <h3 id="option-3-automatic-key-refresh-production-pattern">Option 3: Automatic Key Refresh (Production Pattern)</h3>
     <p>For production apps, implement a periodic key check. This pattern uses the APIM endpoint so no Azure SDK is needed.</p>
 
     <pre>#!/bin/bash
@@ -1087,7 +1402,7 @@ else
 fi</pre>
 </div>
 
-<h2>Key Vault Secrets Reference</h2>
+<h2 id="key-vault-secrets-reference">Key Vault Secrets Reference</h2>
 
 <div class="card">
     <p>All secrets are stored in the centralized hub Key Vault (<code>{app_name}-{env}-hkv</code>) with tenant-prefixed names:</p>
@@ -1119,7 +1434,7 @@ fi</pre>
     </table>
 </div>
 
-<h2>Rotation Schedule</h2>
+<h2 id="rotation-schedule">Rotation Schedule</h2>
 
 <div class="card">
     <table>
@@ -1165,10 +1480,10 @@ fi</pre>
     </div>
 </div>
 
-<h2>APIM Internal Endpoint</h2>
+<h2 id="apim-internal-endpoint">APIM Internal Endpoint</h2>
 
 <div class="card">
-    <h3><code>GET /{tenant-name}/internal/apim-keys</code></h3>
+    <h3 id="get-tenant-nameinternalapim-keys"><code>GET /{tenant-name}/internal/apim-keys</code></h3>
     <p>When key rotation is enabled, each tenant API exposes an internal endpoint for fetching both subscription keys.</p>
 
     <h4>Authentication</h4>
@@ -1205,10 +1520,10 @@ fi</pre>
     <p>See also: <a href="apim-internal-endpoints.html">APIM Internal Endpoints reference</a> &mdash; full API reference for all internal endpoints including the new <code>/internal/tenant-info</code> endpoint.</p>
 </div>
 
-<h2>Troubleshooting</h2>
+<h2 id="troubleshooting">Troubleshooting</h2>
 
 <div class="card">
-    <h3>My API calls return 401 after rotation</h3>
+    <h3 id="my-api-calls-return-401-after-rotation">My API calls return 401 after rotation</h3>
     <p>Your app is using the key that was just rotated. The other key is still valid. Fix:</p>
     <ol>
         <li>Fetch both keys: <code>curl -H "api-key: YOUR_OTHER_KEY" https://apim/{tenant}/internal/apim-keys</code></li>
@@ -1216,7 +1531,7 @@ fi</pre>
         <li>Both keys are also in the hub Key Vault: <code>{tenant}-apim-primary-key</code> and <code>{tenant}-apim-secondary-key</code></li>
     </ol>
 
-    <h3>How do I check rotation metadata?</h3>
+    <h3 id="how-do-i-check-rotation-metadata">How do I check rotation metadata?</h3>
     <pre>az keyvault secret show \
     --vault-name HUB_KV_NAME \
     --name "YOUR_TENANT-apim-rotation-metadata" \
@@ -1230,12 +1545,12 @@ fi</pre>
   "safe_slot": "secondary"
 }</pre>
 
-    <h3>The /internal/apim-keys endpoint returns empty keys</h3>
+    <h3 id="the-internalapim-keys-endpoint-returns-empty-keys">The /internal/apim-keys endpoint returns empty keys</h3>
     <p>APIM's managed identity may not have access to the hub Key Vault. Verify the RBAC assignment:</p>
     <pre>terraform output apim_key_rotation_summary</pre>
     <p>Ensure the <code>azurerm_role_assignment.apim_keyvault_secrets_user</code> resource exists on the hub Key Vault. Check that the hub Key Vault (<code>{app_name}-{env}-hkv</code>) is deployed and accessible.</p>
 
-    <h3>GitHub Actions rotation stopped running</h3>
+    <h3 id="github-actions-rotation-stopped-running">GitHub Actions rotation stopped running</h3>
     <p>GitHub disables scheduled workflows after 60 days of repo inactivity. This repo requires regular maintenance (commits, activity) to keep scheduled workflows active.</p>
     <ol>
         <li>Go to Actions tab &rarr; Find "APIM Key Rotation" workflow</li>
@@ -1244,10 +1559,10 @@ fi</pre>
         <li><strong>Contact the platform team</strong> if rotation was missed &mdash; they can issue new keys or trigger an ad-hoc rotation</li>
     </ol>
 
-    <h3>I want to temporarily disable rotation for my environment</h3>
+    <h3 id="i-want-to-temporarily-disable-rotation-for-my-environment">I want to temporarily disable rotation for my environment</h3>
     <p>Set <code>rotation_enabled = false</code> in <code>params/{env}/shared.tfvars</code> and deploy. The rotation workflow will skip all tenants.</p>
 
-    <h3>My tenant is not eligible for rotation</h3>
+    <h3 id="my-tenant-is-not-eligible-for-rotation">My tenant is not eligible for rotation</h3>
     <p>Check:</p>
     <pre>terraform output apim_key_rotation_summary</pre>
     <p>Common reasons:</p>
@@ -1257,10 +1572,10 @@ fi</pre>
     </ul>
 </div>
 
-<h2>Architecture</h2>
+<h2 id="architecture">Architecture</h2>
 
 <div class="card">
-    <h3>Component Overview</h3>
+    <h3 id="component-overview">Component Overview</h3>
     <table>
         <thead>
             <tr>
@@ -1305,7 +1620,7 @@ fi</pre>
 </div>
 
 <div class="card">
-    <h3>Security Considerations</h3>
+    <h3 id="security-considerations">Security Considerations</h3>
     <ul>
         <li><strong>OIDC Authentication</strong>: The rotation workflow uses the same OIDC identity as Terraform deployments. No stored secrets.</li>
         <li><strong>Centralized Hub Key Vault</strong>: All rotation keys are stored in a single hub KV. APIM reads keys via its system-assigned MI with one RBAC assignment. Scales to 1000+ tenants.</li>

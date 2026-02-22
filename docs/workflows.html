@@ -28,6 +28,11 @@
             box-sizing: border-box;
         }
 
+        /* Offset anchor scroll so the sticky header never covers the target */
+        html {
+            scroll-padding-top: 80px;
+        }
+
         body {
             font-family: 'BC Sans', 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
@@ -697,7 +702,282 @@
                 text-align: center;
             }
         }
+
+        /* =====================================================================
+           SEARCH – button, modal, results, breadcrumb, highlight
+           ===================================================================== */
+
+        /* Search button in header nav */
+        .search-btn {
+            color: var(--white);
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            padding: 0.45rem 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+
+        .search-btn:hover {
+            background: rgba(255,255,255,0.28);
+        }
+
+        .search-btn svg { flex-shrink: 0; }
+
+        .search-btn-kbd {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 0.72rem;
+            line-height: 1.5;
+            letter-spacing: 0.02em;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        /* Modal overlay */
+        .search-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0, 20, 50, 0.65);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            align-items: flex-start;
+            justify-content: center;
+            padding: 6vh 1rem 1rem;
+        }
+
+        .search-modal--active {
+            display: flex;
+        }
+
+        /* Modal box */
+        .search-box {
+            background: var(--white);
+            border-radius: 14px;
+            box-shadow: 0 24px 72px rgba(0,0,0,0.35);
+            width: 100%;
+            max-width: 680px;
+            max-height: 82vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: search-appear 0.18s ease;
+        }
+
+        @keyframes search-appear {
+            from { opacity: 0; transform: translateY(-14px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)  scale(1); }
+        }
+
+        /* Input row */
+        .search-input-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #e5e9f0;
+            flex-shrink: 0;
+        }
+
+        .search-input-row svg { color: var(--text-secondary); flex-shrink: 0; }
+
+        #search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 1.05rem;
+            color: var(--text-primary);
+            background: transparent;
+            font-family: inherit;
+            min-width: 0;
+        }
+
+        #search-input::placeholder { color: #a0aec0; }
+
+        .search-modal-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 1.4rem;
+            line-height: 1;
+            padding: 0.2rem 0.45rem;
+            border-radius: 6px;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .search-modal-close:hover {
+            background: var(--bg-light);
+            color: var(--text-primary);
+        }
+
+        /* Results list */
+        .search-results {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .search-count {
+            padding: 0.5rem 1.1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid #f0f3f8;
+            background: #fafbfd;
+        }
+
+        .search-result-item {
+            display: block;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #f0f3f8;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.12s;
+            outline: none;
+        }
+
+        .search-result-item:hover,
+        .search-result-item:focus {
+            background: #f4f7fc;
+        }
+
+        .search-result-meta {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #996600;
+            margin-bottom: 0.2rem;
+        }
+
+        .search-result-title {
+            font-weight: 600;
+            color: var(--bc-blue);
+            margin-bottom: 0.3rem;
+            font-size: 0.97rem;
+        }
+
+        .search-result-excerpt {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.55;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .search-result-item mark {
+            background: rgba(252, 186, 25, 0.45);
+            color: inherit;
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+
+        .search-no-results {
+            padding: 2.5rem 1rem;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .search-no-results svg {
+            display: block;
+            margin: 0 auto 0.75rem;
+            opacity: 0.4;
+        }
+
+        .search-no-results p { margin: 0; font-size: 0.95rem; }
+
+        .search-loading {
+            padding: 1.5rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Modal footer hints */
+        .search-hints {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.55rem 1.1rem;
+            border-top: 1px solid #e5e9f0;
+            background: #fafbfd;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .search-hints kbd {
+            display: inline-block;
+            background: var(--white);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: inherit;
+            font-size: 0.72rem;
+            line-height: 1.6;
+        }
+
+        /* ── Breadcrumb bar ───────────────────────────────────────────────── */
+        #search-breadcrumb {
+            display: none;
+            background: var(--white);
+            border: 1px solid #dde3ed;
+            border-radius: 8px;
+            padding: 0.65rem 1.1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .breadcrumb-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumb-nav a {
+            color: var(--bc-blue-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb-nav a:hover {
+            text-decoration: underline;
+            color: var(--bc-blue);
+        }
+
+        .breadcrumb-current {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .breadcrumb-sep { color: #94a3b8; }
+
+        /* ── Section highlight flash ──────────────────────────────────────── */
+        @keyframes section-flash {
+            0%   { background-color: rgba(252, 186, 25, 0.45); box-shadow: 0 0 0 4px rgba(252,186,25,0.25); }
+            60%  { background-color: rgba(252, 186, 25, 0.15); }
+            100% { background-color: transparent; box-shadow: none; }
+        }
+
+        .search-highlight {
+            animation: section-flash 2.2s ease-out forwards;
+            border-radius: 4px;
+        }
+
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.7.31/dist/flexsearch.bundle.js" defer></script>
+    <script src="assets/search.js" defer id="search-script"></script>
 </head>
 <body>
     <header class="bc-header">
@@ -760,15 +1040,50 @@
             <a href="decisions.html" class="">ADRs</a>
             <a href="cost.html" class="">Cost</a>
             <a href="faq.html" class="">FAQ</a>
+
+            <!-- Search button -->
+            <button class="search-btn" id="search-btn" type="button" aria-label="Search documentation">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Search
+                <span class="search-btn-kbd" aria-label="keyboard shortcut">⌘K</span>
+            </button>
         </nav>
     </header>
-    <main>
 
-<h1>GitHub Actions Workflows</h1>
+    <!-- ── Search modal ──────────────────────────────────────────────────── -->
+    <div class="search-modal" id="search-modal" role="dialog" aria-modal="true" aria-label="Search documentation">
+        <div class="search-box">
+            <div class="search-input-row">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                    type="search"
+                    id="search-input"
+                    placeholder="Search documentation…"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="Search query"
+                />
+                <button class="search-modal-close" id="search-modal-close" type="button" aria-label="Close search">✕</button>
+            </div>
+            <div class="search-results" id="search-results" role="listbox" aria-label="Search results"></div>
+            <div class="search-hints" aria-hidden="true">
+                <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+                <span><kbd>↵</kbd> open</span>
+                <span><kbd>Esc</kbd> close</span>
+                <span style="margin-left:auto"><kbd>⌘K</kbd> or <kbd>Ctrl+K</kbd></span>
+            </div>
+        </div>
+    </div>
+
+    <main>
+        <!-- Breadcrumb: injected by search.js when arriving from a search result -->
+        <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
+
+<h1 id="github-actions-workflows">GitHub Actions Workflows</h1>
 
 <p>This project uses GitHub Actions for automated infrastructure deployments with OIDC authentication to Azure.</p>
 
-<h2>Workflow Overview</h2>
+<h2 id="workflow-overview">Workflow Overview</h2>
 
 <table>
     <thead>
@@ -839,7 +1154,7 @@
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>Developer SDLC Flow (Branch → PR → TEST → PROD)</h2>
+<h2 id="developer-sdlc-flow-branch-pr-test-prod">Developer SDLC Flow (Branch → PR → TEST → PROD)</h2>
 
 <p>The repository enforces a promote-through-environments workflow. Every change flows through a validated path before reaching production.</p>
 
@@ -895,16 +1210,16 @@
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>Advanced Branching Patterns</h2>
+<h2 id="advanced-branching-patterns">Advanced Branching Patterns</h2>
 
 <p>The basic SDLC flow above covers the single-feature-per-PR path. In practice, teams often need to coordinate dependent work or bundle multiple features into a single release. Two patterns handle this: <strong>Stacked PRs</strong> and <strong>Release PRs</strong>.</p>
 
-<h3>Stacked PRs (Dependent Feature Chains)</h3>
+<h3 id="stacked-prs-dependent-feature-chains">Stacked PRs (Dependent Feature Chains)</h3>
 
 <p>Use stacked PRs when a feature depends on another feature that hasn't merged to <code>main</code> yet. Each PR in the stack targets the previous branch instead of <code>main</code>.</p>
 
 <div class="card card-gold">
-    <h3>When to Use</h3>
+    <h3 id="when-to-use">When to Use</h3>
     <ul>
         <li>Feature B requires infrastructure created by Feature A (e.g. a new subnet added in A is referenced in B)</li>
         <li>Breaking a large change into reviewable, incremental PRs</li>
@@ -913,7 +1228,7 @@
 </div>
 
 <div class="card">
-    <h3>How It Works</h3>
+    <h3 id="how-it-works">How It Works</h3>
     <ol>
         <li>Create <code>feat/base-network</code> from <code>main</code> → open <strong>PR #1</strong> targeting <code>main</code></li>
         <li>Create <code>feat/add-apim-policy</code> from <code>feat/base-network</code> → open <strong>PR #2</strong> targeting <code>feat/base-network</code></li>
@@ -939,12 +1254,12 @@
     <div><strong>CI Behaviour:</strong> Each PR in the stack runs <code>pr-open.yml</code> against <code>test</code>. The plan for PR #2 will show changes from both branches while PR #1 is open (because the diff includes the base). After PR #1 merges, re-running PR #2's checks shows only its own changes. Each merge to <code>main</code> produces its own semver tag.</div>
 </div>
 
-<h3>Release PRs (Bundled Multi-Feature Releases)</h3>
+<h3 id="release-prs-bundled-multi-feature-releases">Release PRs (Bundled Multi-Feature Releases)</h3>
 
 <p>Use a Release PR when multiple developers are working on separate features that should ship together as a single coordinated release. All feature branches merge into a shared <strong>release branch</strong>, which then opens one PR to <code>main</code>.</p>
 
 <div class="card card-gold">
-    <h3>When to Use</h3>
+    <h3 id="when-to-use-1">When to Use</h3>
     <ul>
         <li>A planned release includes work from multiple developers across different modules</li>
         <li>Features need integration testing together before merging to <code>main</code></li>
@@ -954,7 +1269,7 @@
 </div>
 
 <div class="card">
-    <h3>How It Works</h3>
+    <h3 id="how-it-works-1">How It Works</h3>
     <ol>
         <li>Create a release branch from <code>main</code>: <code>release/sprint-42</code> (or <code>release/apim-v2</code>, etc.)</li>
         <li>Developers create feature branches from the release branch:
@@ -988,7 +1303,7 @@
     <div><strong>PR Title Convention:</strong> The Release PR title must follow <a href="https://www.conventionalcommits.org/en/v1.0.0/">Conventional Commits</a> (e.g. <code>feat: sprint 42 release — tenant config and rate limits</code>) since it controls the semver bump. Use <code>feat:</code> for minor, <code>fix:</code> for patch, or include <code>BREAKING CHANGE</code> in the body for major.</div>
 </div>
 
-<h3>Choosing Between Stacked PRs and Release PRs</h3>
+<h3 id="choosing-between-stacked-prs-and-release-prs">Choosing Between Stacked PRs and Release PRs</h3>
 
 <table>
     <thead>
@@ -1034,7 +1349,7 @@
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>When Do I Need Self-Hosted Runners?</h2>
+<h2 id="when-do-i-need-self-hosted-runners">When Do I Need Self-Hosted Runners?</h2>
 
 <div class="alert alert-info">
     <div>
@@ -1101,7 +1416,7 @@
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #22c55e;">
-        <h3 style="margin-top: 0;">Public Runners Work For</h3>
+        <h3 id="public-runners-work-for" style="margin-top: 0;">Public Runners Work For</h3>
         <ul style="margin-bottom: 0;">
             <li>Deploying all infrastructure modules</li>
             <li>Network, Bastion, Jumpbox, Proxy</li>
@@ -1110,7 +1425,7 @@
         </ul>
     </div>
     <div class="card" style="border-left-color: #ef4444;">
-        <h3 style="margin-top: 0;">Self-Hosted Required For</h3>
+        <h3 id="self-hosted-required-for" style="margin-top: 0;">Self-Hosted Required For</h3>
         <ul style="margin-bottom: 0;">
             <li>Terraform using <code>azurerm_key_vault_secret</code></li>
             <li>Private state backend (blocked by PE)</li>
@@ -1126,12 +1441,12 @@
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>.deployer.yml (Reusable Workflow)</h2>
+<h2 id="deployeryml-reusable-workflow">.deployer.yml (Reusable Workflow)</h2>
 
 <p>Reusable Terraform workflow for <code>initial-setup/infra</code>, primarily used to manage the tools environment and targeted foundational modules.</p>
 
 <div class="card">
-    <h3>Inputs</h3>
+    <h3 id="inputs">Inputs</h3>
     <table>
         <thead>
             <tr>
@@ -1161,7 +1476,7 @@
 </div>
 
 <div class="card card-gold">
-    <h3>Key Features</h3>
+    <h3 id="key-features">Key Features</h3>
     <ul>
         <li><strong>OIDC Authentication</strong>: Uses <code>azure/login@v2</code> with federated credentials</li>
         <li><strong>Environment Isolation</strong>: Each environment has separate secrets and identity</li>
@@ -1171,7 +1486,7 @@
     </ul>
 </div>
 
-<h3>Required Permissions</h3>
+<h3 id="required-permissions">Required Permissions</h3>
 
 <pre>permissions:
   id-token: write   # Required for OIDC token generation
@@ -1181,12 +1496,12 @@
     <div><strong>Important:</strong> Without <code>id-token: write</code> permission, the workflow cannot generate the OIDC token needed for Azure authentication.</div>
 </div>
 
-<h2>.deployer-using-secure-tunnel.yml (Reusable Workflow)</h2>
+<h2 id="deployer-using-secure-tunnelyml-reusable-workflow">.deployer-using-secure-tunnel.yml (Reusable Workflow)</h2>
 
 <p>Reusable Terraform workflow for <code>infra-ai-hub</code>. It receives encrypted proxy outputs from <code>.deployer.yml</code>, starts Chisel + Privoxy, then runs stack deployment and (for apply in dev/test) integration tests.</p>
 
 <div class="card">
-    <h3>Highlights</h3>
+    <h3 id="highlights">Highlights</h3>
     <ul>
         <li><strong>Validated environments</strong>: <code>dev</code>, <code>test</code>, <code>prod</code></li>
         <li><strong>Secure tunnel bootstrap</strong>: decrypts <code>proxy_url</code>/<code>proxy_auth</code> with <code>GPG_PASSPHRASE</code></li>
@@ -1202,12 +1517,12 @@
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>.lint.yml (Reusable Workflow)</h2>
+<h2 id="lintyml-reusable-workflow">.lint.yml (Reusable Workflow)</h2>
 
 <p>Reusable validation workflow used by PR checks. Runs Terraform formatting and linting, enforces PR title conventions, and blocks forks.</p>
 
 <div class="card card-gold">
-    <h3>What It Runs</h3>
+    <h3 id="what-it-runs">What It Runs</h3>
     <ul>
         <li><strong>Pre-commit hooks</strong>: <code>terraform fmt</code> + <code>tflint</code> (diff-based when possible, full-repo fallback)</li>
         <li><strong>Conventional Commits</strong>: Validates PR title follows <a href="https://www.conventionalcommits.org/en/v1.0.0/">Conventional Commits</a> spec (e.g. <code>feat:</code>, <code>fix:</code>, <code>chore:</code>)</li>
@@ -1218,12 +1533,12 @@
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>.builds.yml (Container Build Workflow)</h2>
+<h2 id="buildsyml-container-build-workflow">.builds.yml (Container Build Workflow)</h2>
 
 <p>Reusable workflow for building and pushing container images to GitHub Container Registry (GHCR). Supports matrix builds for multiple packages including the azure-proxy services.</p>
 
 <div class="card">
-    <h3>Built Packages</h3>
+    <h3 id="built-packages">Built Packages</h3>
     <ul>
         <li><strong>azure-proxy/chisel</strong> - Chisel-based secure tunnel server for private network access</li>
         <li><strong>azure-proxy/privoxy</strong> - Privoxy HTTP/SOCKS proxy server</li>
@@ -1232,20 +1547,20 @@
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>add-or-remove-module.yml</h2>
+<h2 id="add-or-remove-moduleyml">add-or-remove-module.yml</h2>
 
 <p>Manual workflow for deploying or destroying infrastructure modules on demand. Evolved from the earlier bastion-only workflow to support all optional modules (bastion, jumpbox, azure_proxy, github_runners_aca).</p>
 
 <div class="grid grid-2">
     <div class="card">
-        <h3>When to Use</h3>
+        <h3 id="when-to-use-2">When to Use</h3>
         <ul>
             <li><strong>Deploy Module</strong>: When you need to provision a specific infrastructure module</li>
             <li><strong>Destroy Module</strong>: When done, to save costs or clean up resources</li>
         </ul>
     </div>
     <div class="card">
-        <h3>How to Run</h3>
+        <h3 id="how-to-run">How to Run</h3>
         <ol>
             <li>Go to Actions tab in GitHub</li>
             <li>Select "Deploy or Remove Bastion Host"</li>
@@ -1255,7 +1570,7 @@
     </div>
 </div>
 
-<h3>Workflow Inputs</h3>
+<h3 id="workflow-inputs">Workflow Inputs</h3>
 
 <table>
     <thead>
@@ -1290,12 +1605,12 @@
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>pr-open.yml (Pull Request Checks)</h2>
+<h2 id="pr-openyml-pull-request-checks">pr-open.yml (Pull Request Checks)</h2>
 
 <p>Runs on pull request events (and manual dispatch) to provide fast CI signal before merge.</p>
 
 <div class="card card-gold">
-    <h3>Automated Checks</h3>
+    <h3 id="automated-checks">Automated Checks</h3>
     <ul>
         <li><strong>Validation</strong>: Invokes <code>.lint.yml</code> (pre-commit fmt + tflint, conventional commits, fork check)</li>
         <li><strong>Container Build Validation</strong>: Invokes <code>.builds.yml</code> for proxy images</li>
@@ -1312,12 +1627,12 @@
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>schedule.yml (Scheduled Cleanup)</h2>
+<h2 id="scheduleyml-scheduled-cleanup">schedule.yml (Scheduled Cleanup)</h2>
 
 <p>Automatically destroys Bastion every day at 5 PM PST to prevent unnecessary charges.</p>
 
 <div class="card">
-    <h3>Schedule</h3>
+    <h3 id="schedule">Schedule</h3>
     <pre># Runs daily at 5 PM PST (1 AM UTC next day)
 on:
   schedule:
@@ -1325,7 +1640,7 @@ on:
 </div>
 
 <div class="card card-gold">
-    <h3>Workflow Logic</h3>
+    <h3 id="workflow-logic">Workflow Logic</h3>
     <ol>
         <li><strong>Check if Bastion exists</strong>: Uses Azure CLI to query the Bastion resource</li>
         <li><strong>Conditional destroy</strong>: Only runs Terraform destroy if Bastion is found</li>
@@ -1333,7 +1648,7 @@ on:
     </ol>
 </div>
 
-<h3>Jobs Flow</h3>
+<h3 id="jobs-flow">Jobs Flow</h3>
 
 <pre>check-and-destroy-bastion
          │
@@ -1343,12 +1658,12 @@ on:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>manual-dispatch.yml (Manual Promotion Workflow)</h2>
+<h2 id="manual-dispatchyml-manual-promotion-workflow">manual-dispatch.yml (Manual Promotion Workflow)</h2>
 
 <p>Use this workflow to run <code>plan</code>, <code>apply</code>, or <code>destroy</code> for <code>dev</code>, <code>test</code>, and <code>prod</code>.</p>
 
 <div class="card">
-    <h3>How It Works</h3>
+    <h3 id="how-it-works-2">How It Works</h3>
     <ol>
         <li>Validates inputs — <strong>prod apply requires a <code>deploy_tag</code></strong> (a semver tag like <code>v1.2.3</code> from a successful <code>merge-main.yml</code> run)</li>
         <li>Deploys/refreshes <code>azure_proxy</code> in <code>tools</code> via <code>.deployer.yml</code></li>
@@ -1368,12 +1683,12 @@ on:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>merge-main.yml (Auto Apply + Semantic Version on Main)</h2>
+<h2 id="merge-mainyml-auto-apply-semantic-version-on-main">merge-main.yml (Auto Apply + Semantic Version on Main)</h2>
 
 <p>This workflow runs on every push to <code>main</code>. It creates a semantic version tag using <a href="https://www.conventionalcommits.org/en/v1.0.0/">Conventional Commits</a> and then applies infrastructure to <code>test</code>.</p>
 
 <div class="card">
-    <h3>Execution Flow</h3>
+    <h3 id="execution-flow">Execution Flow</h3>
     <ol>
         <li><strong>Concurrently on push to main</strong>:
             <ul>
@@ -1393,12 +1708,12 @@ on:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>Release Process (TEST → PROD)</h2>
+<h2 id="release-process-test-prod">Release Process (TEST → PROD)</h2>
 
 <p>Production releases follow a tag-based promotion flow:</p>
 
 <div class="card card-gold">
-    <h3>Steps to Release to Production</h3>
+    <h3 id="steps-to-release-to-production">Steps to Release to Production</h3>
     <ol>
         <li>Merge your PR to <code>main</code> — the test deployment and semantic versioning run automatically</li>
         <li>Verify the test deployment succeeded and a version tag was created (visible in Actions summary and repo tags, e.g. <code>v1.2.3</code>)</li>
@@ -1411,7 +1726,7 @@ on:
 </div>
 
 <div class="card">
-    <h3>Release Contents</h3>
+    <h3 id="release-contents">Release Contents</h3>
     <p>Each GitHub Release created for prod includes:</p>
     <ul>
         <li>The git tag that was deployed</li>
@@ -1424,7 +1739,7 @@ on:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>Concurrency Strategy</h2>
+<h2 id="concurrency-strategy">Concurrency Strategy</h2>
 
 <p>Several workflows and reusable jobs use <code>concurrency</code> to prevent race conditions and conflicting Terraform operations.</p>
 
@@ -1471,13 +1786,13 @@ on:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>apim-key-rotation.yml (Scheduled + Manual)</h2>
+<h2 id="apim-key-rotationyml-scheduled-manual">apim-key-rotation.yml (Scheduled + Manual)</h2>
 
 <p>Rotates APIM subscription keys using OIDC-authenticated Azure CLI execution.</p>
 
 <div class="grid grid-2">
     <div class="card">
-        <h3>Manual Mode</h3>
+        <h3 id="manual-mode">Manual Mode</h3>
         <ul>
             <li>Trigger with <code>workflow_dispatch</code></li>
             <li>Select environment: <code>dev</code>, <code>test</code>, <code>prod</code></li>
@@ -1485,7 +1800,7 @@ on:
         </ul>
     </div>
     <div class="card card-gold">
-        <h3>Scheduled Mode</h3>
+        <h3 id="scheduled-mode">Scheduled Mode</h3>
         <ul>
             <li>Runs daily at <code>0 9 * * *</code> UTC (1–2 AM Pacific, depending on DST)</li>
             <li><code>rotate-dev</code> and <code>rotate-test</code> run <strong>concurrently</strong> (no dependency between them)</li>
@@ -1497,12 +1812,12 @@ on:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>pages.yml (Documentation)</h2>
+<h2 id="pagesyml-documentation">pages.yml (Documentation)</h2>
 
 <p>Deploys this documentation site to GitHub Pages when changes are pushed to docs or Terraform roots (so generated references stay current).</p>
 
 <div class="card">
-    <h3>Triggers</h3>
+    <h3 id="triggers">Triggers</h3>
     <ul>
         <li><strong>Push to main</strong>: When files in <code>docs/**</code>, <code>initial-setup/infra/**</code>, or <code>infra-ai-hub/**</code> change</li>
         <li><strong>Manual</strong>: Can be triggered manually via <code>workflow_dispatch</code></li>
@@ -1510,7 +1825,7 @@ on:
 </div>
 
 <div class="card">
-    <h3>Deployment Steps</h3>
+    <h3 id="deployment-steps">Deployment Steps</h3>
     <ol>
         <li>Checkout repository</li>
         <li>Run <code>docs/generate-tf-docs.sh</code> to refresh Terraform reference content</li>
@@ -1523,7 +1838,7 @@ on:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>Environment Secrets</h2>
+<h2 id="environment-secrets">Environment Secrets</h2>
 
 <p>Each GitHub environment requires these secrets (created by <code>initial-azure-setup.sh</code>):</p>
 
@@ -1569,7 +1884,7 @@ on:
     </tbody>
 </table>
 
-<h2>Running Workflows Locally</h2>
+<h2 id="running-workflows-locally">Running Workflows Locally</h2>
 
 <p>For local development and testing, use the deployment scripts in each Terraform root:</p>
 

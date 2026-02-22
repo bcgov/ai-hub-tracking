@@ -28,6 +28,11 @@
             box-sizing: border-box;
         }
 
+        /* Offset anchor scroll so the sticky header never covers the target */
+        html {
+            scroll-padding-top: 80px;
+        }
+
         body {
             font-family: 'BC Sans', 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
@@ -697,7 +702,282 @@
                 text-align: center;
             }
         }
+
+        /* =====================================================================
+           SEARCH – button, modal, results, breadcrumb, highlight
+           ===================================================================== */
+
+        /* Search button in header nav */
+        .search-btn {
+            color: var(--white);
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            padding: 0.45rem 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+
+        .search-btn:hover {
+            background: rgba(255,255,255,0.28);
+        }
+
+        .search-btn svg { flex-shrink: 0; }
+
+        .search-btn-kbd {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 0.72rem;
+            line-height: 1.5;
+            letter-spacing: 0.02em;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        /* Modal overlay */
+        .search-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0, 20, 50, 0.65);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            align-items: flex-start;
+            justify-content: center;
+            padding: 6vh 1rem 1rem;
+        }
+
+        .search-modal--active {
+            display: flex;
+        }
+
+        /* Modal box */
+        .search-box {
+            background: var(--white);
+            border-radius: 14px;
+            box-shadow: 0 24px 72px rgba(0,0,0,0.35);
+            width: 100%;
+            max-width: 680px;
+            max-height: 82vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: search-appear 0.18s ease;
+        }
+
+        @keyframes search-appear {
+            from { opacity: 0; transform: translateY(-14px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)  scale(1); }
+        }
+
+        /* Input row */
+        .search-input-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #e5e9f0;
+            flex-shrink: 0;
+        }
+
+        .search-input-row svg { color: var(--text-secondary); flex-shrink: 0; }
+
+        #search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 1.05rem;
+            color: var(--text-primary);
+            background: transparent;
+            font-family: inherit;
+            min-width: 0;
+        }
+
+        #search-input::placeholder { color: #a0aec0; }
+
+        .search-modal-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 1.4rem;
+            line-height: 1;
+            padding: 0.2rem 0.45rem;
+            border-radius: 6px;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .search-modal-close:hover {
+            background: var(--bg-light);
+            color: var(--text-primary);
+        }
+
+        /* Results list */
+        .search-results {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .search-count {
+            padding: 0.5rem 1.1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid #f0f3f8;
+            background: #fafbfd;
+        }
+
+        .search-result-item {
+            display: block;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #f0f3f8;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.12s;
+            outline: none;
+        }
+
+        .search-result-item:hover,
+        .search-result-item:focus {
+            background: #f4f7fc;
+        }
+
+        .search-result-meta {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #996600;
+            margin-bottom: 0.2rem;
+        }
+
+        .search-result-title {
+            font-weight: 600;
+            color: var(--bc-blue);
+            margin-bottom: 0.3rem;
+            font-size: 0.97rem;
+        }
+
+        .search-result-excerpt {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.55;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .search-result-item mark {
+            background: rgba(252, 186, 25, 0.45);
+            color: inherit;
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+
+        .search-no-results {
+            padding: 2.5rem 1rem;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .search-no-results svg {
+            display: block;
+            margin: 0 auto 0.75rem;
+            opacity: 0.4;
+        }
+
+        .search-no-results p { margin: 0; font-size: 0.95rem; }
+
+        .search-loading {
+            padding: 1.5rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Modal footer hints */
+        .search-hints {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.55rem 1.1rem;
+            border-top: 1px solid #e5e9f0;
+            background: #fafbfd;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .search-hints kbd {
+            display: inline-block;
+            background: var(--white);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: inherit;
+            font-size: 0.72rem;
+            line-height: 1.6;
+        }
+
+        /* ── Breadcrumb bar ───────────────────────────────────────────────── */
+        #search-breadcrumb {
+            display: none;
+            background: var(--white);
+            border: 1px solid #dde3ed;
+            border-radius: 8px;
+            padding: 0.65rem 1.1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .breadcrumb-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumb-nav a {
+            color: var(--bc-blue-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb-nav a:hover {
+            text-decoration: underline;
+            color: var(--bc-blue);
+        }
+
+        .breadcrumb-current {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .breadcrumb-sep { color: #94a3b8; }
+
+        /* ── Section highlight flash ──────────────────────────────────────── */
+        @keyframes section-flash {
+            0%   { background-color: rgba(252, 186, 25, 0.45); box-shadow: 0 0 0 4px rgba(252,186,25,0.25); }
+            60%  { background-color: rgba(252, 186, 25, 0.15); }
+            100% { background-color: transparent; box-shadow: none; }
+        }
+
+        .search-highlight {
+            animation: section-flash 2.2s ease-out forwards;
+            border-radius: 4px;
+        }
+
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.7.31/dist/flexsearch.bundle.js" defer></script>
+    <script src="assets/search.js" defer id="search-script"></script>
 </head>
 <body>
     <header class="bc-header">
@@ -760,11 +1040,46 @@
             <a href="decisions.html" class="">ADRs</a>
             <a href="cost.html" class="">Cost</a>
             <a href="faq.html" class="">FAQ</a>
+
+            <!-- Search button -->
+            <button class="search-btn" id="search-btn" type="button" aria-label="Search documentation">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Search
+                <span class="search-btn-kbd" aria-label="keyboard shortcut">⌘K</span>
+            </button>
         </nav>
     </header>
-    <main>
 
-<h1>Operational Playbooks</h1>
+    <!-- ── Search modal ──────────────────────────────────────────────────── -->
+    <div class="search-modal" id="search-modal" role="dialog" aria-modal="true" aria-label="Search documentation">
+        <div class="search-box">
+            <div class="search-input-row">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                    type="search"
+                    id="search-input"
+                    placeholder="Search documentation…"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="Search query"
+                />
+                <button class="search-modal-close" id="search-modal-close" type="button" aria-label="Close search">✕</button>
+            </div>
+            <div class="search-results" id="search-results" role="listbox" aria-label="Search results"></div>
+            <div class="search-hints" aria-hidden="true">
+                <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+                <span><kbd>↵</kbd> open</span>
+                <span><kbd>Esc</kbd> close</span>
+                <span style="margin-left:auto"><kbd>⌘K</kbd> or <kbd>Ctrl+K</kbd></span>
+            </div>
+        </div>
+    </div>
+
+    <main>
+        <!-- Breadcrumb: injected by search.js when arriving from a search result -->
+        <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
+
+<h1 id="operational-playbooks">Operational Playbooks</h1>
 
 <p>Step-by-step procedures for common operational scenarios, troubleshooting, and disaster recovery. These runbooks help operators respond quickly to issues.</p>
 
@@ -778,7 +1093,7 @@
     </div>
 </div>
 
-<h2>Quick Reference</h2>
+<h2 id="quick-reference">Quick Reference</h2>
 
 <div class="grid grid-3">
     <a href="#state-lock" class="card-link">
@@ -786,7 +1101,7 @@
             <div class="feature-icon" style="background: rgba(239, 68, 68, 0.1);">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             </div>
-            <h3 style="margin-top: 0;">State Lock Stuck</h3>
+            <h3 id="state-lock-stuck" style="margin-top: 0;">State Lock Stuck</h3>
             <p>Terraform state is locked and won't release</p>
             <div class="card-arrow">View Playbook →</div>
         </div>
@@ -796,7 +1111,7 @@
             <div class="feature-icon" style="background: rgba(249, 115, 22, 0.1);">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#f97316" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
             </div>
-            <h3 style="margin-top: 0;">OIDC Auth Failing</h3>
+            <h3 id="oidc-auth-failing" style="margin-top: 0;">OIDC Auth Failing</h3>
             <p>Token exchange errors between GitHub and Azure</p>
             <div class="card-arrow">View Playbook →</div>
         </div>
@@ -806,7 +1121,7 @@
             <div class="feature-icon purple">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--bc-blue)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h12a5 5 0 0 1 5 5v5"/></svg>
             </div>
-            <h3 style="margin-top: 0;">Rollback Deployment</h3>
+            <h3 id="rollback-deployment" style="margin-top: 0;">Rollback Deployment</h3>
             <p>Revert to a previous known-good state</p>
             <div class="card-arrow">View Playbook →</div>
         </div>
@@ -816,7 +1131,7 @@
             <div class="feature-icon green">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
             </div>
-            <h3 style="margin-top: 0;">Rotate Credentials</h3>
+            <h3 id="rotate-credentials" style="margin-top: 0;">Rotate Credentials</h3>
             <p>Update federated credentials if compromised</p>
             <div class="card-arrow">View Playbook →</div>
         </div>
@@ -826,7 +1141,7 @@
             <div class="feature-icon blue">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
             </div>
-            <h3 style="margin-top: 0;">Bastion Access Issues</h3>
+            <h3 id="bastion-access-issues" style="margin-top: 0;">Bastion Access Issues</h3>
             <p>Cannot connect to VMs via Bastion</p>
             <div class="card-arrow">View Playbook →</div>
         </div>
@@ -836,7 +1151,7 @@
             <div class="feature-icon gold">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
             </div>
-            <h3 style="margin-top: 0;">Pipeline Stuck</h3>
+            <h3 id="pipeline-stuck-1" style="margin-top: 0;">Pipeline Stuck</h3>
             <p>GitHub Actions workflow hanging or failing</p>
             <div class="card-arrow">View Playbook →</div>
         </div>
@@ -846,7 +1161,7 @@
             <div class="feature-icon purple">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
             </div>
-            <h3 style="margin-top: 0;">Chisel Tunnel Setup</h3>
+            <h3 id="chisel-tunnel-setup" style="margin-top: 0;">Chisel Tunnel Setup</h3>
             <p>Local access to private Azure resources</p>
             <div class="card-arrow">View Playbook →</div>
         </div>
@@ -860,7 +1175,7 @@
 <h2 id="state-lock">Playbook: Terraform State Lock Stuck</h2>
 
 <div class="card" style="border-left-color: #ef4444;">
-    <h3 style="margin-top: 0;">Symptoms</h3>
+    <h3 id="symptoms" style="margin-top: 0;">Symptoms</h3>
     <ul>
         <li>Terraform commands fail with: <code>Error acquiring the state lock</code></li>
         <li>Message includes: <code>Lock Info: ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx</code></li>
@@ -868,7 +1183,7 @@
     </ul>
 </div>
 
-<h3>Diagnosis</h3>
+<h3 id="diagnosis">Diagnosis</h3>
 
 <ol>
     <li><strong>Check if another operation is running</strong>
@@ -883,7 +1198,7 @@
     </li>
 </ol>
 
-<h3>Resolution</h3>
+<h3 id="resolution">Resolution</h3>
 
 <div class="alert alert-warning">
     <span class="alert-icon">⚠️</span>
@@ -915,7 +1230,7 @@ terraform force-unlock &lt;LOCK_ID&gt;
 # Example:
 terraform force-unlock 12345678-1234-1234-1234-123456789012</pre>
 
-<h3>Prevention</h3>
+<h3 id="prevention">Prevention</h3>
 <ul>
     <li>Never cancel Terraform runs mid-operation</li>
     <li>Use workflow concurrency controls (already configured)</li>
@@ -929,7 +1244,7 @@ terraform force-unlock 12345678-1234-1234-1234-123456789012</pre>
 <h2 id="oidc-failure">Playbook: OIDC Authentication Failing</h2>
 
 <div class="card" style="border-left-color: #f97316;">
-    <h3 style="margin-top: 0;">Symptoms</h3>
+    <h3 id="symptoms-1" style="margin-top: 0;">Symptoms</h3>
     <ul>
         <li>GitHub Actions fails at <code>azure/login</code> step</li>
         <li>Error: <code>AADSTS700024: Client assertion is not within its valid time range</code></li>
@@ -938,7 +1253,7 @@ terraform force-unlock 12345678-1234-1234-1234-123456789012</pre>
     </ul>
 </div>
 
-<h3>Diagnosis by Error Code</h3>
+<h3 id="diagnosis-by-error-code">Diagnosis by Error Code</h3>
 
 <table>
     <tr>
@@ -963,7 +1278,7 @@ terraform force-unlock 12345678-1234-1234-1234-123456789012</pre>
     </tr>
 </table>
 
-<h3>Resolution Steps</h3>
+<h3 id="resolution-steps">Resolution Steps</h3>
 
 <h4>1. Verify GitHub Secrets</h4>
 <pre># These secrets must be set in GitHub repository settings:
@@ -1010,7 +1325,7 @@ az ad app federated-credential delete \
 <h2 id="rollback">Playbook: Rollback Failed Deployment</h2>
 
 <div class="card" style="border-left-color: #8b5cf6;">
-    <h3 style="margin-top: 0;">When to Use</h3>
+    <h3 id="when-to-use" style="margin-top: 0;">When to Use</h3>
     <ul>
         <li>A deployment broke existing functionality</li>
         <li>Resources are in an inconsistent state</li>
@@ -1018,7 +1333,7 @@ az ad app federated-credential delete \
     </ul>
 </div>
 
-<h3>Option 1: Git Revert (Recommended)</h3>
+<h3 id="option-1-git-revert-recommended">Option 1: Git Revert (Recommended)</h3>
 
 <pre># Find the last good commit
 git log --oneline -10
@@ -1029,7 +1344,7 @@ git revert &lt;BAD_COMMIT_SHA&gt;
 # Push to trigger pipeline with reverted code
 git push origin main</pre>
 
-<h3>Option 2: Restore from State Backup</h3>
+<h3 id="option-2-restore-from-state-backup">Option 2: Restore from State Backup</h3>
 
 <p>Azure Blob Storage keeps versions of the state file:</p>
 
@@ -1048,7 +1363,7 @@ az storage blob download \
     --version-id &lt;VERSION_ID&gt; \
     --file terraform.tfstate.backup</pre>
 
-<h3>Option 3: Targeted Destroy and Recreate</h3>
+<h3 id="option-3-targeted-destroy-and-recreate">Option 3: Targeted Destroy and Recreate</h3>
 
 <pre># Destroy specific problematic resources
 terraform destroy -target=azurerm_virtual_machine.jumpbox
@@ -1070,7 +1385,7 @@ terraform apply</pre>
 <h2 id="credential-rotation">Playbook: Rotate Federated Credentials</h2>
 
 <div class="card" style="border-left-color: #22c55e;">
-    <h3 style="margin-top: 0;">When to Use</h3>
+    <h3 id="when-to-use-1" style="margin-top: 0;">When to Use</h3>
     <ul>
         <li>Suspected credential compromise</li>
         <li>Security audit requires rotation</li>
@@ -1085,7 +1400,7 @@ terraform apply</pre>
     </div>
 </div>
 
-<h3>To Update the Trust Relationship</h3>
+<h3 id="to-update-the-trust-relationship">To Update the Trust Relationship</h3>
 
 <h4>1. Delete Existing Federated Credential</h4>
 <pre>az ad app federated-credential list --id &lt;APP_OBJECT_ID&gt;
@@ -1117,7 +1432,7 @@ gh workflow run deploy.yml</pre>
 <h2 id="bastion-access">Playbook: Bastion Access Issues</h2>
 
 <div class="card" style="border-left-color: #0ea5e9;">
-    <h3 style="margin-top: 0;">Symptoms</h3>
+    <h3 id="symptoms-2" style="margin-top: 0;">Symptoms</h3>
     <ul>
         <li>Cannot connect to VM via Azure Portal Bastion</li>
         <li>Connection times out</li>
@@ -1125,7 +1440,7 @@ gh workflow run deploy.yml</pre>
     </ul>
 </div>
 
-<h3>Diagnosis</h3>
+<h3 id="diagnosis-1">Diagnosis</h3>
 
 <h4>1. Check if Bastion is Deployed</h4>
 <pre>az network bastion list \
@@ -1167,7 +1482,7 @@ az network nsg rule list \
 <h2 id="pipeline-stuck">Playbook: GitHub Actions Pipeline Stuck</h2>
 
 <div class="card" style="border-left-color: #fcba19;">
-    <h3 style="margin-top: 0;">Symptoms</h3>
+    <h3 id="symptoms-3" style="margin-top: 0;">Symptoms</h3>
     <ul>
         <li>Pipeline shows "In progress" for extended time</li>
         <li>Terraform plan/apply seems to hang</li>
@@ -1175,7 +1490,7 @@ az network nsg rule list \
     </ul>
 </div>
 
-<h3>Resolution</h3>
+<h3 id="resolution-1">Resolution</h3>
 
 <h4>1. Check for Pending Approvals</h4>
 <p>Production environments require approval. Check the workflow run for pending reviews.</p>
@@ -1221,7 +1536,7 @@ gh run view &lt;RUN_ID&gt; --log</pre>
 </div>
 
 <div class="card" style="border-left-color: #8b5cf6;">
-    <h3 style="margin-top: 0;">When to Use</h3>
+    <h3 id="when-to-use-2" style="margin-top: 0;">When to Use</h3>
     <ul>
         <li>You need to connect to a private PostgreSQL/CosmosDB database from your laptop</li>
         <li>You need to debug private endpoints locally</li>
@@ -1230,7 +1545,7 @@ gh run view &lt;RUN_ID&gt; --log</pre>
     </ul>
 </div>
 
-<h3>Prerequisites</h3>
+<h3 id="prerequisites">Prerequisites</h3>
 
 <ul>
     <li><strong>Docker</strong> installed on your local machine</li>
@@ -1238,7 +1553,7 @@ gh run view &lt;RUN_ID&gt; --log</pre>
     <li><strong>Azure Proxy deployed</strong> (<code>enable_azure_proxy = true</code> in Terraform)</li>
 </ul>
 
-<h3>Step 1: Get Chisel Credentials</h3>
+<h3 id="step-1-get-chisel-credentials">Step 1: Get Chisel Credentials</h3>
 
 <p>The Chisel server credentials are stored in Terraform outputs. Contact the platform team or retrieve them yourself:</p>
 
@@ -1254,7 +1569,7 @@ terraform output azure_proxy_chisel_auth
 
 # Output: https://&lt;app-name&gt;.azurewebsites.net</pre>
 
-<h3>Step 2: Connect to a Private Database</h3>
+<h3 id="step-2-connect-to-a-private-database">Step 2: Connect to a Private Database</h3>
 
 <p>Example: Connecting to a private PostgreSQL database on port 5432:</p>
 
@@ -1278,7 +1593,7 @@ psql -h localhost -p 5432 -U &lt;username&gt; -d &lt;database&gt;</pre>
     </div>
 </div>
 
-<h3>Step 3: Connect to Multiple Services (SOCKS5 Proxy)</h3>
+<h3 id="step-3-connect-to-multiple-services-socks5-proxy">Step 3: Connect to Multiple Services (SOCKS5 Proxy)</h3>
 
 <p>For accessing multiple private services or browsing private endpoints:</p>
 
@@ -1310,7 +1625,7 @@ docker run --rm -it \
     </li>
 </ol>
 
-<h3>Step 4: Connect to Key Vault</h3>
+<h3 id="step-4-connect-to-key-vault">Step 4: Connect to Key Vault</h3>
 
 <pre># Tunnel to Key Vault (port 443)
 docker run --rm -it \
@@ -1323,7 +1638,7 @@ docker run --rm -it \
 # Use Azure CLI with HTTPS_PROXY (alternative method)
 HTTPS_PROXY=socks5://localhost:1080 az keyvault secret list --vault-name &lt;keyvault-name&gt;</pre>
 
-<h3>Troubleshooting</h3>
+<h3 id="troubleshooting">Troubleshooting</h3>
 
 <table>
     <tr>
@@ -1358,7 +1673,7 @@ HTTPS_PROXY=socks5://localhost:1080 az keyvault secret list --vault-name &lt;key
     </tr>
 </table>
 
-<h3>Security Notes</h3>
+<h3 id="security-notes">Security Notes</h3>
 
 <div class="alert alert-warning">
     <span class="alert-icon">🔒</span>
@@ -1372,7 +1687,7 @@ HTTPS_PROXY=socks5://localhost:1080 az keyvault secret list --vault-name &lt;key
     </div>
 </div>
 
-<h3>Related Resources</h3>
+<h3 id="related-resources">Related Resources</h3>
 <ul>
     <li><a href="decisions.html#adr-011">ADR-011: Control Plane vs Data Plane Access & Chisel Tunnel</a></li>
     <li><a href="terraform-reference.html">Terraform Reference: azure-proxy module</a></li>

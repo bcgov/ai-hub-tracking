@@ -28,6 +28,11 @@
             box-sizing: border-box;
         }
 
+        /* Offset anchor scroll so the sticky header never covers the target */
+        html {
+            scroll-padding-top: 80px;
+        }
+
         body {
             font-family: 'BC Sans', 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
@@ -697,7 +702,282 @@
                 text-align: center;
             }
         }
+
+        /* =====================================================================
+           SEARCH – button, modal, results, breadcrumb, highlight
+           ===================================================================== */
+
+        /* Search button in header nav */
+        .search-btn {
+            color: var(--white);
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            padding: 0.45rem 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+
+        .search-btn:hover {
+            background: rgba(255,255,255,0.28);
+        }
+
+        .search-btn svg { flex-shrink: 0; }
+
+        .search-btn-kbd {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 0.72rem;
+            line-height: 1.5;
+            letter-spacing: 0.02em;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        /* Modal overlay */
+        .search-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0, 20, 50, 0.65);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            align-items: flex-start;
+            justify-content: center;
+            padding: 6vh 1rem 1rem;
+        }
+
+        .search-modal--active {
+            display: flex;
+        }
+
+        /* Modal box */
+        .search-box {
+            background: var(--white);
+            border-radius: 14px;
+            box-shadow: 0 24px 72px rgba(0,0,0,0.35);
+            width: 100%;
+            max-width: 680px;
+            max-height: 82vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: search-appear 0.18s ease;
+        }
+
+        @keyframes search-appear {
+            from { opacity: 0; transform: translateY(-14px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)  scale(1); }
+        }
+
+        /* Input row */
+        .search-input-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #e5e9f0;
+            flex-shrink: 0;
+        }
+
+        .search-input-row svg { color: var(--text-secondary); flex-shrink: 0; }
+
+        #search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 1.05rem;
+            color: var(--text-primary);
+            background: transparent;
+            font-family: inherit;
+            min-width: 0;
+        }
+
+        #search-input::placeholder { color: #a0aec0; }
+
+        .search-modal-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 1.4rem;
+            line-height: 1;
+            padding: 0.2rem 0.45rem;
+            border-radius: 6px;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .search-modal-close:hover {
+            background: var(--bg-light);
+            color: var(--text-primary);
+        }
+
+        /* Results list */
+        .search-results {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .search-count {
+            padding: 0.5rem 1.1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid #f0f3f8;
+            background: #fafbfd;
+        }
+
+        .search-result-item {
+            display: block;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #f0f3f8;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.12s;
+            outline: none;
+        }
+
+        .search-result-item:hover,
+        .search-result-item:focus {
+            background: #f4f7fc;
+        }
+
+        .search-result-meta {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #996600;
+            margin-bottom: 0.2rem;
+        }
+
+        .search-result-title {
+            font-weight: 600;
+            color: var(--bc-blue);
+            margin-bottom: 0.3rem;
+            font-size: 0.97rem;
+        }
+
+        .search-result-excerpt {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.55;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .search-result-item mark {
+            background: rgba(252, 186, 25, 0.45);
+            color: inherit;
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+
+        .search-no-results {
+            padding: 2.5rem 1rem;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .search-no-results svg {
+            display: block;
+            margin: 0 auto 0.75rem;
+            opacity: 0.4;
+        }
+
+        .search-no-results p { margin: 0; font-size: 0.95rem; }
+
+        .search-loading {
+            padding: 1.5rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Modal footer hints */
+        .search-hints {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.55rem 1.1rem;
+            border-top: 1px solid #e5e9f0;
+            background: #fafbfd;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .search-hints kbd {
+            display: inline-block;
+            background: var(--white);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: inherit;
+            font-size: 0.72rem;
+            line-height: 1.6;
+        }
+
+        /* ── Breadcrumb bar ───────────────────────────────────────────────── */
+        #search-breadcrumb {
+            display: none;
+            background: var(--white);
+            border: 1px solid #dde3ed;
+            border-radius: 8px;
+            padding: 0.65rem 1.1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .breadcrumb-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumb-nav a {
+            color: var(--bc-blue-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb-nav a:hover {
+            text-decoration: underline;
+            color: var(--bc-blue);
+        }
+
+        .breadcrumb-current {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .breadcrumb-sep { color: #94a3b8; }
+
+        /* ── Section highlight flash ──────────────────────────────────────── */
+        @keyframes section-flash {
+            0%   { background-color: rgba(252, 186, 25, 0.45); box-shadow: 0 0 0 4px rgba(252,186,25,0.25); }
+            60%  { background-color: rgba(252, 186, 25, 0.15); }
+            100% { background-color: transparent; box-shadow: none; }
+        }
+
+        .search-highlight {
+            animation: section-flash 2.2s ease-out forwards;
+            border-radius: 4px;
+        }
+
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.7.31/dist/flexsearch.bundle.js" defer></script>
+    <script src="assets/search.js" defer id="search-script"></script>
 </head>
 <body>
     <header class="bc-header">
@@ -760,9 +1040,44 @@
             <a href="decisions.html" class="">ADRs</a>
             <a href="cost.html" class="">Cost</a>
             <a href="faq.html" class="">FAQ</a>
+
+            <!-- Search button -->
+            <button class="search-btn" id="search-btn" type="button" aria-label="Search documentation">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Search
+                <span class="search-btn-kbd" aria-label="keyboard shortcut">⌘K</span>
+            </button>
         </nav>
     </header>
+
+    <!-- ── Search modal ──────────────────────────────────────────────────── -->
+    <div class="search-modal" id="search-modal" role="dialog" aria-modal="true" aria-label="Search documentation">
+        <div class="search-box">
+            <div class="search-input-row">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                    type="search"
+                    id="search-input"
+                    placeholder="Search documentation…"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="Search query"
+                />
+                <button class="search-modal-close" id="search-modal-close" type="button" aria-label="Close search">✕</button>
+            </div>
+            <div class="search-results" id="search-results" role="listbox" aria-label="Search results"></div>
+            <div class="search-hints" aria-hidden="true">
+                <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+                <span><kbd>↵</kbd> open</span>
+                <span><kbd>Esc</kbd> close</span>
+                <span style="margin-left:auto"><kbd>⌘K</kbd> or <kbd>Ctrl+K</kbd></span>
+            </div>
+        </div>
+    </div>
+
     <main>
+        <!-- Breadcrumb: injected by search.js when arriving from a search result -->
+        <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
 
 <style>
 /* SVG Viewer Styles */
@@ -1066,13 +1381,13 @@
 
 <button class="go-to-top" onclick="window.scrollTo({top:0,behavior:'smooth'})" title="Back to top">&#8679; Top</button>
 
-<h1>Architecture Diagrams</h1>
+<h1 id="architecture-diagrams">Architecture Diagrams</h1>
 
 <p>Interactive diagrams showing the OIDC authentication flow, infrastructure architecture, and deployment processes. Click any diagram to view it in the interactive viewer with zoom and pan controls.</p>
 
-<h2>Select a Diagram</h2>
+<h2 id="select-a-diagram">Select a Diagram</h2>
 
-<h3 style="color: var(--bc-gold); margin-top: 0;">Architecture Overview</h3>
+<h3 id="architecture-overview" style="color: var(--bc-gold); margin-top: 0;">Architecture Overview</h3>
 <div class="diagram-gallery" id="diagramGallery">
     <div class="diagram-card active" onclick="loadDiagram('architecture-layers', this)">
         <div class="diagram-card-preview">
@@ -1130,7 +1445,7 @@
     </div>
 </div>
 
-<h3 style="color: #ef4444; margin-top: 1.5rem;">Stakeholder Infographics (Share These!)</h3>
+<h3 id="stakeholder-infographics-share-these" style="color: #ef4444; margin-top: 1.5rem;">Stakeholder Infographics (Share These!)</h3>
 <div class="diagram-gallery">
     <div class="diagram-card" onclick="loadDiagram('tenant-rg-model', this)">
         <div class="diagram-card-preview">
@@ -1170,7 +1485,7 @@
     </div>
 </div>
 
-<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Network & Infrastructure</h3>
+<h3 id="network-infrastructure" style="color: var(--bc-blue); margin-top: 1.5rem;">Network & Infrastructure</h3>
 <div class="diagram-gallery">
     <div class="diagram-card" onclick="loadDiagram('network-detailed', this)">
         <div class="diagram-card-preview">
@@ -1201,7 +1516,7 @@
     </div>
 </div>
 
-<h3 style="color: #8b5cf6; margin-top: 1.5rem;">Platform Access & Security</h3>
+<h3 id="platform-access-security" style="color: #8b5cf6; margin-top: 1.5rem;">Platform Access & Security</h3>
 <div class="diagram-gallery">
     <div class="diagram-card" onclick="loadDiagram('control-data-plane', this)">
         <div class="diagram-card-preview">
@@ -1241,7 +1556,7 @@
     </div>
 </div>
 
-<h3 style="color: #22c55e; margin-top: 1.5rem;">Authentication & CI/CD</h3>
+<h3 id="authentication-cicd" style="color: #22c55e; margin-top: 1.5rem;">Authentication & CI/CD</h3>
 <div class="diagram-gallery">
     <div class="diagram-card" onclick="loadDiagram('oidc-complete', this)">
         <div class="diagram-card-preview">
@@ -1290,7 +1605,7 @@
     </div>
 </div>
 
-<h3 style="color: #0078d4; margin-top: 1.5rem;">Microsoft Reference (Upstream)</h3>
+<h3 id="microsoft-reference-upstream" style="color: #0078d4; margin-top: 1.5rem;">Microsoft Reference (Upstream)</h3>
 <div class="diagram-gallery">
     <div class="diagram-card" onclick="loadDiagram('ms-with-platform', this)">
         <div class="diagram-card-preview">
@@ -1312,7 +1627,7 @@
     </div>
 </div>
 
-<h2>Interactive Viewer</h2>
+<h2 id="interactive-viewer">Interactive Viewer</h2>
 
 <div class="diagram-viewer" id="diagramViewer">
     <div class="diagram-toolbar">
@@ -1369,11 +1684,11 @@
     </div>
 </div>
 
-<h2>Diagram Descriptions</h2>
+<h2 id="diagram-descriptions">Diagram Descriptions</h2>
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #fcba19;">
-        <h3 style="margin-top: 0;">OIDC Complete Guide</h3>
+        <h3 id="oidc-complete-guide" style="margin-top: 0;">OIDC Complete Guide</h3>
         <p>The comprehensive diagram showing:</p>
         <ul style="margin-bottom: 0;">
             <li><strong>Section 1:</strong> One-time setup process and prerequisites</li>
@@ -1384,7 +1699,7 @@
         </ul>
     </div>
     <div class="card" style="border-left-color: #8b5cf6;">
-        <h3 style="margin-top: 0;">Token Exchange Flow</h3>
+        <h3 id="token-exchange-flow" style="margin-top: 0;">Token Exchange Flow</h3>
         <p>Detailed sequence diagram showing:</p>
         <ul style="margin-bottom: 0;">
             <li>GitHub Actions requesting OIDC token</li>
@@ -1395,7 +1710,7 @@
         </ul>
     </div>
     <div class="card" style="border-left-color: #22c55e;">
-        <h3 style="margin-top: 0;">Network Architecture</h3>
+        <h3 id="network-architecture" style="margin-top: 0;">Network Architecture</h3>
         <p>Infrastructure topology showing:</p>
         <ul style="margin-bottom: 0;">
             <li>Virtual Network and address spaces</li>
@@ -1406,7 +1721,7 @@
         </ul>
     </div>
     <div class="card" style="border-left-color: #fcba19;">
-        <h3 style="margin-top: 0;">Network Environments</h3>
+        <h3 id="network-environments" style="margin-top: 0;">Network Environments</h3>
         <p>Complete environment layout:</p>
         <ul style="margin-bottom: 0;">
             <li>All 4 VNets (da4cf6-prod/test/dev/tools)</li>
@@ -1417,7 +1732,7 @@
         </ul>
     </div>
     <div class="card" style="border-left-color: #0078d4;">
-        <h3 style="margin-top: 0;">Deployment Pipeline</h3>
+        <h3 id="deployment-pipeline" style="margin-top: 0;">Deployment Pipeline</h3>
         <p>Complete CI/CD workflow visualization:</p>
         <ul style="margin-bottom: 0;">
             <li>All 6 GHA workflows (manual-dispatch, key-rotation, module mgmt, schedule, PR, pages)</li>
@@ -1428,7 +1743,7 @@
         </ul>
     </div>
     <div class="card" style="border-left-color: #22c55e;">
-        <h3 style="margin-top: 0;">APIM Key Rotation</h3>
+        <h3 id="apim-key-rotation" style="margin-top: 0;">APIM Key Rotation</h3>
         <p>Automated key rotation architecture:</p>
         <ul style="margin-bottom: 0;">
             <li>Daily schedule (9 UTC) + manual dispatch triggers</li>
@@ -1439,7 +1754,7 @@
         </ul>
     </div>
     <div class="card" style="border-left-color: #a78bfa;">
-        <h3 style="margin-top: 0;">Scaled Stack Deployment</h3>
+        <h3 id="scaled-stack-deployment" style="margin-top: 0;">Scaled Stack Deployment</h3>
         <p>3-phase execution engine architecture:</p>
         <ul style="margin-bottom: 0;">
             <li>5 isolated Terraform state files (shared, tenant, foundry, apim, tenant-user-mgmt)</li>
@@ -1451,7 +1766,7 @@
     </div>
 </div>
 
-<h2>Using SVG Diagrams</h2>
+<h2 id="using-svg-diagrams">Using SVG Diagrams</h2>
 
 <div class="alert alert-info">
     <span class="alert-icon">💡</span>
@@ -1462,7 +1777,7 @@
 </div>
 
 <div class="card card-gold">
-    <h3 style="margin-top: 0;">Tips for Working with SVG Diagrams</h3>
+    <h3 id="tips-for-working-with-svg-diagrams" style="margin-top: 0;">Tips for Working with SVG Diagrams</h3>
     <div class="grid grid-2" style="margin-top: 1rem;">
         <div>
             <h4 style="color: var(--bc-blue); margin: 0 0 0.5rem 0;">In Browser</h4>

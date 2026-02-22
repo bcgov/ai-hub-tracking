@@ -28,6 +28,11 @@
             box-sizing: border-box;
         }
 
+        /* Offset anchor scroll so the sticky header never covers the target */
+        html {
+            scroll-padding-top: 80px;
+        }
+
         body {
             font-family: 'BC Sans', 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
@@ -697,7 +702,282 @@
                 text-align: center;
             }
         }
+
+        /* =====================================================================
+           SEARCH – button, modal, results, breadcrumb, highlight
+           ===================================================================== */
+
+        /* Search button in header nav */
+        .search-btn {
+            color: var(--white);
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            padding: 0.45rem 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+
+        .search-btn:hover {
+            background: rgba(255,255,255,0.28);
+        }
+
+        .search-btn svg { flex-shrink: 0; }
+
+        .search-btn-kbd {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 0.72rem;
+            line-height: 1.5;
+            letter-spacing: 0.02em;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        /* Modal overlay */
+        .search-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0, 20, 50, 0.65);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            align-items: flex-start;
+            justify-content: center;
+            padding: 6vh 1rem 1rem;
+        }
+
+        .search-modal--active {
+            display: flex;
+        }
+
+        /* Modal box */
+        .search-box {
+            background: var(--white);
+            border-radius: 14px;
+            box-shadow: 0 24px 72px rgba(0,0,0,0.35);
+            width: 100%;
+            max-width: 680px;
+            max-height: 82vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: search-appear 0.18s ease;
+        }
+
+        @keyframes search-appear {
+            from { opacity: 0; transform: translateY(-14px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)  scale(1); }
+        }
+
+        /* Input row */
+        .search-input-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #e5e9f0;
+            flex-shrink: 0;
+        }
+
+        .search-input-row svg { color: var(--text-secondary); flex-shrink: 0; }
+
+        #search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 1.05rem;
+            color: var(--text-primary);
+            background: transparent;
+            font-family: inherit;
+            min-width: 0;
+        }
+
+        #search-input::placeholder { color: #a0aec0; }
+
+        .search-modal-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 1.4rem;
+            line-height: 1;
+            padding: 0.2rem 0.45rem;
+            border-radius: 6px;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .search-modal-close:hover {
+            background: var(--bg-light);
+            color: var(--text-primary);
+        }
+
+        /* Results list */
+        .search-results {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .search-count {
+            padding: 0.5rem 1.1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid #f0f3f8;
+            background: #fafbfd;
+        }
+
+        .search-result-item {
+            display: block;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #f0f3f8;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.12s;
+            outline: none;
+        }
+
+        .search-result-item:hover,
+        .search-result-item:focus {
+            background: #f4f7fc;
+        }
+
+        .search-result-meta {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #996600;
+            margin-bottom: 0.2rem;
+        }
+
+        .search-result-title {
+            font-weight: 600;
+            color: var(--bc-blue);
+            margin-bottom: 0.3rem;
+            font-size: 0.97rem;
+        }
+
+        .search-result-excerpt {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.55;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .search-result-item mark {
+            background: rgba(252, 186, 25, 0.45);
+            color: inherit;
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+
+        .search-no-results {
+            padding: 2.5rem 1rem;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .search-no-results svg {
+            display: block;
+            margin: 0 auto 0.75rem;
+            opacity: 0.4;
+        }
+
+        .search-no-results p { margin: 0; font-size: 0.95rem; }
+
+        .search-loading {
+            padding: 1.5rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Modal footer hints */
+        .search-hints {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.55rem 1.1rem;
+            border-top: 1px solid #e5e9f0;
+            background: #fafbfd;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .search-hints kbd {
+            display: inline-block;
+            background: var(--white);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: inherit;
+            font-size: 0.72rem;
+            line-height: 1.6;
+        }
+
+        /* ── Breadcrumb bar ───────────────────────────────────────────────── */
+        #search-breadcrumb {
+            display: none;
+            background: var(--white);
+            border: 1px solid #dde3ed;
+            border-radius: 8px;
+            padding: 0.65rem 1.1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .breadcrumb-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumb-nav a {
+            color: var(--bc-blue-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb-nav a:hover {
+            text-decoration: underline;
+            color: var(--bc-blue);
+        }
+
+        .breadcrumb-current {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .breadcrumb-sep { color: #94a3b8; }
+
+        /* ── Section highlight flash ──────────────────────────────────────── */
+        @keyframes section-flash {
+            0%   { background-color: rgba(252, 186, 25, 0.45); box-shadow: 0 0 0 4px rgba(252,186,25,0.25); }
+            60%  { background-color: rgba(252, 186, 25, 0.15); }
+            100% { background-color: transparent; box-shadow: none; }
+        }
+
+        .search-highlight {
+            animation: section-flash 2.2s ease-out forwards;
+            border-radius: 4px;
+        }
+
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.7.31/dist/flexsearch.bundle.js" defer></script>
+    <script src="assets/search.js" defer id="search-script"></script>
 </head>
 <body>
     <header class="bc-header">
@@ -760,11 +1040,46 @@
             <a href="decisions.html" class="">ADRs</a>
             <a href="cost.html" class="">Cost</a>
             <a href="faq.html" class="">FAQ</a>
+
+            <!-- Search button -->
+            <button class="search-btn" id="search-btn" type="button" aria-label="Search documentation">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Search
+                <span class="search-btn-kbd" aria-label="keyboard shortcut">⌘K</span>
+            </button>
         </nav>
     </header>
-    <main>
 
-<h1>Language Service PII Detection</h1>
+    <!-- ── Search modal ──────────────────────────────────────────────────── -->
+    <div class="search-modal" id="search-modal" role="dialog" aria-modal="true" aria-label="Search documentation">
+        <div class="search-box">
+            <div class="search-input-row">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                    type="search"
+                    id="search-input"
+                    placeholder="Search documentation…"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="Search query"
+                />
+                <button class="search-modal-close" id="search-modal-close" type="button" aria-label="Close search">✕</button>
+            </div>
+            <div class="search-results" id="search-results" role="listbox" aria-label="Search results"></div>
+            <div class="search-hints" aria-hidden="true">
+                <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+                <span><kbd>↵</kbd> open</span>
+                <span><kbd>Esc</kbd> close</span>
+                <span style="margin-left:auto"><kbd>⌘K</kbd> or <kbd>Ctrl+K</kbd></span>
+            </div>
+        </div>
+    </div>
+
+    <main>
+        <!-- Breadcrumb: injected by search.js when arriving from a search result -->
+        <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
+
+<h1 id="language-service-pii-detection">Language Service PII Detection</h1>
 
 <p>This system supports tenant-controlled PII anonymization by calling Azure AI Language Service (Text Analytics) from Azure API Management (APIM) policies. The goal is to mask sensitive data before it is forwarded to downstream backends such as OpenAI.</p>
 
@@ -778,11 +1093,11 @@
     </div>
 </div>
 
-<h2>Overview</h2>
+<h2 id="overview">Overview</h2>
 
 <p>The system uses Azure AI Language Service PII entity recognition to identify and redact sensitive information in requests. This ML-based approach provides broad entity coverage, context-aware detection, and machine learning accuracy for enterprise-grade PII protection.</p>
 
-<h3>Supported Entity Types</h3>
+<h3 id="supported-entity-types">Supported Entity Types</h3>
 <p>Azure AI Language Service can detect and redact a wide range of PII entity types:</p>
 <ul>
     <li><strong>Personal Identifiers:</strong> Names, email addresses, phone numbers</li>
@@ -792,12 +1107,12 @@
     <li><strong>Medical Information:</strong> Medical record numbers, health insurance information</li>
 </ul>
 
-<h2>Architecture</h2>
+<h2 id="architecture">Architecture</h2>
 
 <p>Requests enter APIM, tenant API policies decide whether to apply PII anonymization, and when enabled, APIM calls the shared Language Service endpoint using managed identity. The Language Service endpoint is provided to APIM policies via an APIM Named Value: <code>piiServiceUrl</code>.</p>
 
 <div class="card">
-    <h3 style="margin-top: 0;">Request Flow</h3>
+    <h3 id="request-flow" style="margin-top: 0;">Request Flow</h3>
     <ol>
         <li>Client request arrives at APIM with sensitive content</li>
         <li>Tenant API policy extracts request body content</li>
@@ -808,7 +1123,7 @@
     </ol>
 </div>
 
-<h2>How It Works</h2>
+<h2 id="how-it-works">How It Works</h2>
 
 <ol>
     <li>A tenant request arrives at APIM.</li>
@@ -846,13 +1161,13 @@
     </div>
 </div>
 
-<h2>Configuration Guide</h2>
+<h2 id="configuration-guide">Configuration Guide</h2>
 
-<h3>Shared Configuration (All Environments)</h3>
+<h3 id="shared-configuration-all-environments">Shared Configuration (All Environments)</h3>
 
 <p>PII detection depends on the shared Language Service being enabled via <code>shared_config.language_service.enabled</code> and integrated into APIM via <code>piiServiceUrl</code>. Language Service is configured for private access (no public network access) and is connected through a private endpoint.</p>
 
-<h3>Per-Tenant Configuration</h3>
+<h3 id="per-tenant-configuration">Per-Tenant Configuration</h3>
 
 <p>PII anonymization is controlled per tenant via APIM policy settings (<code>apim_policies.pii_redaction.enabled</code>). The tenant API policy generation includes PII only when tenant PII redaction is enabled and the shared Language Service is enabled.</p>
 
@@ -946,28 +1261,28 @@ apim_policies {
 </table>
 
 <div class="card card-gold">
-    <h3 style="margin-top: 0;">Flexible Tenant Control</h3>
+    <h3 id="flexible-tenant-control" style="margin-top: 0;">Flexible Tenant Control</h3>
     <p>Each tenant can independently enable or disable PII redaction based on their specific requirements. This allows for granular control over data privacy settings while sharing the same infrastructure.</p>
 </div>
 
-<h2>Security Model</h2>
+<h2 id="security-model">Security Model</h2>
 
 <div class="grid grid-2">
     <div class="card">
-        <h3 style="margin-top: 0;">Managed Identity Authentication</h3>
+        <h3 id="managed-identity-authentication" style="margin-top: 0;">Managed Identity Authentication</h3>
         <p>Language Service uses managed identity only (<code>local_auth_enabled = false</code>) rather than API keys. This eliminates the need for credential rotation and follows Azure security best practices.</p>
     </div>
     <div class="card">
-        <h3 style="margin-top: 0;">Private Network Access</h3>
+        <h3 id="private-network-access" style="margin-top: 0;">Private Network Access</h3>
         <p>Language Service network ACLs default to deny and it is accessed via a private endpoint. APIM is granted access via RBAC (<code>Cognitive Services User</code> role).</p>
     </div>
 </div>
 
 <p>APIM policy calls use AAD tokens (Authorization Bearer) and remove any <code>api-key</code> header before calling Cognitive Services APIs.</p>
 
-<h2>Observability</h2>
+<h2 id="observability">Observability</h2>
 
-<h3>PII Detection Diagnostics</h3>
+<h3 id="pii-detection-diagnostics">PII Detection Diagnostics</h3>
 
 <p>The <code>pii-anonymization</code> fragment emits rich diagnostic traces to Application Insights, including:</p>
 
@@ -982,7 +1297,7 @@ apim_policies {
 
 <p>These diagnostics enable monitoring of PII detection effectiveness, understanding which entity types are most commonly detected, and tracking Language Service API health.</p>
 
-<h3>OpenAI Usage Logging</h3>
+<h3 id="openai-usage-logging">OpenAI Usage Logging</h3>
 
 <p>For OpenAI requests, the tenant policy template sets routing metadata variables before including the <code>openai-usage-logging</code> fragment:</p>
 
@@ -995,7 +1310,7 @@ apim_policies {
 
 <p>These dimensions are logged to Application Insights along with token usage data, enabling detailed cost allocation, chargeback analytics, and deployment-level monitoring even in the current single-backend setup.</p>
 
-<h3>Additional Monitoring Fragments</h3>
+<h3 id="additional-monitoring-fragments">Additional Monitoring Fragments</h3>
 
 <table>
     <thead>
@@ -1029,7 +1344,7 @@ apim_policies {
     </tbody>
 </table>
 
-<h2>Frequently Asked Questions</h2>
+<h2 id="frequently-asked-questions">Frequently Asked Questions</h2>
 
 <details>
     <summary><strong>What kinds of entities are supported?</strong></summary>
@@ -1113,7 +1428,7 @@ apim_policies {
     </div>
 </details>
 
-<h2>Troubleshooting</h2>
+<h2 id="troubleshooting">Troubleshooting</h2>
 
 <table>
     <thead>

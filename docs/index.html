@@ -28,6 +28,11 @@
             box-sizing: border-box;
         }
 
+        /* Offset anchor scroll so the sticky header never covers the target */
+        html {
+            scroll-padding-top: 80px;
+        }
+
         body {
             font-family: 'BC Sans', 'Noto Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             line-height: 1.6;
@@ -697,7 +702,282 @@
                 text-align: center;
             }
         }
+
+        /* =====================================================================
+           SEARCH – button, modal, results, breadcrumb, highlight
+           ===================================================================== */
+
+        /* Search button in header nav */
+        .search-btn {
+            color: var(--white);
+            background: rgba(255,255,255,0.15);
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: 6px;
+            padding: 0.45rem 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: var(--transition);
+            white-space: nowrap;
+        }
+
+        .search-btn:hover {
+            background: rgba(255,255,255,0.28);
+        }
+
+        .search-btn svg { flex-shrink: 0; }
+
+        .search-btn-kbd {
+            display: inline-block;
+            background: rgba(255,255,255,0.2);
+            border-radius: 4px;
+            padding: 1px 6px;
+            font-size: 0.72rem;
+            line-height: 1.5;
+            letter-spacing: 0.02em;
+            border: 1px solid rgba(255,255,255,0.3);
+        }
+
+        /* Modal overlay */
+        .search-modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            z-index: 9999;
+            background: rgba(0, 20, 50, 0.65);
+            backdrop-filter: blur(3px);
+            -webkit-backdrop-filter: blur(3px);
+            align-items: flex-start;
+            justify-content: center;
+            padding: 6vh 1rem 1rem;
+        }
+
+        .search-modal--active {
+            display: flex;
+        }
+
+        /* Modal box */
+        .search-box {
+            background: var(--white);
+            border-radius: 14px;
+            box-shadow: 0 24px 72px rgba(0,0,0,0.35);
+            width: 100%;
+            max-width: 680px;
+            max-height: 82vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            animation: search-appear 0.18s ease;
+        }
+
+        @keyframes search-appear {
+            from { opacity: 0; transform: translateY(-14px) scale(0.97); }
+            to   { opacity: 1; transform: translateY(0)  scale(1); }
+        }
+
+        /* Input row */
+        .search-input-row {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #e5e9f0;
+            flex-shrink: 0;
+        }
+
+        .search-input-row svg { color: var(--text-secondary); flex-shrink: 0; }
+
+        #search-input {
+            flex: 1;
+            border: none;
+            outline: none;
+            font-size: 1.05rem;
+            color: var(--text-primary);
+            background: transparent;
+            font-family: inherit;
+            min-width: 0;
+        }
+
+        #search-input::placeholder { color: #a0aec0; }
+
+        .search-modal-close {
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-secondary);
+            font-size: 1.4rem;
+            line-height: 1;
+            padding: 0.2rem 0.45rem;
+            border-radius: 6px;
+            transition: background 0.15s, color 0.15s;
+        }
+
+        .search-modal-close:hover {
+            background: var(--bg-light);
+            color: var(--text-primary);
+        }
+
+        /* Results list */
+        .search-results {
+            overflow-y: auto;
+            flex: 1;
+        }
+
+        .search-count {
+            padding: 0.5rem 1.1rem;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            border-bottom: 1px solid #f0f3f8;
+            background: #fafbfd;
+        }
+
+        .search-result-item {
+            display: block;
+            padding: 0.9rem 1.1rem;
+            border-bottom: 1px solid #f0f3f8;
+            text-decoration: none;
+            color: inherit;
+            transition: background 0.12s;
+            outline: none;
+        }
+
+        .search-result-item:hover,
+        .search-result-item:focus {
+            background: #f4f7fc;
+        }
+
+        .search-result-meta {
+            font-size: 0.72rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #996600;
+            margin-bottom: 0.2rem;
+        }
+
+        .search-result-title {
+            font-weight: 600;
+            color: var(--bc-blue);
+            margin-bottom: 0.3rem;
+            font-size: 0.97rem;
+        }
+
+        .search-result-excerpt {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            line-height: 1.55;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .search-result-item mark {
+            background: rgba(252, 186, 25, 0.45);
+            color: inherit;
+            border-radius: 2px;
+            padding: 0 1px;
+        }
+
+        .search-no-results {
+            padding: 2.5rem 1rem;
+            text-align: center;
+            color: var(--text-secondary);
+        }
+
+        .search-no-results svg {
+            display: block;
+            margin: 0 auto 0.75rem;
+            opacity: 0.4;
+        }
+
+        .search-no-results p { margin: 0; font-size: 0.95rem; }
+
+        .search-loading {
+            padding: 1.5rem;
+            text-align: center;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+
+        /* Modal footer hints */
+        .search-hints {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.55rem 1.1rem;
+            border-top: 1px solid #e5e9f0;
+            background: #fafbfd;
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            flex-shrink: 0;
+        }
+
+        .search-hints kbd {
+            display: inline-block;
+            background: var(--white);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            padding: 1px 5px;
+            font-family: inherit;
+            font-size: 0.72rem;
+            line-height: 1.6;
+        }
+
+        /* ── Breadcrumb bar ───────────────────────────────────────────────── */
+        #search-breadcrumb {
+            display: none;
+            background: var(--white);
+            border: 1px solid #dde3ed;
+            border-radius: 8px;
+            padding: 0.65rem 1.1rem;
+            margin-bottom: 1.5rem;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .breadcrumb-nav {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            font-size: 0.875rem;
+            flex-wrap: wrap;
+        }
+
+        .breadcrumb-nav a {
+            color: var(--bc-blue-light);
+            text-decoration: none;
+        }
+
+        .breadcrumb-nav a:hover {
+            text-decoration: underline;
+            color: var(--bc-blue);
+        }
+
+        .breadcrumb-current {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        .breadcrumb-sep { color: #94a3b8; }
+
+        /* ── Section highlight flash ──────────────────────────────────────── */
+        @keyframes section-flash {
+            0%   { background-color: rgba(252, 186, 25, 0.45); box-shadow: 0 0 0 4px rgba(252,186,25,0.25); }
+            60%  { background-color: rgba(252, 186, 25, 0.15); }
+            100% { background-color: transparent; box-shadow: none; }
+        }
+
+        .search-highlight {
+            animation: section-flash 2.2s ease-out forwards;
+            border-radius: 4px;
+        }
+
     </style>
+    <script src="https://cdn.jsdelivr.net/npm/flexsearch@0.7.31/dist/flexsearch.bundle.js" defer></script>
+    <script src="assets/search.js" defer id="search-script"></script>
 </head>
 <body>
     <header class="bc-header">
@@ -760,13 +1040,48 @@
             <a href="decisions.html" class="">ADRs</a>
             <a href="cost.html" class="">Cost</a>
             <a href="faq.html" class="">FAQ</a>
+
+            <!-- Search button -->
+            <button class="search-btn" id="search-btn" type="button" aria-label="Search documentation">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                Search
+                <span class="search-btn-kbd" aria-label="keyboard shortcut">⌘K</span>
+            </button>
         </nav>
     </header>
+
+    <!-- ── Search modal ──────────────────────────────────────────────────── -->
+    <div class="search-modal" id="search-modal" role="dialog" aria-modal="true" aria-label="Search documentation">
+        <div class="search-box">
+            <div class="search-input-row">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input
+                    type="search"
+                    id="search-input"
+                    placeholder="Search documentation…"
+                    autocomplete="off"
+                    spellcheck="false"
+                    aria-label="Search query"
+                />
+                <button class="search-modal-close" id="search-modal-close" type="button" aria-label="Close search">✕</button>
+            </div>
+            <div class="search-results" id="search-results" role="listbox" aria-label="Search results"></div>
+            <div class="search-hints" aria-hidden="true">
+                <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+                <span><kbd>↵</kbd> open</span>
+                <span><kbd>Esc</kbd> close</span>
+                <span style="margin-left:auto"><kbd>⌘K</kbd> or <kbd>Ctrl+K</kbd></span>
+            </div>
+        </div>
+    </div>
+
     <main>
+        <!-- Breadcrumb: injected by search.js when arriving from a search result -->
+        <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
 
 <div class="hero">
     <span class="badge badge-gold">Open Source</span>
-    <h1>AI Services Hub</h1>
+    <h1 id="ai-services-hub">AI Services Hub</h1>
     <p>Shared, secure AI services for BC Government teams — compliant by design. Private endpoints, zero secrets, full infrastructure as code.</p>
     
     <div style="margin-top: 2rem; display: flex; gap: 1rem; justify-content: center;">
@@ -789,14 +1104,14 @@
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0Z"/></svg>
         </div>
         <div>
-            <h3 style="margin-top: 0; color: var(--bc-blue-dark);">Pilot Project Disclaimer</h3>
+            <h3 id="pilot-project-disclaimer" style="margin-top: 0; color: var(--bc-blue-dark);">Pilot Project Disclaimer</h3>
             <p><strong>This is an early-stage pilot.</strong> Many architectural patterns are still being validated with Platform Services. This project consolidates hard-learned lessons from navigating Azure policy into a shared landing zone to help other BC Gov teams avoid the same pitfalls.</p>
             <p><small><em>The upstream <a href="https://github.com/Azure/AI-Landing-Zones">Azure AI Landing Zones</a> reference architecture carries an archival risk, of which this project team is aware.</em></small></p>
         </div>
     </div>
 </div>
 
-<h2>Where Do You Want to Start?</h2>
+<h2 id="where-do-you-want-to-start">Where Do You Want to Start?</h2>
 
 <div class="grid grid-3">
     <a href="services.html" class="card-link">
@@ -804,7 +1119,7 @@
             <div class="feature-icon gold" style="margin-bottom: 0.75rem;">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--bc-blue)" stroke-width="2"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/></svg>
             </div>
-            <h3 style="margin-top: 0; color: var(--bc-blue);">I'm a Tenant</h3>
+            <h3 id="im-a-tenant" style="margin-top: 0; color: var(--bc-blue);">I'm a Tenant</h3>
             <p style="font-size: 0.9rem; color: var(--text-secondary);">My team wants to use AI services (OpenAI, Document Intelligence, PII detection, Speech) through the hub.</p>
             <div class="card-arrow">See Available Services →</div>
         </div>
@@ -814,7 +1129,7 @@
             <div class="feature-icon blue" style="margin-bottom: 0.75rem;">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>
             </div>
-            <h3 style="margin-top: 0; color: var(--bc-blue);">I'm a Platform Admin</h3>
+            <h3 id="im-a-platform-admin" style="margin-top: 0; color: var(--bc-blue);">I'm a Platform Admin</h3>
             <p style="font-size: 0.9rem; color: var(--text-secondary);">I maintain the hub infrastructure — deploying, operating, and troubleshooting the landing zone.</p>
             <div class="card-arrow">Go to Playbooks →</div>
         </div>
@@ -824,31 +1139,31 @@
             <div class="feature-icon purple" style="margin-bottom: 0.75rem;">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
             </div>
-            <h3 style="margin-top: 0; color: var(--bc-blue);">I'm Exploring</h3>
+            <h3 id="im-exploring" style="margin-top: 0; color: var(--bc-blue);">I'm Exploring</h3>
             <p style="font-size: 0.9rem; color: var(--text-secondary);">I want to understand the architecture and evaluate whether this platform fits my needs.</p>
             <div class="card-arrow">View Architecture →</div>
         </div>
     </a>
 </div>
 
-<h2>Project Scope: Enabling AI on Azure</h2>
+<h2 id="project-scope-enabling-ai-on-azure">Project Scope: Enabling AI on Azure</h2>
 <div class="card card-gold">
-    <h3 style="margin-top:0;">This is an AI Platform, Not a General Azure Onboarding Tool</h3>
+    <h3 id="this-is-an-ai-platform-not-a-general-azure-onboarding-tool" style="margin-top:0;">This is an AI Platform, Not a General Azure Onboarding Tool</h3>
     <p>The primary mission of this project is to create a secure, compliant, and reusable "paved road" for <strong>AI-specific workloads</strong> in the BC Government. It is not intended for general-purpose application hosting.</p>
     <p>Our scope is defined by what can be provisioned and managed via Infrastructure as Code. We exclusively support services that have a mature <strong>Azure Verified Module (AVM)</strong> for Terraform. This ensures every component of the platform is repeatable, auditable, and aligned with industry best practices.</p>
 </div>
 
-<h2>The Challenge: Microsoft's Model vs. BC Gov's Reality</h2>
+<h2 id="the-challenge-microsofts-model-vs-bc-govs-reality">The Challenge: Microsoft's Model vs. BC Gov's Reality</h2>
 
 <p>A newcomer to this project might ask: "Why is this so complex? Why not just follow Microsoft's tutorials?" This project exists to answer that question. There is a fundamental disconnect between Microsoft's standard approach and the strict policy requirements of the BC Government.</p>
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #0078d4;">
-        <h3 style="margin-top:0;">Microsoft's Assumption: UI-First, Public-Friendly</h3>
+        <h3 id="microsofts-assumption-ui-first-public-friendly" style="margin-top:0;">Microsoft's Assumption: UI-First, Public-Friendly</h3>
         <p>Microsoft's documentation and tools (like Azure Portal and AI Studio) are designed for a user-friendly, web-based experience. This model assumes that Azure services have <strong>public endpoints</strong> so the browser-based UIs can connect to them.</p>
     </div>
     <div class="card" style="border-left-color: #ef4444;">
-        <h3 style="margin-top:0;">BC Gov's Reality: Private-Only, Zero-Trust</h3>
+        <h3 id="bc-govs-reality-private-only-zero-trust" style="margin-top:0;">BC Gov's Reality: Private-Only, Zero-Trust</h3>
         <p>BC Government security policy mandates a "zero-trust" network model. Critically, this means **no public endpoints** on any Azure PaaS services. All access must be from within a private, controlled network.</p>
     </div>
 </div>
@@ -860,7 +1175,7 @@
     </div>
 </div>
 
-<h2>Our Solution: An API-First, Secure Landing Zone</h2>
+<h2 id="our-solution-an-api-first-secure-landing-zone">Our Solution: An API-First, Secure Landing Zone</h2>
 
 <p>This repository provides a standardized, secure-by-default environment that solves the challenges above. Instead of a UI-driven model, we provide an <strong>API-first, Infrastructure-as-Code (IaC) model</strong>.</p>
 
@@ -882,18 +1197,18 @@
     </div>
 </div>
 
-<h2>Flexible Access Methods</h2>
+<h2 id="flexible-access-methods">Flexible Access Methods</h2>
 
 <p>Private endpoints block data plane access from the public internet. We provide <strong>four interchangeable access methods</strong> - enable only what you need.</p>
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #22c55e;">
-        <h3 style="margin-top: 0; color: #166534;">Control Plane (Always Works)</h3>
+        <h3 id="control-plane-always-works" style="margin-top: 0; color: #166534;">Control Plane (Always Works)</h3>
         <p>Creating/configuring resources via ARM API (<code>management.azure.com</code>). OIDC authentication works from anywhere.</p>
         <p style="margin-bottom: 0; font-size: 0.9rem;"><strong>Examples:</strong> Create Key Vault, deploy VMs, assign RBAC roles</p>
     </div>
     <div class="card" style="border-left-color: #ef4444;">
-        <h3 style="margin-top: 0; color: #991b1b;">Data Plane (Requires VNet Access)</h3>
+        <h3 id="data-plane-requires-vnet-access" style="margin-top: 0; color: #991b1b;">Data Plane (Requires VNet Access)</h3>
         <p>Accessing data <em>inside</em> resources (blocked by private endpoints). Needs network path into VNet.</p>
         <p style="margin-bottom: 0; font-size: 0.9rem;"><strong>Examples:</strong> Read Key Vault secrets, write Storage blobs, query databases</p>
     </div>
@@ -933,7 +1248,7 @@
 <p style="text-align: center; margin-top: 1rem;"><a href="decisions.html#adr-011">ADR-011: Control vs Data Plane</a> | <a href="technical-deep-dive.html">Choose Your Method</a> | <a href="diagrams.html#access-methods">Architecture Diagram</a></p>
 
 <div class="card card-gold">
-    <h3 style="margin-top: 0;">What Can You Run Here?</h3>
+    <h3 id="what-can-you-run-here" style="margin-top: 0;">What Can You Run Here?</h3>
     <p>This landing zone is optimized for modern AI/ML workloads that require secure compute and private data access.</p>
     <div class="grid grid-3">
         <div style="text-align: center;">
@@ -960,7 +1275,7 @@
     </div>
 </div>
 
-<h2>I want to...</h2>
+<h2 id="i-want-to">I want to...</h2>
 
 <div class="grid grid-3">
     <a href="oidc-setup.html" class="card-link">
@@ -983,7 +1298,7 @@
     </a>
 </div>
 
-<h2>Network Allocation (License Plate: da4cf6)</h2>
+<h2 id="network-allocation-license-plate-da4cf6">Network Allocation (License Plate: da4cf6)</h2>
 
 <div class="card" style="border-left-color: #22c55e; background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);">
     <p style="margin-top: 0;"><strong>Confirmed Dec 11, 2025</strong> - Platform Services Team</p>
@@ -1008,27 +1323,27 @@
     <p style="margin-bottom: 0; font-size: 0.9rem;">See <a href="faq.html">FAQ</a> for pending questions about Canada East non-routable ranges.</p>
 </div>
 
-<h2>Documentation Library</h2>
+<h2 id="documentation-library">Documentation Library</h2>
 
 <div class="grid grid-3">
     <!-- Row 1 -->
     <a href="decisions.html" class="card-link">
         <div class="card" style="border-left-color: #ef4444;">
-            <h3 style="margin-top: 0;">ADRs</h3>
+            <h3 id="adrs" style="margin-top: 0;">ADRs</h3>
             <p>Architecture decisions and why things are built this way.</p>
             <div class="card-arrow">Start Here →</div>
         </div>
     </a>
     <a href="faq.html" class="card-link">
         <div class="card" style="border-left-color: #f59e0b;">
-            <h3 style="margin-top: 0;">FAQ</h3>
+            <h3 id="faq" style="margin-top: 0;">FAQ</h3>
             <p>Common questions, pending decisions, and contact info.</p>
             <div class="card-arrow">View FAQ →</div>
         </div>
     </a>
     <a href="oidc-setup.html" class="card-link">
         <div class="card">
-            <h3 style="margin-top: 0;">OIDC Setup</h3>
+            <h3 id="oidc-setup" style="margin-top: 0;">OIDC Setup</h3>
             <p>Complete guide to passwordless authentication setup.</p>
             <div class="card-arrow">View Guide →</div>
         </div>
@@ -1037,21 +1352,21 @@
     <!-- Row 2 -->
     <a href="terraform-reference.html" class="card-link">
         <div class="card">
-            <h3 style="margin-top: 0;">TF Reference</h3>
+            <h3 id="tf-reference" style="margin-top: 0;">TF Reference</h3>
             <p>Auto-generated variable &amp; output docs for all modules.</p>
             <div class="card-arrow">View Reference →</div>
         </div>
     </a>
     <a href="workflows.html" class="card-link">
         <div class="card">
-            <h3 style="margin-top: 0;">Workflows</h3>
+            <h3 id="workflows" style="margin-top: 0;">Workflows</h3>
             <p>CI/CD pipeline automation details.</p>
             <div class="card-arrow">View Workflows →</div>
         </div>
     </a>
     <a href="diagrams.html" class="card-link">
         <div class="card">
-            <h3 style="margin-top: 0;">Diagrams</h3>
+            <h3 id="diagrams" style="margin-top: 0;">Diagrams</h3>
             <p>Interactive architecture and flow visualizations.</p>
             <div class="card-arrow">View Diagrams →</div>
         </div>
@@ -1060,14 +1375,14 @@
     <!-- Row 3 -->
     <a href="playbooks.html" class="card-link">
         <div class="card">
-            <h3 style="margin-top: 0;">Playbooks</h3>
+            <h3 id="playbooks" style="margin-top: 0;">Playbooks</h3>
             <p>Operational runbooks for Day 2 maintenance.</p>
             <div class="card-arrow">View Playbooks →</div>
         </div>
     </a>
     <a href="terraform-reference.html" class="card-link">
         <div class="card">
-            <h3 style="margin-top: 0;">TF Reference</h3>
+            <h3 id="tf-reference-1" style="margin-top: 0;">TF Reference</h3>
             <p>Auto-generated variable and output docs.</p>
             <div class="card-arrow">View Reference →</div>
         </div>
@@ -1077,7 +1392,7 @@
 <h2 id="quick-start">Quick Start</h2>
 
 <div class="card card-gold">
-    <h3 style="margin-bottom: 1.5rem;">Get Started in 3 Steps</h3>
+    <h3 id="get-started-in-3-steps" style="margin-bottom: 1.5rem;">Get Started in 3 Steps</h3>
     <div class="grid grid-3">
         <div style="text-align: center;">
             <div class="stat-number">1</div>
@@ -1098,7 +1413,7 @@
 </div>
 
 <div class="card">
-    <h3>Step 1: Initial Setup</h3>
+    <h3 id="step-1-initial-setup">Step 1: Initial Setup</h3>
     <p>Run this one-time command to create the Azure identity and trust relationship:</p>
 <pre>./initial-setup/initial-azure-setup.sh \
     -g "YOUR-RESOURCE-GROUP" \
@@ -1108,14 +1423,14 @@
     --create-storage --create-github-secrets</pre>
 </div>
 
-<h2>Key Features</h2>
+<h2 id="key-features">Key Features</h2>
 
 <div class="grid grid-3">
     <div class="card">
         <div class="feature-icon green">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
         </div>
-        <h3 style="margin-top: 0;">Secure by Default</h3>
+        <h3 id="secure-by-default" style="margin-top: 0;">Secure by Default</h3>
         <ul style="margin-bottom: 0;">
             <li>OIDC federated credentials</li>
             <li>No stored secrets</li>
@@ -1127,7 +1442,7 @@
         <div class="feature-icon blue">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17.5 19a3.5 3.5 0 0 0 0-7h-1.5a7 7 0 1 0-11.76 5.14"/></svg>
         </div>
-        <h3 style="margin-top: 0;">Azure Native</h3>
+        <h3 id="azure-native" style="margin-top: 0;">Azure Native</h3>
         <ul style="margin-bottom: 0;">
             <li>Managed identities</li>
             <li>Azure Bastion access</li>
@@ -1139,7 +1454,7 @@
         <div class="feature-icon purple">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>
         </div>
-        <h3 style="margin-top: 0;">Automated</h3>
+        <h3 id="automated" style="margin-top: 0;">Automated</h3>
         <ul style="margin-bottom: 0;">
             <li>GitOps workflow</li>
             <li>Auto VM shutdown</li>
@@ -1149,7 +1464,7 @@
     </div>
 </div>
 
-<h2>Contributing</h2>
+<h2 id="contributing">Contributing</h2>
 
 <p>All changes follow the project's <a href="workflows.html">Developer SDLC</a> — branch, PR, merge to main, promote to prod. This documentation is built automatically from the <code>docs/</code> folder. To add or update pages:</p>
 
