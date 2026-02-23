@@ -50,6 +50,20 @@
             </when>
         </choose>
 %{ endif ~}
+%{ if rate_limiting_enabled ~}
+        <!-- Non-OpenAI request rate limiting (per subscription) -->
+        <!-- Protects APIM compute and backends from request floods -->
+        <!-- DocInt/Speech/Search/Storage use request-count limits (not token limits) -->
+        <choose>
+            <when condition="@(!context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;) && !context.Request.Url.Path.ToLower().EndsWith(&quot;internal/apim-keys&quot;) && !context.Request.Url.Path.ToLower().EndsWith(&quot;internal/tenant-info&quot;))">
+                <rate-limit-by-key
+                    calls="${non_openai_requests_per_minute}"
+                    renewal-period="60"
+                    counter-key="@(context.Subscription.Id + &quot;-non-openai&quot;)"
+                    increment-condition="@(context.Response.StatusCode >= 200)" />
+            </when>
+        </choose>
+%{ endif ~}
 
         <!-- Path-based routing to appropriate backend service -->
         <choose>
@@ -321,7 +335,8 @@
 %{ endif ~}
 %{ if storage_enabled ~}
             <!-- Storage requests: /storage/* -->
-            <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;storage&quot;))">
+            <!-- Path must start with /storage/ (after tenant prefix) to avoid false matches -->
+            <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;/storage/&quot;) || context.Request.Url.Path.ToLower().EndsWith(&quot;/storage&quot;))">
                 <set-backend-service backend-id="${tenant_name}-storage" />
                 <authentication-managed-identity resource="https://storage.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
                 <set-header name="Authorization" exists-action="override">

@@ -1305,6 +1305,12 @@ details.adr.pending[open] summary {
         <td><span class="badge badge-blue">Policy</span></td>
         <td><span class="badge" style="background:#f59e0b;color:white;">Pending Platform/MS</span></td>
     </tr>
+    <tr>
+        <td><a href="#adr-016">ADR-016</a></td>
+        <td>Backend Circuit Breaker Pattern</td>
+        <td><span class="badge" style="background:#22c55e;color:white;">Resilience</span></td>
+        <td><span class="badge badge-blue">Accepted</span></td>
+    </tr>
 </table>
 
 <details class="adr" id="adr-001" open>
@@ -4015,6 +4021,112 @@ module "storage" {
         <li><a href="#adr-013">ADR-013: Scaled Stack Architecture</a> &mdash; phased deployment with isolated state</li>
         <li><a href="https://learn.microsoft.com/en-us/azure/ai-services/openai/quotas-limits">Azure OpenAI Quotas and Limits</a></li>
         <li><a href="https://learn.microsoft.com/en-us/azure/azure-resource-manager/management/azure-subscription-service-limits">Azure Subscription Service Limits</a></li>
+    </ul>
+
+</div>
+</details>
+
+<details class="adr" id="adr-016">
+<summary>
+    <span class="adr-title">ADR-016: Backend Circuit Breaker Pattern</span>
+    <span class="badge" style="background:#22c55e;color:white;">Resilience</span>
+    <span class="badge badge-blue">Accepted</span>
+</summary>
+<div class="adr-content" style="padding: 1.5rem;">
+
+    <table class="config-table">
+        <tr><td><strong>Status</strong></td><td>Accepted</td></tr>
+        <tr><td><strong>Date</strong></td><td>2026-02</td></tr>
+        <tr><td><strong>Deciders</strong></td><td>Platform Team</td></tr>
+        <tr><td><strong>Category</strong></td><td>Resilience / API Gateway</td></tr>
+    </table>
+
+    <h3 id="context-15" style="color: var(--bc-blue); margin-top: 1.5rem;">Context</h3>
+    <p>The APIM gateway proxies requests to multiple backend services: Azure OpenAI, Document Intelligence, AI Search, Speech Services, and Storage. When a backend experiences failures (overload, outages, throttling), continued request forwarding wastes resources and degrades the client experience with slow timeouts instead of fast failures.</p>
+    <p>Azure OpenAI specifically returns <code>429 Too Many Requests</code> with large <code>Retry-After</code> values (up to 86,400 seconds / 1 day) when quota is exhausted. Without circuit breaking, APIM would continue sending requests to a backend that cannot serve them.</p>
+
+    <h3 id="decision-12" style="color: var(--bc-blue); margin-top: 1.5rem;">Decision</h3>
+    <p>Implement the <strong>circuit breaker pattern</strong> on all APIM backend entities using the native <code>circuit_breaker_rule</code> in <code>azurerm_api_management_backend</code>.</p>
+
+    <h4>Configuration per backend</h4>
+    <table class="config-table" style="width: 100%; margin-top: 0.5rem;">
+        <thead>
+            <tr><th>Parameter</th><th>Value (AI services)</th><th>Value (Storage)</th></tr>
+        </thead>
+        <tbody>
+            <tr><td>Failure count threshold</td><td>3</td><td>5</td></tr>
+            <tr><td>Failure window</td><td>1 minute (<code>PT1M</code>)</td><td>1 minute (<code>PT1M</code>)</td></tr>
+            <tr><td>Trip duration</td><td>1 minute (<code>PT1M</code>)</td><td>1 minute (<code>PT1M</code>)</td></tr>
+            <tr><td>Accept Retry-After</td><td>Yes</td><td>Yes</td></tr>
+            <tr><td>Trigger status codes</td><td><code>429</code>, <code>500&ndash;599</code></td><td><code>429</code>, <code>500&ndash;599</code></td></tr>
+        </tbody>
+    </table>
+
+    <h4>Backends covered</h4>
+    <ul>
+        <li><code>ai_foundry</code> &mdash; AI Foundry Hub endpoint</li>
+        <li><code>openai</code> &mdash; Azure OpenAI endpoint</li>
+        <li><code>docint</code> &mdash; Document Intelligence</li>
+        <li><code>ai_search</code> &mdash; Azure AI Search</li>
+        <li><code>speech_services_stt</code> &mdash; Speech-to-Text</li>
+        <li><code>speech_services_tts</code> &mdash; Text-to-Speech</li>
+        <li><code>storage</code> &mdash; Blob Storage (higher threshold: 5 failures)</li>
+    </ul>
+
+    <h4>What happens when the circuit trips</h4>
+    <ol>
+        <li>Backend accumulates failures matching the configured status codes within the failure window.</li>
+        <li>When the failure count exceeds the threshold, the circuit <strong>opens</strong> (trips).</li>
+        <li>APIM immediately returns <strong>HTTP 503 Service Unavailable</strong> to all subsequent requests targeting that backend &mdash; requests are <em>not</em> forwarded.</li>
+        <li>The global policy <code>&lt;on-error&gt;</code> handler intercepts the 503 and returns a structured JSON error with a <code>Retry-After</code> header (default: 60 seconds).</li>
+        <li>After the trip duration (or the backend&rsquo;s <code>Retry-After</code> value if <code>accept_retry_after_enabled = true</code>), the circuit <strong>resets</strong> and traffic resumes.</li>
+    </ol>
+
+    <div class="alert alert-warning">
+        <strong>Azure OpenAI caution:</strong> When Azure OpenAI returns <code>429</code>, the <code>Retry-After</code> header can be very large (e.g., 86,400 seconds = 1 day). With <code>accept_retry_after_enabled = true</code>, the circuit stays open for that duration. This is intentional &mdash; the backend cannot serve requests during that period anyway.
+    </div>
+
+    <h4>Client-facing error response (503)</h4>
+    <pre style="background: var(--bg-light); padding: 1rem; border-radius: 8px; font-size: 0.85rem; overflow-x: auto;">{
+  "error": {
+    "code": "503",
+    "message": "Service temporarily unavailable — backend circuit breaker is open. The service is recovering from excessive failures. Retry after the indicated period.",
+    "retryAfter": "60",
+    "requestId": "abc-123-def-456"
+  }
+}</pre>
+
+    <h3 id="rationale-8" style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
+    <ul>
+        <li><strong>Fast failure:</strong> Clients get an immediate 503 instead of waiting for backend timeouts (up to 300 seconds).</li>
+        <li><strong>Backend protection:</strong> Prevents overwhelming a struggling backend with additional requests.</li>
+        <li><strong>Native support:</strong> Uses <code>azurerm_api_management_backend.circuit_breaker_rule</code> &mdash; no custom policy logic required.</li>
+        <li><strong>Retry-After propagation:</strong> Passes backend throttle signals directly to clients for proper backoff.</li>
+        <li><strong>Event Grid integration:</strong> APIM emits Event Grid events on circuit trip/reset for monitoring and alerting.</li>
+    </ul>
+
+    <h3 id="consequences-15" style="color: var(--bc-blue); margin-top: 1.5rem;">Consequences</h3>
+    <h4>Positive</h4>
+    <ul>
+        <li>Reduced latency during backend outages (instant 503 vs. timeout).</li>
+        <li>Backend services get breathing room to recover.</li>
+        <li>Consistent error format with <code>Retry-After</code> enables client-side retry logic.</li>
+        <li>Zero policy-level code &mdash; purely infrastructure configuration.</li>
+    </ul>
+
+    <h4>Negative</h4>
+    <ul>
+        <li><strong>Approximate tripping:</strong> APIM gateway instances do not synchronize circuit breaker state. Each instance tracks failures independently, so tripping is approximate in multi-instance deployments.</li>
+        <li><strong>Single rule per backend:</strong> Only one circuit breaker rule per backend is currently supported by the Azure API.</li>
+        <li><strong>503 during recovery:</strong> Legitimate requests during the trip window will be rejected even if the backend has recovered before the trip duration expires.</li>
+    </ul>
+
+    <h3 id="references-13" style="color: var(--bc-blue); margin-top: 1.5rem;">References</h3>
+    <ul>
+        <li><a href="https://learn.microsoft.com/en-us/azure/api-management/backends?tabs=bicep#circuit-breaker">Azure APIM Backends &mdash; Circuit Breaker</a></li>
+        <li><a href="https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker">Circuit Breaker Pattern (Azure Architecture)</a></li>
+        <li><a href="https://learn.microsoft.com/en-us/azure/event-grid/event-schema-api-management">APIM Event Grid Events</a> &mdash; circuit breaker trip/reset events</li>
+        <li><a href="https://github.com/bcgov/ai-hub-tracking/issues/98">Issue #98: AI Gateway Gap Analysis</a></li>
     </ul>
 
 </div>

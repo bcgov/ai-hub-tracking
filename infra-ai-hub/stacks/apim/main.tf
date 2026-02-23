@@ -163,6 +163,27 @@ resource "azurerm_api_management_backend" "ai_foundry" {
   protocol            = "http"
   url                 = data.terraform_remote_state.shared.outputs.ai_foundry_hub_endpoint
   description         = "Shared AI Foundry Hub backend for all tenant model deployments"
+
+  circuit_breaker_rule {
+    name                       = "ai-foundry-breaker"
+    trip_duration              = "PT1M"
+    accept_retry_after_enabled = true
+
+    failure_condition {
+      count             = 3
+      interval_duration = "PT1M"
+
+      status_code_range {
+        min = 429
+        max = 429
+      }
+
+      status_code_range {
+        min = 500
+        max = 599
+      }
+    }
+  }
 }
 
 resource "azurerm_api_management_backend" "openai" {
@@ -177,6 +198,27 @@ resource "azurerm_api_management_backend" "openai" {
   protocol            = "http"
   url                 = data.terraform_remote_state.shared.outputs.ai_foundry_hub_endpoint
   description         = "OpenAI backend for ${each.value.display_name}"
+
+  circuit_breaker_rule {
+    name                       = "openai-breaker"
+    trip_duration              = "PT1M"
+    accept_retry_after_enabled = true
+
+    failure_condition {
+      count             = 3
+      interval_duration = "PT1M"
+
+      status_code_range {
+        min = 429
+        max = 429
+      }
+
+      status_code_range {
+        min = 500
+        max = 599
+      }
+    }
+  }
 }
 
 resource "azurerm_api_management_backend" "docint" {
@@ -191,6 +233,27 @@ resource "azurerm_api_management_backend" "docint" {
   protocol            = "http"
   url                 = data.terraform_remote_state.tenant[each.key].outputs.tenant_document_intelligence[each.key].endpoint
   description         = "Document Intelligence backend for ${each.value.display_name}"
+
+  circuit_breaker_rule {
+    name                       = "docint-breaker"
+    trip_duration              = "PT1M"
+    accept_retry_after_enabled = true
+
+    failure_condition {
+      count             = 3
+      interval_duration = "PT1M"
+
+      status_code_range {
+        min = 429
+        max = 429
+      }
+
+      status_code_range {
+        min = 500
+        max = 599
+      }
+    }
+  }
 }
 
 resource "azurerm_api_management_backend" "storage" {
@@ -205,6 +268,27 @@ resource "azurerm_api_management_backend" "storage" {
   protocol            = "http"
   url                 = data.terraform_remote_state.tenant[each.key].outputs.tenant_storage_accounts[each.key].blob_endpoint
   description         = "Storage backend for ${each.value.display_name}"
+
+  circuit_breaker_rule {
+    name                       = "storage-breaker"
+    trip_duration              = "PT1M"
+    accept_retry_after_enabled = true
+
+    failure_condition {
+      count             = 5
+      interval_duration = "PT1M"
+
+      status_code_range {
+        min = 429
+        max = 429
+      }
+
+      status_code_range {
+        min = 500
+        max = 599
+      }
+    }
+  }
 }
 
 resource "azurerm_api_management_backend" "ai_search" {
@@ -219,6 +303,27 @@ resource "azurerm_api_management_backend" "ai_search" {
   protocol            = "http"
   url                 = data.terraform_remote_state.tenant[each.key].outputs.tenant_ai_search[each.key].endpoint
   description         = "AI Search backend for ${each.value.display_name}"
+
+  circuit_breaker_rule {
+    name                       = "ai-search-breaker"
+    trip_duration              = "PT1M"
+    accept_retry_after_enabled = true
+
+    failure_condition {
+      count             = 3
+      interval_duration = "PT1M"
+
+      status_code_range {
+        min = 429
+        max = 429
+      }
+
+      status_code_range {
+        min = 500
+        max = 599
+      }
+    }
+  }
 }
 
 resource "azurerm_api_management_backend" "speech_services_stt" {
@@ -233,6 +338,27 @@ resource "azurerm_api_management_backend" "speech_services_stt" {
   protocol            = "http"
   url                 = data.terraform_remote_state.tenant[each.key].outputs.tenant_speech_services[each.key].endpoint
   description         = "Speech-to-text backend for ${each.value.display_name}"
+
+  circuit_breaker_rule {
+    name                       = "speech-stt-breaker"
+    trip_duration              = "PT1M"
+    accept_retry_after_enabled = true
+
+    failure_condition {
+      count             = 3
+      interval_duration = "PT1M"
+
+      status_code_range {
+        min = 429
+        max = 429
+      }
+
+      status_code_range {
+        min = 500
+        max = 599
+      }
+    }
+  }
 }
 
 resource "azurerm_api_management_backend" "speech_services_tts" {
@@ -247,6 +373,27 @@ resource "azurerm_api_management_backend" "speech_services_tts" {
   protocol            = "http"
   url                 = data.terraform_remote_state.tenant[each.key].outputs.tenant_speech_services[each.key].endpoint
   description         = "Text-to-speech backend for ${each.value.display_name}"
+
+  circuit_breaker_rule {
+    name                       = "speech-tts-breaker"
+    trip_duration              = "PT1M"
+    accept_retry_after_enabled = true
+
+    failure_condition {
+      count             = 3
+      interval_duration = "PT1M"
+
+      status_code_range {
+        min = 429
+        max = 429
+      }
+
+      status_code_range {
+        min = 500
+        max = 599
+      }
+    }
+  }
 }
 
 resource "azurerm_api_management_named_value" "speech_services_key" {

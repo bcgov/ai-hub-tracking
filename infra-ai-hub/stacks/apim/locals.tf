@@ -77,28 +77,29 @@ locals {
     for key, config in local.enabled_tenants : key => templatefile(
       "${path.root}/../../params/apim/api_policy.xml.tftpl",
       {
-        tenant_name                   = key
-        tokens_per_minute             = try(config.apim_policies.rate_limiting.tokens_per_minute, 10000)
-        model_deployments             = try(config.openai.model_deployments, [])
-        openai_enabled                = length(try(config.openai.model_deployments, [])) > 0
-        document_intelligence_enabled = try(config.document_intelligence.enabled, false)
-        ai_search_enabled             = try(config.ai_search.enabled, false)
-        speech_services_enabled       = try(config.speech_services.enabled, false)
-        storage_enabled               = try(config.storage_account.enabled, false)
-        rate_limiting_enabled         = try(config.apim_policies.rate_limiting.enabled, true)
-        pii_redaction_enabled         = try(config.apim_policies.pii_redaction.enabled, true) && var.shared_config.language_service.enabled
-        usage_logging_enabled         = try(config.apim_policies.usage_logging.enabled, true)
-        streaming_metrics_enabled     = try(config.apim_policies.streaming_metrics.enabled, true)
-        tracking_dimensions_enabled   = try(config.apim_policies.tracking_dimensions.enabled, true)
-        backend_timeout_seconds       = try(config.apim_policies.backend_timeout_seconds, 300)
-        pii_excluded_categories       = try(config.apim_policies.pii_redaction.excluded_categories, [])
-        pii_preserve_json_structure   = try(config.apim_policies.pii_redaction.preserve_json_structure, true)
-        pii_structural_whitelist      = try(config.apim_policies.pii_redaction.structural_whitelist, [])
-        pii_detection_language        = try(config.apim_policies.pii_redaction.detection_language, "en")
-        pii_fail_closed               = try(config.apim_policies.pii_redaction.fail_closed, false)
-        key_rotation_enabled          = local.key_rotation_config.rotation_enabled
-        keyvault_uri                  = local.hub_keyvault_uri
-        tenant_info_enabled           = true
+        tenant_name                    = key
+        tokens_per_minute              = try(config.apim_policies.rate_limiting.tokens_per_minute, 10000)
+        model_deployments              = try(config.openai.model_deployments, [])
+        openai_enabled                 = length(try(config.openai.model_deployments, [])) > 0
+        document_intelligence_enabled  = try(config.document_intelligence.enabled, false)
+        ai_search_enabled              = try(config.ai_search.enabled, false)
+        speech_services_enabled        = try(config.speech_services.enabled, false)
+        storage_enabled                = try(config.storage_account.enabled, false)
+        rate_limiting_enabled          = try(config.apim_policies.rate_limiting.enabled, true)
+        non_openai_requests_per_minute = try(config.apim_policies.rate_limiting.non_openai_requests_per_minute, 300)
+        pii_redaction_enabled          = try(config.apim_policies.pii_redaction.enabled, true) && var.shared_config.language_service.enabled
+        usage_logging_enabled          = try(config.apim_policies.usage_logging.enabled, true)
+        streaming_metrics_enabled      = try(config.apim_policies.streaming_metrics.enabled, true)
+        tracking_dimensions_enabled    = try(config.apim_policies.tracking_dimensions.enabled, true)
+        backend_timeout_seconds        = try(config.apim_policies.backend_timeout_seconds, 300)
+        pii_excluded_categories        = try(config.apim_policies.pii_redaction.excluded_categories, [])
+        pii_preserve_json_structure    = try(config.apim_policies.pii_redaction.preserve_json_structure, true)
+        pii_structural_whitelist       = try(config.apim_policies.pii_redaction.structural_whitelist, [])
+        pii_detection_language         = try(config.apim_policies.pii_redaction.detection_language, "en")
+        pii_fail_closed                = try(config.apim_policies.pii_redaction.fail_closed, false)
+        key_rotation_enabled           = local.key_rotation_config.rotation_enabled
+        keyvault_uri                   = local.hub_keyvault_uri
+        tenant_info_enabled            = true
       }
     )
   }
