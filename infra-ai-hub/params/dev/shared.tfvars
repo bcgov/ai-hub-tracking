@@ -186,4 +186,5 @@ shared_config = {
     # Keep disabled - access via private endpoint only
     public_network_access_enabled = false
   }
+
 }

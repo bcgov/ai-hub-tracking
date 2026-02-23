@@ -91,8 +91,40 @@
                     }</set-body>
                 </return-response>
             </when>
+            <!-- ================================================================== -->
+            <!-- CIRCUIT BREAKER HANDLING                                           -->
+            <!-- When a backend circuit breaker trips, APIM returns 503.            -->
+            <!-- Provide a clear error with Retry-After so clients can back off.    -->
+            <!-- See ADR-016 in decisions.html for circuit breaker design.          -->
+            <!-- ================================================================== -->
+            <when condition="@(context.Response.StatusCode == 503)">
+                <return-response>
+                    <set-status code="503" reason="Service Unavailable" />
+                    <set-header name="x-ms-request-id" exists-action="override">
+                        <value>@(context.RequestId.ToString())</value>
+                    </set-header>
+                    <set-header name="Retry-After" exists-action="override">
+                        <value>@(context.Response.Headers.GetValueOrDefault("Retry-After", "60"))</value>
+                    </set-header>
+                    <set-header name="Content-Type" exists-action="override">
+                        <value>application/json</value>
+                    </set-header>
+                    <set-body>@{
+                        var retryAfter = context.Response.Headers.GetValueOrDefault("Retry-After", "60");
+                        return new JObject(
+                            new JProperty("error", new JObject(
+                                new JProperty("code", "503"),
+                                new JProperty("message", "Service temporarily unavailable — backend circuit breaker is open. The service is recovering from excessive failures. Retry after the indicated period."),
+                                new JProperty("retryAfter", retryAfter),
+                                new JProperty("requestId", context.RequestId.ToString())
+                            ))
+                        ).ToString();
+                    }</set-body>
+                </return-response>
+            </when>
             <otherwise>
                 <!-- Return consistent error format with correlation ID -->
+                <!-- Scrub internal backend URLs from error responses to prevent information disclosure -->
                 <return-response>
                     <set-status code="@(context.Response.StatusCode)" reason="@(context.Response.StatusReason)" />
                     <set-header name="x-ms-request-id" exists-action="override">
@@ -102,10 +134,17 @@
                         <value>application/json</value>
                     </set-header>
                     <set-body>@{
+                        var statusCode = context.Response.StatusCode.ToString();
+                        var statusReason = context.Response.StatusReason ?? "Error";
+                        // Scrub internal Azure hostnames from error reason text
+                        statusReason = System.Text.RegularExpressions.Regex.Replace(
+                            statusReason,
+                            @"https?://[a-zA-Z0-9\-]+\.(cognitiveservices\.azure\.com|openai\.azure\.com|search\.windows\.net|blob\.core\.windows\.net|vault\.azure\.net|azure-api\.net)[^\s]*",
+                            "[internal-service]");
                         return new JObject(
                             new JProperty("error", new JObject(
-                                new JProperty("code", context.Response.StatusCode.ToString()),
-                                new JProperty("message", context.Response.StatusReason),
+                                new JProperty("code", statusCode),
+                                new JProperty("message", statusReason),
                                 new JProperty("requestId", context.RequestId.ToString())
                             ))
                         ).ToString();
