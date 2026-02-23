@@ -354,6 +354,17 @@ resource "azurerm_route" "appgw_internet" {
   address_prefix = "0.0.0.0/0"
   next_hop_type  = "Internet"
 }
+## this is needed to avoid asymetric routing due to express route.
+resource "azurerm_route" "appgw_bcgov_internal" {
+  count = var.appgw_subnet.enabled ? 1 : 0
+
+  name                = "bcgov-internal"
+  resource_group_name = var.vnet_resource_group_name
+  route_table_name    = azurerm_route_table.appgw[0].name
+
+  address_prefix = "142.34.0.0/16"
+  next_hop_type  = "Internet"
+}
 
 resource "azapi_resource" "appgw_subnet" {
   count = var.appgw_subnet.enabled ? 1 : 0
