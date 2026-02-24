@@ -31,14 +31,34 @@
         <!-- before the request reaches APIM. APIM's callerIpAddress is       -->
         <!-- always the AppGW subnet IP (TCP source), so we promote the real  -->
         <!-- client IP into a dedicated header for LAW/AppInsights queries.   -->
+        <!-- Falls back to context.Request.IpAddress when AppGW is disabled   -->
+        <!-- or X-Forwarded-For is absent. Header is only set when non-empty. -->
         <!-- ================================================================== -->
-        <set-header name="X-Real-Client-IP" exists-action="override">
-            <value>@{
-                var xff = context.Request.Headers.GetValueOrDefault("X-Forwarded-For", "");
-                // X-Forwarded-For may be a comma-separated list; take the first (original) IP.
-                return xff.Contains(",") ? xff.Split(',')[0].Trim() : xff;
-            }</value>
-        </set-header>
+        <choose>
+            <when condition="@{
+                var xff = context.Request.Headers.GetValueOrDefault("X-Forwarded-For", "").Trim();
+                return !string.IsNullOrEmpty(xff);
+            }">
+                <set-header name="X-Real-Client-IP" exists-action="override">
+                    <value>@{
+                        var xff = context.Request.Headers.GetValueOrDefault("X-Forwarded-For", "").Trim();
+                        // X-Forwarded-For may be a comma-separated list; take the first (original) IP.
+                        return xff.Contains(",") ? xff.Split(',')[0].Trim() : xff;
+                    }</value>
+                </set-header>
+            </when>
+            <otherwise>
+                <!-- AppGW not in path — use the direct TCP peer address as best available IP. -->
+                <!-- Only set if non-empty; avoids overriding any value set by another proxy.  -->
+                <choose>
+                    <when condition="@(!string.IsNullOrEmpty(context.Request.IpAddress))">
+                        <set-header name="X-Real-Client-IP" exists-action="skip">
+                            <value>@(context.Request.IpAddress)</value>
+                        </set-header>
+                    </when>
+                </choose>
+            </otherwise>
+        </choose>
 
         <!-- Set correlation ID for request tracing -->
         <set-header name="x-ms-correlation-request-id" exists-action="skip">
