@@ -45,7 +45,7 @@ locals {
     verbosity                 = "information"
     frontend_request = {
       body_bytes     = 1024
-      headers_to_log = ["X-Tenant-Id", "X-Request-ID", "Content-Type"]
+      headers_to_log = ["X-Tenant-Id", "X-Request-ID", "Content-Type", "X-Forwarded-For"]
     }
     frontend_response = {
       body_bytes     = 1024

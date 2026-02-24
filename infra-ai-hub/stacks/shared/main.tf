@@ -311,6 +311,18 @@ module "app_gateway" {
             }
           }
         }
+        add_x_forwarded_for = {
+          name          = "add-x-forwarded-for"
+          rule_sequence = 110
+          request_header_configurations = {
+            x_forwarded_for = {
+              # {client_ip} is the App Gateway server variable for the original caller IP.
+              # This is the only hop that can read the real IP before traffic enters the VNet.
+              header_name  = "X-Forwarded-For"
+              header_value = "{client_ip}"
+            }
+          }
+        }
       }
     }
   }
