@@ -316,10 +316,10 @@ module "app_gateway" {
           rule_sequence = 110
           request_header_configurations = {
             x_forwarded_for = {
-              # {client_ip} is the App Gateway server variable for the original caller IP.
-              # This is the only hop that can read the real IP before traffic enters the VNet.
+              # {var_client_ip} is the App Gateway server variable for the original caller IP.
+              # Azure AppGW server variables require the var_ prefix; {client_ip} is invalid.
               header_name  = "X-Forwarded-For"
-              header_value = "{client_ip}"
+              header_value = "{var_client_ip}"
             }
           }
         }
