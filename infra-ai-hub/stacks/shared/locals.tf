@@ -79,13 +79,34 @@ locals {
   ]
 
   # Default custom WAF rules:
-  # - Allow rules (priority 1-12): bypass managed rules for authenticated API traffic
-  # - Rate-limit rules (priority 100-101): L7 DDoS mitigation
+  # - Geo-block rule (priority 1): deny all traffic not originating from CA or US
+  # - Allow rules (priority 11-25): bypass managed rules for authenticated API traffic
+  #     Each service has two sibling Allow rules — one matching api-key, one matching
+  #     Ocp-Apim-Subscription-Key. This is required because WAF evaluates before the
+  #     AppGW rewrite rule that copies Ocp-Apim-Subscription-Key → api-key, so the
+  #     api-key header does not exist yet at WAF evaluation time for legacy clients.
+  # - Rate-limit rules (priority 90-91): L7 DDoS mitigation
   default_waf_custom_rules = [
+    {
+      # Block all traffic not originating from Canada or United States.
+      # Evaluated first (priority 1) so it cannot be bypassed by lower-priority Allow rules.
+      name      = "BlockNonCaUsGeo"
+      priority  = 1
+      rule_type = "MatchRule"
+      action    = "Block"
+      match_conditions = [
+        {
+          match_variable = "RemoteAddr"
+          operator       = "GeoMatch"
+          negation       = true
+          match_values   = ["CA", "US"]
+        }
+      ]
+    },
     {
       # Document Intelligence file uploads (binary content types)
       name      = "AllowDocIntelFileUploads"
-      priority  = 1
+      priority  = 11
       rule_type = "MatchRule"
       action    = "Allow"
       match_conditions = [
@@ -110,9 +131,9 @@ locals {
       ]
     },
     {
-      # Document Intelligence JSON requests (base64Source payloads)
+      # Document Intelligence JSON requests (base64Source payloads) — api-key header
       name      = "AllowDocIntelJsonWithApiKey"
-      priority  = 2
+      priority  = 12
       rule_type = "MatchRule"
       action    = "Allow"
       match_conditions = [
@@ -138,9 +159,38 @@ locals {
       ]
     },
     {
-      # OpenAI / GPT chat completions and embeddings
+      # Document Intelligence JSON requests — Ocp-Apim-Subscription-Key header
+      # WAF evaluates before AppGW rewrite rules, so OCP key is NOT yet mapped to api-key.
+      name      = "AllowDocIntelJsonWithOcpKey"
+      priority  = 13
+      rule_type = "MatchRule"
+      action    = "Allow"
+      match_conditions = [
+        {
+          match_variable = "RequestUri"
+          operator       = "Contains"
+          match_values   = ["documentintelligence", "formrecognizer", "documentmodels"]
+          transforms     = ["Lowercase"]
+        },
+        {
+          match_variable = "RequestHeaders"
+          selector       = "Content-Type"
+          operator       = "Contains"
+          match_values   = ["application/json"]
+          transforms     = ["Lowercase"]
+        },
+        {
+          match_variable = "RequestHeaders"
+          selector       = "Ocp-Apim-Subscription-Key"
+          operator       = "Regex"
+          match_values   = [".+"]
+        }
+      ]
+    },
+    {
+      # OpenAI / GPT chat completions and embeddings — api-key header
       name      = "AllowOpenAiWithApiKey"
-      priority  = 10
+      priority  = 20
       rule_type = "MatchRule"
       action    = "Allow"
       match_conditions = [
@@ -159,9 +209,30 @@ locals {
       ]
     },
     {
-      # AI Search: index schema, queries, and vector search operations
+      # OpenAI — Ocp-Apim-Subscription-Key header
+      name      = "AllowOpenAiWithOcpKey"
+      priority  = 21
+      rule_type = "MatchRule"
+      action    = "Allow"
+      match_conditions = [
+        {
+          match_variable = "RequestUri"
+          operator       = "Contains"
+          match_values   = ["/openai/"]
+          transforms     = ["Lowercase"]
+        },
+        {
+          match_variable = "RequestHeaders"
+          selector       = "Ocp-Apim-Subscription-Key"
+          operator       = "Regex"
+          match_values   = [".+"]
+        }
+      ]
+    },
+    {
+      # AI Search: index schema, queries, and vector search operations — api-key header
       name      = "AllowAiSearchWithApiKey"
-      priority  = 11
+      priority  = 22
       rule_type = "MatchRule"
       action    = "Allow"
       match_conditions = [
@@ -180,9 +251,30 @@ locals {
       ]
     },
     {
-      # Speech Services: TTS (SSML/XML) and STT (audio binary)
+      # AI Search — Ocp-Apim-Subscription-Key header
+      name      = "AllowAiSearchWithOcpKey"
+      priority  = 23
+      rule_type = "MatchRule"
+      action    = "Allow"
+      match_conditions = [
+        {
+          match_variable = "RequestUri"
+          operator       = "Contains"
+          match_values   = ["/ai-search/"]
+          transforms     = ["Lowercase"]
+        },
+        {
+          match_variable = "RequestHeaders"
+          selector       = "Ocp-Apim-Subscription-Key"
+          operator       = "Regex"
+          match_values   = [".+"]
+        }
+      ]
+    },
+    {
+      # Speech Services: TTS (SSML/XML) and STT (audio binary) — api-key header
       name      = "AllowSpeechWithApiKey"
-      priority  = 12
+      priority  = 24
       rule_type = "MatchRule"
       action    = "Allow"
       match_conditions = [
@@ -200,8 +292,30 @@ locals {
         }
       ]
     },
+    {
+      # Speech Services — Ocp-Apim-Subscription-Key header
+      name      = "AllowSpeechWithOcpKey"
+      priority  = 25
+      rule_type = "MatchRule"
+      action    = "Allow"
+      match_conditions = [
+        {
+          match_variable = "RequestUri"
+          operator       = "Contains"
+          match_values   = ["cognitiveservices", "speech/synthesis", "speech/recognition"]
+          transforms     = ["Lowercase"]
+        },
+        {
+          match_variable = "RequestHeaders"
+          selector       = "Ocp-Apim-Subscription-Key"
+          operator       = "Regex"
+          match_values   = [".+"]
+        }
+      ]
+    },
     # ----- Rate-Limit Rules (L7 DDoS mitigation) ----------------------------
     # Azure WAF custom rule priorities must be 1–100 (inclusive).
+    # Geo-block is priority 1; Allow rules are 11-25 (api-key + OCP sibling pairs); rate-limit rules are 90-91.
     {
       # Global rate limit: max requests per source IP per minute
       name                 = "RateLimitPerSourceIP"
