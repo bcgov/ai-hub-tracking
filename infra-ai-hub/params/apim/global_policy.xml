@@ -25,6 +25,21 @@
             </when>
         </choose>
 
+        <!-- ================================================================== -->
+        <!-- REAL CLIENT IP EXTRACTION                                         -->
+        <!-- X-Forwarded-For is set by AppGW rewrite rule ({var_client_ip})   -->
+        <!-- before the request reaches APIM. APIM's callerIpAddress is       -->
+        <!-- always the AppGW subnet IP (TCP source), so we promote the real  -->
+        <!-- client IP into a dedicated header for LAW/AppInsights queries.   -->
+        <!-- ================================================================== -->
+        <set-header name="X-Real-Client-IP" exists-action="override">
+            <value>@{
+                var xff = context.Request.Headers.GetValueOrDefault("X-Forwarded-For", "");
+                // X-Forwarded-For may be a comma-separated list; take the first (original) IP.
+                return xff.Contains(",") ? xff.Split(',')[0].Trim() : xff;
+            }</value>
+        </set-header>
+
         <!-- Set correlation ID for request tracing -->
         <set-header name="x-ms-correlation-request-id" exists-action="skip">
             <value>@(context.RequestId.ToString())</value>
