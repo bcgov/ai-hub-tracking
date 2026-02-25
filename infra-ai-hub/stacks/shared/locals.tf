@@ -85,15 +85,18 @@ locals {
   # - Allow with Ocp-key (priority 4): same for Ocp-Apim-Subscription-Key.
   #     Two separate Allow rules are needed because WAF evaluates before the AppGW
   #     rewrite that copies Ocp-key → api-key.
+  # - Allow with Bearer token (priority 5): same for Authorization: Bearer <key>.
+  #     OpenAI-compatible clients (OpenCode, Cursor, Continue) send Bearer tokens.
+  #     AppGW rewrite rule maps Bearer → api-key after WAF, so WAF must allow first.
   # - Block unauth API paths (priority 10): block any request to a path beyond root /
-  #     that was not caught by p3/p4 (i.e., no auth header). Azure WAF cannot reliably
-  #     detect absent headers via negation — the engine skips absent-header conditions
-  #     instead of evaluating them as non-matching. The correct pattern is:
-  #     Allow-first (p3/p4) + Block-remainder (p10).
+  #     that was not caught by p3/p4/p5 (i.e., no auth header). Azure WAF cannot
+  #     reliably detect absent headers via negation — the engine skips absent-header
+  #     conditions instead of evaluating them as non-matching. The correct pattern is:
+  #     Allow-first (p3/p4/p5) + Block-remainder (p10).
   #     NOTE: Azure WAF RequestUri is path-only (e.g. /resolve), not the full URL.
   #     Use ^/[^/?#] — not ://host/path anchoring — to detect non-root paths.
   # - Allow rules (priority 11-25): redundant for authenticated traffic (already
-  #     allowed at p3/p4) but kept as defence-in-depth and for OWASP rule bypasses.
+  #     allowed at p3/p4/p5) but kept as defence-in-depth and for OWASP rule bypasses.
   # - Rate-limit rules (priority 90-91): L7 DDoS mitigation
   #     Priority 91 caps unauthenticated root-path traffic (scanners/probes that hit /)
   #     at 2 req/min; all deeper unauthenticated paths are blocked at priority 10.
@@ -157,9 +160,29 @@ locals {
       ]
     },
     {
+      # Allow any request that carries an Authorization: Bearer token.
+      # OpenAI-compatible clients (OpenCode, Cursor, Continue) use this format.
+      # WAF evaluates before AppGW rewrites, so the Bearer token has not yet been
+      # mapped to api-key; must be allowed independently at WAF layer.
+      # Pattern matches "Bearer " followed by at least one character.
+      name      = "AllowBearerTokenRequests"
+      priority  = 5
+      rule_type = "MatchRule"
+      action    = "Allow"
+      match_conditions = [
+        {
+          match_variable = "RequestHeaders"
+          selector       = "Authorization"
+          operator       = "Regex"
+          negation       = false
+          match_values   = ["^Bearer .+"]
+        }
+      ]
+    },
+    {
       # Block any unauthenticated request to a real API path.
-      # Rules p3/p4 allow all requests carrying api-key or Ocp-key, so only
-      # keyless requests reach this rule.  Root / is excluded:
+      # Rules p3/p4/p5 allow all requests carrying api-key, Ocp-key, or Bearer token,
+      # so only keyless requests reach this rule.  Root / is excluded:
       #   ^/       → anchors to path start (Azure WAF RequestUri is path-only, e.g. /resolve)
       #   [^/?#]   → requires ≥1 non-separator char — bare / or /?q=… produce no match
       name      = "BlockUnauthenticatedApiPaths"
@@ -412,6 +435,8 @@ locals {
       # (BlockUnauthenticatedApiPaths). This rule covers the residual: scanners/probes
       # that hit bare / with no key (e.g. Alibaba measurement probes that pass GeoMatch
       # because their IP block is ARIN-registered as US). 2 req/min per source IP.
+      # All three auth header conditions use negation=true (AND logic): the rule matches
+      # only when ALL three headers are absent — i.e. truly unauthenticated requests.
       name                 = "RateLimitUnauthenticated"
       priority             = 91
       rule_type            = "RateLimitRule"
@@ -433,6 +458,13 @@ locals {
           operator       = "Regex"
           negation       = true
           match_values   = [".+"]
+        },
+        {
+          match_variable = "RequestHeaders"
+          selector       = "Authorization"
+          operator       = "Regex"
+          negation       = true
+          match_values   = ["^Bearer .+"]
         }
       ]
     }

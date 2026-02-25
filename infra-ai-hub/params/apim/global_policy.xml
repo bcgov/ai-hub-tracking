@@ -1,31 +1,6 @@
 <policies>
     <inbound>
         <!-- ================================================================== -->
-        <!-- SUBSCRIPTION KEY NORMALIZATION                                    -->
-        <!-- Allows clients to use api-key or x-api-key headers                -->
-        <!-- in addition to the standard Ocp-Apim-Subscription-Key             -->
-        <!-- ================================================================== -->
-        <choose>
-            <!-- If Ocp-Apim-Subscription-Key is not set, check for alternatives -->
-            <when condition="@(!context.Request.Headers.ContainsKey("Ocp-Apim-Subscription-Key") || string.IsNullOrEmpty(context.Request.Headers.GetValueOrDefault("Ocp-Apim-Subscription-Key", "")))">
-                <choose>
-                    <!-- Try api-key header first -->
-                    <when condition="@(context.Request.Headers.ContainsKey("api-key") && !string.IsNullOrEmpty(context.Request.Headers.GetValueOrDefault("api-key", "")))">
-                        <set-header name="Ocp-Apim-Subscription-Key" exists-action="override">
-                            <value>@(context.Request.Headers.GetValueOrDefault("api-key", ""))</value>
-                        </set-header>
-                    </when>
-                    <!-- Try x-api-key header -->
-                    <when condition="@(context.Request.Headers.ContainsKey("x-api-key") && !string.IsNullOrEmpty(context.Request.Headers.GetValueOrDefault("x-api-key", "")))">
-                        <set-header name="Ocp-Apim-Subscription-Key" exists-action="override">
-                            <value>@(context.Request.Headers.GetValueOrDefault("x-api-key", ""))</value>
-                        </set-header>
-                    </when>
-                </choose>
-            </when>
-        </choose>
-
-        <!-- ================================================================== -->
         <!-- REAL CLIENT IP EXTRACTION                                         -->
         <!-- X-Forwarded-For is set by AppGW rewrite rule ({var_client_ip})   -->
         <!-- before the request reaches APIM. APIM's callerIpAddress is       -->

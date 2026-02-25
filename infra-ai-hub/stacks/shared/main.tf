@@ -302,6 +302,37 @@ module "app_gateway" {
             }
           }
         }
+        map_bearer_token_to_api_key = {
+          # OpenAI-compatible clients send Authorization: Bearer <key>.
+          # Extract the token and set it as api-key for APIM subscription validation.
+          # Only fires when api-key is NOT already present (avoid overwriting direct api-key).
+          # NOTE: AppGW server variable http_req_Authorization includes the full header
+          # value (e.g. "Bearer abc123"). The rewrite uses a regex condition to match
+          # and capture the token portion, then sets api-key to the captured group.
+          name          = "map-bearer-token-to-api-key"
+          rule_sequence = 95
+          conditions = {
+            bearer_token_present = {
+              variable    = "http_req_Authorization"
+              pattern     = "^Bearer (.+)$"
+              ignore_case = true
+              negate      = false
+            }
+            api_key_absent = {
+              variable    = "http_req_api-key"
+              pattern     = ".+"
+              ignore_case = false
+              negate      = true
+            }
+          }
+          request_header_configurations = {
+            api_key = {
+              # {http_req_Authorization_1} references capture group 1 from the condition pattern
+              header_name  = "api-key"
+              header_value = "{http_req_Authorization_1}"
+            }
+          }
+        }
         add_x_forwarded_host = {
           name          = "add-x-forwarded-host"
           rule_sequence = 100

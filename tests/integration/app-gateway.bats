@@ -261,6 +261,112 @@ skip_if_no_key() {
 }
 
 # =============================================================================
+# /v1/ Format via App Gateway
+# =============================================================================
+
+@test "AppGW: /v1/ chat completion routed through App Gateway returns 200" {
+    skip_if_no_appgw
+    skip_if_no_key "wlrs-water-form-assistant"
+
+    local subscription_key
+    subscription_key=$(get_subscription_key "wlrs-water-form-assistant")
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" \
+        --max-time 30 \
+        "https://${APPGW_HOSTNAME}/wlrs-water-form-assistant/openai/v1/chat/completions" \
+        -H "api-key: ${subscription_key}" \
+        -H "Content-Type: application/json" \
+        -d '{"model":"gpt-4.1-mini","messages":[{"role":"user","content":"Say hello"}],"max_tokens":10}')
+
+    local status
+    status=$(echo "${response}" | tail -1)
+    local body
+    body=$(echo "${response}" | sed '$d')
+
+    echo "# AppGW /v1/ chat status: ${status}" >&3
+    [[ "${status}" == "200" ]]
+
+    # Verify valid JSON with choices
+    echo "${body}" | jq -e '.choices[0].message.content' >/dev/null
+}
+
+# =============================================================================
+# Authorization: Bearer Token via App Gateway
+# =============================================================================
+
+@test "AppGW: Bearer token auth through App Gateway returns 200" {
+    skip_if_no_appgw
+    skip_if_no_key "wlrs-water-form-assistant"
+
+    local subscription_key
+    subscription_key=$(get_subscription_key "wlrs-water-form-assistant")
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" \
+        --max-time 30 \
+        "https://${APPGW_HOSTNAME}/wlrs-water-form-assistant/openai/deployments/gpt-4.1-mini/chat/completions?api-version=${OPENAI_API_VERSION}" \
+        -H "Authorization: Bearer ${subscription_key}" \
+        -H "Content-Type: application/json" \
+        -d '{"messages":[{"role":"user","content":"Say hello"}],"max_tokens":10}')
+
+    local status
+    status=$(echo "${response}" | tail -1)
+
+    echo "# AppGW Bearer + /deployments/ status: ${status}" >&3
+    [[ "${status}" == "200" ]]
+}
+
+@test "AppGW: Bearer token + /v1/ format through App Gateway returns 200" {
+    skip_if_no_appgw
+    skip_if_no_key "wlrs-water-form-assistant"
+
+    local subscription_key
+    subscription_key=$(get_subscription_key "wlrs-water-form-assistant")
+
+    local response
+    response=$(curl -s -w "\n%{http_code}" \
+        --max-time 30 \
+        "https://${APPGW_HOSTNAME}/wlrs-water-form-assistant/openai/v1/chat/completions" \
+        -H "Authorization: Bearer ${subscription_key}" \
+        -H "Content-Type: application/json" \
+        -d '{"model":"gpt-4.1-mini","messages":[{"role":"user","content":"Say hello"}],"max_tokens":10}')
+
+    local status
+    status=$(echo "${response}" | tail -1)
+    local body
+    body=$(echo "${response}" | sed '$d')
+
+    echo "# AppGW Bearer + /v1/ status: ${status}" >&3
+    [[ "${status}" == "200" ]]
+
+    echo "${body}" | jq -e '.choices[0].message.content' >/dev/null
+}
+
+@test "AppGW: Request with only Bearer token (no api-key) is not blocked by WAF" {
+    skip_if_no_appgw
+    skip_if_no_key "wlrs-water-form-assistant"
+
+    local subscription_key
+    subscription_key=$(get_subscription_key "wlrs-water-form-assistant")
+
+    # Explicitly send ONLY Authorization: Bearer (no api-key or Ocp-key)
+    # WAF must allow this through (AllowBearerTokenRequests rule p5)
+    local status
+    status=$(curl -s -o /dev/null -w "%{http_code}" \
+        --max-time 15 \
+        "https://${APPGW_HOSTNAME}/wlrs-water-form-assistant/openai/v1/chat/completions" \
+        -H "Authorization: Bearer ${subscription_key}" \
+        -H "Content-Type: application/json" \
+        -d '{"model":"gpt-4.1-mini","messages":[{"role":"user","content":"hello"}],"max_tokens":5}')
+
+    echo "# Bearer-only via AppGW: ${status}" >&3
+    # Should NOT be 403 (WAF block) — expect 200 (success) or at worst 401 (APIM auth)
+    [[ "${status}" != "403" ]]
+    [[ "${status}" == "200" ]]
+}
+
+# =============================================================================
 # Cross-tenant isolation via App Gateway
 # =============================================================================
 

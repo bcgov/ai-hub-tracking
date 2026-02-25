@@ -39,6 +39,14 @@ Use when creating or modifying APIM policies and routing.
 - Policy files under `infra-ai-hub/params/apim/`
 - Routing rules and authentication
 - Rate limiting and error handling
+- No subscription key normalization (handled by App Gateway)
+
+### [App Gateway & WAF](../skills/app-gateway/SKILLS.md)
+Use when creating or modifying App Gateway rewrite rules or WAF custom rules.
+- Rewrite rules in `infra-ai-hub/stacks/shared/main.tf`
+- WAF custom rules in `infra-ai-hub/stacks/shared/locals.tf`
+- Subscription key normalization (Ocp-key, Bearer → api-key for APIM)
+- Request security layers and rate limiting at WAF level
 
 ### [Integration Testing](../skills/integration-testing/SKILLS.md)
 Use when creating, modifying, or debugging integration tests.
