@@ -185,8 +185,11 @@ skip_if_no_key() {
     parse_response "${response}"
 
     # Extract a chat.completion.chunk (skip Azure prompt_filter_results and [DONE])
-    local chunk
-    chunk=$(echo "${RESPONSE_BODY}" | grep '^data: {' | sed 's/^data: //' | jq -c 'select(.object == "chat.completion.chunk")' 2>/dev/null | head -1)
+    # tr -d '\r': SSE uses \r\n line endings; Linux preserves \r which breaks jq parsing
+    # Split pipeline: collect all chunks first, then head -1, to avoid SIGPIPE under pipefail
+    local all_chunks chunk
+    all_chunks=$(echo "${RESPONSE_BODY}" | tr -d '\r' | grep '^data: {' | sed 's/^data: //' | jq -c 'select(.object == "chat.completion.chunk")' 2>/dev/null) || true
+    chunk=$(echo "${all_chunks}" | head -1)
     echo "# Chunk: ${chunk:0:120}..." >&3
 
     # Validate it's valid JSON with expected object type
@@ -206,8 +209,10 @@ skip_if_no_key() {
     parse_response "${response}"
 
     # Extract model from a content chunk (skip Azure prompt_filter_results)
-    local model
-    model=$(echo "${RESPONSE_BODY}" | grep '^data: {' | sed 's/^data: //' | jq -r 'select(.object == "chat.completion.chunk") | .model // empty' 2>/dev/null | head -1)
+    # tr -d '\r': SSE uses \r\n line endings; Linux preserves \r which breaks jq parsing
+    local all_models model
+    all_models=$(echo "${RESPONSE_BODY}" | tr -d '\r' | grep '^data: {' | sed 's/^data: //' | jq -r 'select(.object == "chat.completion.chunk") | .model // empty' 2>/dev/null) || true
+    model=$(echo "${all_models}" | head -1)
     echo "# Streaming model: ${model}" >&3
     [[ -n "${model}" ]]
     # Model should not be double-prefixed
