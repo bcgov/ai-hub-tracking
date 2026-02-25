@@ -143,6 +143,77 @@ skip_if_no_key() {
     assert_status "200" "${RESPONSE_STATUS}"
 }
 
+@test "V1: Streaming response contains SSE data chunks" {
+    skip_if_no_key "wlrs-water-form-assistant"
+
+    local path="/openai/v1/chat/completions"
+    local body='{"model":"gpt-4.1-mini","messages":[{"role":"user","content":"Say hello"}],"max_tokens":10,"stream":true}'
+
+    response=$(apim_request_with_retry "POST" "wlrs-water-form-assistant" "${path}" "${body}")
+    parse_response "${response}"
+
+    # Verify SSE format: must contain data: lines
+    local data_lines
+    data_lines=$(echo "${RESPONSE_BODY}" | grep -c '^data: ' || true)
+    echo "# SSE data lines: ${data_lines}" >&3
+    [[ ${data_lines} -ge 2 ]]
+}
+
+@test "V1: Streaming response ends with data: [DONE]" {
+    skip_if_no_key "wlrs-water-form-assistant"
+
+    local path="/openai/v1/chat/completions"
+    local body='{"model":"gpt-4.1-mini","messages":[{"role":"user","content":"Say hello"}],"max_tokens":10,"stream":true}'
+
+    response=$(apim_request_with_retry "POST" "wlrs-water-form-assistant" "${path}" "${body}")
+    parse_response "${response}"
+
+    # SSE stream must terminate with [DONE]
+    local has_done
+    has_done=$(echo "${RESPONSE_BODY}" | grep -c '^\s*data: \[DONE\]' || true)
+    echo "# Has [DONE]: ${has_done}" >&3
+    [[ ${has_done} -ge 1 ]]
+}
+
+@test "V1: Streaming chunks contain valid chat.completion.chunk objects" {
+    skip_if_no_key "wlrs-water-form-assistant"
+
+    local path="/openai/v1/chat/completions"
+    local body='{"model":"gpt-4.1-mini","messages":[{"role":"user","content":"Say hello"}],"max_tokens":10,"stream":true}'
+
+    response=$(apim_request_with_retry "POST" "wlrs-water-form-assistant" "${path}" "${body}")
+    parse_response "${response}"
+
+    # Extract a chat.completion.chunk (skip Azure prompt_filter_results and [DONE])
+    local chunk
+    chunk=$(echo "${RESPONSE_BODY}" | grep '^data: {' | sed 's/^data: //' | jq -c 'select(.object == "chat.completion.chunk")' 2>/dev/null | head -1)
+    echo "# Chunk: ${chunk:0:120}..." >&3
+
+    # Validate it's valid JSON with expected object type
+    local object_type
+    object_type=$(echo "${chunk}" | jq -r '.object // empty' 2>/dev/null || echo "")
+    echo "# Object type: ${object_type}" >&3
+    [[ "${object_type}" == "chat.completion.chunk" ]]
+}
+
+@test "V1: Streaming response includes model name in chunks" {
+    skip_if_no_key "wlrs-water-form-assistant"
+
+    local path="/openai/v1/chat/completions"
+    local body='{"model":"gpt-4.1-mini","messages":[{"role":"user","content":"Say hello"}],"max_tokens":10,"stream":true}'
+
+    response=$(apim_request_with_retry "POST" "wlrs-water-form-assistant" "${path}" "${body}")
+    parse_response "${response}"
+
+    # Extract model from a content chunk (skip Azure prompt_filter_results)
+    local model
+    model=$(echo "${RESPONSE_BODY}" | grep '^data: {' | sed 's/^data: //' | jq -r 'select(.object == "chat.completion.chunk") | .model // empty' 2>/dev/null | head -1)
+    echo "# Streaming model: ${model}" >&3
+    [[ -n "${model}" ]]
+    # Model should not be double-prefixed
+    [[ "${model}" != *"wlrs-water-form-assistant-wlrs-water-form-assistant"* ]]
+}
+
 # =============================================================================
 # /v1/ Format — Input Validation
 # =============================================================================

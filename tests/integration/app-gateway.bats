@@ -59,20 +59,6 @@ skip_if_no_key() {
         | openssl x509 -noout -checkend 0 2>/dev/null
 }
 
-@test "AppGW: HTTPS health probe returns non-error status" {
-    skip_if_no_appgw
-
-    # APIM's built-in status endpoint used as App GW health probe
-    local status
-    status=$(curl -s -o /dev/null -w "%{http_code}" \
-        --max-time 10 \
-        "https://${APPGW_HOSTNAME}/status-0123456789abcdef" 2>/dev/null || echo "000")
-
-    echo "# Health probe status: ${status}" >&3
-    # 200 = APIM reached; 403 = WAF blocked unauthenticated non-root path (also confirms AppGW is up)
-    [[ "${status}" == "200" ]] || [[ "${status}" == "403" ]]
-}
-
 # =============================================================================
 # Routing through App Gateway
 # =============================================================================

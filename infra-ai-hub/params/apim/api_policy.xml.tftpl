@@ -22,14 +22,14 @@
                 <set-variable name="deploymentName" value="@{
                     var path = context.Request.Url.Path;
                     var match = System.Text.RegularExpressions.Regex.Match(path, @&quot;/deployments/([^/]+)/&quot;);
-                    if (match.Success) return match.Groups[1].Value;
+                    if (match.Success) { return match.Groups[1].Value; }
                     // For /v1/ format: model field is the deployment name lookup key on Azure OpenAI
                     // Client sends e.g. "gpt-4.1-mini"; tenant-prefix to match deployment name
                     if (path.ToLower().Contains(&quot;/v1/&quot;)) {
                         try {
                             var body = context.Request.Body.As&lt;JObject&gt;(preserveContent: true);
                             var model = body?[&quot;model&quot;]?.ToString();
-                            if (!string.IsNullOrEmpty(model)) return &quot;${tenant_name}-&quot; + model;
+                            if (!string.IsNullOrEmpty(model)) { return &quot;${tenant_name}-&quot; + model; }
                         } catch { }
                     }
                     return &quot;unknown&quot;;
@@ -301,8 +301,15 @@
                     return &quot;/&quot; + path;
                 }" />
                 <rewrite-uri template="@((string)context.Variables[&quot;rewrittenPath&quot;])" copy-unmatched-params="true" />
-                <!-- Initialize isStream to false, will be updated at runtime -->
-                <set-variable name="isStream" value="@(false)" />
+                <!-- Detect streaming requests: stream:true in body means SSE response (not JSON) -->
+                <set-variable name="isStream" value="@{
+                    try {
+                        var body = context.Request.Body.As&lt;JObject&gt;(preserveContent: true);
+                        var streamVal = body?[&quot;stream&quot;];
+                        if (streamVal != null) { return streamVal.Value&lt;bool&gt;(); }
+                        return false;
+                    } catch { return false; }
+                }" />
 %{ if pii_redaction_enabled ~}
                 <!-- PII Anonymization via Azure Language Service -->
                 <set-variable name="piiAnonymizationEnabled" value="true" />
@@ -326,11 +333,14 @@
                 <choose>
                     <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;/v1/&quot;))">
                         <set-body>@{
-                            var bodyStr = context.Request.Body.As&lt;string&gt;(preserveContent: true);
-                            var body = JObject.Parse(bodyStr);
+                            var body = context.Request.Body.As<JObject>(preserveContent: true);
                             var model = body["model"]?.ToString();
-                            if (model != null && !model.StartsWith("${tenant_name}-")) {
-                                body["model"] = "${tenant_name}-" + model;
+                            if (model != null)
+                            {
+                                if (!model.StartsWith("${tenant_name}-"))
+                                {
+                                    body["model"] = "${tenant_name}-" + model;
+                                }
                             }
                             return body.ToString();
                         }</set-body>
@@ -465,9 +475,9 @@
         </choose>
 %{ endif ~}
 %{ if openai_enabled && usage_logging_enabled ~}
-        <!-- OpenAI usage logging -->
+        <!-- OpenAI usage logging (skip for streaming - SSE responses are not parseable as JSON) -->
         <choose>
-            <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;))">
+            <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;) &amp;&amp; !context.Variables.GetValueOrDefault&lt;bool&gt;(&quot;isStream&quot;, false))">
                 <set-variable name="responseBody" value="@(context.Response.Body.As&lt;JObject&gt;(preserveContent: true))" />
                 <!-- Set routing metadata for usage logging (single-backend for now) -->
                 <set-variable name="backendId" value="@(&quot;${tenant_name}-openai&quot;)" />
@@ -476,13 +486,42 @@
                 <set-variable name="deploymentName" value="@{
                     // Prefer the inbound-extracted deploymentName (handles both /deployments/ and /v1/ formats)
                     var existing = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;deploymentName&quot;, &quot;&quot;);
-                    if (!string.IsNullOrEmpty(existing) &amp;&amp; existing != &quot;unknown&quot;) return existing;
+                    if (!string.IsNullOrEmpty(existing) &amp;&amp; existing != &quot;unknown&quot;) { return existing; }
                     // Fallback: extract from URL path for /deployments/ format
                     var path = context.Request.Url.Path;
                     var match = System.Text.RegularExpressions.Regex.Match(path, @&quot;/deployments/([^/]+)/&quot;);
                     return match.Success ? match.Groups[1].Value : &quot;unknown&quot;;
                 }" />
                 <include-fragment fragment-id="openai-usage-logging" />
+            </when>
+        </choose>
+        <!-- Streaming usage logging - SSE responses cannot be parsed as JObject, -->
+        <!-- Token metrics already emitted by global policy azure-openai-emit-token-metric in inbound -->
+        <!-- This trace logs request metadata to App Insights for streaming calls -->
+        <choose>
+            <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;) &amp;&amp; context.Variables.GetValueOrDefault&lt;bool&gt;(&quot;isStream&quot;, false))">
+                <set-variable name="backendId" value="@(&quot;${tenant_name}-openai&quot;)" />
+                <set-variable name="routeLocation" value="@(&quot;canadaeast&quot;)" />
+                <set-variable name="routeName" value="@(&quot;primary&quot;)" />
+                <set-variable name="deploymentName" value="@{
+                    var existing = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;deploymentName&quot;, &quot;&quot;);
+                    if (!string.IsNullOrEmpty(existing) &amp;&amp; existing != &quot;unknown&quot;) { return existing; }
+                    var path = context.Request.Url.Path;
+                    var match = System.Text.RegularExpressions.Regex.Match(path, @&quot;/deployments/([^/]+)/&quot;);
+                    return match.Success ? match.Groups[1].Value : &quot;unknown&quot;;
+                }" />
+                <trace source="openai-streaming" severity="information">
+                    <message>OpenAI Streaming Request</message>
+                    <metadata name="event-type" value="openai-streaming" />
+                    <metadata name="request-id" value="@(context.RequestId.ToString())" />
+                    <metadata name="timestamp" value="@(DateTime.UtcNow.ToString(&quot;o&quot;))" />
+                    <metadata name="subscription-id" value="@(context.Subscription?.Id ?? &quot;Portal-Admin&quot;)" />
+                    <metadata name="tenant-id" value="@(context.Request.Headers.GetValueOrDefault(&quot;X-Tenant-Id&quot;, &quot;unknown&quot;))" />
+                    <metadata name="backend-id" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;backendId&quot;, &quot;unknown&quot;))" />
+                    <metadata name="deployment-name" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;deploymentName&quot;, &quot;unknown&quot;))" />
+                    <metadata name="route-location" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;routeLocation&quot;, &quot;unknown&quot;))" />
+                    <metadata name="is-streaming" value="true" />
+                </trace>
             </when>
         </choose>
 %{ endif ~}
