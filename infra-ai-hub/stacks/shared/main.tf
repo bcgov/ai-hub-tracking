@@ -72,6 +72,7 @@ module "ai_foundry_hub" {
   }
 
   scripts_dir      = "../../scripts"
+  subscription_id  = var.subscription_id
   purge_on_destroy = var.shared_config.ai_foundry.purge_on_destroy
   tags             = var.common_tags
 

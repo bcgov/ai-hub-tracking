@@ -109,6 +109,12 @@ variable "private_endpoint_dns_wait" {
   default = {}
 }
 
+variable "subscription_id" {
+  description = "Azure subscription ID."
+  type        = string
+  nullable    = false
+}
+
 variable "scripts_dir" {
   description = "Path to the scripts directory containing wait-for-dns-zone.sh"
   type        = string
