@@ -69,7 +69,8 @@ skip_if_no_key() {
         "https://${APPGW_HOSTNAME}/status-0123456789abcdef" 2>/dev/null || echo "000")
 
     echo "# Health probe status: ${status}" >&3
-    [[ "${status}" == "200" ]]
+    # 200 = APIM reached; 403 = WAF blocked unauthenticated non-root path (also confirms AppGW is up)
+    [[ "${status}" == "200" ]] || [[ "${status}" == "403" ]]
 }
 
 # =============================================================================
@@ -172,7 +173,7 @@ skip_if_no_key() {
 # Security
 # =============================================================================
 
-@test "AppGW: Request without subscription key returns 401 or 404" {
+@test "AppGW: Request without subscription key returns 401, 403, or 404" {
     skip_if_no_appgw
 
     local status
@@ -183,7 +184,9 @@ skip_if_no_key() {
         -d '{"messages":[{"role":"user","content":"hello"}]}')
 
     echo "# Unauthenticated via AppGW: ${status}" >&3
-    [[ "${status}" == "401" ]] || [[ "${status}" == "404" ]]
+    # WAF returns 403 for unauthenticated requests to non-root paths;
+    # APIM returns 401 when reached without a key; 404 for unknown routes.
+    [[ "${status}" == "401" ]] || [[ "${status}" == "403" ]] || [[ "${status}" == "404" ]]
 }
 
 @test "AppGW: Unauthenticated burst traffic is rate-limited" {
@@ -246,18 +249,19 @@ skip_if_no_key() {
     [[ "${status}" == "404" ]]
 }
 
-@test "AppGW: HTTP-to-HTTPS redirect works" {
+@test "AppGW: HTTP port 80 is blocked at NSG" {
     skip_if_no_appgw
 
-    # App Gateway should redirect HTTP to HTTPS (or refuse HTTP)
+    # Port 80 inbound is intentionally blocked at the NSG (AllowHttpInbound removed).
+    # Raw HTTP requests must be silently dropped — curl returns 000.
     local status
     status=$(curl -s -o /dev/null -w "%{http_code}" \
         --max-time 10 \
-        -L "http://${APPGW_HOSTNAME}/" 2>/dev/null || echo "000")
+        -L "http://${APPGW_HOSTNAME}/" 2>/dev/null || true)
 
     echo "# HTTP-to-HTTPS: final status ${status}" >&3
-    # After redirect, should land on HTTPS (any real response)
-    [[ "${status}" -ge 200 ]] && [[ "${status}" -lt 600 ]]
+    # NSG drops port 80; curl times out and %{http_code} outputs "000"
+    [[ "${status}" == "000" ]]
 }
 
 # =============================================================================
