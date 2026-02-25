@@ -172,7 +172,7 @@ skip_if_no_key() {
 # Security
 # =============================================================================
 
-@test "AppGW: Request without subscription key returns 401 or 404" {
+@test "AppGW: Request without subscription key returns 401, 403, or 404" {
     skip_if_no_appgw
 
     local status
@@ -183,7 +183,9 @@ skip_if_no_key() {
         -d '{"messages":[{"role":"user","content":"hello"}]}')
 
     echo "# Unauthenticated via AppGW: ${status}" >&3
-    [[ "${status}" == "401" ]] || [[ "${status}" == "404" ]]
+    # WAF returns 403 for unauthenticated requests to non-root paths;
+    # APIM returns 401 when reached without a key; 404 for unknown routes.
+    [[ "${status}" == "401" ]] || [[ "${status}" == "403" ]] || [[ "${status}" == "404" ]]
 }
 
 @test "AppGW: Unauthenticated burst traffic is rate-limited" {

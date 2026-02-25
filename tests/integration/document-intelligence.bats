@@ -558,7 +558,7 @@ TEST_FORM_JPG="${BATS_TEST_DIRNAME}/test_form.jpg"
     assert_status "404" "${RESPONSE_STATUS}"
 }
 
-@test "Document analysis without subscription key returns 401 or 404" {
+@test "Document analysis without subscription key returns 401, 403, or 404" {
     local body='{"base64Source": "'"${SAMPLE_PDF_BASE64}"'"}'
     local url="${APIM_GATEWAY_URL}/wlrs-water-form-assistant/documentintelligence/documentModels/prebuilt-layout:analyze?api-version=${DOCINT_API_VERSION}"
     
@@ -567,7 +567,9 @@ TEST_FORM_JPG="${BATS_TEST_DIRNAME}/test_form.jpg"
         -d "${body}")
     parse_response "${response}"
     
-    [[ "${RESPONSE_STATUS}" == "401" ]] || [[ "${RESPONSE_STATUS}" == "404" ]]
+    # WAF returns 403 for unauthenticated requests to non-root paths;
+    # APIM returns 401 when reached without a key; 404 for unknown routes.
+    [[ "${RESPONSE_STATUS}" == "401" ]] || [[ "${RESPONSE_STATUS}" == "403" ]] || [[ "${RESPONSE_STATUS}" == "404" ]]
 }
 
 # =============================================================================

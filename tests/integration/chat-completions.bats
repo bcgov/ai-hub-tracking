@@ -302,7 +302,7 @@ EOF
     [[ "${RESPONSE_STATUS}" == "401" ]] || [[ "${RESPONSE_STATUS}" == "404" ]]
 }
 
-@test "Missing subscription key returns 401 or 404" {
+@test "Missing subscription key returns 401, 403, or 404" {
     local body='{"messages":[{"role":"user","content":"Hi"}],"max_tokens":10}'
     local url="${APIM_GATEWAY_URL}/wlrs-water-form-assistant/openai/deployments/${DEFAULT_MODEL}/chat/completions?api-version=${OPENAI_API_VERSION}"
     
@@ -312,7 +312,9 @@ EOF
         -d "${body}")
     parse_response "${response}"
     
-    [[ "${RESPONSE_STATUS}" == "401" ]] || [[ "${RESPONSE_STATUS}" == "404" ]]
+    # WAF returns 403 for unauthenticated requests to non-root paths;
+    # APIM returns 401 when reached without a key; 404 for unknown routes.
+    [[ "${RESPONSE_STATUS}" == "401" ]] || [[ "${RESPONSE_STATUS}" == "403" ]] || [[ "${RESPONSE_STATUS}" == "404" ]]
 }
 
 @test "Invalid tenant returns 404" {
