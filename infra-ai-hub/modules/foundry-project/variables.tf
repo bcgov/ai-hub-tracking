@@ -107,7 +107,7 @@ variable "ai_model_deployments" {
   description = "AI model deployments to create on the shared AI Foundry Hub (prefixed with tenant name)"
   type = map(object({
     name                   = string
-    rai_policy_name        = optional(string)
+    rai_policy_name        = optional(string, "Microsoft.DefaultV2") # Azure default; explicit to avoid drift
     version_upgrade_option = optional(string, "OnceNewDefaultVersionAvailable")
     model = object({
       format  = optional(string, "OpenAI")

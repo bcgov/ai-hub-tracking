@@ -276,18 +276,13 @@ resource "azurerm_network_security_group" "appgw" {
     destination_address_prefix = "*"
   }
 
-  # Allow inbound HTTP (for redirect to HTTPS)
-  security_rule {
-    name                       = "AllowHttpInbound"
-    priority                   = 110
-    direction                  = "Inbound"
-    access                     = "Allow"
-    protocol                   = "Tcp"
-    source_port_range          = "*"
-    destination_port_range     = "80"
-    source_address_prefix      = "Internet"
-    destination_address_prefix = "*"
-  }
+  # Port 80 (plain HTTP) is intentionally NOT permitted from the Internet.
+  # All API clients must use HTTPS (port 443). HTTP→HTTPS redirect is not
+  # provided — scanners and probes that hit port 80 on the raw AppGW IP would
+  # bypass WAF (because no AppGW listener has host_name matching the raw IP),
+  # so the cleanest defence is to block port 80 at the NSG before it even
+  # reaches AppGW. Legitimate users with HTTP bookmarks will get a TCP reset
+  # and should update to HTTPS.
 
   # Allow Azure Gateway Manager (required for App Gateway v2)
   security_rule {
