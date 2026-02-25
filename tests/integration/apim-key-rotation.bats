@@ -255,12 +255,14 @@ post_apim_keys() {
     assert_status "405" "${RESPONSE_STATUS}"
 }
 
-@test "Unauthenticated request to /internal/apim-keys returns 401" {
+@test "Unauthenticated request to /internal/apim-keys returns 401 or 403" {
     if [[ "${APIM_KEY_ROTATION_ENABLED:-true}" != "true" ]]; then
         skip "APIM key rotation is disabled in shared.tfvars for ${TEST_ENV:-test}"
     fi
 
     # Call without any subscription key — use first available tenant path
+    # WAF returns 403 for unauthenticated requests to non-root paths;
+    # APIM returns 401 when the request reaches it without a key.
     local tenant
     tenant="$(tenant_1)"
     local url="${APIM_GATEWAY_URL}/${tenant}/internal/apim-keys"
@@ -270,8 +272,7 @@ post_apim_keys() {
         --max-time 30 2>/dev/null)
     parse_response "${response}"
 
-    # Should be 401 (missing subscription key)
-    assert_status "401" "${RESPONSE_STATUS}"
+    [[ "${RESPONSE_STATUS}" == "401" ]] || [[ "${RESPONSE_STATUS}" == "403" ]]
 }
 
 # =============================================================================

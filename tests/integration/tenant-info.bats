@@ -378,8 +378,10 @@ post_tenant_info() {
     [[ "${error_code}" == "MethodNotAllowed" ]]
 }
 
-@test "Unauthenticated request to /internal/tenant-info returns 401" {
+@test "Unauthenticated request to /internal/tenant-info returns 401 or 403" {
     # Call without any subscription key — no auth header
+    # WAF returns 403 for unauthenticated requests to non-root paths;
+    # APIM returns 401 when the request reaches it without a key.
     local tenant
     tenant="$(tenant_1)"
     local url="${APIM_GATEWAY_URL}/${tenant}/internal/tenant-info"
@@ -389,7 +391,7 @@ post_tenant_info() {
         --max-time 30 2>/dev/null)
     parse_response "${response}"
 
-    assert_status "401" "${RESPONSE_STATUS}"
+    [[ "${RESPONSE_STATUS}" == "401" ]] || [[ "${RESPONSE_STATUS}" == "403" ]]
 }
 
 # =============================================================================
