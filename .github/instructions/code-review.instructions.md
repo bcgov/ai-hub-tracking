@@ -8,7 +8,7 @@ This document guides reviewers (human or AI) assessing **IaC and CI/CD code** in
 
 This repository uses **skill profiles** to define standards for different types of work. Refer to these as the source of truth:
 
-### [IaC Code Reviewer](../skills/iac-code-reviewer/SKILLS.md) - PRIMARY REFERENCE
+### [IaC Code Reviewer](../skills/iac-code-reviewer/SKILL.md) - PRIMARY REFERENCE
 Use this for reviewing Terraform, GitHub Actions, Bash scripts, and AVM changes.
 - Review goals and severity levels
 - Azure Landing Zone compliance (CRITICAL)

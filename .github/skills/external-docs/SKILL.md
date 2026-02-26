@@ -1,6 +1,6 @@
 ---
-name: External Docs Research
-description: Guidance for researching authoritative external documentation using Microsoft Learn MCP and Upstash Context7, with explicit approval for fallback sources.
+name: external-docs
+description: Guidance for researching authoritative external documentation using Microsoft Learn MCP and Upstash Context7, with explicit approval for fallback sources. Use when looking up Azure, Terraform, or BC Gov platform documentation.
 ---
 
 # External Docs Research Skills
@@ -42,32 +42,12 @@ Research output should include:
 2. Query docs with `mcp_context7_get-library-docs` using a specific, version-aware topic.
 3. Capture key constraints and map them to repository changes.
 
-## Common Context7 Targets
-| Library ID | Use for |
-|---|---|
-| `/websites/github_en` | GitHub Actions, repos, security, Copilot, API docs |
-| `/websites/cli_github` | `gh` CLI command and flag behavior |
-| `/websites/code_visualstudio` | VS Code user docs/settings/workflows |
-| `/websites/code_visualstudio_api` | VS Code extension API/contribution points |
-
-## Query Quality Rules
-- Include version where relevant (`.NET 8`, `Terraform 1.12`, `VS Code 1.96`).
-- Include intent (`reference`, `limits`, `how-to`, `migration`).
-- Include domain context (`APIM policy`, `OIDC`, `rate limiting`, `private endpoints`).
-- Prefer narrow, testable queries over broad terms.
-
 ## Validation Gates (Required)
 1. Confirm source authority and version relevance.
 2. Confirm recommendation aligns with repository constraints and patterns.
 3. Flag conflicts between docs and repository behavior.
 4. State what could not be verified and why.
 
-## Failure Playbook
-### Conflicting external guidance
-- Prefer newest official versioned source and note discrepancy.
+## Detailed References
 
-### No direct docs for edge behavior
-- Use closest official source plus repository precedent; label assumptions.
-
-### No Context7 coverage
-- Request explicit user approval for a fallback source or request user-provided source.
+For Context7 target library IDs, query construction rules, and failure playbooks, see [references/REFERENCE.md](references/REFERENCE.md).

@@ -1,7 +1,7 @@
 # Model Deployments & Quota Allocation
 
 > **IMPORTANT:** This file must be updated whenever tenants are added, removed, or their model deployments are modified.
-> See [IaC Coder Skills](../.github/skills/iac-coder/SKILLS.md) for the mandatory update rule.
+> See [IaC Coder Skills](../.github/skills/iac-coder/SKILL.md) for the mandatory update rule.
 
 This document tracks the OpenAI model capacity allocated to each tenant across all environments.
 Capacity values are in **thousands of Tokens Per Minute (TPM)** — the Azure OpenAI deployment unit.
