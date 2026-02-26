@@ -370,6 +370,155 @@ EOF
     apim_request_with_retry "POST" "${tenant}" "${path}" "${body}"
 }
 
+# Make a chat completion request using the OpenAI-compatible /v1/ format
+# The model is specified in the request body, not in the URL path
+# Usage: chat_completion_v1 <tenant> <model> <message> [max_tokens]
+chat_completion_v1() {
+    local tenant="${1}"
+    local model="${2}"
+    local message="${3}"
+    local max_tokens="${4:-50}"
+
+    local path="/openai/v1/chat/completions"
+    local body
+
+    if [[ "${model}" == gpt-5* ]]; then
+        body=$(cat <<EOF
+{
+    "model": "${model}",
+    "messages": [
+        {
+            "role": "user",
+            "content": "${message}"
+        }
+    ],
+    "max_completion_tokens": ${max_tokens}
+}
+EOF
+)
+    else
+        body=$(cat <<EOF
+{
+    "model": "${model}",
+    "messages": [
+        {
+            "role": "user",
+            "content": "${message}"
+        }
+    ],
+    "max_tokens": ${max_tokens},
+    "temperature": 0.7
+}
+EOF
+)
+    fi
+
+    apim_request_with_retry "POST" "${tenant}" "${path}" "${body}"
+}
+
+# HTTP request wrapper using the Authorization: Bearer header (OpenAI SDK default)
+# Usage: apim_request_bearer <method> <tenant> <path> [body]
+apim_request_bearer() {
+    local method="${1}"
+    local tenant="${2}"
+    local path="${3}"
+    local body="${4:-}"
+
+    local subscription_key
+    subscription_key=$(get_subscription_key "${tenant}")
+
+    if [[ -z "${subscription_key}" ]]; then
+        echo "Error: No subscription key for tenant ${tenant}" >&2
+        return 1
+    fi
+
+    local url="${APIM_GATEWAY_URL}/${tenant}${path}"
+
+    local curl_opts=(
+        -s                                          # Silent
+        -w "\n%{http_code}"                         # Append HTTP status code
+        -H "Authorization: Bearer ${subscription_key}"  # OpenAI SDK auth style
+        -H "Content-Type: application/json"
+        -H "Accept: application/json"
+        --max-time 60                               # 60 second timeout
+    )
+
+    if [[ -n "${body}" ]]; then
+        curl_opts+=(-d "${body}")
+    fi
+
+    local response
+    response=$(curl -X "${method}" "${curl_opts[@]}" "${url}")
+
+    local status
+    status=$(echo "${response}" | tail -n1)
+
+    # 401 fallback: key may be stale after rotation; refresh from KV and retry once
+    if [[ "${status}" == "401" ]] && refresh_tenant_key_from_vault "${tenant}"; then
+        subscription_key=$(get_subscription_key "${tenant}")
+        curl_opts=(
+            -s
+            -w "\n%{http_code}"
+            -H "Authorization: Bearer ${subscription_key}"
+            -H "Content-Type: application/json"
+            -H "Accept: application/json"
+            --max-time 60
+        )
+        if [[ -n "${body}" ]]; then
+            curl_opts+=(-d "${body}")
+        fi
+        response=$(curl -X "${method}" "${curl_opts[@]}" "${url}")
+    fi
+
+    echo "${response}"
+}
+
+# Make a chat completion request using Authorization: Bearer header and /v1/ format
+# This is how OpenAI-compatible clients (OpenCode, Cursor, Continue) send requests
+# Usage: chat_completion_v1_bearer <tenant> <model> <message> [max_tokens]
+chat_completion_v1_bearer() {
+    local tenant="${1}"
+    local model="${2}"
+    local message="${3}"
+    local max_tokens="${4:-50}"
+
+    local path="/openai/v1/chat/completions"
+    local body
+
+    if [[ "${model}" == gpt-5* ]]; then
+        body=$(cat <<EOF
+{
+    "model": "${model}",
+    "messages": [
+        {
+            "role": "user",
+            "content": "${message}"
+        }
+    ],
+    "max_completion_tokens": ${max_tokens}
+}
+EOF
+)
+    else
+        body=$(cat <<EOF
+{
+    "model": "${model}",
+    "messages": [
+        {
+            "role": "user",
+            "content": "${message}"
+        }
+    ],
+    "max_tokens": ${max_tokens},
+    "temperature": 0.7
+}
+EOF
+)
+    fi
+
+    apim_request_bearer "POST" "${tenant}" "${path}" "${body}"
+}
+
 # Make a chat completion request using Ocp-Apim-Subscription-Key header
 # Usage: chat_completion_ocp <tenant> <model> <message>
 chat_completion_ocp() {
@@ -751,7 +900,7 @@ extract_response_body() {
 }
 
 # Export functions
-export -f apim_request apim_request_with_retry parse_response chat_completion docint_analyze
+export -f apim_request apim_request_with_retry apim_request_bearer parse_response chat_completion chat_completion_v1 chat_completion_v1_bearer docint_analyze
 export -f docint_analyze_file docint_analyze_binary docint_analyze_pdf docint_analyze_multipart
 export -f extract_operation_path extract_http_status extract_response_body
 export -f assert_status assert_contains assert_not_contains json_get

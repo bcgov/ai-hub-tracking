@@ -10,9 +10,11 @@ Use this skill profile when creating or modifying APIM policies and routing beha
 ## Use When
 - Updating APIM inbound/backend/outbound policy logic in the shared template
 - Adding, changing, or debugging feature-flag-driven backend routing
-- Modifying APIM auth/header behavior, rate limiting, or rewrite logic
+- Modifying APIM rate limiting, PII redaction, or deployment name rewrite logic
+- Adding or modifying the global policy (`global_policy.xml`)
 
 ## Do Not Use When
+- Changing App Gateway rewrite rules or WAF custom rules (use [App Gateway & WAF](../app-gateway/SKILLS.md))
 - Changing infrastructure modules/workflows unrelated to APIM policy behavior
 - Performing review-only tasks without implementation changes
 - Editing docs-only pages under `docs/` with no policy change
@@ -33,12 +35,42 @@ Every APIM policy change should deliver:
 ## External Documentation
 - Use [External Docs Research](../external-docs/SKILLS.md) as the single source of truth for external documentation workflow and fallback approval requirements.
 
+## Request Flow Architecture
+
+APIM sits behind App Gateway in the request chain. Understanding this layering is critical:
+
+```
+Client → WAF (custom rules) → App Gateway (rewrite rules) → APIM global policy → APIM API policy → Backend
+```
+
+**Key implications:**
+- **No subscription key normalization in APIM**. APIM is configured with `subscription_key_parameter_names = { header = "api-key", query = "api-key" }` (set in `stacks/apim/locals.tf`). This means APIM validates the `api-key` header *before* policies execute — requests missing `api-key` are rejected with 401 before any policy code runs. All key normalization (`Ocp-Apim-Subscription-Key` → `api-key`, `Authorization: Bearer` → `api-key`) is handled by App Gateway rewrite rules (see [App Gateway & WAF](../app-gateway/SKILLS.md)).
+- **Do not add key normalization logic to APIM policies** — it will never execute for requests missing the `api-key` header.
+- The global policy (`global_policy.xml`) handles: client IP extraction, correlation IDs, and token metrics only.
+
 ## Policy Locations
-- There is **one shared policy template** for all tenants:
+- There is **one shared API policy template** for all tenants:
   `infra-ai-hub/params/apim/api_policy.xml.tftpl`
-- It is rendered per-tenant in `stacks/apim/locals.tf` via `templatefile()` (not `file()`).
+- There is **one global policy** for all APIs:
+  `infra-ai-hub/params/apim/global_policy.xml`
+- The API policy is rendered per-tenant in `stacks/apim/locals.tf` via `templatefile()` (not `file()`).
 - All routing sections are conditional — enabled/disabled per tenant via `tenant.tfvars` feature flags (e.g., `openai_enabled`, `speech_services_enabled`, `document_intelligence_enabled`, `ai_search_enabled`, `storage_enabled`, `key_rotation_enabled`).
 - There are **no per-tenant XML files**. Do not create `tenants/{tenant}/api_policy.xml` files.
+
+## Global Policy (`global_policy.xml`)
+The global policy applies to all APIs before the per-tenant API policy runs. It contains:
+
+| Feature | Purpose |
+|---|---|
+| Real client IP extraction | Promotes `X-Forwarded-For` (set by AppGW) to `X-Real-Client-IP` for logging; falls back to `context.Request.IpAddress` when no AppGW |
+| Correlation ID | Sets `x-ms-correlation-request-id` for distributed tracing |
+| Token metrics | `azure-openai-emit-token-metric` scoped to `/openai/` paths only |
+| Outbound headers | `x-ms-request-id` and `x-ratelimit-remaining-tokens` on every response |
+| Error handling | Structured JSON for 429 (rate limit), 503 (circuit breaker), and generic errors; scrubs internal Azure hostnames from error messages |
+
+**What the global policy does NOT contain:**
+- No subscription key normalization (handled by App Gateway rewrite rules)
+- No `Ocp-Apim-Subscription-Key`/`Authorization: Bearer` → `api-key` header mapping
 
 ## Routing Rules (Current Pattern)
 All routes live inside a single `<choose>` block in the inbound section. Routes are conditionally included:
@@ -78,13 +110,36 @@ Always:
 - Controlled by `rate_limiting_enabled` flag.
 - **Rate limiting MUST be scoped to OpenAI paths only** (wrapped in `<when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;))">"`). Token counting is meaningless for DocInt/Speech/Search/Storage, and `estimate-prompt-tokens="true"` on large binary payloads (e.g., 500KB base64 images) causes APIM to hang reading/estimating the body before forwarding — resulting in curl timeouts (status 28) on the upstream caller.
 
-## OpenAI Deployment Name Rewriting
-- Client sends a short name (e.g., `gpt-4.1-mini`); the backend expects a tenant-prefixed name (e.g., `wlrs-gpt-4.1-mini`).
-- The inbound policy rewrites `/openai/deployments/{name}/...` → `/openai/deployments/{tenant_name}-{name}/...` via `<rewrite-uri>`.
+## OpenAI Endpoint Formats
+
+APIM supports two OpenAI endpoint formats. Both are routed via the same `openai` path condition:
+
+### `/deployments/` format (standard Azure OpenAI)
+- Client sends: `/openai/deployments/gpt-4.1-mini/chat/completions`
+- APIM rewrites to: `/openai/deployments/{tenant_name}-gpt-4.1-mini/chat/completions`
+- Deployment name extracted from URL path via regex
+
+### `/v1/` format (OpenAI-compatible)
+- Client sends: `/openai/v1/chat/completions` with `"model": "gpt-4.1-mini"` in the request body
+- URL forwarded as-is to Azure OpenAI (which handles `/openai/v1/` natively)
+- Deployment name extracted from `model` field in request body using `Body.As<JObject>(preserveContent: true)`
+- Model field is tenant-prefixed in the body: `gpt-4.1-mini` → `{tenant_name}-gpt-4.1-mini`
+- Input validation: `/v1/` requests must have valid JSON body with `model` field (returns 400 otherwise)
+
+### Deployment Name Extraction (Unified)
+The `deploymentName` variable is set once in inbound and reused in outbound logging:
+```
+1. Try URL regex: /deployments/{name}/  → deploymentName = name
+2. Fallback for /v1/: parse body model field → deploymentName = {tenant}-{model}
+3. If neither matches → deploymentName = "unknown"
+```
+
+### Body Model Rewrite Ordering
+The `/v1/` body model tenant-prefix rewrite (`set-body`) is placed **after** PII redaction `set-body` to avoid being overwritten. It uses a `StartsWith` guard to prevent double-prefixing.
 
 ## Outbound Policies
 - **Document Intelligence** (`document_intelligence_enabled`): rewrites the `Operation-Location` response header to replace the backend `cognitiveservices.azure.com` URL with the App Gateway URL. This is required for async (202) polling to work through the gateway.
-- **OpenAI usage logging** (`usage_logging_enabled`): calls the `openai-usage-logging` fragment on OpenAI responses.
+- **OpenAI usage logging** (`usage_logging_enabled`): reuses the inbound `deploymentName` variable (handles both `/deployments/` and `/v1/` formats) and calls the `openai-usage-logging` fragment.
 
 ## Document Intelligence: Model Performance
 - **`prebuilt-layout`**: Fast (~10-20s for a 500KB JPG on S0 tier). Extracts text, tables, and structure.
@@ -101,6 +156,8 @@ Always:
 - For unmatched paths, return structured JSON errors with HTTP 404.
 - Keep error messages consistent across tenants.
 - Key rotation endpoint returns 405 for non-GET methods and 502 with detail if Key Vault reads fail.
+- `/v1/` requests with invalid JSON body return 400 with `InvalidRequestBody` error code.
+- `/v1/` requests missing the `model` field return 400 with `MissingModel` error code.
 
 ## Policy Template: set-backend-service Must Use Static IDs
 
@@ -136,6 +193,8 @@ This applies to all backends, not just speech. Any time you need to choose a bac
 - **Use static `backend-id` strings** in all `<set-backend-service>` elements (never dynamic expressions).
 - Use the correct MSI resource URL for each backend type (see Authentication table above).
 - Avoid changes that bypass Landing Zone networking constraints.
+- **Never add subscription key normalization to APIM policies** — App Gateway handles all header mapping.
+- For `/v1/` changes, ensure `preserveContent: true` is used on all `Body.As<>()` calls.
 
 ## Testing Notes
 - Validate routing for `/openai/*`, `/documentintelligence/*`, `/speech/recognition`, `/cognitiveservices/voices`, `/ai-search/*`, and `/storage/*`.
@@ -144,6 +203,8 @@ This applies to all backends, not just speech. Any time you need to choose a bac
 - Ensure non-matching paths return 404 JSON error.
 - For Document Intelligence async ops, confirm `Operation-Location` header is rewritten to the App Gateway URL.
 - Verify Speech backends receive `/stt/` or `/tts/` path prefix after the rewrite.
+- For `/v1/` endpoints: verify model field is tenant-prefixed in request body, validate 400 errors for missing model / invalid JSON.
+- For Bearer token auth: verify requests with `Authorization: Bearer <key>` are accepted (key mapping is done at App Gateway layer).
 
 ## Validation Gates (Required)
 1. Route matrix check: each changed path resolves to exactly one intended backend.
@@ -151,13 +212,15 @@ This applies to all backends, not just speech. Any time you need to choose a bac
 3. Guardrail check: no dynamic backend-id expressions in `set-backend-service`.
 4. OpenAI check: deployment rewrite + rate limit scope remain OpenAI-only.
 5. Error-path check: unmatched paths and key rotation failures still return structured errors.
+6. No-normalization check: APIM policies must not contain subscription key normalization logic.
 
 ## Route Validation Matrix Template
 Use this table for every APIM change review/runbook:
 
 | Request Path | Feature Flag | Expected Backend ID | Auth Mode | Expected Result |
 |---|---|---|---|---|
-| `/openai/...` | `openai_enabled` | `${tenant_name}-openai` | MSI (`cognitiveservices`) | 2xx/4xx from backend, not APIM 404 |
+| `/openai/deployments/{model}/...` | `openai_enabled` | `${tenant_name}-openai` | MSI (`cognitiveservices`) | 2xx/4xx from backend, not APIM 404 |
+| `/openai/v1/chat/completions` | `openai_enabled` | `${tenant_name}-openai` | MSI (`cognitiveservices`) | 2xx/4xx; model field tenant-prefixed in body |
 | `/documentintelligence/...` | `document_intelligence_enabled` | `${tenant_name}-document-intelligence` | MSI (`cognitiveservices`) | 2xx/202 with rewritten `Operation-Location` |
 | `/speech/recognition...` | `speech_services_enabled` | `${tenant_name}-speech-stt` | backend credential | 2xx/4xx from speech backend |
 | `/cognitiveservices/voices...` | `speech_services_enabled` | `${tenant_name}-speech-tts` | backend credential | 2xx/4xx from speech backend |
