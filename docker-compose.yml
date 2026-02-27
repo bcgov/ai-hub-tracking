@@ -1,0 +1,17 @@
+services:
+  chisel-client-azure:
+    image: jpillora/chisel:latest
+    container_name: chisel-client-azure
+    ports:
+      - "18080:1080"
+    command: client --auth "${CHISEL_AUTH}" "${CHISEL_SERVER_URL}" 0.0.0.0:1080:socks
+  privoxy:
+    image: ghcr.io/bcgov/ai-hub-tracking/azure-proxy/privoxy:latest
+    container_name: privoxy
+    ports:
+      - "0.0.0.0:8118:8118"
+    environment:
+      - SOCKS_HOST=host.docker.internal
+      - SOCKS_PORT=18080
+    depends_on:
+      - chisel-client-azure

@@ -7,8 +7,6 @@
 # Cognitive Services account. This allows other modules to run in parallel while
 # ensuring AI Foundry operations remain sequential.
 #
-# Data source for subscription info
-data "azurerm_client_config" "current" {}
 # -----------------------------------------------------------------------------
 # Log Analytics Workspace (optional - or use existing)
 # -----------------------------------------------------------------------------
@@ -312,7 +310,7 @@ resource "null_resource" "purge_ai_foundry" {
     account_name        = var.name
     location            = local.ai_location
     resource_group_name = var.resource_group_name
-    subscription_id     = data.azurerm_client_config.current.subscription_id
+    subscription_id     = var.subscription_id
     scripts_dir         = var.scripts_dir
     timeout             = var.purge_wait.timeout
     poll_interval       = var.purge_wait.poll_interval

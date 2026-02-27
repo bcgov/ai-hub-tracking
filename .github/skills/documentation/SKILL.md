@@ -1,7 +1,6 @@
-
 ---
-name: Documentation
-description: Guidance for maintaining documentation in the docs/ site for ai-hub-tracking.
+name: documentation
+description: Guidance for maintaining documentation in the docs/ site for ai-hub-tracking. Use when updating HTML pages, partials, build scripts, or Terraform reference docs.
 ---
 
 # Documentation Skills
@@ -32,7 +31,7 @@ Every docs update should provide:
 - Clear, concise wording aligned with existing docs tone and structure
 
 ## External Documentation
-- Use [External Docs Research](../external-docs/SKILLS.md) as the single source of truth for external documentation workflow and fallback approval requirements.
+- Use [External Docs Research](../external-docs/SKILL.md) as the single source of truth for external documentation workflow and fallback approval requirements.
 
 ## Scope
 - Static HTML pages in docs/
@@ -59,25 +58,6 @@ Every docs update should provide:
 - Ensure links are relative and stable within the docs/ structure.
 - For infra or networking changes, update relevant pages in docs/.
 
-## Required Updates
-- If infrastructure or networking behavior changes, update docs pages accordingly.
-- Keep docs/README.md aligned with current documentation workflow.
-
-## Change Trigger Map
-Use this map to avoid missed docs updates:
-
-| Change Type | Minimum Docs Impact |
-|---|---|
-| Terraform module behavior change | Update relevant docs page(s) and references in `docs/terraform*.html` if applicable |
-| APIM routing/policy behavior change | Update APIM/runbook pages and FAQ entries that describe route/auth behavior |
-| Deployment workflow/script changes | Update setup/runbook pages and any command examples |
-| Operational workaround or lifecycle pattern change | Document rationale, scope, and rollback/verification notes |
-
-## File Conventions
-- Use existing HTML structure and indentation.
-- Prefer editing docs/_pages/*.html and regenerate docs/*.html when appropriate.
-- Keep _partials clean and reusable.
-
 ## Quick Checklist
 - [ ] Updated the correct source page in docs/_pages/
 - [ ] Shared content updated in docs/_partials/ if needed
@@ -90,12 +70,6 @@ Use this map to avoid missed docs updates:
 3. Scope check: docs reflect actual behavior, not planned/unimplemented behavior.
 4. Consistency check: terminology and command examples match current repo usage.
 
-## Failure Playbook
-### Drift between source and published pages
-- Reconcile `docs/_pages/*` against generated `docs/*.html` and regenerate as needed.
+## Detailed References
 
-### Conflicting instructions across pages
-- Move shared guidance into `docs/_partials/` and reference it from pages.
-
-### Infra behavior changed but docs stale
-- Update docs in the same change window as infra updates; treat stale docs as incomplete delivery.
+For change trigger maps, file conventions, and failure playbooks, see [references/REFERENCE.md](references/REFERENCE.md).
