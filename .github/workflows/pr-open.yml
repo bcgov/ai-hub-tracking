@@ -31,6 +31,7 @@ jobs:
         manual-${{ github.run_number }}
         ${{github.event.number}}-${{ github.run_number }}
         latest
+
   deploy-proxy-in-tools-environment:
     needs: lint
     name: Deploy to 'tools' Environment

@@ -1,0 +1,14 @@
+{
+    "IsEncrypted": false,
+    "Values": {
+        "FUNCTIONS_WORKER_RUNTIME": "python",
+        "AzureWebJobsStorage": "UseDevelopmentStorage=true",
+        "ENVIRONMENT": "dev",
+        "APP_NAME": "ai-services-hub",
+        "SUBSCRIPTION_ID": "<your-azure-subscription-id>",
+        "ROTATION_ENABLED": "true",
+        "ROTATION_INTERVAL_DAYS": "60",
+        "ROTATION_CRON_SCHEDULE": "0 0 9 * * *",
+        "DRY_RUN": "true"
+    }
+}

@@ -38,6 +38,12 @@ module "network" {
     prefix_length = lookup(var.shared_config.app_gateway, "subnet_prefix_length", 27)
   }
 
+  func_subnet = {
+    enabled       = lookup(var.shared_config, "func_subnet_enabled", false)
+    name          = lookup(var.shared_config, "func_subnet_name", "func-subnet")
+    prefix_length = lookup(var.shared_config, "func_subnet_prefix_length", 27)
+  }
+
   depends_on = [azurerm_resource_group.main]
 }
 

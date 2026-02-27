@@ -504,3 +504,128 @@ resource "azapi_resource" "aca_subnet" {
     azapi_resource.appgw_subnet
   ]
 }
+
+# =============================================================================
+# FUNCTIONS SUBNET (optional)
+# Required for Azure Functions VNet integration (key rotation, etc.)
+# Delegation to Microsoft.Web/serverFarms is mandatory for VNet integration.
+# =============================================================================
+
+# NSG for Functions subnet
+resource "azurerm_network_security_group" "func" {
+  count = var.func_subnet.enabled ? 1 : 0
+
+  name                = "${var.name_prefix}-func-nsg"
+  location            = var.location
+  resource_group_name = var.vnet_resource_group_name
+
+  # Allow outbound to Azure Storage (required for Functions runtime)
+  security_rule {
+    name                       = "AllowStorageOutbound"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "Storage"
+  }
+
+  # Allow outbound to Azure Key Vault (for rotation secrets)
+  security_rule {
+    name                       = "AllowKeyVaultOutbound"
+    priority                   = 110
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "AzureKeyVault"
+  }
+
+  # Allow outbound to Azure Active Directory (managed identity auth)
+  security_rule {
+    name                       = "AllowAzureADOutbound"
+    priority                   = 120
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "AzureActiveDirectory"
+  }
+
+  # Allow outbound to Azure Monitor (Application Insights telemetry)
+  security_rule {
+    name                       = "AllowMonitorOutbound"
+    priority                   = 130
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "AzureMonitor"
+  }
+
+  # Allow outbound within VNet (for private endpoint access to APIM, KV)
+  security_rule {
+    name                       = "AllowVirtualNetworkOutbound"
+    priority                   = 140
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "VirtualNetwork"
+  }
+
+  tags = var.common_tags
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
+}
+
+# Functions subnet with delegation for VNet integration
+resource "azapi_resource" "func_subnet" {
+  count = var.func_subnet.enabled ? 1 : 0
+
+  type      = "Microsoft.Network/virtualNetworks/subnets@2023-04-01"
+  name      = var.func_subnet.name
+  parent_id = data.azurerm_virtual_network.target.id
+  locks     = [data.azurerm_virtual_network.target.id]
+
+  body = {
+    properties = {
+      addressPrefix = local.func_subnet_cidr
+
+      networkSecurityGroup = {
+        id = azurerm_network_security_group.func[0].id
+      }
+
+      # Azure Functions VNet integration requires delegation to Microsoft.Web/serverFarms
+      delegations = [
+        {
+          name = "Microsoft.Web.serverFarms"
+          properties = {
+            serviceName = "Microsoft.Web/serverFarms"
+          }
+        }
+      ]
+    }
+  }
+
+  response_export_values = ["*"]
+
+  depends_on = [
+    azapi_resource.private_endpoints_subnet,
+    azapi_resource.apim_subnet,
+    azapi_resource.appgw_subnet,
+    azapi_resource.aca_subnet
+  ]
+}

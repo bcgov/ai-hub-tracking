@@ -63,10 +63,13 @@ shared_config = {
 
     private_dns_zone_ids = []
 
-    # Subscription key rotation (managed by GitHub Actions workflow)
+    # Subscription key rotation
+    # When use_azure_functions = true, rotation runs as a timer-triggered Azure
+    # Function (container from GHCR). Otherwise falls back to GHA workflow.
     key_rotation = {
       rotation_enabled       = false # Enable rotation in test for validation
       rotation_interval_days = 60    # Must be less than 90 days (APIM max key lifetime)
+      use_azure_functions    = false # Set to true once Function image is validated
     }
   }
 
@@ -185,6 +188,13 @@ shared_config = {
     # Teams webhook URL is set via monitoring_webhook_url in sensitive tfvars.
     alert_emails = ["omprakash.2.mishra@gov.bc.ca"]
   }
+
+  # ---------------------------------------------------------------------------
+  # Functions Subnet
+  # ---------------------------------------------------------------------------
+  # Dedicated subnet with Microsoft.Web/serverFarms delegation for Azure
+  # Functions VNet integration (e.g., key rotation function).
+  func_subnet_enabled = false # Enable when use_azure_functions = true in APIM config
 }
 
 # =============================================================================

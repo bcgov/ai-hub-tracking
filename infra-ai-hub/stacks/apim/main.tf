@@ -793,6 +793,54 @@ resource "azurerm_key_vault_secret" "apim_rotation_metadata" {
   }
 }
 
+# =============================================================================
+# KEY ROTATION FUNCTION APP (replaces GitHub Actions workflow)
+# =============================================================================
+# Timer-triggered Azure Function that rotates APIM subscription keys using the
+# same alternating primary/secondary pattern as the original bash script.
+# Container image hosted on GHCR — no ACR dependency.
+# =============================================================================
+module "key_rotation_function" {
+  source = "../../modules/key-rotation-function"
+  count  = local.key_rotation_config.rotation_enabled && local.apim_config.enabled && lookup(local.key_rotation_config, "use_azure_functions", false) ? 1 : 0
+
+  name_prefix         = "${var.app_name}-${var.app_env}"
+  resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
+  resource_group_id   = data.terraform_remote_state.shared.outputs.resource_group_id
+  location            = var.location
+
+  # Container image from GHCR
+  container_image_name = lookup(local.key_rotation_config, "container_image_name", "bcgov/ai-hub-tracking/functions/apim-key-rotation")
+  container_image_tag  = lookup(local.key_rotation_config, "container_image_tag", "latest")
+
+  # APIM reference (for RBAC + app settings)
+  apim_id   = module.apim[0].id
+  apim_name = module.apim[0].name
+
+  # Hub Key Vault reference (for RBAC + app settings)
+  hub_keyvault_id   = data.terraform_remote_state.shared.outputs.hub_key_vault_id
+  hub_keyvault_name = data.terraform_remote_state.shared.outputs.hub_key_vault_name
+
+  # Application config
+  environment            = var.app_env
+  app_name               = var.app_name
+  subscription_id        = var.subscription_id
+  rotation_enabled       = local.key_rotation_config.rotation_enabled
+  rotation_interval_days = local.key_rotation_config.rotation_interval_days
+  rotation_cron_schedule = lookup(local.key_rotation_config, "rotation_cron_schedule", "0 0 9 * * *")
+  dry_run                = lookup(local.key_rotation_config, "dry_run", false)
+
+  # Observability
+  application_insights_connection_string = try(data.terraform_remote_state.shared.outputs.application_insights_connection_string, "")
+
+  # VNet integration (dedicated subnet with Microsoft.Web/serverFarms delegation)
+  vnet_subnet_id = try(data.terraform_remote_state.shared.outputs.func_subnet_id, null)
+
+  tags = var.common_tags
+
+  depends_on = [module.apim]
+}
+
 resource "azurerm_api_management_api" "landing_page" {
   count = local.apim_config.enabled ? 1 : 0
 

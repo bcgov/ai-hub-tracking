@@ -1079,7 +1079,7 @@
         <!-- Breadcrumb: injected by search.js when arriving from a search result -->
         <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
 
-<h1 id="language-service-pii-detection">Language Service PII Detection</h1>
+<h1>Language Service PII Detection</h1>
 
 <p>This system supports tenant-controlled PII anonymization by calling Azure AI Language Service (Text Analytics) from Azure API Management (APIM) policies. The goal is to mask sensitive data before it is forwarded to downstream backends such as OpenAI.</p>
 
@@ -1093,11 +1093,11 @@
     </div>
 </div>
 
-<h2 id="overview">Overview</h2>
+<h2>Overview</h2>
 
 <p>The system uses Azure AI Language Service PII entity recognition to identify and redact sensitive information in requests. This ML-based approach provides broad entity coverage, context-aware detection, and machine learning accuracy for enterprise-grade PII protection.</p>
 
-<h3 id="supported-entity-types">Supported Entity Types</h3>
+<h3>Supported Entity Types</h3>
 <p>Azure AI Language Service can detect and redact a wide range of PII entity types:</p>
 <ul>
     <li><strong>Personal Identifiers:</strong> Names, email addresses, phone numbers</li>
@@ -1107,12 +1107,12 @@
     <li><strong>Medical Information:</strong> Medical record numbers, health insurance information</li>
 </ul>
 
-<h2 id="architecture">Architecture</h2>
+<h2>Architecture</h2>
 
 <p>Requests enter APIM, tenant API policies decide whether to apply PII anonymization, and when enabled, APIM calls the shared Language Service endpoint using managed identity. The Language Service endpoint is provided to APIM policies via an APIM Named Value: <code>piiServiceUrl</code>.</p>
 
 <div class="card">
-    <h3 id="request-flow" style="margin-top: 0;">Request Flow</h3>
+    <h3 style="margin-top: 0;">Request Flow</h3>
     <ol>
         <li>Client request arrives at APIM with sensitive content</li>
         <li>Tenant API policy extracts request body content</li>
@@ -1123,7 +1123,7 @@
     </ol>
 </div>
 
-<h2 id="how-it-works">How It Works</h2>
+<h2>How It Works</h2>
 
 <ol>
     <li>A tenant request arrives at APIM.</li>
@@ -1161,13 +1161,13 @@
     </div>
 </div>
 
-<h2 id="configuration-guide">Configuration Guide</h2>
+<h2>Configuration Guide</h2>
 
-<h3 id="shared-configuration-all-environments">Shared Configuration (All Environments)</h3>
+<h3>Shared Configuration (All Environments)</h3>
 
 <p>PII detection depends on the shared Language Service being enabled via <code>shared_config.language_service.enabled</code> and integrated into APIM via <code>piiServiceUrl</code>. Language Service is configured for private access (no public network access) and is connected through a private endpoint.</p>
 
-<h3 id="per-tenant-configuration">Per-Tenant Configuration</h3>
+<h3>Per-Tenant Configuration</h3>
 
 <p>PII anonymization is controlled per tenant via APIM policy settings (<code>apim_policies.pii_redaction.enabled</code>). The tenant API policy generation includes PII only when tenant PII redaction is enabled and the shared Language Service is enabled.</p>
 
@@ -1261,28 +1261,28 @@ apim_policies {
 </table>
 
 <div class="card card-gold">
-    <h3 id="flexible-tenant-control" style="margin-top: 0;">Flexible Tenant Control</h3>
+    <h3 style="margin-top: 0;">Flexible Tenant Control</h3>
     <p>Each tenant can independently enable or disable PII redaction based on their specific requirements. This allows for granular control over data privacy settings while sharing the same infrastructure.</p>
 </div>
 
-<h2 id="security-model">Security Model</h2>
+<h2>Security Model</h2>
 
 <div class="grid grid-2">
     <div class="card">
-        <h3 id="managed-identity-authentication" style="margin-top: 0;">Managed Identity Authentication</h3>
+        <h3 style="margin-top: 0;">Managed Identity Authentication</h3>
         <p>Language Service uses managed identity only (<code>local_auth_enabled = false</code>) rather than API keys. This eliminates the need for credential rotation and follows Azure security best practices.</p>
     </div>
     <div class="card">
-        <h3 id="private-network-access" style="margin-top: 0;">Private Network Access</h3>
+        <h3 style="margin-top: 0;">Private Network Access</h3>
         <p>Language Service network ACLs default to deny and it is accessed via a private endpoint. APIM is granted access via RBAC (<code>Cognitive Services User</code> role).</p>
     </div>
 </div>
 
 <p>APIM policy calls use AAD tokens (Authorization Bearer) and remove any <code>api-key</code> header before calling Cognitive Services APIs.</p>
 
-<h2 id="observability">Observability</h2>
+<h2>Observability</h2>
 
-<h3 id="pii-detection-diagnostics">PII Detection Diagnostics</h3>
+<h3>PII Detection Diagnostics</h3>
 
 <p>The <code>pii-anonymization</code> fragment emits rich diagnostic traces to Application Insights, including:</p>
 
@@ -1297,7 +1297,7 @@ apim_policies {
 
 <p>These diagnostics enable monitoring of PII detection effectiveness, understanding which entity types are most commonly detected, and tracking Language Service API health.</p>
 
-<h3 id="openai-usage-logging">OpenAI Usage Logging</h3>
+<h3>OpenAI Usage Logging</h3>
 
 <p>For OpenAI requests, the tenant policy template sets routing metadata variables before including the <code>openai-usage-logging</code> fragment:</p>
 
@@ -1310,7 +1310,7 @@ apim_policies {
 
 <p>These dimensions are logged to Application Insights along with token usage data, enabling detailed cost allocation, chargeback analytics, and deployment-level monitoring even in the current single-backend setup.</p>
 
-<h3 id="additional-monitoring-fragments">Additional Monitoring Fragments</h3>
+<h3>Additional Monitoring Fragments</h3>
 
 <table>
     <thead>
@@ -1344,7 +1344,7 @@ apim_policies {
     </tbody>
 </table>
 
-<h2 id="frequently-asked-questions">Frequently Asked Questions</h2>
+<h2>Frequently Asked Questions</h2>
 
 <details>
     <summary><strong>What kinds of entities are supported?</strong></summary>
@@ -1428,7 +1428,7 @@ apim_policies {
     </div>
 </details>
 
-<h2 id="troubleshooting">Troubleshooting</h2>
+<h2>Troubleshooting</h2>
 
 <table>
     <thead>

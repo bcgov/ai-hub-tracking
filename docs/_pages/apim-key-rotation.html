@@ -389,15 +389,10 @@ fi</pre>
             </tr>
         </tbody>
     </table>
-    <p>The GitHub Actions workflow runs weekly, but the bash script checks whether the rotation interval has actually elapsed before regenerating keys. A 30-day interval means the script will skip most weekly runs.</p>
-    <div class="alert alert-warning" style="margin-top: 0.75rem;">
-        <div>
-            <strong>Repository Maintenance Required:</strong> GitHub automatically disables scheduled workflows after 60 days of repo inactivity. This repo must have regular commits or activity to keep the rotation workflow running. If the workflow gets disabled, re-enable it from the Actions tab or trigger manually via <code>workflow_dispatch</code>.
-        </div>
-    </div>
+    <p>The Azure Function runs on a timer trigger (configurable CRON schedule), but the rotation logic checks whether the rotation interval has actually elapsed before regenerating keys. A 30-day interval means most invocations will be no-ops.</p>
     <div class="alert alert-info" style="margin-top: 0.75rem;">
         <div>
-            <strong>Missed Rotation?</strong> If a rotation was missed due to workflow inactivity, tenants can contact the platform team for a new set of keys or to trigger an ad-hoc rotation.
+            <strong>Missed Rotation?</strong> If the Function App was stopped or redeploying, rotation will resume automatically on the next invocation. Tenants can also contact the platform team for a new set of keys or to trigger an ad-hoc rotation.
         </div>
     </div>
 </div>
@@ -472,12 +467,12 @@ fi</pre>
     <pre>terraform output apim_key_rotation_summary</pre>
     <p>Ensure the <code>azurerm_role_assignment.apim_keyvault_secrets_user</code> resource exists on the hub Key Vault. Check that the hub Key Vault (<code>{app_name}-{env}-hkv</code>) is deployed and accessible.</p>
 
-    <h3>GitHub Actions rotation stopped running</h3>
-    <p>GitHub disables scheduled workflows after 60 days of repo inactivity. This repo requires regular maintenance (commits, activity) to keep scheduled workflows active.</p>
+    <h3>Azure Function not rotating keys</h3>
+    <p>Check the Function App logs (Log Stream in Azure Portal or Application Insights) for errors. Common causes:</p>
     <ol>
-        <li>Go to Actions tab &rarr; Find "APIM Key Rotation" workflow</li>
-        <li>Click "Enable workflow"</li>
-        <li>Or trigger manually via <code>workflow_dispatch</code></li>
+        <li>Managed identity missing <code>Key Vault Secrets Officer</code> role on hub Key Vault</li>
+        <li>Managed identity missing <code>Contributor</code> role on APIM for key regeneration</li>
+        <li>Function App is stopped or the Container App revision is unhealthy</li>
         <li><strong>Contact the platform team</strong> if rotation was missed &mdash; they can issue new keys or trigger an ad-hoc rotation</li>
     </ol>
 
@@ -508,14 +503,19 @@ fi</pre>
         </thead>
         <tbody>
             <tr>
-                <td>Rotation Script</td>
-                <td>Self-contained bash script: discovers APIM + hub KV, rotates keys, stores in hub KV</td>
-                <td><code>infra-ai-hub/scripts/rotate-apim-keys.sh</code></td>
+                <td>Azure Function</td>
+                <td>Timer-triggered Python function: discovers APIM + hub KV, rotates keys, stores in hub KV</td>
+                <td><code>functions/apim-key-rotation/</code></td>
             </tr>
             <tr>
-                <td>GitHub Actions Workflow</td>
-                <td>Thin wrapper: checkout, OIDC login, calls script with <code>--environment</code></td>
-                <td><code>.github/workflows/apim-key-rotation.yml</code></td>
+                <td>Container Build Workflow</td>
+                <td>Builds custom container image and pushes to GHCR on PR/merge</td>
+                <td><code>.github/workflows/.builds.yml</code> (matrix entry)</td>
+            </tr>
+            <tr>
+                <td>Terraform Module</td>
+                <td>Deploys Function App, Container App Environment, managed identity, RBAC</td>
+                <td><code>infra-ai-hub/modules/key-rotation-function/</code></td>
             </tr>
             <tr>
                 <td>Hub Key Vault</td>
@@ -544,11 +544,11 @@ fi</pre>
 <div class="card">
     <h3>Security Considerations</h3>
     <ul>
-        <li><strong>OIDC Authentication</strong>: The rotation workflow uses the same OIDC identity as Terraform deployments. No stored secrets.</li>
+        <li><strong>Managed Identity Authentication</strong>: The Azure Function uses a system-assigned managed identity for APIM and Key Vault access. No stored secrets.</li>
         <li><strong>Centralized Hub Key Vault</strong>: All rotation keys are stored in a single hub KV. APIM reads keys via its system-assigned MI with one RBAC assignment. Scales to 1000+ tenants.</li>
         <li><strong>No Per-Tenant KV Required</strong>: Tenants do not need their own Key Vault for rotation. The hub KV handles all tenants centrally.</li>
         <li><strong>Audit Trail</strong>: Every key change is versioned in Key Vault with rotation metadata tags.</li>
-        <li><strong>No Key in Logs</strong>: The rotation script never prints key values. Only metadata appears in logs.</li>
+        <li><strong>No Key in Logs</strong>: The rotation function never prints key values. Only metadata appears in logs.</li>
         <li><strong>Terraform Lifecycle</strong>: Key Vault secrets use <code>ignore_changes = [value, tags]</code> so Terraform won't overwrite rotated keys.</li>
         <li><strong>Internal Endpoint Security</strong>: The <code>/internal/apim-keys</code> endpoint requires a valid subscription key. Only authenticated tenants can read their own keys.</li>
     </ul>

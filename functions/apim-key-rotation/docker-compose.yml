@@ -1,0 +1,61 @@
+# =============================================================================
+# APIM Key Rotation — Local Development (Docker Compose)
+# =============================================================================
+# Runs the function app + Azurite storage emulator together so that
+# `docker compose up` is the only command needed.
+#
+# Usage:
+#   docker compose up --build        # build & start (foreground)
+#   docker compose up --build -d     # build & start (background)
+#   docker compose logs function-app # check function host logs
+#   docker compose down              # stop & remove containers
+#
+# The timer trigger fires immediately on startup (RUN_ON_STARTUP=true) so you
+# don't have to wait for the next CRON tick. It also fires on schedule.
+# For ad-hoc manual triggering without Docker, use "func start" (Option 1 in README).
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # Azurite — Azure Storage emulator (Blob, Queue, Table)
+  # Required by the Functions host for timer-trigger lease management.
+  # ---------------------------------------------------------------------------
+  azurite:
+    image: mcr.microsoft.com/azure-storage/azurite
+    ports:
+      - "10000:10000" # Blob
+      - "10001:10001" # Queue
+      - "10002:10002" # Table
+    healthcheck:
+      test: ["CMD", "nc", "-z", "127.0.0.1", "10000"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+
+  # ---------------------------------------------------------------------------
+  # Function App — APIM Key Rotation (custom container)
+  # ---------------------------------------------------------------------------
+  function-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "7071:80"
+    environment:
+      # --- Functions runtime ---
+      FUNCTIONS_WORKER_RUNTIME: python
+      AzureWebJobsStorage: "DefaultEndpointsProtocol=http;AccountName=devstoreaccount1;AccountKey=Eby8vdM02xNOcqFlqUwJPLlmEtlCDXJ1OUzFT50uSRZ6IFsuFq2UVErCz4I6tq/K1SZFPTOtr/KBHBeksoGMGw==;BlobEndpoint=http://azurite:10000/devstoreaccount1;QueueEndpoint=http://azurite:10001/devstoreaccount1;TableEndpoint=http://azurite:10002/devstoreaccount1"
+      # --- Application settings ---
+      ENVIRONMENT: dev
+      APP_NAME: ai-services-hub
+      SUBSCRIPTION_ID: ${SUBSCRIPTION_ID:-00000000-0000-0000-0000-000000000000}
+      ROTATION_ENABLED: "true"
+      ROTATION_INTERVAL_DAYS: "60"
+      ROTATION_CRON_SCHEDULE: "0 0 9 * * *"
+      DRY_RUN: "true"
+      # --- Local-only: fire the timer trigger immediately on host start ---
+      RUN_ON_STARTUP: "true"
+    depends_on:
+      azurite:
+        condition: service_healthy

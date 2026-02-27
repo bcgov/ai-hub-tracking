@@ -48,11 +48,25 @@ Use when creating or modifying App Gateway rewrite rules or WAF custom rules.
 - Subscription key normalization (Ocp-key, Bearer → api-key for APIM)
 - Request security layers and rate limiting at WAF level
 
+### [Key Rotation Function](./skills/key-rotation-function/SKILL.md)
+Use when modifying the APIM key rotation Azure Function app.
+- Python function code under `functions/apim-key-rotation/`
+- Pydantic settings, rotation logic, APIM/KV SDK operations
+- Dockerfile (multi-stage uv + Azure Functions), GHCR build workflow
+- Terraform module under `infra-ai-hub/modules/key-rotation-function/`
+
 ### [Integration Testing](./skills/integration-testing/SKILL.md)
 Use when creating, modifying, or debugging integration tests.
 - bats-core test suites under `tests/integration/`
 - Test helpers, config loading, and assertion patterns
 - Retry logic, skip guards, and async polling
+
+### [Network](./skills/network/SKILL.md)
+Use when adding or modifying subnets, CIDR allocation, NSG rules, or delegation in the network module.
+- Subnet CIDR offset calculations in `infra-ai-hub/modules/network/locals.tf`
+- NSG resources and azapi subnet definitions in `infra-ai-hub/modules/network/main.tf`
+- Address space allocation model (1 /24, 2 /24s, 4+ /24s)
+- Subnet delegation requirements per Azure service
 
 ### [External Docs Research](./skills/external-docs/SKILL.md)
 Use when researching authoritative external docs for platform behavior and versioned guidance.

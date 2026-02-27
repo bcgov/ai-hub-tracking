@@ -26,6 +26,11 @@ output "appgw_subnet_id" {
   value = module.network.appgw_subnet_id
 }
 
+output "func_subnet_id" {
+  description = "Functions subnet ID with Microsoft.Web/serverFarms delegation (null if not enabled)"
+  value       = module.network.func_subnet_id
+}
+
 output "ai_foundry_hub_id" {
   value = module.ai_foundry_hub.id
 }

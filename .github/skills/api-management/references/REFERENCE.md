@@ -125,7 +125,7 @@ The Azure Portal visual designer cannot render policy tiles when `backend-id` is
 
 ## Key Rotation
 
-APIM subscription keys are rotated via `infra-ai-hub/scripts/rotate-apim-keys.sh`, scheduled daily by `.github/workflows/apim-key-rotation.yml`.
+APIM subscription keys are rotated by an **Azure Function** (timer trigger) deployed as a custom container from GHCR. Source code is in `functions/apim-key-rotation/`, with the Terraform module at `infra-ai-hub/modules/key-rotation-function/`. The function is gated by the `use_azure_functions` feature flag in `stacks/apim/main.tf`.
 
 ### Alternating Pattern
 ```
@@ -198,6 +198,6 @@ Use this table for every APIM change review/runbook:
 - Verify `Operation-Location` rewrite is still active and points to App Gateway host.
 
 ### Key rotation failures
-- Check `apim-key-rotation.yml` workflow logs for az CLI auth errors (OIDC token expiry).
-- Verify hub Key Vault exists and OIDC identity has `Key Vault Secrets Officer` role.
+- Check the Azure Function App logs (Log Stream or Application Insights) for authentication or SDK errors.
+- Verify hub Key Vault exists and the Function App's managed identity has `Key Vault Secrets Officer` role.
 - If a rotation is stuck, check `{tenant}-apim-rotation-metadata` for `last_rotated_slot` and manually verify which APIM slot is active.

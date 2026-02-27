@@ -62,11 +62,6 @@
             <td>Auto-destroy Bastion for cost savings</td>
         </tr>
         <tr>
-            <td><strong>apim-key-rotation.yml</strong></td>
-            <td>Daily cron + manual trigger</td>
-            <td>Rotate APIM subscription keys across environments (manual single-env or scheduled all-env flow)</td>
-        </tr>
-        <tr>
             <td><strong>pages.yml</strong></td>
             <td>Push to main (docs and Terraform roots) + manual trigger</td>
             <td>Generate docs and deploy GitHub Pages site</td>
@@ -708,26 +703,18 @@ on:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>apim-key-rotation.yml (Scheduled + Manual)</h2>
+<h2>APIM Key Rotation</h2>
 
-<p>Rotates APIM subscription keys using OIDC-authenticated Azure CLI execution.</p>
+<p>APIM subscription key rotation is now handled by an <strong>Azure Function</strong> (timer trigger) deployed as a custom container. The function source is at <code>functions/apim-key-rotation/</code> and the Terraform module at <code>infra-ai-hub/modules/key-rotation-function/</code>.</p>
 
 <div class="grid grid-2">
     <div class="card">
-        <h3>Manual Mode</h3>
+        <h3>.builds.yml (Matrix Entry)</h3>
+        <p>The key rotation Function container image is built by the shared <code>.builds.yml</code> reusable workflow as a matrix entry alongside other containers (chisel, privoxy).</p>
         <ul>
-            <li>Trigger with <code>workflow_dispatch</code></li>
-            <li>Select environment: <code>dev</code>, <code>test</code>, <code>prod</code></li>
-            <li>Optional <code>dry_run=true</code> for safe preview</li>
-        </ul>
-    </div>
-    <div class="card card-gold">
-        <h3>Scheduled Mode</h3>
-        <ul>
-            <li>Runs daily at <code>0 9 * * *</code> UTC (1–2 AM Pacific, depending on DST)</li>
-            <li><code>rotate-dev</code> and <code>rotate-test</code> run <strong>concurrently</strong> (no dependency between them)</li>
-            <li><code>rotate-prod</code> has <code>needs: [rotate-test]</code> — waits for test to succeed first</li>
-            <li>A <code>notify</code> job (<code>if: always()</code>) prints a per-environment result summary</li>
+            <li>Called by <code>pr-open.yml</code></li>
+            <li>Triggers on changes to <code>functions/apim-key-rotation/</code> or the workflow itself</li>
+            <li>Uses <code>bcgov/action-builder-ghcr</code> for image build and push</li>
         </ul>
     </div>
 </div>

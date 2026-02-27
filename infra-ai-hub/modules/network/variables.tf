@@ -97,3 +97,23 @@ variable "aca_subnet" {
     enabled = false
   }
 }
+
+# -----------------------------------------------------------------------------
+# Functions Subnet Configuration (for Azure Functions VNet integration)
+# Requires delegation to Microsoft.Web/serverFarms
+# -----------------------------------------------------------------------------
+variable "func_subnet" {
+  description = <<-EOT
+    Configuration for the Azure Functions subnet.
+    Required for VNet-integrated Azure Functions (e.g., key rotation).
+    A /27 (32 IPs) is sufficient for Consumption plan functions.
+  EOT
+  type = object({
+    enabled       = bool
+    name          = optional(string, "func-subnet")
+    prefix_length = optional(number, 27) # /27 sufficient for Consumption plan
+  })
+  default = {
+    enabled = false
+  }
+}

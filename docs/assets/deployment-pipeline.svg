@@ -52,16 +52,16 @@
     </g>
   </g>
 
-  <!-- apim-key-rotation.yml -->
+  <!-- Key Rotation (Azure Function) -->
   <g filter="url(#shadow)">
     <rect x="340" y="125" width="220" height="108" rx="8" fill="#1e3a5f" stroke="#22c55e" stroke-width="2"/>
     <rect x="340" y="125" width="220" height="25" rx="8" fill="#166534"/>
-    <text x="450" y="142" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#22c55e" font-weight="bold">apim-key-rotation.yml</text>
+    <text x="450" y="142" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#22c55e" font-weight="bold">Key Rotation (Azure Function)</text>
     <g font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">
-      <text x="355" y="165">Trigger: <tspan fill="#22c55e">schedule + dispatch</tspan></text>
-      <text x="355" y="180">Cron: <tspan fill="white">0 9 * * * (daily)</tspan></text>
-      <text x="355" y="195">Env: dev∥test → prod (gated)</text>
-      <text x="355" y="210">Script: rotate-apim-keys.sh</text>
+      <text x="355" y="165">Trigger: <tspan fill="#22c55e">timer (NCRONTAB)</tspan></text>
+      <text x="355" y="180">Schedule: <tspan fill="white">configurable interval</tspan></text>
+      <text x="355" y="195">Auth: Managed Identity</text>
+      <text x="355" y="210">Source: functions/apim-key-rotation/</text>
       <text x="355" y="225" fill="#fcba19">Alternating slot pattern</text>
     </g>
   </g>

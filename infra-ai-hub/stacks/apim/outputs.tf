@@ -31,3 +31,12 @@ output "apim_tenant_subscriptions" {
     }
   }
 }
+
+output "key_rotation_function" {
+  description = "Key rotation Azure Function details (null when not deployed)"
+  value = length(module.key_rotation_function) > 0 ? {
+    function_app_name     = module.key_rotation_function[0].function_app_name
+    function_app_hostname = module.key_rotation_function[0].function_app_default_hostname
+    principal_id          = module.key_rotation_function[0].function_app_principal_id
+  } : null
+}

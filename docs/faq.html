@@ -1079,7 +1079,7 @@
         <!-- Breadcrumb: injected by search.js when arriving from a search result -->
         <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
 
-<h1 id="frequently-asked-questions">Frequently Asked Questions</h1>
+<h1>Frequently Asked Questions</h1>
 
 <p>Common questions about the AI Services Hub Landing Zone, network architecture, and onboarding process.</p>
 
@@ -1128,7 +1128,7 @@
 <h2 id="network-subscription-setup">Network &amp; Subscription Setup</h2>
 
 <div class="card">
-    <h3 id="what-network-sizes-were-allocated-for-the-ai-hub" style="margin-top:0;">What network sizes were allocated for the AI Hub?</h3>
+    <h3 style="margin-top:0;">What network sizes were allocated for the AI Hub?</h3>
     <span class="badge badge-gold">Answered</span>
     <table style="margin-top: 1rem;">
         <tr>
@@ -1161,7 +1161,7 @@
 </div>
 
 <div class="card">
-    <h3 id="why-does-the-ai-hub-need-larger-vnets-than-standard-24" style="margin-top:0;">Why does the AI Hub need larger VNets than standard /24?</h3>
+    <h3 style="margin-top:0;">Why does the AI Hub need larger VNets than standard /24?</h3>
     <span class="badge badge-gold">Answered</span>
     <p>The AI Hub will run multiple Azure services that each require significant IP allocation:</p>
     <table style="margin-top: 1rem;">
@@ -1202,7 +1202,7 @@
 <h2 id="control-plane-vs-data-plane">Control Plane vs Data Plane</h2>
 
 <div class="card">
-    <h3 id="whats-the-difference-between-control-plane-and-data-plane" style="margin-top:0;">What's the difference between control plane and data plane?</h3>
+    <h3 style="margin-top:0;">What's the difference between control plane and data plane?</h3>
     <span class="badge badge-gold">Answered</span>
     <p>Azure has two distinct access paths:</p>
     <table style="margin-top: 1rem;">
@@ -1236,7 +1236,7 @@
 </div>
 
 <div class="card">
-    <h3 id="why-cant-i-see-key-vault-secrets-in-the-azure-portal" style="margin-top:0;">Why can't I see Key Vault secrets in the Azure Portal?</h3>
+    <h3 style="margin-top:0;">Why can't I see Key Vault secrets in the Azure Portal?</h3>
     <span class="badge badge-gold">Answered</span>
     <p>The Azure Portal is a <strong>control plane UI</strong>. When you browse to a Key Vault:</p>
     <ul>
@@ -1248,7 +1248,7 @@
 </div>
 
 <div class="card">
-    <h3 id="do-tenant-developers-get-chisel-access" style="margin-top:0;">Do tenant developers get Chisel access?</h3>
+    <h3 style="margin-top:0;">Do tenant developers get Chisel access?</h3>
     <span class="badge badge-gold">Answered</span>
     <p><strong>No.</strong> Chisel is for <strong>platform maintainers only</strong>. Tenant/project developers access AI services through the designed public entry points:</p>
     <ul>
@@ -1259,7 +1259,7 @@
 </div>
 
 <div class="card">
-    <h3 id="which-access-method-should-i-use" style="margin-top:0;">Which access method should I use?</h3>
+    <h3 style="margin-top:0;">Which access method should I use?</h3>
     <span class="badge badge-gold">Answered</span>
     <table style="margin-top: 1rem;">
         <tr>
@@ -1289,7 +1289,7 @@
 <h2 id="onboarding-access">Onboarding &amp; Access</h2>
 
 <div class="card">
-    <h3 id="how-do-other-teams-onboard-to-the-ai-hub" style="margin-top:0;">How do other teams onboard to the AI Hub?</h3>
+    <h3 style="margin-top:0;">How do other teams onboard to the AI Hub?</h3>
     <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
     <p>The onboarding process for other BC Gov teams to use the AI Hub is being developed.</p>
     <div class="alert alert-warning" style="margin-top: 1rem;">
@@ -1309,7 +1309,7 @@
 </div>
 
 <div class="card">
-    <h3 id="whats-the-3-6-9-month-roadmap" style="margin-top:0;">What's the 3-6-9 month roadmap?</h3>
+    <h3 style="margin-top:0;">What's the 3-6-9 month roadmap?</h3>
     <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
     <p>A planning/whiteboarding session was proposed with the following agenda:</p>
     <ul>
@@ -1333,7 +1333,7 @@
 <h2 id="technical-architecture">Technical Architecture</h2>
 
 <div class="card">
-    <h3 id="why-cant-github-actions-run-terraform-directly" style="margin-top:0;">Why can't GitHub Actions run Terraform directly?</h3>
+    <h3 style="margin-top:0;">Why can't GitHub Actions run Terraform directly?</h3>
     <span class="badge badge-gold">Answered</span>
     <p>See <a href="decisions.html#adr-001">ADR-001: Shared Landing Zone</a> for the full explanation.</p>
     <p><strong>Short answer:</strong> GitHub-hosted runners cannot reach private endpoints directly. The platform solves this with a <strong>Chisel SOCKS5 tunnel</strong>: an Azure App Service running Chisel inside the VNet acts as a proxy, routing Terraform’s private-endpoint traffic from the public runner through the VNet. An optional <code>github_runners_aca</code> module for persistent self-hosted runners is available but not used by this platform’s own CI/CD.</p>
@@ -1341,7 +1341,7 @@
 </div>
 
 <div class="card">
-    <h3 id="what-azure-services-will-the-ai-hub-provide" style="margin-top:0;">What Azure services will the AI Hub provide?</h3>
+    <h3 style="margin-top:0;">What Azure services will the AI Hub provide?</h3>
     <span class="badge badge-gold">Answered</span>
     <p>The AI Hub provides shared AI services for BC Gov teams through a fully automated, multi-tenant platform. The following services are live in <strong>dev</strong> and <strong>test</strong>:</p>
     <ul>
@@ -1355,7 +1355,7 @@
 </div>
 
 <div class="card">
-    <h3 id="how-does-vnet-peering-work-between-environments" style="margin-top:0;">How does VNet peering work between environments?</h3>
+    <h3 style="margin-top:0;">How does VNet peering work between environments?</h3>
      <span class="badge badge-gold">Answered</span>
     <p>AI Hub uses VNet peering for CI/CD.</p>
     <ul>
@@ -1376,7 +1376,7 @@
     </div>
 </div>
 
-<h3 id="access-security">Access & Security</h3>
+<h3>Access & Security</h3>
 
 <div class="accordion-group">
     <details>
@@ -1431,7 +1431,7 @@
     </details>
 </div>
 
-<h3 id="infrastructure-cost">Infrastructure & Cost</h3>
+<h3>Infrastructure & Cost</h3>
 
 <div class="accordion-group">
     <details>
@@ -1536,7 +1536,7 @@
     </details>
 </div>
 
-<h3 id="onboarding-operations">Onboarding & Operations</h3>
+<h3>Onboarding & Operations</h3>
 
 <div class="accordion-group">
     <details>
