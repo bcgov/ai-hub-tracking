@@ -108,7 +108,7 @@ Cron trigger fires → Container App Job starts → main.py
 1. **Ruff clean**: No lint errors (`ruff check .`)
 2. **Tests pass**: `pytest` succeeds
 3. **Docker builds**: Image builds without errors
-4. **Settings schema**: All new env vars added to `config.py` Settings class + `local.settings.json.example`
+4. **Settings schema**: All new env vars added to `config.py` Settings class + `.env.example`
 5. **Feature flag**: Job gated behind `rotation_enabled && cae_config.enabled` in `stacks/key-rotation/main.tf`
 
 ## Detailed References

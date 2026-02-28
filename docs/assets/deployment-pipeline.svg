@@ -52,11 +52,11 @@
     </g>
   </g>
 
-  <!-- Key Rotation (Azure Function) -->
+  <!-- Key Rotation (Container App Job) -->
   <g filter="url(#shadow)">
     <rect x="340" y="125" width="220" height="108" rx="8" fill="#1e3a5f" stroke="#22c55e" stroke-width="2"/>
     <rect x="340" y="125" width="220" height="25" rx="8" fill="#166534"/>
-    <text x="450" y="142" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#22c55e" font-weight="bold">Key Rotation (Azure Function)</text>
+    <text x="450" y="142" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#22c55e" font-weight="bold">Key Rotation (Container App Job)</text>
     <g font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">
       <text x="355" y="165">Trigger: <tspan fill="#22c55e">timer (NCRONTAB)</tspan></text>
       <text x="355" y="180">Schedule: <tspan fill="white">configurable interval</tspan></text>

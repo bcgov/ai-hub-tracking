@@ -20,10 +20,8 @@ cd jobs/apim-key-rotation
 uv sync
 
 # 2. Configure environment variables
-export ENVIRONMENT=dev
-export APP_NAME=ai-services-hub
-export SUBSCRIPTION_ID=<your-azure-subscription-id>
-export DRY_RUN=true
+cp .env.example .env
+# Edit .env with your values (set DRY_RUN=true for safety)
 
 # 3. Login to Azure (needed for DefaultAzureCredential)
 az login
@@ -39,6 +37,7 @@ jobs/apim-key-rotation/
 ├── main.py                      # Standalone CLI entry point
 ├── pyproject.toml               # uv/pip dependencies + ruff config
 ├── Dockerfile                   # Multi-stage build (uv → python:3.13-slim)
+├── .env.example                 # Environment variable template for local dev
 ├── .dockerignore
 ├── rotation/                    # Application package
 │   ├── __init__.py
@@ -63,7 +62,7 @@ Set these before running `main.py`:
 | `APP_NAME` | Yes | — | Application name (e.g. `ai-services-hub`) |
 | `SUBSCRIPTION_ID` | Yes | — | Azure subscription ID |
 | `ROTATION_ENABLED` | No | `true` | Enable/disable rotation |
-| `ROTATION_INTERVAL_DAYS` | No | `60` | Days between rotations per tenant |
+| `ROTATION_INTERVAL_DAYS` | No | `7` | Days between rotations per tenant |
 | `DRY_RUN` | No | `false` | Log actions without making changes |
 | `SECRET_EXPIRY_DAYS` | No | `90` | Key Vault secret expiry (≤ 90 for policy) |
 

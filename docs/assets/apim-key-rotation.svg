@@ -124,7 +124,7 @@
   <!-- ═══════════════════════════════════════════════════════════ -->
   <rect x="40" y="295" width="650" height="295" rx="12" fill="#002244" stroke="#fcba19" stroke-width="2"/>
   <rect x="40" y="295" width="650" height="32" rx="12" fill="#1a5a96"/>
-  <text x="365" y="316" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="white" font-weight="bold">Azure Function — Rotation Engine (Timer Trigger)</text>
+  <text x="365" y="316" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="white" font-weight="bold">Container App Job — Rotation Engine (Cron Schedule)</text>
 
   <!-- Step boxes inside script detail -->
   <!-- Step 1: Read Config -->
@@ -312,8 +312,8 @@
   <!-- GHA Workflow -->
   <g filter="url(#shadow)">
     <rect x="1130" y="660" width="200" height="100" rx="8" fill="#1e3a5f" stroke="#a78bfa" stroke-width="2"/>
-    <text x="1230" y="685" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#a78bfa" font-weight="bold">Azure Function</text>
-    <text x="1230" y="705" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">Timer trigger (NCRONTAB)</text>
+    <text x="1230" y="685" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#a78bfa" font-weight="bold">Container App Job</text>
+    <text x="1230" y="705" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">Cron schedule (NCRONTAB)</text>
     <text x="1230" y="725" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">Managed Identity auth</text>
     <text x="1230" y="743" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a78bfa">Container App Environment</text>
   </g>

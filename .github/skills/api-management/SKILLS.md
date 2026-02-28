@@ -312,6 +312,6 @@ Stored as JSON in `{tenant}-apim-rotation-metadata`:
 - Verify `Operation-Location` rewrite is still active and points to App Gateway host.
 
 ### Key rotation failures
-- Check the Azure Function App logs (Log Stream or Application Insights) for authentication or SDK errors.
-- Verify hub Key Vault exists and the Function App's managed identity has `Key Vault Secrets Officer` role.
+- Check the Container App Job logs (Log Stream in Azure Portal or Log Analytics) for authentication or SDK errors.
+- Verify hub Key Vault exists and the Container App Job's managed identity has `Key Vault Secrets Officer` role.
 - If a rotation is stuck, check `{tenant}-apim-rotation-metadata` for `last_rotated_slot` and manually verify which APIM slot is active.

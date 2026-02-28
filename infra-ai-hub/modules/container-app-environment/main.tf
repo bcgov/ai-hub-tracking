@@ -1,6 +1,5 @@
 # Container App Environment Module
 # Raw Terraform — replaces AVM module for reliability.
-# Reference: https://github.com/bcgov/quickstart-azure-containers
 
 # =============================================================================
 # CONTAINER APP ENVIRONMENT
@@ -15,7 +14,6 @@ resource "azurerm_container_app_environment" "main" {
   internal_load_balancer_enabled     = var.internal_load_balancer_enabled
   zone_redundancy_enabled            = var.zone_redundancy_enabled
   mutual_tls_enabled                 = var.mtls_enabled
-  logs_destination                   = "log-analytics"
 
   # Consumption workload profile (serverless)
   workload_profile {
