@@ -213,6 +213,7 @@
                     </set-header>
                     <set-body>${jsonencode({
   tenant = tenant_name
+  base_url = "${base_url}/${tenant_name}"
   models = [for m in model_deployments : {
     name              = m.name
     model_name        = m.model_name
@@ -220,13 +221,48 @@
     scale_type        = m.scale_type
     capacity_k_tpm    = m.capacity
     tokens_per_minute = m.capacity * 1000
+    endpoints = {
+      azure_openai = {
+        endpoint    = "${base_url}/${tenant_name}"
+        api_version = "2025-03-01-preview"
+        url         = "${base_url}/${tenant_name}/openai/deployments/${m.name}/chat/completions?api-version=2025-03-01-preview"
+      }
+      openai_compatible = {
+        base_url = "${base_url}/${tenant_name}/openai/v1"
+        model    = m.name
+        url      = "${base_url}/${tenant_name}/openai/v1/chat/completions"
+      }
+    }
   }]
   services = {
-    ai_search             = ai_search_enabled
-    document_intelligence = document_intelligence_enabled
-    openai                = openai_enabled
-    speech_services       = speech_services_enabled
-    storage               = storage_enabled
+    openai = {
+      enabled   = openai_enabled
+      endpoints = openai_enabled ? {
+        azure_openai      = "${base_url}/${tenant_name}"
+        openai_compatible = "${base_url}/${tenant_name}/openai/v1"
+        api_version       = "2025-03-01-preview"
+      } : null
+    }
+    document_intelligence = {
+      enabled  = document_intelligence_enabled
+      endpoint = document_intelligence_enabled ? "${base_url}/${tenant_name}" : null
+      example  = document_intelligence_enabled ? "${base_url}/${tenant_name}/documentintelligence/documentModels/prebuilt-layout:analyze?api-version=2024-11-30" : null
+    }
+    ai_search = {
+      enabled  = ai_search_enabled
+      endpoint = ai_search_enabled ? "${base_url}/${tenant_name}/ai-search" : null
+      example  = ai_search_enabled ? "${base_url}/${tenant_name}/ai-search/indexes/{index-name}/docs/search?api-version=2024-07-01" : null
+    }
+    speech_services = {
+      enabled      = speech_services_enabled
+      stt_endpoint = speech_services_enabled ? "${base_url}/${tenant_name}/speech/recognition/conversation/cognitiveservices/v1?language=en-US" : null
+      tts_endpoint = speech_services_enabled ? "${base_url}/${tenant_name}/cognitiveservices/v1" : null
+    }
+    storage = {
+      enabled  = storage_enabled
+      endpoint = storage_enabled ? "${base_url}/${tenant_name}/storage" : null
+      example  = storage_enabled ? "${base_url}/${tenant_name}/storage/{container-name}/{blob-name}" : null
+    }
   }
 })}</set-body>
                 </return-response>

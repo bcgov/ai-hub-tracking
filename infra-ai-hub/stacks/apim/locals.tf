@@ -73,6 +73,15 @@ locals {
 
   apim_global_policy_xml = file("${path.root}/../../params/apim/global_policy.xml")
 
+  # ---------------------------------------------------------------------------
+  # Tenant-info base URL: App Gateway URL if enabled, otherwise APIM gateway URL
+  # Used by the tenant-info endpoint to return correct client-facing URLs
+  # ---------------------------------------------------------------------------
+  appgw_enabled = try(var.shared_config.app_gateway.enabled, false)
+  tenant_info_base_url = local.appgw_enabled ? (
+    "https://${lookup(var.shared_config.app_gateway, "frontend_hostname", "")}"
+  ) : (local.apim_config.enabled ? module.apim[0].gateway_url : "")
+
   tenant_api_policies = {
     for key, config in local.enabled_tenants : key => templatefile(
       "${path.root}/../../params/apim/api_policy.xml.tftpl",
@@ -100,6 +109,7 @@ locals {
         key_rotation_enabled           = local.key_rotation_config.rotation_enabled
         keyvault_uri                   = local.hub_keyvault_uri
         tenant_info_enabled            = true
+        base_url                       = local.tenant_info_base_url
       }
     )
   }

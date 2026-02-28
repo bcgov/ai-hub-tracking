@@ -1080,6 +1080,7 @@
         <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
 
 <h1>APIM Subscription Key Rotation</h1>
+<h1>APIM Subscription Key Rotation</h1>
 
 <p>This guide explains how APIM subscription keys are automatically rotated for tenant teams, and how to update your application to use the new keys.</p>
 
@@ -1094,8 +1095,10 @@
 </div>
 
 <h2>How It Works</h2>
+<h2>How It Works</h2>
 
 <div class="card">
+    <h3>Alternating Primary/Secondary Pattern</h3>
     <h3>Alternating Primary/Secondary Pattern</h3>
     <p>APIM subscriptions have two key slots: <strong>primary</strong> and <strong>secondary</strong>. Both are valid for API calls at all times. Each rotation cycle regenerates one slot while the other remains untouched:</p>
     <ol>
@@ -1107,6 +1110,7 @@
 </div>
 
 <div class="card">
+    <h3>Key Lifecycle Timeline</h3>
     <h3>Key Lifecycle Timeline</h3>
     <table>
         <thead>
@@ -1148,8 +1152,10 @@
 </div>
 
 <h2>Platform Team Runbook (Emergency)</h2>
+<h2>Platform Team Runbook (Emergency)</h2>
 
 <div class="card">
+        <h3>Compromised Keys: Rotate Both Slots Immediately</h3>
         <h3>Compromised Keys: Rotate Both Slots Immediately</h3>
         <p>Use this runbook only for emergency compromise scenarios where both keys must be replaced right away. This is a manual operational procedure (documentation only).</p>
         <ol>
@@ -1215,6 +1221,7 @@ az keyvault secret set \
 
 <div class="card">
         <h3>Tenant Retrieval After Emergency Rotation</h3>
+        <h3>Tenant Retrieval After Emergency Rotation</h3>
         <p>After platform team rotates both keys, tenant teams should fetch current keys from APIM and switch to the <code>safe_slot</code> key.</p>
         <pre>curl -s -H "api-key: YOUR_CURRENT_VALID_KEY" \
     "https://your-apim-gateway.azure-api.net/YOUR_TENANT/internal/apim-keys" | jq .
@@ -1226,8 +1233,10 @@ az keyvault secret set \
 </div>
 
 <h2>Configuration</h2>
+<h2>Configuration</h2>
 
 <div class="card">
+    <h3>Shared Config (<code>params/{env}/shared.tfvars</code>)</h3>
     <h3>Shared Config (<code>params/{env}/shared.tfvars</code>)</h3>
     <p>Key rotation is configured globally for all tenants in the shared config:</p>
     <pre>apim = {
@@ -1266,6 +1275,7 @@ az keyvault secret set \
 
 <div class="card">
     <h3>Tenant Prerequisites</h3>
+    <h3>Tenant Prerequisites</h3>
     <p>For a tenant to participate in key rotation, it only needs:</p>
     <ul>
         <li><code>apim_auth.mode = "subscription_key"</code> (default)</li>
@@ -1277,6 +1287,7 @@ az keyvault secret set \
     </div>
 </div>
 
+<h2>How Tenants Fetch New Keys</h2>
 <h2>How Tenants Fetch New Keys</h2>
 
 <div class="alert alert-success">
@@ -1290,6 +1301,7 @@ az keyvault secret set \
 </div>
 
 <div class="card">
+    <h3>Option 1: APIM Internal Endpoint (Simplest)</h3>
     <h3>Option 1: APIM Internal Endpoint (Simplest)</h3>
     <p>Call <code>GET /{your-tenant}/internal/apim-keys</code> with ANY valid subscription key. Returns both keys plus rotation metadata as JSON.</p>
 
@@ -1354,6 +1366,7 @@ print(f"Safe slot: {safe_slot}, key: {safe_key[:8]}...")</pre>
 
 <div class="card">
     <h3>Option 2: Contact Platform Team</h3>
+    <h3>Option 2: Contact Platform Team</h3>
     <p>If you've missed a rotation schedule or need a fresh set of keys, contact the platform team directly. The platform team manages the centralized hub Key Vault and can provide your current keys or trigger an ad-hoc rotation.</p>
     <div class="alert alert-info" style="margin-top: 0.75rem;">
         <div>
@@ -1363,6 +1376,7 @@ print(f"Safe slot: {safe_slot}, key: {safe_key[:8]}...")</pre>
 </div>
 
 <div class="card">
+    <h3>Option 3: Automatic Key Refresh (Production Pattern)</h3>
     <h3>Option 3: Automatic Key Refresh (Production Pattern)</h3>
     <p>For production apps, implement a periodic key check. This pattern uses the APIM endpoint so no Azure SDK is needed.</p>
 
@@ -1403,6 +1417,7 @@ fi</pre>
 </div>
 
 <h2>Key Vault Secrets Reference</h2>
+<h2>Key Vault Secrets Reference</h2>
 
 <div class="card">
     <p>All secrets are stored in the centralized hub Key Vault (<code>{app_name}-{env}-hkv</code>) with tenant-prefixed names:</p>
@@ -1434,6 +1449,7 @@ fi</pre>
     </table>
 </div>
 
+<h2>Rotation Schedule</h2>
 <h2>Rotation Schedule</h2>
 
 <div class="card">
@@ -1476,8 +1492,10 @@ fi</pre>
 </div>
 
 <h2>APIM Internal Endpoint</h2>
+<h2>APIM Internal Endpoint</h2>
 
 <div class="card">
+    <h3><code>GET /{tenant-name}/internal/apim-keys</code></h3>
     <h3><code>GET /{tenant-name}/internal/apim-keys</code></h3>
     <p>When key rotation is enabled, each tenant API exposes an internal endpoint for fetching both subscription keys.</p>
 
@@ -1516,8 +1534,10 @@ fi</pre>
 </div>
 
 <h2>Troubleshooting</h2>
+<h2>Troubleshooting</h2>
 
 <div class="card">
+    <h3>My API calls return 401 after rotation</h3>
     <h3>My API calls return 401 after rotation</h3>
     <p>Your app is using the key that was just rotated. The other key is still valid. Fix:</p>
     <ol>
@@ -1526,6 +1546,7 @@ fi</pre>
         <li>Both keys are also in the hub Key Vault: <code>{tenant}-apim-primary-key</code> and <code>{tenant}-apim-secondary-key</code></li>
     </ol>
 
+    <h3>How do I check rotation metadata?</h3>
     <h3>How do I check rotation metadata?</h3>
     <pre>az keyvault secret show \
     --vault-name HUB_KV_NAME \
@@ -1541,6 +1562,7 @@ fi</pre>
 }</pre>
 
     <h3>The /internal/apim-keys endpoint returns empty keys</h3>
+    <h3>The /internal/apim-keys endpoint returns empty keys</h3>
     <p>APIM's managed identity may not have access to the hub Key Vault. Verify the RBAC assignment:</p>
     <pre>terraform output apim_key_rotation_summary</pre>
     <p>Ensure the <code>azurerm_role_assignment.apim_keyvault_secrets_user</code> resource exists on the hub Key Vault. Check that the hub Key Vault (<code>{app_name}-{env}-hkv</code>) is deployed and accessible.</p>
@@ -1555,8 +1577,10 @@ fi</pre>
     </ol>
 
     <h3>I want to temporarily disable rotation for my environment</h3>
+    <h3>I want to temporarily disable rotation for my environment</h3>
     <p>Set <code>rotation_enabled = false</code> in <code>params/{env}/shared.tfvars</code> and deploy. The rotation workflow will skip all tenants.</p>
 
+    <h3>My tenant is not eligible for rotation</h3>
     <h3>My tenant is not eligible for rotation</h3>
     <p>Check:</p>
     <pre>terraform output apim_key_rotation_summary</pre>
@@ -1568,8 +1592,10 @@ fi</pre>
 </div>
 
 <h2>Architecture</h2>
+<h2>Architecture</h2>
 
 <div class="card">
+    <h3>Component Overview</h3>
     <h3>Component Overview</h3>
     <table>
         <thead>
@@ -1620,6 +1646,7 @@ fi</pre>
 </div>
 
 <div class="card">
+    <h3>Security Considerations</h3>
     <h3>Security Considerations</h3>
     <ul>
         <li><strong>Managed Identity Authentication</strong>: The Azure Function uses a system-assigned managed identity for APIM and Key Vault access. No stored secrets.</li>
