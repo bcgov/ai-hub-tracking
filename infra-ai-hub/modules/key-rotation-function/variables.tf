@@ -166,6 +166,12 @@ variable "dry_run" {
   default     = false
 }
 
+variable "included_tenants" {
+  description = "Comma-separated list of tenant names to include in rotation (empty = all discovered tenants)"
+  type        = string
+  default     = ""
+}
+
 variable "secret_expiry_days" {
   description = "Key Vault secret expiry in days (Landing Zone max: 90)"
   type        = number

@@ -23,6 +23,11 @@ output "apim_key_rotation_summary" {
   }
 }
 
+output "rotation_enabled_tenants" {
+  description = "Comma-separated list of tenant names with key rotation enabled (per-tenant opt-in)"
+  value       = join(",", sort(keys(local.tenants_with_key_rotation)))
+}
+
 output "apim_tenant_subscriptions" {
   sensitive = true
   value = {

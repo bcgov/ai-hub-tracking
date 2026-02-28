@@ -82,6 +82,7 @@ module "key_rotation" {
   rotation_enabled       = local.key_rotation_config.rotation_enabled
   rotation_interval_days = local.key_rotation_config.rotation_interval_days
   dry_run                = lookup(local.key_rotation_config, "dry_run", false)
+  included_tenants       = local.rotation_enabled_tenants
 
   tags = var.common_tags
 }

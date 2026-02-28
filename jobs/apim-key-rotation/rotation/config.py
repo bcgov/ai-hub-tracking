@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     rotation_enabled: bool = Field(default=True, description="Master rotation toggle")
     rotation_interval_days: int = Field(default=7, ge=1, le=89, description="Days between rotations (must be < 90)")
     dry_run: bool = Field(default=False, description="Show what would happen without making changes")
+    included_tenants: str = Field(
+        default="",
+        description="Comma-separated tenant names to include in rotation (empty = all discovered tenants)",
+    )
 
     # Key Vault secret expiry (days) — Azure Landing Zone policy requires max 90 days
     secret_expiry_days: int = Field(default=90, ge=1, le=365, description="Days until Key Vault secrets expire")

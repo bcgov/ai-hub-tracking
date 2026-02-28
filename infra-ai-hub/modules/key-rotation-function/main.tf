@@ -84,6 +84,10 @@ resource "azurerm_container_app_job" "rotation" {
         value = tostring(var.dry_run)
       }
       env {
+        name  = "INCLUDED_TENANTS"
+        value = var.included_tenants
+      }
+      env {
         name  = "SECRET_EXPIRY_DAYS"
         value = tostring(var.secret_expiry_days)
       }

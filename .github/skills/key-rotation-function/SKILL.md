@@ -95,6 +95,7 @@ Cron trigger fires → Container App Job starts → main.py
 | `ROTATION_ENABLED` | No | `true` | Master toggle |
 | `ROTATION_INTERVAL_DAYS` | No | `7` | Days between rotations (1–89) |
 | `DRY_RUN` | No | `false` | Preview without changes |
+| `INCLUDED_TENANTS` | No | `""` | Comma-separated tenant names (empty = all) |
 | `SECRET_EXPIRY_DAYS` | No | `90` | KV secret expiry (max 90 for LZ policy) |
 
 ## Change Checklist

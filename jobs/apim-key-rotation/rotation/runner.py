@@ -218,6 +218,21 @@ def run_rotation(settings: Settings) -> RotationSummary:
         logger.warning("No tenant subscriptions found in APIM '%s'", settings.apim_name)
         return summary
 
+    # Filter to included tenants (per-tenant opt-in via INCLUDED_TENANTS env var)
+    if settings.included_tenants:
+        allowed = {t.strip() for t in settings.included_tenants.split(",") if t.strip()}
+        before_count = len(tenants)
+        tenants = [t for t in tenants if t.tenant_name in allowed]
+        logger.info(
+            "Filtered tenants: %d discovered, %d included (%s)",
+            before_count,
+            len(tenants),
+            ", ".join(sorted(allowed)),
+        )
+        if not tenants:
+            logger.info("No tenants remaining after INCLUDED_TENANTS filter. Nothing to do.")
+            return summary
+
     # Rotate each tenant
     for tenant in tenants:
         result = rotate_tenant(settings, tenant)
