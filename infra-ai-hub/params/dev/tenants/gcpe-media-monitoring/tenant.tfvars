@@ -17,7 +17,7 @@ tenant = {
   }
 
   key_vault = {
-    enabled                    = false
+    enabled                    = true
     sku                        = "standard"
     purge_protection_enabled   = true
     soft_delete_retention_days = 30 # Shorter retention for dev

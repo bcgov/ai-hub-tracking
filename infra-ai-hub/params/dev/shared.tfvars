@@ -78,9 +78,9 @@ shared_config = {
     # When use_azure_functions = true, rotation runs as a timer-triggered Azure
     # Function (container from GHCR). Otherwise falls back to GHA workflow.
     key_rotation = {
-      rotation_enabled       = true  # Enable rotation in dev
-      rotation_interval_days = 60    # Must be less than 90 days (APIM max key lifetime)
-      use_azure_functions    = false # Set to true once Function image is validated
+      rotation_enabled       = true # Enable rotation in dev
+      rotation_interval_days = 1    # Must be less than 90 days (APIM max key lifetime)
+      use_azure_functions    = true # Set to true once Function image is validated
     }
   }
 
