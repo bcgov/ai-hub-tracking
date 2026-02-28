@@ -547,8 +547,8 @@ post_tenant_info() {
     # For each model, the azure_openai URL must contain /deployments/{model.name}/
     local mismatch_count
     mismatch_count=$(echo "${RESPONSE_BODY}" | jq '[
-        .models[] | select(
-            (.endpoints.azure_openai.url | contains("/deployments/" + .name + "/")) | not
+        .models[] | . as $m | select(
+            ($m.endpoints.azure_openai.url | contains("/deployments/" + $m.name + "/")) | not
         )
     ] | length')
     [[ "${mismatch_count}" -eq 0 ]]
