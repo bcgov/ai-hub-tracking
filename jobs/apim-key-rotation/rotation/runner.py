@@ -20,9 +20,6 @@ from rotation.models import (
 
 logger = logging.getLogger("apim-key-rotation.runner")
 
-# Seconds to wait after key regeneration for APIM propagation
-KEY_PROPAGATION_WAIT = 10
-
 
 def _is_rotation_due(metadata: RotationMetadata, interval_days: int) -> bool:
     """Check whether enough time has elapsed since the last rotation."""
@@ -120,8 +117,9 @@ def rotate_tenant(
         return result
 
     # Brief pause for APIM propagation
-    logger.info("Waiting %ds for key propagation...", KEY_PROPAGATION_WAIT)
-    time.sleep(KEY_PROPAGATION_WAIT)
+    if settings.key_propagation_wait_seconds > 0:
+        logger.info("Waiting %ds for key propagation...", settings.key_propagation_wait_seconds)
+        time.sleep(settings.key_propagation_wait_seconds)
 
     # Step 5: Read both keys after regeneration
     try:

@@ -86,7 +86,13 @@ variable "cron_expression" {
 variable "replica_timeout_seconds" {
   description = "Maximum seconds a replica can run before being terminated"
   type        = number
-  default     = 600
+  default     = 1800
+}
+
+variable "key_propagation_wait_seconds" {
+  description = "Seconds to pause after APIM key regeneration for propagation (per tenant)"
+  type        = number
+  default     = 10
 }
 
 variable "replica_retry_limit" {

@@ -18,6 +18,16 @@ logging.basicConfig(
     stream=sys.stdout,
 )
 
+# Suppress verbose Azure SDK HTTP loggers that dump every request/response
+# header as a separate INFO-level line, creating noise in Container App logs.
+for _noisy in (
+    "azure.core.pipeline.policies.http_logging_policy",
+    "azure.identity",
+    "azure.mgmt.apimanagement",
+    "azure.keyvault",
+):
+    logging.getLogger(_noisy).setLevel(logging.WARNING)
+
 logger = logging.getLogger("apim-key-rotation")
 
 

@@ -13,6 +13,20 @@
 # =============================================================================
 
 # ---------------------------------------------------------------------------
+# Force image pull when using :latest tag
+# ---------------------------------------------------------------------------
+# Terraform cannot detect a new image behind a mutable tag like :latest.
+# This resource produces a new timestamp each apply, which is injected as an
+# env var so the azurerm_container_app_job detects a diff and updates in-place,
+# causing Azure to re-pull the image.
+# When a pinned tag (e.g. v1.2.3) is used, this resource is not created and
+# Terraform only updates the job when the tag itself changes.
+resource "terraform_data" "image_refresh" {
+  count = var.container_image_tag == "latest" ? 1 : 0
+  input = timestamp()
+}
+
+# ---------------------------------------------------------------------------
 # Container App Job (cron-triggered)
 # ---------------------------------------------------------------------------
 resource "azurerm_container_app_job" "rotation" {
@@ -84,6 +98,16 @@ resource "azurerm_container_app_job" "rotation" {
       env {
         name  = "HUB_KEYVAULT_NAME"
         value = var.hub_keyvault_name
+      }
+      env {
+        name  = "KEY_PROPAGATION_WAIT_SECONDS"
+        value = tostring(var.key_propagation_wait_seconds)
+      }
+
+      # Token that changes each apply when using :latest — forces image re-pull
+      env {
+        name  = "FORCE_IMAGE_PULL"
+        value = var.container_image_tag == "latest" ? terraform_data.image_refresh[0].output : var.container_image_tag
       }
     }
   }

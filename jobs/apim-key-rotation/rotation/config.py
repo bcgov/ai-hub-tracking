@@ -40,6 +40,12 @@ class Settings(BaseSettings):
     # Key Vault secret expiry (days) — Azure Landing Zone policy requires max 90 days
     secret_expiry_days: int = Field(default=90, ge=1, le=365, description="Days until Key Vault secrets expire")
 
+    # Seconds to pause after key regeneration for APIM propagation before reading keys back.
+    # With many tenants the cumulative wait adds up linearly; keep this low but non-zero.
+    key_propagation_wait_seconds: int = Field(
+        default=10, ge=0, le=60, description="Post-regeneration propagation delay (seconds)"
+    )
+
     # ---------------------------------------------------------------------------
     # Derived defaults applied after model init
     # ---------------------------------------------------------------------------

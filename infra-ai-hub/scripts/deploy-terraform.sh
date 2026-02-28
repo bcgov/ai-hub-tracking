@@ -390,6 +390,7 @@ stack_state_key() {
         foundry) echo "ai-services-hub/${ENVIRONMENT}/foundry.tfstate" ;;
         apim) echo "ai-services-hub/${ENVIRONMENT}/apim.tfstate" ;;
         tenant-user-mgmt) echo "ai-services-hub/${ENVIRONMENT}/tenant-user-management.tfstate" ;;
+        key-rotation) echo "ai-services-hub/${ENVIRONMENT}/key-rotation.tfstate" ;;
         *) echo "" ;;
     esac
 }
