@@ -1079,7 +1079,7 @@
         <!-- Breadcrumb: injected by search.js when arriving from a search result -->
         <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
 
-<h1 id="cost-tracking">Cost Tracking</h1>
+<h1>Cost Tracking</h1>
 
 <div class="alert alert-warning" style="margin-bottom: 2rem;">
     <div class="alert-icon">
@@ -1093,13 +1093,13 @@
 
 <p>How costs are tracked and allocated for each project in the AI Hub.</p>
 
-<h2 id="architecture">Architecture</h2>
+<h2>Architecture</h2>
 
 <div class="img-container">
     <img src="assets/cost-tracking-architecture.svg" alt="Project Resource Architecture" style="max-width: 100%;">
 </div>
 
-<h2 id="what-each-project-gets">What Each Project Gets</h2>
+<h2>What Each Project Gets</h2>
 
 <table>
     <tr>
@@ -1159,7 +1159,7 @@
     </tr>
 </table>
 
-<h2 id="terraform-deploys-everything">Terraform Deploys Everything</h2>
+<h2>Terraform Deploys Everything</h2>
 
 <p>Tenant stacks are deployed with <code>deploy-scaled.sh</code> which runs Terraform across five isolated state files. <strong>Resource AVM modules are used where available</strong>; raw Terraform resources are used when an AVM module does not exist.</p>
 
@@ -1172,7 +1172,7 @@
 # Each stack corresponds to an infra-ai-hub/stacks/* directory.
 </pre>
 
-<h3 id="avm-modules-used">AVM Modules Used</h3>
+<h3>AVM Modules Used</h3>
 
 <table>
     <tr>
@@ -1209,23 +1209,23 @@
     </tr>
 </table>
 
-<h2 id="how-cost-tracking-works">How Cost Tracking Works</h2>
+<h2>How Cost Tracking Works</h2>
 
 <div class="grid grid-3">
     <div class="card" style="border-left-color: #22c55e;">
-        <h3 id="direct-costs" style="margin-top: 0; color: #166534;">Direct Costs</h3>
+        <h3 style="margin-top: 0; color: #166534;">Direct Costs</h3>
         <p>Storage, Search, Key Vault</p>
         <p style="font-size: 0.875rem; color: #64748b;">Tracked automatically by Azure Cost Management using Resource Group tags.</p>
         <p><strong>~40% of total</strong></p>
     </div>
     <div class="card" style="border-left-color: #7c3aed;">
-        <h3 id="ai-usage" style="margin-top: 0; color: #6b21a8;">AI Usage</h3>
+        <h3 style="margin-top: 0; color: #6b21a8;">AI Usage</h3>
         <p>Tokens, API calls</p>
         <p style="font-size: 0.875rem; color: #64748b;">Tracked by AI Foundry per project. Each AI Foundry Project has its own metrics.</p>
         <p><strong>~45% of total</strong></p>
     </div>
     <div class="card" style="border-left-color: #f59e0b;">
-        <h3 id="platform-split" style="margin-top: 0; color: #92400e;">Platform Split</h3>
+        <h3 style="margin-top: 0; color: #92400e;">Platform Split</h3>
         <p>APIM, Gateway, Firewall</p>
         <p style="font-size: 0.875rem; color: #64748b;">Split evenly across all projects (shared infrastructure).</p>
         <p><strong>~15% of total</strong></p>
@@ -1238,7 +1238,7 @@
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #0ea5e9;">
-        <h3 id="cost-drivers" style="margin-top: 0;">Cost Drivers</h3>
+        <h3 style="margin-top: 0;">Cost Drivers</h3>
         <ul style="margin-bottom: 0;">
             <li><strong>Runner compute:</strong> Container Apps job runtime (primary driver; usage-based)</li>
             <li><strong>Concurrency cap:</strong> <code>max_runners</code> (default 4)</li>
@@ -1248,7 +1248,7 @@
         </ul>
     </div>
     <div class="card" style="border-left-color: #22c55e;">
-        <h3 id="sample-calculation-module-defaults" style="margin-top: 0;">Sample Calculation (module defaults)</h3>
+        <h3 style="margin-top: 0;">Sample Calculation (module defaults)</h3>
         <p style="margin-bottom: 0;">Assumptions: 20 jobs/day, 10 min/job, avg concurrency = 1.5</p>
         <pre style="margin-top: 0.75rem;">Monthly runner hours = 30 * 20 * (10/60) * 1.5 = 150 hours
     Total seconds = 150 * 3600 = 540,000 seconds
@@ -1270,11 +1270,11 @@
     </div>
 </div>
 
-<h2 id="example-monthly-costs">Example Monthly Costs</h2>
+<h2>Example Monthly Costs</h2>
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #3b82f6;">
-        <h3 id="health-rag-project" style="margin-top: 0;">Health-RAG Project</h3>
+        <h3 style="margin-top: 0;">Health-RAG Project</h3>
         <table style="margin: 0;">
             <tr>
                 <td>Storage + Search + KV</td>
@@ -1299,7 +1299,7 @@
         </table>
     </div>
     <div class="card" style="border-left-color: #22c55e;">
-        <h3 id="sdpr-chatbot-project" style="margin-top: 0;">SDPR-Chatbot Project</h3>
+        <h3 style="margin-top: 0;">SDPR-Chatbot Project</h3>
         <table style="margin: 0;">
             <tr>
                 <td>Storage + Search + KV</td>
@@ -1325,8 +1325,8 @@
     </div>
 </div>
 
-<h2 id="usage-monitoring-cost-allocation-and-chargeback-metrics">Usage Monitoring, Cost Allocation, and Chargeback Metrics</h2>
-<h3 id="introduction" style="color: var(--bc-blue); margin-top: 1.5rem;">Introduction</h3>
+<h2>Usage Monitoring, Cost Allocation, and Chargeback Metrics</h2>
+<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Introduction</h3>
 <p>This document defines the approach for implementing <strong>Usage Monitoring</strong>, <strong>Cost Allocation</strong>, and <strong>Chargeback Metrics</strong> for the BC Government AI Services Hub multi-tenant platform. These three interconnected capabilities are essential for operating a shared AI infrastructure that serves multiple ministries while maintaining cost transparency and accountability.</p>
 
 <h4>Key Concepts</h4>
@@ -1348,7 +1348,7 @@
 
 <hr style="margin: 2rem 0;">
 
-<h3 id="usage-monitoring-metrics" style="color: var(--bc-blue); margin-top: 1.5rem;">Usage Monitoring Metrics</h3>
+<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Usage Monitoring Metrics</h3>
 <p>Azure API Management (APIM) provides centralized monitoring as all AI requests flow through the gateway. Monitoring serves two distinct purposes: tracking metrics for shared infrastructure allocation and providing operational insights.</p>
 
 <h4>Metrics for Shared Infrastructure Allocation</h4>
@@ -1389,7 +1389,7 @@
 
 <hr style="margin: 2rem 0;">
 
-<h3 id="resource-tagging-and-cost-allocation" style="color: var(--bc-blue); margin-top: 1.5rem;">Resource Tagging and Cost Allocation</h3>
+<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Resource Tagging and Cost Allocation</h3>
 
 <h4>AI Foundry Projects (Direct Attribution)</h4>
 <p>Each tenant receives a dedicated Foundry project with isolated resources. Azure automatically bills all consumption (Azure OpenAI tokens, Cosmos DB, AI Search) to the project.</p>
@@ -1448,7 +1448,7 @@ Tags:
 
 <hr style="margin: 2rem 0;">
 
-<h3 id="infrastructure-and-platform-costs-proportional-allocation" style="color: var(--bc-blue); margin-top: 1.5rem;">Infrastructure and Platform Costs (Proportional Allocation)</h3>
+<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Infrastructure and Platform Costs (Proportional Allocation)</h3>
 <p>These shared resources serve all tenants and require proportional cost allocation based on usage metrics.</p>
 
 <h4>App Gateway/WAF</h4>
@@ -1545,7 +1545,7 @@ Tags:
 
 <hr style="margin: 2rem 0;">
 
-<h3 id="chargeback-metrics-summary" style="color: var(--bc-blue); margin-top: 1.5rem;">Chargeback Metrics Summary</h3>
+<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Chargeback Metrics Summary</h3>
 <p>Monthly tenant invoices combine two cost categories:</p>
 
 <h4>Direct Costs (Azure-Billed, No Calculation Needed)</h4>
@@ -1568,7 +1568,7 @@ Tags:
 
 <hr style="margin: 2rem 0;">
 
-<h3 id="implementation-cost-calculation-methods" style="color: var(--bc-blue); margin-top: 1.5rem;">Implementation: Cost Calculation Methods</h3>
+<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Implementation: Cost Calculation Methods</h3>
 
 <h4>Method 1: Azure Cost Management (Built-in, No Code)</h4>
 <p>Azure Cost Management handles all direct attribution automatically. No custom code needed for tenant-dedicated resources.</p>
@@ -1762,7 +1762,7 @@ DirectCosts
 
 <hr style="margin: 2rem 0;">
 
-<h3 id="summary" style="color: var(--bc-blue); margin-top: 1.5rem;">Summary</h3>
+<h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Summary</h3>
 <p>This document establishes a comprehensive cost tracking framework for the AI Services Hub using:</p>
 <ol>
     <li><strong>Direct attribution</strong> for tenant-dedicated resources (Foundry projects with Azure OpenAI/Cosmos/AI Search, Document Intelligence instances)—Azure automatically bills these based on actual consumption</li>
@@ -1773,24 +1773,24 @@ DirectCosts
 <p>The implementation provides full cost transparency while minimizing operational overhead—most costs are automatically tracked by Azure, with custom calculations only for shared platform services.</p>
 
 
-<h2 id="related">Related</h2>
+<h2>Related</h2>
 
 <div class="grid grid-3">
     <a href="decisions.html#adr-006" class="card-link">
         <div class="card" style="border-left-color: #f59e0b;">
-            <h3 id="adr-006" style="margin-top: 0;">ADR-006</h3>
+            <h3 style="margin-top: 0;">ADR-006</h3>
             <p>Multi-Tenant Isolation</p>
         </div>
     </a>
     <a href="diagrams.html" class="card-link">
         <div class="card" style="border-left-color: #7c3aed;">
-            <h3 id="diagrams" style="margin-top: 0;">Diagrams</h3>
+            <h3 style="margin-top: 0;">Diagrams</h3>
             <p>Architecture diagrams</p>
         </div>
     </a>
     <a href="terraform-reference.html" class="card-link">
         <div class="card" style="border-left-color: #3b82f6;">
-            <h3 id="terraform-reference" style="margin-top: 0;">Terraform Reference</h3>
+            <h3 style="margin-top: 0;">Terraform Reference</h3>
             <p>Module variable &amp; output docs</p>
         </div>
     </a>
