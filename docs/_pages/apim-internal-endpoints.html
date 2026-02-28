@@ -157,6 +157,7 @@
     <h3>Response (200 OK)</h3>
     <pre>{
   "tenant": "wlrs-water-form-assistant",
+  "base_url": "https://aihub.gov.bc.ca/wlrs-water-form-assistant",
   "models": [
     {
       "name": "gpt-4.1-mini",
@@ -164,7 +165,19 @@
       "model_version": "2025-04-14",
       "scale_type": "GlobalStandard",
       "capacity_k_tpm": 1500,
-      "tokens_per_minute": 1500000
+      "tokens_per_minute": 1500000,
+      "endpoints": {
+        "azure_openai": {
+          "endpoint": "https://aihub.gov.bc.ca/wlrs-water-form-assistant",
+          "api_version": "2025-03-01-preview",
+          "url": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/openai/deployments/gpt-4.1-mini/chat/completions?api-version=2025-03-01-preview"
+        },
+        "openai_compatible": {
+          "base_url": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/openai/v1",
+          "model": "gpt-4.1-mini",
+          "url": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/openai/v1/chat/completions"
+        }
+      }
     },
     {
       "name": "gpt-4.1",
@@ -172,15 +185,50 @@
       "model_version": "2025-04-14",
       "scale_type": "GlobalStandard",
       "capacity_k_tpm": 300,
-      "tokens_per_minute": 300000
+      "tokens_per_minute": 300000,
+      "endpoints": {
+        "azure_openai": {
+          "endpoint": "https://aihub.gov.bc.ca/wlrs-water-form-assistant",
+          "api_version": "2025-03-01-preview",
+          "url": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/openai/deployments/gpt-4.1/chat/completions?api-version=2025-03-01-preview"
+        },
+        "openai_compatible": {
+          "base_url": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/openai/v1",
+          "model": "gpt-4.1",
+          "url": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/openai/v1/chat/completions"
+        }
+      }
     }
   ],
   "services": {
-    "ai_search": true,
-    "document_intelligence": true,
-    "openai": true,
-    "speech_services": true,
-    "storage": true
+    "openai": {
+      "enabled": true,
+      "endpoints": {
+        "azure_openai": "https://aihub.gov.bc.ca/wlrs-water-form-assistant",
+        "openai_compatible": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/openai/v1",
+        "api_version": "2025-03-01-preview"
+      }
+    },
+    "document_intelligence": {
+      "enabled": true,
+      "endpoint": "https://aihub.gov.bc.ca/wlrs-water-form-assistant",
+      "example": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/documentintelligence/documentModels/prebuilt-layout:analyze?api-version=2024-11-30"
+    },
+    "ai_search": {
+      "enabled": true,
+      "endpoint": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/ai-search",
+      "example": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/ai-search/indexes/{index-name}/docs/search?api-version=2024-07-01"
+    },
+    "speech_services": {
+      "enabled": true,
+      "stt_endpoint": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/speech/recognition/conversation/cognitiveservices/v1?language=en-US",
+      "tts_endpoint": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/cognitiveservices/v1"
+    },
+    "storage": {
+      "enabled": true,
+      "endpoint": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/storage",
+      "example": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/storage/{container-name}/{blob-name}"
+    }
   }
 }</pre>
 
@@ -190,17 +238,28 @@
         </thead>
         <tbody>
             <tr><td><code>tenant</code></td><td>string</td><td>The tenant identifier (matches the API path prefix).</td></tr>
+            <tr><td><code>base_url</code></td><td>string</td><td>Client-facing base URL for this tenant. Uses App Gateway URL when deployed; falls back to direct APIM gateway URL.</td></tr>
             <tr><td><code>models[].name</code></td><td>string</td><td>Deployment name used in API calls (e.g., <code>gpt-4.1-mini</code>).</td></tr>
             <tr><td><code>models[].model_name</code></td><td>string</td><td>Underlying Azure OpenAI model name.</td></tr>
             <tr><td><code>models[].model_version</code></td><td>string</td><td>Model version date string.</td></tr>
             <tr><td><code>models[].scale_type</code></td><td>string</td><td>Deployment scale type (e.g., <code>GlobalStandard</code>).</td></tr>
             <tr><td><code>models[].capacity_k_tpm</code></td><td>number</td><td>Allocated quota in thousands of tokens per minute (from <code>tenant.tfvars</code>).</td></tr>
             <tr><td><code>models[].tokens_per_minute</code></td><td>number</td><td>Computed TPM limit applied by rate-limiting (<code>capacity_k_tpm &times; 1000</code>).</td></tr>
-            <tr><td><code>services.openai</code></td><td>bool</td><td><code>true</code> when OpenAI model deployments are configured for this tenant.</td></tr>
-            <tr><td><code>services.document_intelligence</code></td><td>bool</td><td><code>true</code> when Document Intelligence is enabled.</td></tr>
-            <tr><td><code>services.ai_search</code></td><td>bool</td><td><code>true</code> when AI Search is enabled.</td></tr>
-            <tr><td><code>services.speech_services</code></td><td>bool</td><td><code>true</code> when Speech Services (STT/TTS) are enabled.</td></tr>
-            <tr><td><code>services.storage</code></td><td>bool</td><td><code>true</code> when the Storage account proxy is enabled.</td></tr>
+            <tr><td><code>models[].endpoints.azure_openai.endpoint</code></td><td>string</td><td>Endpoint for the Azure OpenAI SDK (<code>AzureOpenAI(azure_endpoint=...)</code>).</td></tr>
+            <tr><td><code>models[].endpoints.azure_openai.api_version</code></td><td>string</td><td>Recommended API version for Azure OpenAI SDK calls.</td></tr>
+            <tr><td><code>models[].endpoints.azure_openai.url</code></td><td>string</td><td>Full URL for this deployment&rsquo;s chat completions via Azure OpenAI SDK format.</td></tr>
+            <tr><td><code>models[].endpoints.openai_compatible.base_url</code></td><td>string</td><td>Base URL for the OpenAI SDK (<code>OpenAI(base_url=...)</code>).</td></tr>
+            <tr><td><code>models[].endpoints.openai_compatible.model</code></td><td>string</td><td>Model name to pass in request body for the OpenAI SDK.</td></tr>
+            <tr><td><code>models[].endpoints.openai_compatible.url</code></td><td>string</td><td>Full URL for this deployment&rsquo;s chat completions via OpenAI-compatible format.</td></tr>
+            <tr><td><code>services.&lt;name&gt;.enabled</code></td><td>bool</td><td><code>true</code> when the service is enabled for this tenant; <code>false</code> otherwise (only <code>enabled</code> key present).</td></tr>
+            <tr><td><code>services.openai.endpoints</code></td><td>object</td><td>Top-level OpenAI endpoints: <code>azure_openai</code>, <code>openai_compatible</code>, and recommended <code>api_version</code>.</td></tr>
+            <tr><td><code>services.document_intelligence.endpoint</code></td><td>string</td><td>Base endpoint for Document Intelligence API calls.</td></tr>
+            <tr><td><code>services.document_intelligence.example</code></td><td>string</td><td>Example URL for the prebuilt-layout analyze operation.</td></tr>
+            <tr><td><code>services.ai_search.endpoint</code></td><td>string</td><td>Base endpoint for AI Search API calls (includes <code>/ai-search</code> prefix).</td></tr>
+            <tr><td><code>services.ai_search.example</code></td><td>string</td><td>Example URL for a search index query.</td></tr>
+            <tr><td><code>services.speech_services.stt_endpoint</code></td><td>string</td><td>Full endpoint for Speech-to-Text recognition requests (includes path and default language).</td></tr>
+            <tr><td><code>services.speech_services.tts_endpoint</code></td><td>string</td><td>Full endpoint for Text-to-Speech synthesis requests.</td></tr>
+            <tr><td><code>services.storage.endpoint</code></td><td>string</td><td>Base endpoint for Storage proxy requests (includes <code>/storage</code> prefix).</td></tr>
         </tbody>
     </table>
 </div>
