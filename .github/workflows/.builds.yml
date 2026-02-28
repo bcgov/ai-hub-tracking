@@ -21,7 +21,7 @@ jobs:
         package:
           - azure-proxy/chisel
           - azure-proxy/privoxy
-          - functions/apim-key-rotation
+          - jobs/apim-key-rotation
     timeout-minutes: 10
     steps:
       - uses: bcgov/action-builder-ghcr@v4.2.1

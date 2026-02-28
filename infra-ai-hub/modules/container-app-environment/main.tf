@@ -1,48 +1,75 @@
 # Container App Environment Module
-# Uses Azure Verified Module for CAE with VNet integration
-# https://github.com/Azure/terraform-azurerm-avm-res-app-managedenvironment
+# Raw Terraform — replaces AVM module for reliability.
+# Reference: https://github.com/bcgov/quickstart-azure-containers
 
 # =============================================================================
-# CONTAINER APP ENVIRONMENT (using AVM)
+# CONTAINER APP ENVIRONMENT
 # =============================================================================
-module "container_app_environment" {
-  source  = "Azure/avm-res-app-managedenvironment/azurerm"
-  version = "0.3.0"
+resource "azurerm_container_app_environment" "main" {
+  name                               = var.name
+  location                           = var.location
+  resource_group_name                = var.resource_group_name
+  log_analytics_workspace_id         = var.log_analytics_workspace_id
+  infrastructure_subnet_id           = var.infrastructure_subnet_id
+  infrastructure_resource_group_name = "ME-${var.resource_group_name}"
+  internal_load_balancer_enabled     = var.internal_load_balancer_enabled
+  zone_redundancy_enabled            = var.zone_redundancy_enabled
+  mutual_tls_enabled                 = var.mtls_enabled
+  logs_destination                   = "log-analytics"
 
-  name                = var.name
-  resource_group_name = var.resource_group_name
-  location            = var.location
+  # Consumption workload profile (serverless)
+  workload_profile {
+    name                  = "Consumption"
+    workload_profile_type = "Consumption"
+  }
 
-  # VNet integration
-  infrastructure_subnet_id = var.infrastructure_subnet_id
-
-  # Workload profiles (optional - enables dedicated workload profiles)
-  workload_profile = var.workload_profiles
-
-  # Internal load balancer (private only access)
-  internal_load_balancer_enabled = var.internal_load_balancer_enabled
-
-  # Zone redundancy
-  zone_redundancy_enabled = var.zone_redundancy_enabled
-
-  # Log Analytics workspace (using resource_id format required by AVM)
-  log_analytics_workspace = var.log_analytics_workspace_id != null ? {
-    resource_id = var.log_analytics_workspace_id
-  } : null
-
-  # mTLS and peer authentication
-  peer_authentication_enabled = var.mtls_enabled
-
-  # Diagnostic settings
-  diagnostic_settings = var.log_analytics_workspace_id != null ? {
-    to_law = {
-      name                  = "${var.name}-diag"
-      workspace_resource_id = var.log_analytics_workspace_id
-      log_groups            = ["allLogs"]
-      metric_categories     = ["AllMetrics"]
+  # Additional workload profiles (dedicated compute)
+  dynamic "workload_profile" {
+    for_each = var.workload_profiles
+    content {
+      name                  = workload_profile.value.name
+      workload_profile_type = workload_profile.value.workload_profile_type
+      minimum_count         = workload_profile.value.minimum_count
+      maximum_count         = workload_profile.value.maximum_count
     }
-  } : {}
+  }
 
-  tags             = var.tags
-  enable_telemetry = var.enable_telemetry
+  tags = var.tags
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
+}
+
+# =============================================================================
+# DIAGNOSTIC SETTINGS
+# =============================================================================
+# Environment-level sink that aggregates telemetry for ALL container apps
+# running inside this managed environment.
+#
+# Log categories:
+#   ContainerAppConsoleLogs  — stdout/stderr from every container
+#     LAW table: ContainerAppConsoleLogs_CL
+#   ContainerAppSystemLogs   — platform events (scaling, restarts, health)
+#     LAW table: ContainerAppSystemLogs_CL
+#   AllMetrics               — replica count, CPU/memory, request concurrency
+# =============================================================================
+resource "azurerm_monitor_diagnostic_setting" "cae" {
+  count = var.log_analytics_workspace_id != null ? 1 : 0
+
+  name                       = "${var.name}-diagnostics"
+  target_resource_id         = azurerm_container_app_environment.main.id
+  log_analytics_workspace_id = var.log_analytics_workspace_id
+
+  enabled_log {
+    category = "ContainerAppConsoleLogs"
+  }
+
+  enabled_log {
+    category = "ContainerAppSystemLogs"
+  }
+
+  enabled_metric {
+    category = "AllMetrics"
+  }
 }

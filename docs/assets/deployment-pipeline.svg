@@ -61,7 +61,7 @@
       <text x="355" y="165">Trigger: <tspan fill="#22c55e">timer (NCRONTAB)</tspan></text>
       <text x="355" y="180">Schedule: <tspan fill="white">configurable interval</tspan></text>
       <text x="355" y="195">Auth: Managed Identity</text>
-      <text x="355" y="210">Source: functions/apim-key-rotation/</text>
+      <text x="355" y="210">Source: jobs/apim-key-rotation/</text>
       <text x="355" y="225" fill="#fcba19">Alternating slot pattern</text>
     </g>
   </g>

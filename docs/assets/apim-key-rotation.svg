@@ -206,7 +206,7 @@
     <text x="60" y="520">Features: <tspan fill="#fcba19">--dry-run</tspan> mode • <tspan fill="#fcba19">verbose</tspan> logging • <tspan fill="#22c55e">per-tenant</tspan> rotation • <tspan fill="#60a5fa">Managed Identity</tspan> auth • <tspan fill="#ef4444">error handling</tspan></text>
     <text x="60" y="540">Config:   <tspan fill="white">Environment variables via Terraform</tspan> — APIM name, hub KV, rotation interval</text>
     <text x="60" y="560">Pattern:  <tspan fill="#fcba19">Alternating Slot</tspan> — never both keys regenerated at once, zero-downtime rotation</text>
-    <text x="60" y="578">Source:   <tspan fill="white">functions/apim-key-rotation/</tspan> (Python Azure Function)</text>
+    <text x="60" y="578">Source:   <tspan fill="white">jobs/apim-key-rotation/</tspan> (Python Container App Job)</text>
   </g>
 
   <!-- ═══════════════════════════════════════════════════════════ -->

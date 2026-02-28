@@ -1,4 +1,4 @@
-# Key Rotation Function — Deep Reference
+# Key Rotation Container App Job — Deep Reference
 
 Supplementary detail for the [Key Rotation Function SKILL.md](../SKILL.md). Read the SKILL.md first for the operational overview.
 
@@ -81,13 +81,11 @@ Each key secret is tagged with:
 
 | Resource | Name Pattern | Purpose |
 |---|---|---|
-| `azurerm_storage_account.func` | `{prefix}rotfn` (no hyphens) | Functions runtime storage |
-| `azurerm_service_plan.func` | `{prefix}-rotation-plan` | Linux Consumption (Y1) |
-| `azurerm_linux_function_app.rotation` | `{prefix}-rotation-fn` | The function app itself |
+| `azurerm_container_app_job.rotation` | `{prefix}-rotation-job` | Cron-triggered Container App Job |
 
 ### RBAC Role Assignments
 
-The function's system-assigned Managed Identity receives:
+The job's system-assigned Managed Identity receives:
 
 | Role | Scope | Reason |
 |---|---|---|
@@ -97,57 +95,62 @@ The function's system-assigned Managed Identity receives:
 
 ### Feature Flag Gate
 
-The module is conditionally deployed in `stacks/apim/main.tf`:
+The module is conditionally deployed in `stacks/key-rotation/main.tf`:
 
 ```hcl
-module "key_rotation_function" {
-  count  = var.use_azure_functions ? 1 : 0
+module "key_rotation" {
+  count  = local.rotation_enabled && local.apim_enabled && local.cae_enabled ? 1 : 0
   source = "../../modules/key-rotation-function"
   ...
 }
 ```
 
-Controlled by `use_azure_functions` in `params/{env}/shared.tfvars` (currently `false` in all envs).
+Controlled by `rotation_enabled` in `params/{env}/key-rotation.tfvars` and `cae_config.enabled` in `params/{env}/shared.tfvars`.
 
 ---
 
 ## Container Build Pipeline
 
-### Local Development with Docker Compose
-
-A `docker-compose.yml` in the function app directory runs both the function container and Azurite:
+### Local Development
 
 ```bash
-cd functions/apim-key-rotation
-docker compose up --build
-```
+cd jobs/apim-key-rotation
 
-Services:
-- **azurite**: Storage emulator (Blob/Queue/Table) — required for timer trigger lease management
-- **function-app**: The function image built from `Dockerfile`, connected to Azurite via Docker networking
+# Run directly
+python main.py
+
+# Or build and run in Docker
+docker build -t apim-key-rotation:test .
+docker run --rm \
+  -e ENVIRONMENT=dev \
+  -e APP_NAME=ai-services-hub \
+  -e SUBSCRIPTION_ID=<sub-id> \
+  -e DRY_RUN=true \
+  apim-key-rotation:test
+```
 
 ### Multi-Stage Dockerfile
 
 ```
 Stage 1: builder (uv + python3.13-bookworm-slim)
   → uv sync --no-dev --frozen --no-install-project
-  → Copies pyproject.toml, uv.lock, host.json, function_app.py, rotation/
+  → Copies pyproject.toml, uv.lock, main.py, rotation/
 
-Stage 2: runtime (mcr.microsoft.com/azure-functions/python:4-python3.13)
+Stage 2: runtime (python:3.13-slim-bookworm)
   → Copies .venv from builder
-  → Fixes Python symlink (builder=/usr/local/bin, runtime=/usr/bin)
   → Sets PATH to include .venv/bin
   → Copies application code
+  → CMD: python main.py
 ```
 
 ### GitHub Actions Workflow
 
-`.github/workflows/.builds.yml` is a **reusable workflow** (`workflow_call`) that builds all container images via a matrix strategy. The `functions/apim-key-rotation` entry:
+`.github/workflows/.builds.yml` is a **reusable workflow** (`workflow_call`) that builds all container images via a matrix strategy. The `jobs/apim-key-rotation` entry:
 1. Uses `bcgov/action-builder-ghcr@v4.2.1` to build + push to GHCR
-2. Triggers on changes to `functions/apim-key-rotation/` or the workflow file itself
+2. Triggers on changes to `jobs/apim-key-rotation/` or the workflow file itself
 3. Called from `pr-open.yml` on PRs
 
-Image path: `ghcr.io/<org>/ai-hub-tracking/functions/apim-key-rotation:<tag>`
+Image path: `ghcr.io/<org>/ai-hub-tracking/jobs/apim-key-rotation:<tag>`
 
 ---
 
@@ -187,8 +190,8 @@ The `RotationSummary` aggregates `total`, `rotated`, `skipped`, `failed` counts 
 | Symptom | Likely Cause | Fix |
 |---|---|---|
 | All tenants skipped | Interval not elapsed, or `ROTATION_ENABLED=false` | Check `ROTATION_INTERVAL_DAYS` and metadata timestamps |
-| `DefaultAzureCredential` error | Missing MI assignment or RBAC | Verify function MI has correct role assignments |
+| `DefaultAzureCredential` error | Missing MI assignment or RBAC | Verify job MI has correct role assignments |
 | APIM not found | Infra not deployed, or wrong `APIM_NAME` | Check `APP_NAME` / `ENVIRONMENT` combo |
-| Key Vault unreachable | Private endpoint not configured, or NSG blocking | Verify VNet integration + func subnet NSG rules |
+| Key Vault unreachable | Private endpoint not configured, or NSG blocking | Verify ACA subnet NSG rules allow KV access |
 | Secret expiry policy violation | `SECRET_EXPIRY_DAYS > 90` | Keep ≤ 90 (Landing Zone policy) |
-| Timer not firing | Wrong NCRONTAB syntax or host.json issue | Verify `ROTATION_CRON_SCHEDULE` is 6-part NCRONTAB |
+| Job not running | Wrong cron expression or job disabled | Verify `cron_expression` in tfvars, check job status in portal |

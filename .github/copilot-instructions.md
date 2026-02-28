@@ -49,10 +49,10 @@ Use when creating or modifying App Gateway rewrite rules or WAF custom rules.
 - Request security layers and rate limiting at WAF level
 
 ### [Key Rotation Function](./skills/key-rotation-function/SKILL.md)
-Use when modifying the APIM key rotation Azure Function app.
-- Python function code under `functions/apim-key-rotation/`
+Use when modifying the APIM key rotation Container App Job.
+- Python job code under `jobs/apim-key-rotation/`
 - Pydantic settings, rotation logic, APIM/KV SDK operations
-- Dockerfile (multi-stage uv + Azure Functions), GHCR build workflow
+- Dockerfile (multi-stage uv + python:3.13-slim), GHCR build workflow
 - Terraform module under `infra-ai-hub/modules/key-rotation-function/`
 
 ### [Integration Testing](./skills/integration-testing/SKILL.md)

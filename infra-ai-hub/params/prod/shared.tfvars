@@ -58,13 +58,10 @@ shared_config = {
 
     private_dns_zone_ids = []
 
-    # Subscription key rotation
-    # When use_azure_functions = true, rotation runs as a timer-triggered Azure
-    # Function (container from GHCR). Otherwise falls back to GHA workflow.
+    # Subscription key rotation (runs as Container App Job — see stacks/key-rotation)
     key_rotation = {
       rotation_enabled       = false # Disabled in prod until validated in test
       rotation_interval_days = 30    # Must be less than 90 days (APIM max key lifetime)
-      use_azure_functions    = false # Set to true once Function image is validated
     }
   }
 
@@ -150,6 +147,10 @@ shared_config = {
     # NOTE: Requires /23 subnet and increases cost
     zone_redundancy_enabled = false # Enable when /23 subnet available
 
+    # ACA subnet configuration (passed to network module)
+    subnet_name          = "aca-subnet"
+    subnet_prefix_length = 27 # /27 = 32 IPs (minimum for consumption-only without zone redundancy)
+
     # Dedicated workload profiles for production workloads
     # workload_profiles = {
     #   "dedicated-d4" = {
@@ -207,10 +208,4 @@ shared_config = {
     alert_emails = ["omprakash.2.mishra@gov.bc.ca"]
   }
 
-  # ---------------------------------------------------------------------------
-  # Functions Subnet
-  # ---------------------------------------------------------------------------
-  # Dedicated subnet with Microsoft.Web/serverFarms delegation for Azure
-  # Functions VNet integration (e.g., key rotation function).
-  func_subnet_enabled = false # Enable when use_azure_functions = true in APIM config
 }

@@ -7,7 +7,5 @@ __pycache__/
 dist/
 build/
 .env
-local.settings.json
-docker-compose.yml
 tests/
 README.md

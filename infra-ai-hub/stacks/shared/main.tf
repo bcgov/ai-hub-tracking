@@ -38,10 +38,10 @@ module "network" {
     prefix_length = lookup(var.shared_config.app_gateway, "subnet_prefix_length", 27)
   }
 
-  func_subnet = {
-    enabled       = lookup(var.shared_config, "func_subnet_enabled", false)
-    name          = lookup(var.shared_config, "func_subnet_name", "func-subnet")
-    prefix_length = lookup(var.shared_config, "func_subnet_prefix_length", 27)
+  aca_subnet = {
+    enabled       = lookup(var.shared_config.container_app_environment, "enabled", false)
+    name          = lookup(var.shared_config.container_app_environment, "subnet_name", "aca-subnet")
+    prefix_length = lookup(var.shared_config.container_app_environment, "subnet_prefix_length", 27)
   }
 
   depends_on = [azurerm_resource_group.main]
@@ -376,4 +376,39 @@ module "defender" {
   count  = var.defender_enabled ? 1 : 0
 
   resource_types = var.defender_resource_types
+}
+
+# =============================================================================
+# CONTAINER APP ENVIRONMENT
+# =============================================================================
+# Serverless container hosting for Container App Jobs (e.g., key rotation).
+# Uses the ACA subnet from the network module with Consumption workload profile.
+# =============================================================================
+module "container_app_environment" {
+  source = "../../modules/container-app-environment"
+  count  = var.shared_config.container_app_environment.enabled ? 1 : 0
+
+  name                = "${var.app_name}-${var.app_env}-cae"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = var.location
+
+  infrastructure_subnet_id       = module.network.aca_subnet_id
+  internal_load_balancer_enabled = true
+  zone_redundancy_enabled        = lookup(var.shared_config.container_app_environment, "zone_redundancy_enabled", false)
+  mtls_enabled                   = lookup(var.shared_config.container_app_environment, "mtls_enabled", true)
+
+  workload_profiles = lookup(var.shared_config.container_app_environment, "workload_profiles", null) != null ? [
+    for name, profile in var.shared_config.container_app_environment.workload_profiles : {
+      name                  = name
+      workload_profile_type = profile.workload_profile_type
+      minimum_count         = lookup(profile, "minimum_count", null)
+      maximum_count         = lookup(profile, "maximum_count", null)
+    }
+  ] : []
+
+  log_analytics_workspace_id = module.ai_foundry_hub.log_analytics_workspace_id
+
+  tags = var.common_tags
+
+  depends_on = [module.network]
 }

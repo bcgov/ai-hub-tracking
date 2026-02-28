@@ -62,19 +62,16 @@ xxx_offset = local.num_address_spaces == 1 ? (
     32 +
     (var.apim_subnet.enabled ? 32 : 0) +
     (var.appgw_subnet.enabled ? 32 : 0) +
-    (var.aca_subnet.enabled ? 32 : 0) +
-    (var.func_subnet.enabled ? 32 : 0)
+    (var.aca_subnet.enabled ? 32 : 0)
   ) : local.num_address_spaces >= 4 ? (
-    # 4+ /24s: lives in /24 #4 after AppGW + ACA + Func
+    # 4+ /24s: lives in /24 #4 after AppGW + ACA
     (var.appgw_subnet.enabled ? 32 : 0) +
-    (var.aca_subnet.enabled ? 32 : 0) +
-    (var.func_subnet.enabled ? 32 : 0)
+    (var.aca_subnet.enabled ? 32 : 0)
   ) : (
-    # 2 /24s: lives in second /24 after APIM + AppGW + ACA + Func
+    # 2 /24s: lives in second /24 after APIM + AppGW + ACA
     (var.apim_subnet.enabled ? 32 : 0) +
     (var.appgw_subnet.enabled ? 32 : 0) +
-    (var.aca_subnet.enabled ? 32 : 0) +
-    (var.func_subnet.enabled ? 32 : 0)
+    (var.aca_subnet.enabled ? 32 : 0)
   )
 ```
 
@@ -90,8 +87,7 @@ xxx_offset = local.num_address_spaces == 1 ? (
 ├── 10.0.0.32/27  (APIM)     offset=32   if apim_subnet.enabled
 ├── 10.0.0.64/27  (AppGW)    offset=64   if appgw_subnet.enabled
 ├── 10.0.0.96/27  (ACA)      offset=96   if aca_subnet.enabled
-├── 10.0.0.128/27 (Func)     offset=128  if func_subnet.enabled
-└── 10.0.0.160–255 (unused)
+└── 10.0.0.128–255 (unused)
 ```
 
 ### 2 × /24s — All Subnets Enabled
@@ -205,7 +201,6 @@ azapi_resource.pe_subnet
   └── azapi_resource.apim_subnet  (depends_on: [pe_subnet])
        └── azapi_resource.appgw_subnet  (depends_on: [pe_subnet, apim_subnet])
             └── azapi_resource.aca_subnet  (depends_on: [pe_subnet, apim_subnet, appgw_subnet])
-                 └── azapi_resource.func_subnet  (depends_on: [pe, apim, appgw, aca])
 ```
 
 Every subnet also includes `locks = [data.azurerm_virtual_network.target.id]`.

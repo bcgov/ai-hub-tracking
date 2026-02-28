@@ -1783,7 +1783,7 @@ on:
 
 <h2>APIM Key Rotation</h2>
 
-<p>APIM subscription key rotation is now handled by an <strong>Azure Function</strong> (timer trigger) deployed as a custom container. The function source is at <code>functions/apim-key-rotation/</code> and the Terraform module at <code>infra-ai-hub/modules/key-rotation-function/</code>.</p>
+<p>APIM subscription key rotation is now handled by a <strong>Container App Job</strong> (scheduled) deployed as a custom container. The job source is at <code>jobs/apim-key-rotation/</code> and the Terraform module at <code>infra-ai-hub/modules/key-rotation-function/</code>.</p>
 
 <div class="grid grid-2">
     <div class="card">
@@ -1791,7 +1791,7 @@ on:
         <p>The key rotation Function container image is built by the shared <code>.builds.yml</code> reusable workflow as a matrix entry alongside other containers (chisel, privoxy).</p>
         <ul>
             <li>Called by <code>pr-open.yml</code></li>
-            <li>Triggers on changes to <code>functions/apim-key-rotation/</code> or the workflow itself</li>
+            <li>Triggers on changes to <code>jobs/apim-key-rotation/</code> or the workflow itself</li>
             <li>Uses <code>bcgov/action-builder-ghcr</code> for image build and push</li>
         </ul>
     </div>

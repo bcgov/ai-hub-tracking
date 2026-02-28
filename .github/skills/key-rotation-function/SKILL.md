@@ -1,23 +1,23 @@
 ---
 name: key-rotation-function
-description: Guidance for the APIM key rotation Azure Function app — Python code, Docker container, GHA workflow, and Terraform module. Use when modifying rotation logic, container build, deployment config, or adding new rotation features.
+description: Guidance for the APIM key rotation Container App Job — Python code, Docker container, GHA workflow, and Terraform module. Use when modifying rotation logic, container build, deployment config, or adding new rotation features.
 ---
 
-# Key Rotation Function Skills
+# Key Rotation Skills
 
-Use this skill profile when creating or modifying the APIM key rotation Azure Function — the Python application code, container image, GitHub Actions build workflow, or Terraform infrastructure module.
+Use this skill profile when creating or modifying the APIM key rotation Container App Job — the Python application code, container image, GitHub Actions build workflow, or Terraform infrastructure module.
 
 ## Use When
 - Modifying rotation logic (interval checks, slot alternation, error handling)
 - Changing the Pydantic settings/models (`rotation/config.py`, `rotation/models.py`)
 - Updating the Dockerfile or `pyproject.toml` dependencies
-- Debugging key rotation failures (APIM SDK, Key Vault, timer trigger)
+- Debugging key rotation failures (APIM SDK, Key Vault, Container App Job)
 - Changing the GHA container build workflow (`.builds.yml`)
 - Modifying the Terraform module (`modules/key-rotation-function/`)
 
 ## Do Not Use When
 - Modifying APIM policies/routing (use [API Management](../api-management/SKILL.md))
-- Changing network subnet allocation for the function (use [Network](../network/SKILL.md))
+- Changing network subnet allocation (use [Network](../network/SKILL.md))
 - Working on App Gateway or WAF rules (use [App Gateway & WAF](../app-gateway/SKILL.md))
 
 ## Input Contract
@@ -25,10 +25,10 @@ Required context before changes:
 - Current rotation flow (7-step pipeline in `runner.py`)
 - Pydantic settings schema (`rotation/config.py`) — all env vars
 - Which Azure SDKs are used (`apim.py`, `keyvault.py`)
-- Container build pattern (multi-stage uv + Azure Functions base)
+- Container build pattern (multi-stage uv + Python slim base)
 
 ## Output Contract
-Every function app change should deliver:
+Every change should deliver:
 - Python code changes with type hints (Python 3.13+, `from __future__ import annotations`)
 - Updated unit tests in `tests/` if logic changed
 - Ruff-clean code (`ruff check --fix . && ruff format .`)
@@ -42,25 +42,23 @@ Every function app change should deliver:
 
 | Component | Location | Purpose |
 |---|---|---|
-| Entry point | `functions/apim-key-rotation/function_app.py` | Timer trigger, calls `run_rotation()` |
-| Settings | `functions/apim-key-rotation/rotation/config.py` | Pydantic Settings — all env vars |
-| Models | `functions/apim-key-rotation/rotation/models.py` | `RotationMetadata`, `RotationSummary`, `Slot` enum |
-| APIM SDK ops | `functions/apim-key-rotation/rotation/apim.py` | Discover tenants, regenerate keys, verify APIM |
-| Key Vault ops | `functions/apim-key-rotation/rotation/keyvault.py` | Read/write metadata + keys in hub KV |
-| Orchestrator | `functions/apim-key-rotation/rotation/runner.py` | 7-step per-tenant rotation + `run_rotation()` entry |
-| Dockerfile | `functions/apim-key-rotation/Dockerfile` | Multi-stage: uv builder → Azure Functions runtime |
-| Dependencies | `functions/apim-key-rotation/pyproject.toml` | uv-managed deps (azure-*, pydantic, pydantic-settings) |
-| Unit tests | `functions/apim-key-rotation/tests/` | pytest suite for models + runner logic |
+| Entry point | `jobs/apim-key-rotation/main.py` | Standalone CLI, calls `run_rotation()` |
+| Settings | `jobs/apim-key-rotation/rotation/config.py` | Pydantic Settings — all env vars |
+| Models | `jobs/apim-key-rotation/rotation/models.py` | `RotationMetadata`, `RotationSummary`, `Slot` enum |
+| APIM SDK ops | `jobs/apim-key-rotation/rotation/apim.py` | Discover tenants, regenerate keys, verify APIM |
+| Key Vault ops | `jobs/apim-key-rotation/rotation/keyvault.py` | Read/write metadata + keys in hub KV |
+| Orchestrator | `jobs/apim-key-rotation/rotation/runner.py` | 7-step per-tenant rotation + `run_rotation()` entry |
+| Dockerfile | `jobs/apim-key-rotation/Dockerfile` | Multi-stage: uv builder → Python slim runtime |
+| Dependencies | `jobs/apim-key-rotation/pyproject.toml` | uv-managed deps (azure-*, pydantic, pydantic-settings) |
+| Unit tests | `jobs/apim-key-rotation/tests/` | pytest suite for models + runner logic |
 | GHA workflow | `.github/workflows/.builds.yml` | Reusable workflow → GHCR image via `bcgov/action-builder-ghcr` (matrix entry) |
-| Terraform module | `infra-ai-hub/modules/key-rotation-function/` | Function App, Storage, Service Plan, RBAC |
-| Stack wiring | `infra-ai-hub/stacks/apim/main.tf` | Calls module with feature flag gate |
-| Local settings | `functions/apim-key-rotation/local.settings.json.example` | Template for local dev env vars |
-| Docker Compose | `functions/apim-key-rotation/docker-compose.yml` | Local dev stack (function app + Azurite) |
+| Terraform module | `infra-ai-hub/modules/key-rotation-function/` | Container App Job, RBAC assignments |
+| Stack wiring | `infra-ai-hub/stacks/key-rotation/main.tf` | Calls module with feature flag gate |
 
 ## Rotation Flow
 
 ```
-Timer fires (NCRONTAB) → function_app.py
+Cron trigger fires → Container App Job starts → main.py
   └── run_rotation(settings)
        ├── Guard: rotation_enabled?
        ├── Guard: APIM instance exists?
@@ -79,9 +77,10 @@ Timer fires (NCRONTAB) → function_app.py
 ## Key Design Rules
 - **Zero-secret operation**: Uses `DefaultAzureCredential` (Managed Identity in Azure, `az login` locally)
 - **Alternating slots**: Secondary first, then primary, so one key is always valid (zero downtime)
-- **Idempotent**: Timer fires daily but only rotates when `rotation_interval_days` has elapsed
+- **Idempotent**: Cron fires daily but only rotates when `rotation_interval_days` has elapsed
 - **Dry-run mode**: Set `DRY_RUN=true` to see what would happen without making changes
 - **Naming convention**: Derived defaults (`{app_name}-{environment}-apim`, etc.) unless overridden
+- **Pay-per-execution**: Container App Job with Consumption workload profile — no idle cost
 
 ## Environment Variables (Settings)
 
@@ -95,15 +94,13 @@ Timer fires (NCRONTAB) → function_app.py
 | `HUB_KEYVAULT_NAME` | No | `{app_name}-{environment}-hkv` | Hub KV override |
 | `ROTATION_ENABLED` | No | `true` | Master toggle |
 | `ROTATION_INTERVAL_DAYS` | No | `7` | Days between rotations (1–89) |
-| `ROTATION_CRON_SCHEDULE` | No | `0 0 9 * * *` | NCRONTAB (daily 09:00 UTC) |
 | `DRY_RUN` | No | `false` | Preview without changes |
 | `SECRET_EXPIRY_DAYS` | No | `90` | KV secret expiry (max 90 for LZ policy) |
-| `RUN_ON_STARTUP` | No | `false` | Fire timer on host start (local/Docker only) |
 
 ## Change Checklist
 1. **Python code** — type hints, `from __future__ import annotations`, Pydantic v2 patterns
 2. **Ruff** — `ruff check --fix . && ruff format .` (config in `pyproject.toml`)
-3. **Tests** — `pytest` from `functions/apim-key-rotation/`
+3. **Tests** — `pytest` from `jobs/apim-key-rotation/`
 4. **Docker** — `docker build -t apim-key-rotation:test .` if Dockerfile/deps changed
 5. **Terraform** — `terraform fmt -recursive` and `terraform validate` if module changed
 
@@ -112,7 +109,7 @@ Timer fires (NCRONTAB) → function_app.py
 2. **Tests pass**: `pytest` succeeds
 3. **Docker builds**: Image builds without errors
 4. **Settings schema**: All new env vars added to `config.py` Settings class + `local.settings.json.example`
-5. **Feature flag**: Function gated behind `use_azure_functions` in `stacks/apim/main.tf`
+5. **Feature flag**: Job gated behind `rotation_enabled && cae_config.enabled` in `stacks/key-rotation/main.tf`
 
 ## Detailed References
 

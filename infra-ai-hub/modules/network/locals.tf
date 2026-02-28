@@ -110,22 +110,4 @@ locals {
   aca_base        = local.num_address_spaces >= 4 ? local.parsed_spaces[local.infra_space_idx_2].prefix : local.infra_base
   aca_subnet_cidr = var.aca_subnet.enabled ? "${local.aca_base}.${local.aca_offset}/${var.aca_subnet.prefix_length}" : null
 
-  # =============================================================================
-  # FUNCTIONS SUBNET CALCULATION
-  # Azure Functions with VNet integration requires delegation to
-  # Microsoft.Web/serverFarms. Placed after ACA subnet.
-  # =============================================================================
-  # - 1 /24:  /27 after PE, APIM, AppGW, and ACA
-  # - 2 /24s: /27 after APIM, AppGW, and ACA in second /24
-  # - 4+ /24s: /27 after ACA in fourth /24
-
-  func_offset = local.num_address_spaces == 1 ? (
-    (var.apim_subnet.enabled ? 32 : 0) + (var.appgw_subnet.enabled ? 32 : 0) + (var.aca_subnet.enabled ? 32 : 0) + 32
-    ) : (
-    local.num_address_spaces >= 4 ? (var.aca_subnet.enabled ? 64 : 32) : (
-      (var.apim_subnet.enabled ? 32 : 0) + (var.appgw_subnet.enabled ? 32 : 0) + (var.aca_subnet.enabled ? 32 : 0)
-    )
-  )
-  func_base        = local.num_address_spaces >= 4 ? local.parsed_spaces[local.infra_space_idx_2].prefix : local.infra_base
-  func_subnet_cidr = var.func_subnet.enabled ? "${local.func_base}.${local.func_offset}/${var.func_subnet.prefix_length}" : null
 }

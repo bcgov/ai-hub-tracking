@@ -125,12 +125,11 @@ ai-hub-tracking/
 │   │   ├── apim/                       # API Management gateway and policies
 │   │   └── tenant-user-mgmt/          # Entra ID user/group assignments
 │   │
-│   └── modules/key-rotation-function/  # Terraform module for the key rotation Function App
+│   └── modules/key-rotation-function/  # Terraform module for the key rotation Container App Job
 │
-├── functions/                          # Azure Functions source code
+├── jobs/                               # Container App Jobs
 │   └── apim-key-rotation/             # APIM subscription key rotation (Python, custom container)
-│       ├── docker-compose.yml         # Local dev with Azurite
-│       └── Dockerfile                 # Multi-stage build (uv + Azure Functions)
+│       └── Dockerfile                 # Multi-stage build (uv + python:3.13-slim)
 │
 ├── tests/                              # Integration test suite
 │   └── integration/                    # BATS-based integration tests
@@ -207,7 +206,7 @@ ai-hub-tracking/
 │   │   ├── iac-coder/                  # Infrastructure as Code authoring skills
 │   │   ├── iac-code-reviewer/          # IaC code review skills
 │   │   ├── api-management/             # APIM policy and routing skills
-│   │   ├── key-rotation-function/      # Key rotation Azure Function skills
+│   │   ├── key-rotation-function/      # Key rotation Container App Job skills
 │   │   ├── integration-testing/        # BATS integration testing skills
 │   │   ├── network/                    # Network module and subnet skills
 │   │   └── documentation/              # Documentation authoring skills
@@ -255,8 +254,8 @@ Multi-tenant AI Services Hub infrastructure. Manages APIM gateway, AI Foundry, p
 ### `tests/`
 BATS-based integration test suite for validating deployed infrastructure. Tests cover chat completions, document intelligence, PII redaction (fail-closed/fail-open), tenant isolation, binary uploads, and user management.
 
-### `functions/`
-Azure Functions source code. Currently contains the APIM key rotation function (`apim-key-rotation/`), a Python-based timer trigger that automatically rotates APIM subscription keys using an alternating primary/secondary pattern. Deployed as a custom container from GHCR via `.builds.yml`, with the Terraform module at `infra-ai-hub/modules/key-rotation-function/`. Includes a Docker Compose setup for local development with Azurite.
+### `jobs/`
+Container App Jobs source code. Contains the APIM key rotation job (`apim-key-rotation/`), a Python-based cron job that automatically rotates APIM subscription keys using an alternating primary/secondary pattern. Deployed as a custom container from GHCR via `.builds.yml`, with the Terraform module at `infra-ai-hub/modules/key-rotation-function/` and stack at `infra-ai-hub/stacks/key-rotation/`.
 
 ### `.github/`
 GitHub Actions automation, contribution guidelines, and Copilot skill profiles.

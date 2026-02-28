@@ -57,6 +57,7 @@ module "foundry_project" {
   key_vault = {
     enabled     = lookup(lookup(each.value, "key_vault", {}), "enabled", false)
     resource_id = try(data.terraform_remote_state.tenant[each.key].outputs.tenant_key_vaults[each.key].id, null)
+    vault_uri   = try(data.terraform_remote_state.tenant[each.key].outputs.tenant_key_vaults[each.key].uri, null)
   }
 
   storage_account = {

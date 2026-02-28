@@ -74,13 +74,10 @@ shared_config = {
     # Leave empty to let Azure Policy manage DNS (Landing Zone pattern)
     private_dns_zone_ids = []
 
-    # Subscription key rotation
-    # When use_azure_functions = true, rotation runs as a timer-triggered Azure
-    # Function (container from GHCR). Otherwise falls back to GHA workflow.
+    # Subscription key rotation (runs as Container App Job — see stacks/key-rotation)
     key_rotation = {
       rotation_enabled       = true # Enable rotation in dev
       rotation_interval_days = 1    # Must be less than 90 days (APIM max key lifetime)
-      use_azure_functions    = true # Set to true once Function image is validated
     }
   }
 
@@ -147,13 +144,18 @@ shared_config = {
   # ---------------------------------------------------------------------------
   # Container App Environment
   # ---------------------------------------------------------------------------
-  # Serverless container hosting environment.
+  # Serverless container hosting environment for Container App Jobs
+  # (e.g., APIM key rotation). Uses /27 ACA subnet from network module.
   container_app_environment = {
     enabled = true
 
     # Zone redundancy requires /23 subnet and increases cost
     # Disable for dev to save costs
     zone_redundancy_enabled = false
+
+    # ACA subnet configuration (passed to network module)
+    subnet_name          = "aca-subnet"
+    subnet_prefix_length = 27 # /27 = 32 IPs (minimum for consumption-only without zone redundancy)
 
     # Workload profiles (optional) - uses consumption-only if empty
     # workload_profiles = {
@@ -189,12 +191,5 @@ shared_config = {
     # Keep disabled - access via private endpoint only
     public_network_access_enabled = false
   }
-
-  # ---------------------------------------------------------------------------
-  # Functions Subnet
-  # ---------------------------------------------------------------------------
-  # Dedicated subnet with Microsoft.Web/serverFarms delegation for Azure
-  # Functions VNet integration (e.g., key rotation function).
-  func_subnet_enabled = false # Enable when use_azure_functions = true in APIM config
 
 }

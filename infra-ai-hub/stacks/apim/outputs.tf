@@ -2,6 +2,11 @@ output "apim_gateway_url" {
   value = local.apim_config.enabled ? module.apim[0].gateway_url : null
 }
 
+output "apim_id" {
+  description = "APIM resource ID (consumed by key-rotation stack for RBAC)"
+  value       = local.apim_config.enabled ? module.apim[0].id : null
+}
+
 output "apim_name" {
   value = local.apim_config.enabled ? module.apim[0].name : null
 }
@@ -30,13 +35,4 @@ output "apim_tenant_subscriptions" {
       product_id      = sub.product_id
     }
   }
-}
-
-output "key_rotation_function" {
-  description = "Key rotation Azure Function details (null when not deployed)"
-  value = length(module.key_rotation_function) > 0 ? {
-    function_app_name     = module.key_rotation_function[0].function_app_name
-    function_app_hostname = module.key_rotation_function[0].function_app_default_hostname
-    principal_id          = module.key_rotation_function[0].function_app_principal_id
-  } : null
 }

@@ -3741,14 +3741,14 @@ module "storage" {
     </ul>
 
     <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Decision</h3>
-    <p>We implement an <strong>alternating primary/secondary key rotation</strong> pattern with zero downtime, driven by an <strong>Azure Function</strong> (timer trigger) deployed as a custom container:</p>
+    <p>We implement an <strong>alternating primary/secondary key rotation</strong> pattern with zero downtime, driven by a <strong>Container App Job</strong> (scheduled) deployed as a custom container:</p>
 
     <ol>
         <li><strong>Alternating slots:</strong> APIM subscriptions have two key slots (primary and secondary). Each rotation cycle regenerates <em>one</em> slot while the other remains valid and untouched.</li>
         <li><strong>Centralized hub Key Vault:</strong> After regeneration, both keys are written to a single hub Key Vault (<code>{app_name}-{env}-hkv</code>) with 90-day expiry and rotation metadata. No per-tenant Key Vault is required.</li>
         <li><strong>Self-service retrieval:</strong> Tenants fetch current keys via <code>GET /{tenant}/internal/apim-keys</code> &mdash; an APIM policy endpoint that reads from the hub Key Vault using APIM&rsquo;s managed identity. No Azure SDK required.</li>
         <li><strong>Configurable schedule:</strong> Rotation is controlled by two flags in <code>params/{env}/shared.tfvars</code>: <code>rotation_enabled</code> (master on/off) and <code>rotation_interval_days</code> (7 for dev/test, 30 for prod).</li>
-        <li><strong>Managed identity authentication:</strong> The Azure Function uses a system-assigned managed identity for APIM and Key Vault access. No stored secrets required.</li>
+        <li><strong>Managed identity authentication:</strong> The Container App Job uses a system-assigned managed identity for APIM and Key Vault access. No stored secrets required.</li>
     </ol>
 
     <table>
@@ -3756,9 +3756,9 @@ module "storage" {
             <tr><th>Component</th><th>Purpose</th><th>Location</th></tr>
         </thead>
         <tbody>
-            <tr><td>Azure Function</td><td>Timer-triggered Python function: discovers APIM + hub KV, rotates keys, stores in KV</td><td><code>functions/apim-key-rotation/</code></td></tr>
+            <tr><td>Container App Job</td><td>Scheduled Python job: discovers APIM + hub KV, rotates keys, stores in KV</td><td><code>jobs/apim-key-rotation/</code></td></tr>
             <tr><td>Container build</td><td>Builds custom container image to GHCR on PR/merge</td><td><code>.github/workflows/.builds.yml</code> (matrix entry)</td></tr>
-            <tr><td>Terraform module</td><td>Deploys Function App, Container App Environment, RBAC</td><td><code>infra-ai-hub/modules/key-rotation-function/</code></td></tr>
+            <tr><td>Terraform module</td><td>Deploys Container App Job, Container App Environment, RBAC</td><td><code>infra-ai-hub/modules/key-rotation-function/</code></td></tr>
             <tr><td>Hub Key Vault</td><td>Centralized storage for all tenant keys (scales to 1000+)</td><td><code>stacks/shared/main.tf</code></td></tr>
             <tr><td>APIM policy endpoint</td><td><code>/internal/apim-keys</code> reads from hub KV</td><td><code>params/apim/api_policy.xml.tftpl</code></td></tr>
             <tr><td>Terraform config</td><td>Seeds initial KV secrets + RBAC for APIM MI &rarr; hub KV</td><td><code>stacks/apim/main.tf</code></td></tr>
@@ -3768,7 +3768,7 @@ module "storage" {
     <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
     <ul>
         <li><strong>Zero downtime:</strong> The alternating slot pattern guarantees one key is always valid. Tenants are never locked out during rotation.</li>
-        <li><strong>Azure Function over GHA workflow:</strong> An Azure Function with a timer trigger runs reliably within Azure (no 60-day inactivity disable risk). The previous Bash script + GHA approach required periodic repo activity to avoid GitHub silently disabling scheduled workflows.</li>
+        <li><strong>Container App Job over GHA workflow:</strong> A scheduled Container App Job runs reliably within Azure (no 60-day inactivity disable risk). The previous Bash script + GHA approach required periodic repo activity to avoid GitHub silently disabling scheduled workflows.</li>
         <li><strong>Centralized over distributed:</strong> A single hub Key Vault with tenant-prefixed secrets scales better than per-tenant Key Vaults. One RBAC assignment for APIM&rsquo;s managed identity covers all tenants.</li>
         <li><strong>Self-service key retrieval:</strong> The <code>/internal/apim-keys</code> endpoint eliminates the need for tenants to have Azure portal access or Key Vault Reader roles. Any valid subscription key authenticates the request.</li>
         <li><strong>Idempotent and safe:</strong> The function checks elapsed time since last rotation before acting. Multiple invocations within the interval are no-ops. A <code>--dry-run</code> mode allows validation without changes.</li>
@@ -3786,7 +3786,7 @@ module "storage" {
 
     <h4>Negative</h4>
     <ul>
-        <li><strong>Container infrastructure:</strong> The Azure Function requires a Container App Environment and Container Registry, adding infrastructure components compared to the previous GHA-only approach. These are managed via the <code>key-rotation-function</code> Terraform module.</li>
+        <li><strong>Container infrastructure:</strong> The Container App Job requires a Container App Environment and Container Registry, adding infrastructure components compared to the previous GHA-only approach. These are managed via the <code>key-rotation-function</code> Terraform module.</li>
         <li><strong>STRA gate:</strong> Production rotation cannot be enabled until the STRA process completes. Until then, prod keys are static (same risk as baseline).</li>
         <li><strong>Tenant coordination:</strong> Tenants using hard-coded keys (rather than the self-service endpoint) must update their configuration within the rotation interval or face 401 errors.</li>
     </ul>
@@ -3794,7 +3794,7 @@ module "storage" {
     <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">References</h3>
     <ul>
         <li><a href="apim-key-rotation.html">APIM Key Rotation Guide</a> &mdash; full operational documentation</li>
-        <li><code>functions/apim-key-rotation/</code> &mdash; Azure Function source code</li>
+        <li><code>jobs/apim-key-rotation/</code> &mdash; Container App Job source code</li>
         <li><code>infra-ai-hub/modules/key-rotation-function/</code> &mdash; Terraform module</li>
         <li><code>.github/workflows/.builds.yml</code> &mdash; container build workflow (matrix entry)</li>
         <li><code>params/{env}/shared.tfvars</code> &mdash; per-environment rotation config</li>

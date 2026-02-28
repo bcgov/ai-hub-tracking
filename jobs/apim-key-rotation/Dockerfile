@@ -1,9 +1,12 @@
 # =============================================================================
-# APIM Key Rotation — Azure Functions (Custom Container with uv)
+# APIM Key Rotation — Container App Job (Custom Container with uv)
 # =============================================================================
 # Multi-stage build:
 #   1. Build stage: uv resolves and installs dependencies
-#   2. Runtime stage: Azure Functions Python image
+#   2. Runtime stage: Minimal Python image
+#
+# Runs as a Container App Job with cron trigger — the job executes main.py
+# and exits. No Azure Functions runtime needed.
 #
 # Image hosted on GHCR: ghcr.io/<org>/apim-key-rotation:latest
 # =============================================================================
@@ -22,32 +25,30 @@ COPY pyproject.toml uv.lock ./
 RUN uv sync --no-dev --frozen --no-install-project
 
 # Copy application code
-COPY host.json function_app.py ./
+COPY main.py ./
 COPY rotation/ rotation/
 
 # ---------------------------------------------------------------------------
-# Stage 2: Runtime — Azure Functions Python v4 base image
-# Note: -slim variant unavailable for Python 3.13+; using standard base
+# Stage 2: Runtime — Minimal Python image (no Functions runtime needed)
 # ---------------------------------------------------------------------------
-FROM mcr.microsoft.com/azure-functions/python:4-python3.13
+FROM python:3.13-slim-bookworm
 
-ENV AzureWebJobsScriptRoot=/home/site/wwwroot \
-    AzureFunctionsJobHost__Logging__Console__IsEnabled=true \
-    # Suppress .pyc generation in container
-    PYTHONDONTWRITEBYTECODE=1
+# Suppress .pyc generation in container
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
 
-WORKDIR /home/site/wwwroot
+WORKDIR /app
 
 # Copy the virtual environment from builder
-COPY --from=builder /build/.venv /home/site/wwwroot/.venv
+COPY --from=builder /build/.venv /app/.venv
 
-# Fix venv Python symlink: builder has /usr/local/bin/python3, runtime uses /usr/bin/python3
-RUN ln -sf "$(which python3)" /home/site/wwwroot/.venv/bin/python
-
-# Add venv to PATH so the Functions host finds the packages
-ENV PATH="/home/site/wwwroot/.venv/bin:$PATH" \
-    VIRTUAL_ENV="/home/site/wwwroot/.venv"
+# Add venv to PATH
+ENV PATH="/app/.venv/bin:$PATH" \
+    VIRTUAL_ENV="/app/.venv"
 
 # Copy application code
-COPY --from=builder /build/host.json /build/function_app.py ./
+COPY --from=builder /build/main.py ./
 COPY --from=builder /build/rotation/ rotation/
+
+# Run the rotation entrypoint
+CMD ["python", "main.py"]

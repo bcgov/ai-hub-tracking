@@ -72,23 +72,6 @@ output "aca_nsg_id" {
   value       = var.aca_subnet.enabled ? azurerm_network_security_group.aca[0].id : null
 }
 
-# -----------------------------------------------------------------------------
-# Functions Subnet Outputs
-# -----------------------------------------------------------------------------
-output "func_subnet_id" {
-  description = "Resource ID of the Functions subnet (null if not enabled)"
-  value       = var.func_subnet.enabled ? azapi_resource.func_subnet[0].id : null
-}
-
-output "func_subnet_cidr" {
-  description = "CIDR of the Functions subnet (null if not enabled)"
-  value       = local.func_subnet_cidr
-}
-
-output "func_nsg_id" {
-  description = "Resource ID of the Functions NSG (null if not enabled)"
-  value       = var.func_subnet.enabled ? azurerm_network_security_group.func[0].id : null
-}
 
 # -----------------------------------------------------------------------------
 # VNet Information

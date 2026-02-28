@@ -1,5 +1,5 @@
 # =============================================================================
-# Configuration — Pydantic Settings loaded from App Settings / env vars
+# Configuration — Pydantic Settings loaded from environment variables
 # =============================================================================
 from __future__ import annotations
 
@@ -8,9 +8,10 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    """Application settings resolved from Azure Functions App Settings (environment variables).
+    """Application settings resolved from environment variables.
 
-    Every setting maps 1:1 to an App Setting configured by Terraform.
+    Every setting maps 1:1 to an env var configured by Terraform on the
+    Container App Job.
     """
 
     model_config = {"env_prefix": "", "case_sensitive": False}
@@ -35,12 +36,6 @@ class Settings(BaseSettings):
     rotation_enabled: bool = Field(default=True, description="Master rotation toggle")
     rotation_interval_days: int = Field(default=7, ge=1, le=89, description="Days between rotations (must be < 90)")
     dry_run: bool = Field(default=False, description="Show what would happen without making changes")
-
-    # Timer schedule (consumed by host.json %ROTATION_CRON_SCHEDULE% binding)
-    rotation_cron_schedule: str = Field(
-        default="0 0 9 * * *",
-        description="NCRONTAB expression for timer trigger (default: daily 09:00 UTC)",
-    )
 
     # Key Vault secret expiry (days) — Azure Landing Zone policy requires max 90 days
     secret_expiry_days: int = Field(default=90, ge=1, le=365, description="Days until Key Vault secrets expire")

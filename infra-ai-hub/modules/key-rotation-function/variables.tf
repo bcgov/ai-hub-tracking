@@ -1,5 +1,5 @@
 # =============================================================================
-# Key Rotation Function App — Variables
+# Key Rotation Container App Job — Variables
 # =============================================================================
 
 # ---------------------------------------------------------------------------
@@ -11,7 +11,7 @@ variable "name_prefix" {
 }
 
 variable "resource_group_name" {
-  description = "Resource group for all function resources"
+  description = "Resource group for all resources"
   type        = string
 }
 
@@ -32,10 +32,24 @@ variable "tags" {
 }
 
 # ---------------------------------------------------------------------------
+# Container App Environment
+# ---------------------------------------------------------------------------
+variable "container_app_environment_id" {
+  description = "Container App Environment resource ID"
+  type        = string
+}
+
+# ---------------------------------------------------------------------------
 # Container image (GHCR)
 # ---------------------------------------------------------------------------
+variable "container_registry_url" {
+  description = "Container registry URL (e.g., ghcr.io)"
+  type        = string
+  default     = "ghcr.io"
+}
+
 variable "container_image_name" {
-  description = "GHCR image name (e.g., bcgov/ai-hub-tracking/functions/apim-key-rotation)"
+  description = "Container image name (e.g., bcgov/ai-hub-tracking/apim-key-rotation)"
   type        = string
 }
 
@@ -46,22 +60,39 @@ variable "container_image_tag" {
 }
 
 # ---------------------------------------------------------------------------
-# Networking (optional VNet integration)
+# Container resources
 # ---------------------------------------------------------------------------
-variable "vnet_subnet_id" {
-  description = "Subnet ID for VNet integration (optional). If provided, Functions can reach private endpoints."
+variable "cpu" {
+  description = "CPU cores allocated to the container (e.g., 0.5)"
+  type        = number
+  default     = 0.5
+}
+
+variable "memory" {
+  description = "Memory allocated to the container (e.g., 1Gi)"
   type        = string
-  default     = null
+  default     = "1Gi"
 }
 
 # ---------------------------------------------------------------------------
-# Observability
+# Job scheduling
 # ---------------------------------------------------------------------------
-variable "application_insights_connection_string" {
-  description = "Application Insights connection string"
+variable "cron_expression" {
+  description = "Cron expression for the job schedule (e.g., 0 9 * * * for daily 09:00 UTC)"
   type        = string
-  sensitive   = true
-  default     = ""
+  default     = "0 9 * * *"
+}
+
+variable "replica_timeout_seconds" {
+  description = "Maximum seconds a replica can run before being terminated"
+  type        = number
+  default     = 600
+}
+
+variable "replica_retry_limit" {
+  description = "Maximum number of retries for a failed replica"
+  type        = number
+  default     = 1
 }
 
 # ---------------------------------------------------------------------------
@@ -73,7 +104,7 @@ variable "apim_id" {
 }
 
 variable "apim_name" {
-  description = "APIM instance name (passed to function as app setting)"
+  description = "APIM instance name (passed to job as env var)"
   type        = string
 }
 
@@ -83,7 +114,7 @@ variable "hub_keyvault_id" {
 }
 
 variable "hub_keyvault_name" {
-  description = "Hub Key Vault name (passed to function as app setting)"
+  description = "Hub Key Vault name (passed to job as env var)"
   type        = string
 }
 
@@ -121,12 +152,6 @@ variable "rotation_interval_days" {
     condition     = var.rotation_interval_days >= 1 && var.rotation_interval_days <= 89
     error_message = "rotation_interval_days must be between 1 and 89 (Key Vault secrets expire at 90 days)."
   }
-}
-
-variable "rotation_cron_schedule" {
-  description = "NCRONTAB expression for the timer trigger (6-part: sec min hour day month weekday)"
-  type        = string
-  default     = "0 0 9 * * *"
 }
 
 variable "dry_run" {

@@ -255,7 +255,7 @@ Use this table for every APIM change review/runbook:
 
 ## Key Rotation
 
-APIM subscription keys are rotated by an **Azure Function** (timer trigger) deployed as a custom container from GHCR. Source code is in `functions/apim-key-rotation/`, with the Terraform module at `infra-ai-hub/modules/key-rotation-function/`. The function is gated by the `use_azure_functions` feature flag in `stacks/apim/main.tf`.
+APIM subscription keys are rotated by a **Container App Job** (cron trigger) deployed as a custom container from GHCR. Source code is in `jobs/apim-key-rotation/`, with the Terraform module at `infra-ai-hub/modules/key-rotation-function/`. The job is gated by the `rotation_enabled` flag in `stacks/key-rotation/main.tf`.
 
 ### Alternating Pattern
 ```
