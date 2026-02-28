@@ -56,3 +56,9 @@ variable "backend_container_name" {
   type    = string
   default = "tfstate"
 }
+
+variable "container_image_tag_job_key_rotation" {
+  description = "Override container image tag for the key rotation job (empty = use config default, typically 'latest')"
+  type        = string
+  default     = ""
+}

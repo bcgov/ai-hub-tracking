@@ -153,6 +153,9 @@ jobs:
           TF_VAR_target_vnet_address_spaces: ${{ secrets.TARGET_VNET_ADDRESS_SPACES }}
           TF_VAR_source_vnet_address_space: ${{ secrets.SOURCE_VNET_ADDRESS_SPACE }}
 
+          # Container image tag override — prod uses semver tag, dev/test use latest
+          TF_VAR_container_image_tag_job_key_rotation: ${{ inputs.tag != 'latest' && inputs.tag || '' }}
+
           # Only used by infra-ai-hub, harmless if unset/unused
           TF_VAR_key_vault_name: ${{ format('{0}{1}{2}kv', 'aihub', inputs.environment_name, vars.SUBSCRIPTION_NAME) }}
 
