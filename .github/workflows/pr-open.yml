@@ -104,7 +104,7 @@ jobs:
               planContent,
               '',
               '---',
-              `_Updated by CI — plan against \`test\` environment (run [#${context.runNumber}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}))._`,
+              `_Updated by CI — plan against \`test\` environment (run [#${context.runNumber}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId})) at ${new Date().toISOString().replace('T', ' ').slice(0, 19)} UTC._`,
               endMarker,
             ].join('\n');
 
