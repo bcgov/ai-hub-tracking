@@ -1,4 +1,4 @@
-name: Deploy to Environments (Manual Dispatch)
+name: "Terraform: Manual Dispatch"
 on:
   workflow_dispatch:
     inputs:
@@ -99,8 +99,8 @@ jobs:
       tag: latest
       terraform_log_level: ${{ inputs.terraform_log_level }}
     secrets: inherit
-  deploy-to-environment:
-    name: Deploy to ${{ inputs.environment }} Environment
+  run-terraform-on-environment:
+    name: "Terraform ${{ inputs.command }} — ${{ inputs.environment }}"
     needs: deploy-proxy-in-tools-environment
     uses: ./.github/workflows/.deployer-using-secure-tunnel.yml
     with:
@@ -116,7 +116,7 @@ jobs:
   create-prod-release:
     name: Create GitHub release for prod
     if: inputs.environment == 'prod' && inputs.command == 'apply'
-    needs: deploy-to-environment
+    needs: run-terraform-on-environment
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout at tag
