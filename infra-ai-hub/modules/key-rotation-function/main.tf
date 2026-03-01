@@ -30,7 +30,7 @@ resource "terraform_data" "image_refresh" {
 # Container App Job (cron-triggered)
 # ---------------------------------------------------------------------------
 resource "azurerm_container_app_job" "rotation" {
-  name                         = "${var.name_prefix}-rotation-job"
+  name                         = "${var.name_prefix}rotnjob"
   resource_group_name          = var.resource_group_name
   location                     = var.location
   container_app_environment_id = var.container_app_environment_id

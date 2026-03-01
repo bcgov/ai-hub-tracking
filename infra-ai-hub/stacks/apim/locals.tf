@@ -108,6 +108,7 @@ locals {
         pii_structural_whitelist       = try(config.apim_policies.pii_redaction.structural_whitelist, [])
         pii_detection_language         = try(config.apim_policies.pii_redaction.detection_language, "en")
         pii_fail_closed                = try(config.apim_policies.pii_redaction.fail_closed, false)
+        apim_keys_endpoint_enabled     = local.apim_config.enabled && lookup(lookup(config, "apim_auth", {}), "mode", "subscription_key") == "subscription_key"
         key_rotation_enabled           = local.key_rotation_config.rotation_enabled && try(config.apim_auth.key_rotation_enabled, false)
         keyvault_uri                   = local.hub_keyvault_uri
         tenant_info_enabled            = true
