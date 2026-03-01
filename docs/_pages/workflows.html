@@ -62,11 +62,6 @@
             <td>Auto-destroy Bastion for cost savings</td>
         </tr>
         <tr>
-            <td><strong>apim-key-rotation.yml</strong></td>
-            <td>Daily cron + manual trigger</td>
-            <td>Rotate APIM subscription keys across environments (manual single-env or scheduled all-env flow)</td>
-        </tr>
-        <tr>
             <td><strong>pages.yml</strong></td>
             <td>Push to main (docs and Terraform roots) + manual trigger</td>
             <td>Generate docs and deploy GitHub Pages site</td>
@@ -90,8 +85,8 @@
         </ul>
     </li>
     <li><strong>Merge to main</strong> once PR checks and code review pass.</li>
-    <li><strong>Auto-apply to test + semver tag</strong>: <code>merge-main.yml</code> starts two jobs concurrently — semantic versioning (conventional commit history → <code>v1.2.3</code> tag + <code>CHANGELOG.md</code> update) and proxy bootstrap in <code>tools</code>. Once the proxy is up, it applies infrastructure to <code>test</code> through the Chisel tunnel. After a successful apply, integration tests run automatically (two phases — see below).</li>
-    <li><strong>Promote to prod</strong>: Use <code>manual-dispatch.yml</code>, select <code>prod</code> + <code>apply</code>, and provide the semver tag. <strong>This is gated — requires approval from designated reviewers</strong> (configured in the GitHub <code>prod</code> environment protection rules).</li>
+    <li><strong>Auto-apply to test + semver tag</strong>: <code>merge-main.yml</code> starts two jobs concurrently &mdash; semantic versioning (conventional commit history &rarr; <code>v1.2.3</code> tag + <code>CHANGELOG.md</code> update) and proxy bootstrap in <code>tools</code>. Container images are then re-tagged with the semver version. Once the proxy is up, it applies infrastructure to <code>test</code> through the Chisel tunnel. After a successful apply, integration tests run automatically (two phases &mdash; see below).</li>
+    <li><strong>Promote to prod</strong>: Use <code>manual-dispatch.yml</code>, select <code>prod</code> + <code>apply</code>, and provide the semver tag. The workflow verifies all container images exist with that tag, then deploys using the <strong>semver-tagged images</strong> (not <code>latest</code>). <strong>This is gated &mdash; requires approval from designated reviewers</strong> (configured in the GitHub <code>prod</code> environment protection rules).</li>
     <li><strong>Release created</strong>: After successful prod apply, a GitHub Release is automatically created from the deployed tag with deployment metadata.</li>
 </ol>
 
@@ -118,6 +113,7 @@
                                   ▼
                         merge-main.yml
                         ├─ Semantic version tag (v1.2.3) ─────────────────── concurrent
+                        ├─ Tag container images (latest → v1.2.3) ──────── after semver
                         ├─ Deploy azure_proxy (tools) ───────────────────────────────┤
                         └─ Apply to test (via Chisel tunnel)
                              └─ Integration tests (post-apply)
@@ -127,7 +123,8 @@
                                   ▼
                         manual-dispatch.yml (prod + apply + tag)
                         ├─ ⏸ Requires prod environment approval
-                        ├─ Apply to prod using tagged commit
+                        ├─ Verify container images exist for semver tag
+                        ├─ Apply to prod using semver-tagged images
                         └─ Create GitHub Release</pre>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
@@ -464,7 +461,40 @@
     <ul>
         <li><strong>azure-proxy/chisel</strong> - Chisel-based secure tunnel server for private network access</li>
         <li><strong>azure-proxy/privoxy</strong> - Privoxy HTTP/SOCKS proxy server</li>
+        <li><strong>jobs/apim-key-rotation</strong> - APIM subscription key rotation Container App Job</li>
     </ul>
+</div>
+
+<div class="card card-gold">
+    <h3>Image Tagging Strategy</h3>
+    <p>Container images are tagged at different stages of the pipeline:</p>
+    <table>
+        <thead>
+            <tr>
+                <th>Stage</th>
+                <th>Tags Applied</th>
+                <th>Example</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td><strong>PR Build</strong> (<code>pr-open.yml</code>)</td>
+                <td>PR number, run number, <code>latest</code></td>
+                <td><code>42</code>, <code>42-7</code>, <code>latest</code></td>
+            </tr>
+            <tr>
+                <td><strong>Main Merge</strong> (<code>merge-main.yml</code>)</td>
+                <td>Semver tag added to <code>latest</code> image</td>
+                <td><code>v1.2.3</code></td>
+            </tr>
+            <tr>
+                <td><strong>Prod Deploy</strong> (<code>manual-dispatch.yml</code>)</td>
+                <td>Deploys using the semver-tagged image</td>
+                <td><code>v1.2.3</code> (immutable)</td>
+            </tr>
+        </tbody>
+    </table>
+    <p>The <code>latest</code> tag is used for dev and test environments. Production <strong>always</strong> uses the semver tag to ensure the exact tested image is what runs in prod.</p>
 </div>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
@@ -588,9 +618,10 @@ on:
     <h3>How It Works</h3>
     <ol>
         <li>Validates inputs — <strong>prod apply requires a <code>deploy_tag</code></strong> (a semver tag like <code>v1.2.3</code> from a successful <code>merge-main.yml</code> run)</li>
+        <li>Verifies all container images exist with the semver tag (prod apply only)</li>
         <li>Deploys/refreshes <code>azure_proxy</code> in <code>tools</code> via <code>.deployer.yml</code></li>
         <li>Passes encrypted proxy outputs to <code>.deployer-using-secure-tunnel.yml</code></li>
-        <li>Executes selected Terraform command in chosen environment</li>
+        <li>Executes selected Terraform command in chosen environment &mdash; <strong>prod uses the semver-tagged container images</strong> (e.g. <code>:v1.2.3</code>) while dev/test use <code>:latest</code></li>
         <li><strong>For prod apply only</strong>: Creates a GitHub Release from the deployed tag with deployment metadata</li>
     </ol>
 </div>
@@ -618,6 +649,7 @@ on:
                 <li><strong>Proxy bootstrap</strong>: deploys/refreshes <code>azure_proxy</code> in <code>tools</code> via <code>.deployer.yml</code></li>
             </ul>
         </li>
+        <li><strong>Tag container images</strong>: After the semver tag is created, all container images (<code>azure-proxy/chisel</code>, <code>azure-proxy/privoxy</code>, <code>jobs/apim-key-rotation</code>) that have a <code>:latest</code> tag are re-tagged with the semver version (e.g. <code>:v1.2.3</code>). This runs in parallel via a matrix strategy.</li>
         <li>Once <code>azure_proxy</code> is live, its encrypted URL+auth outputs are passed to <code>.deployer-using-secure-tunnel.yml</code></li>
         <li>Run <code>apply</code> against <code>test</code> (through Chisel tunnel)</li>
         <li>After successful apply, integration tests run automatically in two phases (direct + via proxy — see <code>.deployer-using-secure-tunnel.yml</code> section)</li>
@@ -708,26 +740,28 @@ on:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>apim-key-rotation.yml (Scheduled + Manual)</h2>
+<h2>APIM Key Rotation</h2>
 
-<p>Rotates APIM subscription keys using OIDC-authenticated Azure CLI execution.</p>
+<p>APIM subscription key rotation is now handled by a <strong>Container App Job</strong> (scheduled) deployed as a custom container. The job source is at <code>jobs/apim-key-rotation/</code> and the Terraform module at <code>infra-ai-hub/modules/key-rotation-function/</code>.</p>
 
 <div class="grid grid-2">
     <div class="card">
-        <h3>Manual Mode</h3>
+        <h3>.builds.yml (Matrix Entry)</h3>
+        <p>The key rotation container image is built by the shared <code>.builds.yml</code> reusable workflow as a matrix entry alongside other containers (chisel, privoxy).</p>
         <ul>
-            <li>Trigger with <code>workflow_dispatch</code></li>
-            <li>Select environment: <code>dev</code>, <code>test</code>, <code>prod</code></li>
-            <li>Optional <code>dry_run=true</code> for safe preview</li>
+            <li>Called by <code>pr-open.yml</code> on PR open/update</li>
+            <li>Triggers on changes to <code>jobs/apim-key-rotation/</code> or the workflow itself</li>
+            <li>Uses <code>bcgov/action-builder-ghcr</code> for image build and push</li>
+            <li>Tagged with PR number, run number, and <code>latest</code></li>
         </ul>
     </div>
-    <div class="card card-gold">
-        <h3>Scheduled Mode</h3>
+    <div class="card">
+        <h3>Semver Image Tagging</h3>
+        <p>On merge to main, <code>merge-main.yml</code> re-tags the <code>:latest</code> image with the semver version (e.g. <code>:v1.2.3</code>). This ensures prod deployments use an immutable, version-pinned image rather than the mutable <code>:latest</code> tag.</p>
         <ul>
-            <li>Runs daily at <code>0 9 * * *</code> UTC (1–2 AM Pacific, depending on DST)</li>
-            <li><code>rotate-dev</code> and <code>rotate-test</code> run <strong>concurrently</strong> (no dependency between them)</li>
-            <li><code>rotate-prod</code> has <code>needs: [rotate-test]</code> — waits for test to succeed first</li>
-            <li>A <code>notify</code> job (<code>if: always()</code>) prints a per-environment result summary</li>
+            <li>Dev/test use <code>:latest</code> (with a <code>FORCE_IMAGE_PULL</code> env var to trigger re-pull each Terraform apply)</li>
+            <li>Prod uses the semver tag (e.g. <code>:v1.2.3</code>) — immutable and traceable</li>
+            <li>Terraform <code>container_image_tag_job_key_rotation</code> variable controls which tag is deployed</li>
         </ul>
     </div>
 </div>

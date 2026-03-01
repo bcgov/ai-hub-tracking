@@ -41,7 +41,7 @@ venv/
 .coverage
 htmlcov/
 
-# Azure Functions
+# Local settings
 local.settings.json
 
 # Editor

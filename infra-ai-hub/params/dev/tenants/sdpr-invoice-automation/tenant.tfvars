@@ -15,7 +15,7 @@ tenant = {
   }
 
   key_vault = {
-    enabled                    = false
+    enabled                    = true
     sku                        = "standard"
     purge_protection_enabled   = true
     soft_delete_retention_days = 30 # Shorter retention for test
@@ -212,8 +212,8 @@ tenant = {
 
   # APIM Authentication
   apim_auth = {
-    mode              = "subscription_key"
-    store_in_keyvault = false
+    mode                 = "subscription_key"
+    key_rotation_enabled = true # Per-tenant opt-in for APIM key rotation
   }
 
   # Tenant user management (applies across environments)

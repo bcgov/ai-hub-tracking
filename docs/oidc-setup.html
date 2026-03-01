@@ -1079,7 +1079,7 @@
         <!-- Breadcrumb: injected by search.js when arriving from a search result -->
         <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
 
-<h1>OIDC Setup Guide</h1>
+<h1 id="oidc-setup-guide">OIDC Setup Guide</h1>
 
 <p>This guide explains how to configure OpenID Connect (OIDC) authentication between GitHub Actions and Azure, enabling passwordless deployments.</p>
 
@@ -1092,10 +1092,10 @@
     </div>
 </div>
 
-<h2>How It Works</h2>
+<h2 id="how-it-works">How It Works</h2>
 
 <div class="card">
-    <h3>Trust Chain</h3>
+    <h3 id="trust-chain">Trust Chain</h3>
     <ol>
         <li><strong>GitHub signs tokens</strong> with its private key for each workflow run</li>
         <li><strong>Azure validates</strong> the token signature using GitHub's public key</li>
@@ -1104,7 +1104,7 @@
     </ol>
 </div>
 
-<h2>Prerequisites</h2>
+<h2 id="prerequisites">Prerequisites</h2>
 
 <ul>
     <li>Azure CLI installed and logged in (<code>az login</code>)</li>
@@ -1113,11 +1113,11 @@
     <li>Owner access to Azure security group</li>
 </ul>
 
-<h2>Setup Script: initial-azure-setup.sh</h2>
+<h2 id="setup-script-initial-azure-setupsh">Setup Script: initial-azure-setup.sh</h2>
 
 <p>This script configures everything needed for OIDC authentication. Run it once per environment.</p>
 
-<h3>Usage</h3>
+<h3 id="usage">Usage</h3>
 
 <pre>./initial-setup/initial-azure-setup.sh \
     -g "RESOURCE-GROUP-NAME" \
@@ -1128,7 +1128,7 @@
     --create-storage \
     --create-github-secrets</pre>
 
-<h3>Parameters</h3>
+<h3 id="parameters">Parameters</h3>
 
 <table>
     <thead>
@@ -1177,28 +1177,28 @@
     </tbody>
 </table>
 
-<h3>What Gets Created</h3>
+<h3 id="what-gets-created">What Gets Created</h3>
 
 <div class="grid grid-3">
     <div class="card">
-        <h3>Managed Identity</h3>
+        <h3 id="managed-identity">Managed Identity</h3>
         <p>Azure service account for your pipeline to authenticate as.</p>
     </div>
     <div class="card">
-        <h3>Federated Credential</h3>
+        <h3 id="federated-credential">Federated Credential</h3>
         <p>Trust link between your GitHub repo/environment and the Azure identity.</p>
     </div>
     <div class="card">
-        <h3>Storage Account</h3>
+        <h3 id="storage-account">Storage Account</h3>
         <p>For Terraform state files (with <code>--create-storage</code>).</p>
     </div>
 </div>
 
-<h2>Environment Examples</h2>
+<h2 id="environment-examples">Environment Examples</h2>
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #22d3ee;">
-        <h3 style="color: #0891b2;">Dev Environment</h3>
+        <h3 id="dev-environment" style="color: #0891b2;">Dev Environment</h3>
         <pre>./initial-azure-setup.sh \
     -g "ABCD-dev-networking" \
     -n "myapp-dev-identity" \
@@ -1214,7 +1214,7 @@
         </ul>
     </div>
     <div class="card" style="border-left-color: #f87171;">
-        <h3 style="color: #dc2626;">Prod Environment</h3>
+        <h3 id="prod-environment" style="color: #dc2626;">Prod Environment</h3>
         <pre>./initial-azure-setup.sh \
     -g "ABCD-prod-networking" \
     -n "myapp-prod-identity" \
@@ -1235,7 +1235,7 @@
     <strong>Important:</strong> Dev and Prod are completely isolated &mdash; different subscriptions, different identities, different permissions. A dev pipeline cannot access prod resources.
 </div>
 
-<h2>Token Lifecycle</h2>
+<h2 id="token-lifecycle">Token Lifecycle</h2>
 
 <table>
     <thead>
@@ -1259,10 +1259,10 @@
     </tbody>
 </table>
 
-<h2>Troubleshooting</h2>
+<h2 id="troubleshooting">Troubleshooting</h2>
 
 <div class="card card-gold">
-    <h3>Common Issues</h3>
+    <h3 id="common-issues">Common Issues</h3>
     <table>
         <thead>
             <tr>
@@ -1291,7 +1291,7 @@
     </table>
 </div>
 
-<h2>Full Architecture Diagram</h2>
+<h2 id="full-architecture-diagram">Full Architecture Diagram</h2>
 
 <div class="img-container">
     <a href="assets/azure-oidc-complete-guide.svg" target="_blank">

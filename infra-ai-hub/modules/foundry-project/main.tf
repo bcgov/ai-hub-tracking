@@ -110,30 +110,9 @@ resource "azurerm_role_assignment" "project_to_docint" {
 # =============================================================================
 
 # Connection to Key Vault
-resource "azapi_resource" "connection_keyvault" {
-  count = var.key_vault.enabled && var.project_connections.key_vault ? 1 : 0
-
-  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
-  name      = "keyvault-${local.name_prefix}"
-  parent_id = azapi_resource.project.id
-
-  body = {
-    properties = {
-      authType      = "AAD"
-      category      = "AzureKeyVault"
-      target        = var.key_vault.resource_id
-      isSharedToAll = false
-      metadata = {
-        ApiType    = "Azure"
-        ApiVersion = "7.4"
-      }
-    }
-  }
-
-  schema_validation_enabled = false
-
-  depends_on = [azurerm_role_assignment.project_to_keyvault]
-}
+# NOTE: Azure Key Vault connections can only be created at the workspace hub
+# level, not in project workspaces. Projects inherit the hub's KV connections.
+# The project_to_keyvault RBAC assignment above still grants direct access.
 
 # Connection to Storage Account
 resource "azapi_resource" "connection_storage" {
@@ -160,7 +139,6 @@ resource "azapi_resource" "connection_storage" {
 
   depends_on = [
     azurerm_role_assignment.project_to_storage,
-    azapi_resource.connection_keyvault # Serialize connection operations
   ]
 }
 

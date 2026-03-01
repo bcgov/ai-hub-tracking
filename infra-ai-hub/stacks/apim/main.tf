@@ -746,7 +746,7 @@ resource "azurerm_api_management_subscription" "tenant" {
 }
 
 resource "azurerm_key_vault_secret" "apim_subscription_primary_key" {
-  for_each = local.tenants_storing_keys_in_kv
+  for_each = local.tenants_with_kv_secrets
 
   name            = "${each.key}-apim-primary-key"
   value           = azurerm_api_management_subscription.tenant["${each.key}-subscription"].primary_key
@@ -759,7 +759,7 @@ resource "azurerm_key_vault_secret" "apim_subscription_primary_key" {
 }
 
 resource "azurerm_key_vault_secret" "apim_subscription_secondary_key" {
-  for_each = local.tenants_storing_keys_in_kv
+  for_each = local.tenants_with_kv_secrets
 
   name            = "${each.key}-apim-secondary-key"
   value           = azurerm_api_management_subscription.tenant["${each.key}-subscription"].secondary_key

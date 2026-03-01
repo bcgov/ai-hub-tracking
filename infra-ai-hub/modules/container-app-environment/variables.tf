@@ -58,9 +58,3 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
-
-variable "enable_telemetry" {
-  description = "Enable AVM telemetry"
-  type        = bool
-  default     = false
-}

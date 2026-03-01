@@ -124,7 +124,7 @@
   <!-- ═══════════════════════════════════════════════════════════ -->
   <rect x="40" y="295" width="650" height="295" rx="12" fill="#002244" stroke="#fcba19" stroke-width="2"/>
   <rect x="40" y="295" width="650" height="32" rx="12" fill="#1a5a96"/>
-  <text x="365" y="316" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="white" font-weight="bold">rotate-apim-keys.sh — Rotation Engine (704 lines)</text>
+  <text x="365" y="316" text-anchor="middle" font-family="Arial, sans-serif" font-size="13" fill="white" font-weight="bold">Container App Job — Rotation Engine (Cron Schedule)</text>
 
   <!-- Step boxes inside script detail -->
   <!-- Step 1: Read Config -->
@@ -203,10 +203,10 @@
 
   <!-- Script features -->
   <g font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">
-    <text x="60" y="520">Features: <tspan fill="#fcba19">--dry-run</tspan> mode • <tspan fill="#fcba19">--verbose</tspan> logging • <tspan fill="#22c55e">per-tenant</tspan> rotation • <tspan fill="#60a5fa">OIDC</tspan> auth • <tspan fill="#ef4444">error rollback</tspan></text>
-    <text x="60" y="540">Config:   <tspan fill="white">params/apim/&lt;env&gt;/tenants/*.json</tspan> — subscription names, scopes, rotation intervals</text>
+    <text x="60" y="520">Features: <tspan fill="#fcba19">--dry-run</tspan> mode • <tspan fill="#fcba19">verbose</tspan> logging • <tspan fill="#22c55e">per-tenant</tspan> rotation • <tspan fill="#60a5fa">Managed Identity</tspan> auth • <tspan fill="#ef4444">error handling</tspan></text>
+    <text x="60" y="540">Config:   <tspan fill="white">Environment variables via Terraform</tspan> — APIM name, hub KV, rotation interval</text>
     <text x="60" y="560">Pattern:  <tspan fill="#fcba19">Alternating Slot</tspan> — never both keys regenerated at once, zero-downtime rotation</text>
-    <text x="60" y="578">Source:   <tspan fill="white">infra-ai-hub/scripts/rotate-apim-keys.sh</tspan> (704 lines)</text>
+    <text x="60" y="578">Source:   <tspan fill="white">jobs/apim-key-rotation/</tspan> (Python Container App Job)</text>
   </g>
 
   <!-- ═══════════════════════════════════════════════════════════ -->
@@ -312,10 +312,10 @@
   <!-- GHA Workflow -->
   <g filter="url(#shadow)">
     <rect x="1130" y="660" width="200" height="100" rx="8" fill="#1e3a5f" stroke="#a78bfa" stroke-width="2"/>
-    <text x="1230" y="685" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#a78bfa" font-weight="bold">GHA Workflow</text>
-    <text x="1230" y="705" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">apim-key-rotation.yml</text>
-    <text x="1230" y="725" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">OIDC auth per env</text>
-    <text x="1230" y="743" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a78bfa">env protection rules</text>
+    <text x="1230" y="685" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#a78bfa" font-weight="bold">Container App Job</text>
+    <text x="1230" y="705" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">Cron schedule (NCRONTAB)</text>
+    <text x="1230" y="725" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">Managed Identity auth</text>
+    <text x="1230" y="743" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="#a78bfa">Container App Environment</text>
   </g>
 
   <!-- STRA callout -->

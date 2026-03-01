@@ -2,6 +2,11 @@ output "apim_gateway_url" {
   value = local.apim_config.enabled ? module.apim[0].gateway_url : null
 }
 
+output "apim_id" {
+  description = "APIM resource ID (consumed by key-rotation stack for RBAC)"
+  value       = local.apim_config.enabled ? module.apim[0].id : null
+}
+
 output "apim_name" {
   value = local.apim_config.enabled ? module.apim[0].name : null
 }
@@ -11,11 +16,17 @@ output "apim_key_rotation_summary" {
     globally_enabled       = local.key_rotation_config.rotation_enabled
     rotation_interval_days = local.key_rotation_config.rotation_interval_days
     eligible_tenants       = keys(local.tenants_with_key_rotation)
+    kv_secret_tenants      = keys(local.tenants_with_kv_secrets)
     pattern                = "alternating primary/secondary"
     hub_keyvault_name      = local.hub_keyvault_name
     hub_keyvault_uri       = local.hub_keyvault_uri
     internal_endpoint      = local.key_rotation_config.rotation_enabled ? "GET /{tenant}/internal/apim-keys" : null
   }
+}
+
+output "rotation_enabled_tenants" {
+  description = "Comma-separated list of tenant names with key rotation enabled (per-tenant opt-in)"
+  value       = join(",", sort(keys(local.tenants_with_key_rotation)))
 }
 
 output "apim_tenant_subscriptions" {

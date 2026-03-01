@@ -72,6 +72,7 @@ output "aca_nsg_id" {
   value       = var.aca_subnet.enabled ? azurerm_network_security_group.aca[0].id : null
 }
 
+
 # -----------------------------------------------------------------------------
 # VNet Information
 # -----------------------------------------------------------------------------

@@ -1079,7 +1079,7 @@
         <!-- Breadcrumb: injected by search.js when arriving from a search result -->
         <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
 
-<h1>Document Intelligence Guide</h1>
+<h1 id="document-intelligence-guide">Document Intelligence Guide</h1>
 
 <p>This guide covers integration patterns and SDK configuration for Azure Document Intelligence through the APIM gateway.</p>
 
@@ -1093,9 +1093,9 @@
     </div>
 </div>
 
-<h2>API Key Header Configuration</h2>
+<h2 id="api-key-header-configuration">API Key Header Configuration</h2>
 
-<h3>Why <code>api-key</code>?</h3>
+<h3 id="why-api-key">Why <code>api-key</code>?</h3>
 
 <p>APIM is used as a unified gateway for multiple Azure AI services (OpenAI, Document Intelligence, AI Search, Storage). Azure's API Management can only be configured with a single subscription key header name across all APIs.</p>
 
@@ -1131,9 +1131,9 @@
     </table>
 </div>
 
-<h2>SDK Configuration Examples</h2>
+<h2 id="sdk-configuration-examples">SDK Configuration Examples</h2>
 
-<h3>JavaScript/TypeScript (<code>@azure-rest/ai-document-intelligence</code>)</h3>
+<h3 id="javascripttypescript-azure-restai-document-intelligence">JavaScript/TypeScript (<code>@azure-rest/ai-document-intelligence</code>)</h3>
 
 <p>When using the <code>@azure-rest/ai-document-intelligence</code> npm package, configure the client to use <code>api-key</code> header:</p>
 
@@ -1169,7 +1169,7 @@ const result = await client.path("/documentModels/{modelId}:analyze", "prebuilt-
     </div>
 </div>
 
-<h3>Python (<code>azure-ai-documentintelligence</code>)</h3>
+<h3 id="python-azure-ai-documentintelligence">Python (<code>azure-ai-documentintelligence</code>)</h3>
 
 <pre><code>from azure.ai.documentintelligence import DocumentIntelligenceClient
 from azure.core.credentials import AzureKeyCredential
@@ -1203,7 +1203,7 @@ client = DocumentIntelligenceClient(
     </div>
 </div>
 
-<h3>.NET (<code>Azure.AI.DocumentIntelligence</code>)</h3>
+<h3 id="net-azureaidocumentintelligence">.NET (<code>Azure.AI.DocumentIntelligence</code>)</h3>
 
 <pre><code>using Azure;
 using Azure.AI.DocumentIntelligence;
@@ -1242,7 +1242,7 @@ public class AddHeaderPolicy : HttpPipelineSynchronousPolicy
 }
 </code></pre>
 
-<h3>Direct REST API (curl)</h3>
+<h3 id="direct-rest-api-curl">Direct REST API (curl)</h3>
 
 <p>If SDK configuration is complex or unavailable, use direct REST API calls:</p>
 
@@ -1262,12 +1262,12 @@ curl -X POST "https://apim-gateway.azure-api.net/tenant/documentintelligence/doc
   }'
 </code></pre>
 
-<h2>Async Operations & Polling</h2>
+<h2 id="async-operations-polling">Async Operations & Polling</h2>
 
 <p>Document Intelligence async operations (document analysis, model training) return a <code>202 Accepted</code> response with an <code>Operation-Location</code> header for status polling.</p>
 
 <div class="card card-gold">
-    <h3 style="margin-top: 0;">Automatic Header Rewrite</h3>
+    <h3 id="automatic-header-rewrite" style="margin-top: 0;">Automatic Header Rewrite</h3>
     <p>APIM automatically rewrites the <code>Operation-Location</code> header to point back through the APIM gateway instead of directly to the Document Intelligence backend.</p>
 
     <p><strong>Example transformation:</strong></p>
@@ -1287,7 +1287,7 @@ APIM rewrites to:
     </ul>
 </div>
 
-<h2>Troubleshooting</h2>
+<h2 id="troubleshooting">Troubleshooting</h2>
 
 <table>
     <thead>
@@ -1321,7 +1321,7 @@ APIM rewrites to:
     </tbody>
 </table>
 
-<h2>Additional Resources</h2>
+<h2 id="additional-resources">Additional Resources</h2>
 
 <ul>
     <li><a href="https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/">Azure Document Intelligence Documentation</a></li>

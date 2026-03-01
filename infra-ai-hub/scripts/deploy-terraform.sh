@@ -101,7 +101,7 @@ Usage: $0 <command> <environment> [options]
 
 Commands:
     plan        Create execution plans for all stacks
-    apply       Apply changes across all stacks (shared -> tenant -> foundry -> apim -> tenant-user-mgmt)
+    apply       Apply changes across all stacks (shared -> tenant -> foundry + apim + tenant-user-mgmt -> key-rotation)
     destroy     Destroy infrastructure in reverse dependency order
     validate    Validate all stack roots
     fmt         Format Terraform files
@@ -364,7 +364,7 @@ tf_fmt() {
 # =============================================================================
 # Scaled Stack Operations
 # All apply/plan/destroy/validate operations delegate to deploy-scaled.sh
-# which manages isolated stack roots (shared, tenant, foundry, apim, tenant-user-mgmt).
+# which manages isolated stack roots (shared, tenant, foundry, apim, key-rotation, tenant-user-mgmt).
 # =============================================================================
 
 tf_destroy() {
@@ -390,6 +390,7 @@ stack_state_key() {
         foundry) echo "ai-services-hub/${ENVIRONMENT}/foundry.tfstate" ;;
         apim) echo "ai-services-hub/${ENVIRONMENT}/apim.tfstate" ;;
         tenant-user-mgmt) echo "ai-services-hub/${ENVIRONMENT}/tenant-user-management.tfstate" ;;
+        key-rotation) echo "ai-services-hub/${ENVIRONMENT}/key-rotation.tfstate" ;;
         *) echo "" ;;
     esac
 }

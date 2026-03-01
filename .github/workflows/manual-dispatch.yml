@@ -64,6 +64,30 @@ jobs:
             exit 1
           fi
 
+      - name: Verify container images exist for prod
+        if: inputs.environment == 'prod' && inputs.command == 'apply'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          TAG="${{ inputs.deploy_tag }}"
+          REPO="${{ github.repository }}"
+          missing=()
+          for pkg in "azure-proxy/chisel" "azure-proxy/privoxy" "jobs/apim-key-rotation"; do
+            # GHCR package name uses the repo path
+            IMAGE="ghcr.io/${REPO}/${pkg}:${TAG}"
+            echo "Checking ${IMAGE} ..."
+            if ! docker pull "${IMAGE}" >/dev/null 2>&1; then
+              missing+=("${pkg}:${TAG}")
+            fi
+          done
+          if [[ ${#missing[@]} -gt 0 ]]; then
+            echo "::error::Missing container images for tag ${TAG}: ${missing[*]}"
+            echo "Ensure merge-main.yml completed successfully for this tag."
+            exit 1
+          fi
+          echo "All container images verified for ${TAG}"
+
   deploy-proxy-in-tools-environment:
     name: Deploy to 'tools' Environment
     needs: validate-inputs
@@ -84,7 +108,8 @@ jobs:
       command: ${{ inputs.command }}
       proxy_url: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_url }}
       proxy_auth: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_auth }}
-      tag: latest
+      # Prod uses the semver-tagged image; dev/test use latest
+      tag: ${{ inputs.environment == 'prod' && inputs.deploy_tag != '' && inputs.deploy_tag || 'latest' }}
       terraform_log_level: ${{ inputs.terraform_log_level }}
     secrets: inherit
 

@@ -26,6 +26,21 @@ output "appgw_subnet_id" {
   value = module.network.appgw_subnet_id
 }
 
+output "aca_subnet_id" {
+  description = "ACA subnet ID for Container App Environment"
+  value       = module.network.aca_subnet_id
+}
+
+output "container_app_environment_id" {
+  description = "Container App Environment resource ID (null if not enabled)"
+  value       = length(module.container_app_environment) > 0 ? module.container_app_environment[0].resource_id : null
+}
+
+output "container_app_environment_name" {
+  description = "Container App Environment name (null if not enabled)"
+  value       = length(module.container_app_environment) > 0 ? module.container_app_environment[0].name : null
+}
+
 output "ai_foundry_hub_id" {
   value = module.ai_foundry_hub.id
 }

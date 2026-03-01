@@ -47,7 +47,6 @@ output "complete" {
 
   depends_on = [
     azapi_resource.project,
-    azapi_resource.connection_keyvault,
     azapi_resource.connection_storage,
     azapi_resource.connection_ai_search,
     azapi_resource.connection_cosmos,

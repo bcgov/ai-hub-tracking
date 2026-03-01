@@ -40,6 +40,7 @@ variable "key_vault" {
   type = object({
     enabled     = bool
     resource_id = optional(string)
+    vault_uri   = optional(string)
   })
   default = {
     enabled = false

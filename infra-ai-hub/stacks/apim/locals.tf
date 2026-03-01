@@ -19,19 +19,21 @@ locals {
 
   tenants_with_key_rotation = {
     for key, config in local.tenants_with_subscription_key : key => config
-    if local.key_rotation_config.rotation_enabled && local.apim_config.enabled
+    if local.key_rotation_config.rotation_enabled && local.apim_config.enabled && try(config.apim_auth.key_rotation_enabled, false)
   }
 
-  tenants_storing_keys_in_kv = {
+  # All subscription-key tenants get their keys stored in the hub Key Vault
+  # (decoupled from rotation — every tenant's keys are always available in KV)
+  tenants_with_kv_secrets = {
     for key, config in local.tenants_with_subscription_key : key => config
-    if local.apim_config.enabled && local.key_rotation_config.rotation_enabled
+    if local.apim_config.enabled
   }
 
-  hub_keyvault_uri = local.key_rotation_config.rotation_enabled && local.apim_config.enabled ? (
+  hub_keyvault_uri = local.apim_config.enabled ? (
     try(data.terraform_remote_state.shared.outputs.hub_key_vault_uri, "")
   ) : ""
 
-  hub_keyvault_name = local.key_rotation_config.rotation_enabled && local.apim_config.enabled ? (
+  hub_keyvault_name = local.apim_config.enabled ? (
     try(data.terraform_remote_state.shared.outputs.hub_key_vault_name, "")
   ) : ""
 
@@ -106,7 +108,7 @@ locals {
         pii_structural_whitelist       = try(config.apim_policies.pii_redaction.structural_whitelist, [])
         pii_detection_language         = try(config.apim_policies.pii_redaction.detection_language, "en")
         pii_fail_closed                = try(config.apim_policies.pii_redaction.fail_closed, false)
-        key_rotation_enabled           = local.key_rotation_config.rotation_enabled
+        key_rotation_enabled           = local.key_rotation_config.rotation_enabled && try(config.apim_auth.key_rotation_enabled, false)
         keyvault_uri                   = local.hub_keyvault_uri
         tenant_info_enabled            = true
         base_url                       = local.tenant_info_base_url

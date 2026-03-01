@@ -125,8 +125,11 @@ ai-hub-tracking/
 │   │   ├── apim/                       # API Management gateway and policies
 │   │   └── tenant-user-mgmt/          # Entra ID user/group assignments
 │   │
-│   └── functions/                      # Azure Functions source code
-│       └── key-rotation/               # APIM subscription key rotation function
+│   └── modules/key-rotation-function/  # Terraform module for the key rotation Container App Job
+│
+├── jobs/                               # Container App Jobs
+│   └── apim-key-rotation/             # APIM subscription key rotation (Python, custom container)
+│       └── Dockerfile                 # Multi-stage build (uv + python:3.13-slim)
 │
 ├── tests/                              # Integration test suite
 │   └── integration/                    # BATS-based integration tests
@@ -186,10 +189,9 @@ ai-hub-tracking/
 │   ├── workflows/                      # CI/CD automation
 │   │   ├── .deployer.yml               # Reusable Terraform deployment workflow
 │   │   ├── .deployer-using-secure-tunnel.yml # Deployment via Chisel tunnel
-│   │   ├── .builds.yml                 # Reusable build workflow
+│   │   ├── .builds.yml                 # Reusable build workflow (chisel, privoxy, key-rotation)
 │   │   ├── .lint.yml                   # Reusable Terraform lint workflow (pre-commit)
 │   │   ├── add-or-remove-module.yml    # Toggle infrastructure modules
-│   │   ├── apim-key-rotation.yml       # APIM key rotation workflow (scheduled + manual)
 │   │   ├── merge-main.yml              # Auto-apply to test on merge to main (semantic version + changelog)
 │   │   ├── manual-dispatch.yml         # Manual deployment trigger
 │   │   ├── pages.yml                   # Documentation deployment to GitHub Pages
@@ -204,6 +206,9 @@ ai-hub-tracking/
 │   │   ├── iac-coder/                  # Infrastructure as Code authoring skills
 │   │   ├── iac-code-reviewer/          # IaC code review skills
 │   │   ├── api-management/             # APIM policy and routing skills
+│   │   ├── key-rotation-function/      # Key rotation Container App Job skills
+│   │   ├── integration-testing/        # BATS integration testing skills
+│   │   ├── network/                    # Network module and subnet skills
 │   │   └── documentation/              # Documentation authoring skills
 │   │
 │   └── appmod/                         # Application modernization configs
@@ -249,12 +254,15 @@ Multi-tenant AI Services Hub infrastructure. Manages APIM gateway, AI Foundry, p
 ### `tests/`
 BATS-based integration test suite for validating deployed infrastructure. Tests cover chat completions, document intelligence, PII redaction (fail-closed/fail-open), tenant isolation, binary uploads, and user management.
 
+### `jobs/`
+Container App Jobs source code. Contains the APIM key rotation job (`apim-key-rotation/`), a Python-based cron job that automatically rotates APIM subscription keys using an alternating primary/secondary pattern. Deployed as a custom container from GHCR via `.builds.yml`, with the Terraform module at `infra-ai-hub/modules/key-rotation-function/` and stack at `infra-ai-hub/stacks/key-rotation/`.
+
 ### `.github/`
 GitHub Actions automation, contribution guidelines, and Copilot skill profiles.
 
 - **workflows/**: CI/CD pipelines including reusable deployers, PR validation, scheduled tasks, and GitHub Pages publishing
 - **instructions/**: Coding guidelines for Copilot and code review standards
-- **skills/**: Specialized Copilot skill profiles for IaC authoring, code review, APIM policy management, and documentation
+- **skills/**: Specialized Copilot skill profiles for IaC authoring, code review, APIM policy management, key rotation function, integration testing, network, and documentation
 
 ### `docs/`
 Static HTML documentation generated from templates and scripts.
