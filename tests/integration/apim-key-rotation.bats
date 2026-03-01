@@ -6,33 +6,10 @@
 load 'test-helper'
 
 setup_file() {
-    local env="${TEST_ENV:-test}"
-    local shared_tfvars="${BATS_TEST_DIRNAME}/../../infra-ai-hub/params/${env}/shared.tfvars"
-
-    APIM_KEY_ROTATION_ENABLED="true"
-    if [[ -f "${shared_tfvars}" ]]; then
-        local parsed
-        parsed=$(awk '
-            /^[[:space:]]*apim[[:space:]]*=[[:space:]]*\{/ { in_apim=1 }
-            in_apim && /^[[:space:]]*key_rotation[[:space:]]*=[[:space:]]*\{/ { in_key_rotation=1 }
-            in_apim && in_key_rotation && /^[[:space:]]*rotation_enabled[[:space:]]*=/ {
-                line=$0
-                sub(/#.*/, "", line)
-                gsub(/[[:space:]]/, "", line)
-                split(line, kv, "=")
-                print kv[2]
-                exit
-            }
-            in_key_rotation && /^[[:space:]]*\}/ { in_key_rotation=0 }
-            in_apim && !in_key_rotation && /^[[:space:]]*\}/ { in_apim=0 }
-        ' "${shared_tfvars}" | tr '[:upper:]' '[:lower:]')
-
-        if [[ "${parsed}" == "true" || "${parsed}" == "false" ]]; then
-            APIM_KEY_ROTATION_ENABLED="${parsed}"
-        fi
-    fi
-
-    export APIM_KEY_ROTATION_ENABLED
+    # No file-level setup needed — the /internal/apim-keys endpoint is
+    # available for ALL subscription-key tenants (decoupled from rotation).
+    # Per-test skips are handled by skip_if_no_tenant_key.
+    :
 }
 
 setup() {
@@ -49,11 +26,9 @@ tenant_2() {
 }
 
 # Helper: skip if tenant subscription key is not available
+# The /internal/apim-keys endpoint is available for ALL subscription-key tenants
+# (decoupled from per-tenant key_rotation_enabled since all keys are stored in KV)
 skip_if_no_tenant_key() {
-    if [[ "${APIM_KEY_ROTATION_ENABLED:-true}" != "true" ]]; then
-        skip "APIM key rotation is disabled in shared.tfvars for ${TEST_ENV:-test}"
-    fi
-
     local tenant="${1}"
     local key
     key=$(get_subscription_key "${tenant}" 2>/dev/null || echo "")
@@ -137,7 +112,7 @@ post_apim_keys() {
     [[ -n "${secondary_key}" ]] && [[ "${secondary_key}" != "null" ]]
 }
 
-@test "Tenant-1: apim-keys response contains rotation metadata" {
+@test "Tenant-1: apim-keys response contains rotation object" {
     local t1
     t1="$(tenant_1)"
     skip_if_no_tenant_key "${t1}"
@@ -147,14 +122,18 @@ post_apim_keys() {
 
     assert_status "200" "${RESPONSE_STATUS}"
 
-    # Rotation metadata should be a JSON object with expected fields
-    local last_rotated_slot
-    last_rotated_slot=$(json_get "${RESPONSE_BODY}" '.rotation.last_rotated_slot')
-    [[ -n "${last_rotated_slot}" ]] && [[ "${last_rotated_slot}" != "null" ]]
+    # The rotation field is always present as a JSON object.
+    # When key_rotation_enabled=true for the tenant: contains last_rotated_slot, safe_slot, etc.
+    # When key_rotation_enabled=false: contains key_rotation_enabled=false + message.
+    local rotation_raw
+    rotation_raw=$(json_get "${RESPONSE_BODY}" '.rotation')
+    [[ -n "${rotation_raw}" ]] && [[ "${rotation_raw}" != "null" ]]
 
-    local safe_slot
-    safe_slot=$(json_get "${RESPONSE_BODY}" '.rotation.safe_slot')
-    [[ -n "${safe_slot}" ]] && [[ "${safe_slot}" != "null" ]]
+    # Check for either rotation metadata fields or the disabled indicator
+    # Note: jq's // treats false as falsy, so we convert booleans to strings
+    local has_rotation_data
+    has_rotation_data=$(json_get "${RESPONSE_BODY}" '.rotation.last_rotated_slot // (.rotation.key_rotation_enabled | tostring) // empty')
+    [[ -n "${has_rotation_data}" ]]
 }
 
 @test "Tenant-1: apim-keys response contains keyvault info" {
@@ -225,7 +204,7 @@ post_apim_keys() {
     [[ -n "${secondary_key}" ]] && [[ "${secondary_key}" != "null" ]]
 }
 
-@test "Tenant-2: apim-keys response contains rotation metadata" {
+@test "Tenant-2: apim-keys response contains rotation object" {
     local t2
     t2="$(tenant_2)"
     skip_if_no_tenant_key "${t2}"
@@ -235,9 +214,10 @@ post_apim_keys() {
 
     assert_status "200" "${RESPONSE_STATUS}"
 
-    local last_rotated_slot
-    last_rotated_slot=$(json_get "${RESPONSE_BODY}" '.rotation.last_rotated_slot')
-    [[ -n "${last_rotated_slot}" ]] && [[ "${last_rotated_slot}" != "null" ]]
+    # Same check as Tenant-1: rotation object always present
+    local rotation_raw
+    rotation_raw=$(json_get "${RESPONSE_BODY}" '.rotation')
+    [[ -n "${rotation_raw}" ]] && [[ "${rotation_raw}" != "null" ]]
 }
 
 # =============================================================================
@@ -256,9 +236,6 @@ post_apim_keys() {
 }
 
 @test "Unauthenticated request to /internal/apim-keys returns 401 or 403" {
-    if [[ "${APIM_KEY_ROTATION_ENABLED:-true}" != "true" ]]; then
-        skip "APIM key rotation is disabled in shared.tfvars for ${TEST_ENV:-test}"
-    fi
 
     # Call without any subscription key — use first available tenant path
     # WAF returns 403 for unauthenticated requests to non-root paths;
