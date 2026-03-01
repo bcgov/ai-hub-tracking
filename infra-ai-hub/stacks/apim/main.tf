@@ -751,10 +751,11 @@ resource "azurerm_key_vault_secret" "apim_subscription_primary_key" {
   name            = "${each.key}-apim-primary-key"
   value           = azurerm_api_management_subscription.tenant["${each.key}-subscription"].primary_key
   key_vault_id    = data.terraform_remote_state.shared.outputs.hub_key_vault_id
+  content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "2160h")
 
   lifecycle {
-    ignore_changes = [value, tags, expiration_date]
+    ignore_changes = [value, tags, content_type, expiration_date]
   }
 }
 
@@ -764,10 +765,11 @@ resource "azurerm_key_vault_secret" "apim_subscription_secondary_key" {
   name            = "${each.key}-apim-secondary-key"
   value           = azurerm_api_management_subscription.tenant["${each.key}-subscription"].secondary_key
   key_vault_id    = data.terraform_remote_state.shared.outputs.hub_key_vault_id
+  content_type    = "text/plain"
   expiration_date = timeadd(timestamp(), "2160h")
 
   lifecycle {
-    ignore_changes = [value, tags, expiration_date]
+    ignore_changes = [value, tags, content_type, expiration_date]
   }
 }
 
