@@ -1079,7 +1079,7 @@
         <!-- Breadcrumb: injected by search.js when arriving from a search result -->
         <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
 
-<h1>Terraform Reference</h1>
+<h1 id="terraform-reference">Terraform Reference</h1>
 
 <div class="alert alert-info">
     <span class="alert-icon">🤖</span>
@@ -1094,13 +1094,13 @@
 <div class="grid grid-2" style="margin-bottom: 2rem;">
     <a href="#section-initial-setup" class="card-link">
         <div class="card" style="border-left-color: #8b5cf6;">
-            <h3 style="margin-top: 0;">Initial Setup</h3>
+            <h3 id="initial-setup" style="margin-top: 0;">Initial Setup</h3>
             <p>Network foundation: VNet, Bastion, Jumpbox, self-hosted runners.</p>
         </div>
     </a>
     <a href="#section-ai-hub" class="card-link">
         <div class="card" style="border-left-color: #22c55e;">
-            <h3 style="margin-top: 0;">AI Services Hub</h3>
+            <h3 id="ai-services-hub" style="margin-top: 0;">AI Services Hub</h3>
             <p>AI platform: APIM, AI Foundry, tenants, key rotation, WAF.</p>
         </div>
     </a>
@@ -2698,6 +2698,10 @@
 <tr>
 <td><code>apim_key_rotation_summary</code></td>
 <td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>rotation_enabled_tenants</code></td>
+<td>Comma-separated list of tenant names that have both the global rotation toggle and per-tenant <code>key_rotation_enabled</code> set to <code>true</code>. Consumed by the key-rotation stack to pass as <code>INCLUDED_TENANTS</code> env var.</td>
 </tr>
 <tr>
 <td><code>apim_tenant_subscriptions</code></td>
@@ -4806,7 +4810,7 @@
 </ul>
 </div>
 
-<h2>Adding New Modules</h2>
+<h2 id="adding-new-modules">Adding New Modules</h2>
 
 <p>When creating new Terraform modules, follow these conventions to ensure automatic documentation:</p>
 

@@ -45,7 +45,15 @@ data "terraform_remote_state" "apim" {
 # =============================================================================
 module "key_rotation" {
   source = "../../modules/key-rotation-function"
-  count  = local.key_rotation_config.rotation_enabled && local.apim_config.enabled && local.cae_config.enabled ? 1 : 0
+  # Deploy only when global rotation is on, APIM + CAE exist, AND at least one
+  # tenant has opted in.  Without the tenant guard an empty INCLUDED_TENANTS env
+  # var would cause the Python runner to process ALL discovered tenants.
+  count = (
+    local.key_rotation_config.rotation_enabled &&
+    local.apim_config.enabled &&
+    local.cae_config.enabled &&
+    local.rotation_enabled_tenants != ""
+  ) ? 1 : 0
 
   name_prefix         = "${var.app_name}-${var.app_env}"
   resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name

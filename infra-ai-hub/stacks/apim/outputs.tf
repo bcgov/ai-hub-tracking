@@ -16,6 +16,7 @@ output "apim_key_rotation_summary" {
     globally_enabled       = local.key_rotation_config.rotation_enabled
     rotation_interval_days = local.key_rotation_config.rotation_interval_days
     eligible_tenants       = keys(local.tenants_with_key_rotation)
+    kv_secret_tenants      = keys(local.tenants_with_kv_secrets)
     pattern                = "alternating primary/secondary"
     hub_keyvault_name      = local.hub_keyvault_name
     hub_keyvault_uri       = local.hub_keyvault_uri

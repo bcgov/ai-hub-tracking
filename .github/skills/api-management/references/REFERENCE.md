@@ -139,15 +139,15 @@ Default interval: 7 days (`ROTATION_INTERVAL_DAYS`).
 
 ### Hub Key Vault Secret Naming
 
-All secrets are centralized in a single hub Key Vault with tenant-prefixed names:
+All subscription-key tenants have their APIM keys stored in the centralized hub Key Vault on first deploy (seeded by Terraform). Rotation metadata secrets are only created for rotation-opted tenants.
 
-| Secret | Content |
-|---|---|
-| `{tenant}-apim-primary-key` | Current primary subscription key |
-| `{tenant}-apim-secondary-key` | Current secondary subscription key |
-| `{tenant}-apim-rotation-metadata` | JSON metadata (see below) |
+| Secret | Scope | Content |
+|---|---|---|
+| `{tenant}-apim-primary-key` | All subscription-key tenants | Current primary subscription key |
+| `{tenant}-apim-secondary-key` | All subscription-key tenants | Current secondary subscription key |
+| `{tenant}-apim-rotation-metadata` | Rotation-opted tenants only | JSON metadata (see below) |
 
-All secrets have a **90-day expiry** to satisfy Landing Zone policy.
+All secrets have a **90-day expiry** to satisfy Landing Zone policy. Terraform uses `lifecycle { ignore_changes = [value] }` so existing secrets are never overwritten.
 
 ### Rotation Metadata Schema
 

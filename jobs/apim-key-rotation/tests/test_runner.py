@@ -139,8 +139,8 @@ class TestIncludedTenantsFilter:
 
     @patch("rotation.runner.kv_ops")
     @patch("rotation.runner.apim_ops")
-    def test_empty_included_tenants_rotates_all(self, mock_apim: MagicMock, mock_kv: MagicMock) -> None:
-        """When INCLUDED_TENANTS is empty, all discovered tenants are processed."""
+    def test_empty_included_tenants_rotates_none(self, mock_apim: MagicMock, mock_kv: MagicMock) -> None:
+        """When INCLUDED_TENANTS is empty, NO tenants are processed (safe default)."""
         mock_apim.verify_apim_exists.return_value = True
         mock_kv.verify_keyvault_exists.return_value = True
         mock_apim.discover_tenant_subscriptions.return_value = [
@@ -150,7 +150,7 @@ class TestIncludedTenantsFilter:
         mock_kv.get_rotation_metadata.return_value = RotationMetadata()
 
         summary = run_rotation(self._make_settings(included_tenants=""))
-        assert summary.total == 2
+        assert summary.total == 0
 
     @patch("rotation.runner.kv_ops")
     @patch("rotation.runner.apim_ops")

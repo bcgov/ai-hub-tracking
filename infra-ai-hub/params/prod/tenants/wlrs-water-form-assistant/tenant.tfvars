@@ -184,7 +184,6 @@ tenant = {
   # APIM Authentication
   apim_auth = {
     mode                 = "subscription_key"
-    store_in_keyvault    = false
     key_rotation_enabled = false # Per-tenant opt-in for APIM key rotation
   }
 

@@ -219,19 +219,28 @@ def run_rotation(settings: Settings) -> RotationSummary:
         return summary
 
     # Filter to included tenants (per-tenant opt-in via INCLUDED_TENANTS env var)
-    if settings.included_tenants:
-        allowed = {t.strip() for t in settings.included_tenants.split(",") if t.strip()}
-        before_count = len(tenants)
-        tenants = [t for t in tenants if t.tenant_name in allowed]
-        logger.info(
-            "Filtered tenants: %d discovered, %d included (%s)",
-            before_count,
-            len(tenants),
-            ", ".join(sorted(allowed)),
-        )
-        if not tenants:
-            logger.info("No tenants remaining after INCLUDED_TENANTS filter. Nothing to do.")
-            return summary
+    # Safety: empty INCLUDED_TENANTS means NO tenants (not "all").
+    # This prevents accidental rotation of all tenants when no one has opted in.
+    if not settings.included_tenants:
+        logger.info("INCLUDED_TENANTS is empty — no tenants opted in. Nothing to do.")
+        return summary
+
+    allowed = {t.strip() for t in settings.included_tenants.split(",") if t.strip()}
+    if not allowed:
+        logger.info("INCLUDED_TENANTS parsed to empty set — no tenants opted in. Nothing to do.")
+        return summary
+
+    before_count = len(tenants)
+    tenants = [t for t in tenants if t.tenant_name in allowed]
+    logger.info(
+        "Filtered tenants: %d discovered, %d included (%s)",
+        before_count,
+        len(tenants),
+        ", ".join(sorted(allowed)),
+    )
+    if not tenants:
+        logger.info("No tenants remaining after INCLUDED_TENANTS filter. Nothing to do.")
+        return summary
 
     # Rotate each tenant
     for tenant in tenants:

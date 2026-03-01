@@ -64,7 +64,8 @@ Cron trigger fires → Container App Job starts → main.py
        ├── Guard: APIM instance exists?
        ├── Guard: Hub Key Vault reachable?
        ├── Discover tenant subscriptions (APIM SDK)
-       └── For each tenant:
+       ├── Filter to included tenants (INCLUDED_TENANTS whitelist)
+       └── For each included tenant:
             1. Read rotation metadata from KV
             2. Check interval (skip if not due)
             3. Determine target slot (alternating primary/secondary)
@@ -78,6 +79,8 @@ Cron trigger fires → Container App Job starts → main.py
 - **Zero-secret operation**: Uses `DefaultAzureCredential` (Managed Identity in Azure, `az login` locally)
 - **Alternating slots**: Secondary first, then primary, so one key is always valid (zero downtime)
 - **Idempotent**: Cron fires daily but only rotates when `rotation_interval_days` has elapsed
+- **Per-tenant opt-in**: Two-level toggle — global `rotation_enabled` AND per-tenant `key_rotation_enabled` in `apim_auth` must both be `true`. Tenants not opted in are excluded from rotation and from the APIM `/apim-keys` internal endpoint.
+- **Safe empty whitelist**: Empty `INCLUDED_TENANTS` means **no tenants** (not all). The Container App Job is only deployed when at least one tenant is opted in.
 - **Dry-run mode**: Set `DRY_RUN=true` to see what would happen without making changes
 - **Naming convention**: Derived defaults (`{app_name}-{environment}-apim`, etc.) unless overridden
 - **Pay-per-execution**: Container App Job with Consumption workload profile — no idle cost
@@ -95,7 +98,7 @@ Cron trigger fires → Container App Job starts → main.py
 | `ROTATION_ENABLED` | No | `true` | Master toggle |
 | `ROTATION_INTERVAL_DAYS` | No | `7` | Days between rotations (1–89) |
 | `DRY_RUN` | No | `false` | Preview without changes |
-| `INCLUDED_TENANTS` | No | `""` | Comma-separated tenant names (empty = all) |
+| `INCLUDED_TENANTS` | No | `""` | Comma-separated tenant names (empty = none — safe default) |
 | `SECRET_EXPIRY_DAYS` | No | `90` | KV secret expiry (max 90 for LZ policy) |
 
 ## Change Checklist
@@ -110,7 +113,7 @@ Cron trigger fires → Container App Job starts → main.py
 2. **Tests pass**: `pytest` succeeds
 3. **Docker builds**: Image builds without errors
 4. **Settings schema**: All new env vars added to `config.py` Settings class + `.env.example`
-5. **Feature flag**: Job gated behind `rotation_enabled && cae_config.enabled` in `stacks/key-rotation/main.tf`
+5. **Feature flag**: Job gated behind `rotation_enabled && apim_enabled && cae_enabled && tenants_opted_in` in `stacks/key-rotation/main.tf`
 
 ## Detailed References
 

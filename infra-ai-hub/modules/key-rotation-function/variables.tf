@@ -167,7 +167,7 @@ variable "dry_run" {
 }
 
 variable "included_tenants" {
-  description = "Comma-separated list of tenant names to include in rotation (empty = all discovered tenants)"
+  description = "Comma-separated list of tenant names to include in rotation (empty = no tenants — safe default)"
   type        = string
   default     = ""
 }

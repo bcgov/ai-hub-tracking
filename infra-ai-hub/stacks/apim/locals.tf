@@ -22,16 +22,18 @@ locals {
     if local.key_rotation_config.rotation_enabled && local.apim_config.enabled && try(config.apim_auth.key_rotation_enabled, false)
   }
 
-  tenants_storing_keys_in_kv = {
+  # All subscription-key tenants get their keys stored in the hub Key Vault
+  # (decoupled from rotation — every tenant's keys are always available in KV)
+  tenants_with_kv_secrets = {
     for key, config in local.tenants_with_subscription_key : key => config
-    if local.apim_config.enabled && local.key_rotation_config.rotation_enabled && try(config.apim_auth.key_rotation_enabled, false)
+    if local.apim_config.enabled
   }
 
-  hub_keyvault_uri = local.key_rotation_config.rotation_enabled && local.apim_config.enabled ? (
+  hub_keyvault_uri = local.apim_config.enabled ? (
     try(data.terraform_remote_state.shared.outputs.hub_key_vault_uri, "")
   ) : ""
 
-  hub_keyvault_name = local.key_rotation_config.rotation_enabled && local.apim_config.enabled ? (
+  hub_keyvault_name = local.apim_config.enabled ? (
     try(data.terraform_remote_state.shared.outputs.hub_key_vault_name, "")
   ) : ""
 

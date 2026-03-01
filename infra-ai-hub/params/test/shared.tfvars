@@ -65,8 +65,8 @@ shared_config = {
 
     # Subscription key rotation (runs as Container App Job — see stacks/key-rotation)
     key_rotation = {
-      rotation_enabled       = false # Enable rotation in test for validation
-      rotation_interval_days = 60    # Must be less than 90 days (APIM max key lifetime)
+      rotation_enabled       = true # Global toggle on; per-tenant opt-in via key_rotation_enabled
+      rotation_interval_days = 60   # Must be less than 90 days (APIM max key lifetime)
     }
   }
 

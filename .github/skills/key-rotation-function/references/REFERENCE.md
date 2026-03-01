@@ -32,6 +32,14 @@ This mirrors the original bash script pattern:
 az rest ... | jq '.value[] | select(.properties.displayName | endswith("Subscription"))'
 ```
 
+### Tenant Filtering (INCLUDED_TENANTS)
+
+After discovery, the runner filters tenants against the `INCLUDED_TENANTS` whitelist (comma-separated). This list is computed by the APIM Terraform stack (`rotation_enabled_tenants` output) based on each tenant's `apim_auth.key_rotation_enabled` flag, and passed through the key-rotation stack as an env var.
+
+- **Empty whitelist** → no tenants are processed (safe default — prevents accidental rotation)
+- **Non-empty whitelist** → only tenants whose names appear in the list are included
+- Whitespace around names is trimmed; empty entries are ignored
+
 ### Key Regeneration
 
 The SDK provides separate methods for primary/secondary:
@@ -102,10 +110,13 @@ module "key_rotation" {
   count  = local.rotation_enabled && local.apim_enabled && local.cae_enabled ? 1 : 0
   source = "../../modules/key-rotation-function"
   ...
+  included_tenants = local.rotation_enabled_tenants
 }
 ```
 
 Controlled by `rotation_enabled` in `params/{env}/key-rotation.tfvars` and `cae_config.enabled` in `params/{env}/shared.tfvars`.
+
+**Per-tenant gating**: The APIM stack computes `rotation_enabled_tenants` — only tenants with both the global `rotation_enabled` toggle and per-tenant `apim_auth.key_rotation_enabled = true` are included. This value flows through `data.terraform_remote_state.apim` as `local.rotation_enabled_tenants` → module `included_tenants` → `INCLUDED_TENANTS` env var on the Container App Job.
 
 ---
 
@@ -126,6 +137,7 @@ docker run --rm \
   -e APP_NAME=ai-services-hub \
   -e SUBSCRIPTION_ID=<sub-id> \
   -e DRY_RUN=true \
+  -e INCLUDED_TENANTS="wlrs-water-form-assistant,sdpr-invoice-automation" \
   apim-key-rotation:test
 ```
 
