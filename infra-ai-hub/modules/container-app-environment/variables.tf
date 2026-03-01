@@ -53,6 +53,12 @@ variable "log_analytics_workspace_id" {
   default     = null
 }
 
+variable "enable_diagnostics" {
+  description = "Enable diagnostic settings. Use this instead of null-checking log_analytics_workspace_id to avoid count depending on resource attributes during destroy."
+  type        = bool
+  default     = false
+}
+
 variable "tags" {
   description = "Tags to apply to resources"
   type        = map(string)

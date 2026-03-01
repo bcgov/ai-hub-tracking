@@ -407,6 +407,7 @@ module "container_app_environment" {
   ] : []
 
   log_analytics_workspace_id = module.ai_foundry_hub.log_analytics_workspace_id
+  enable_diagnostics         = true
 
   tags = var.common_tags
 
