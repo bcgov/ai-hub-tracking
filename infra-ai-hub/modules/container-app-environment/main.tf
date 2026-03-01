@@ -53,7 +53,7 @@ resource "azurerm_container_app_environment" "main" {
 #   AllMetrics               — replica count, CPU/memory, request concurrency
 # =============================================================================
 resource "azurerm_monitor_diagnostic_setting" "cae" {
-  count = var.log_analytics_workspace_id != null ? 1 : 0
+  count = var.enable_diagnostics ? 1 : 0
 
   name                       = "${var.name}-diagnostics"
   target_resource_id         = azurerm_container_app_environment.main.id
