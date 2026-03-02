@@ -7,7 +7,7 @@
 # =============================================================================
 module "apim" {
   source  = "Azure/avm-res-apimanagement-service/azurerm"
-  version = "0.0.6"
+  version = "0.0.7"
 
   name                = var.name
   resource_group_name = var.resource_group_name

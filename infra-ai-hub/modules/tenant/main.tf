@@ -443,7 +443,7 @@ resource "azurerm_private_endpoint" "cosmos_db" {
 # =============================================================================
 module "document_intelligence" {
   source  = "Azure/avm-res-cognitiveservices-account/azurerm"
-  version = "0.6.0"
+  version = "0.7.1"
   count   = var.document_intelligence.enabled ? 1 : 0
 
   name                = "${local.name_prefix}-docint-${random_string.suffix.result}"
@@ -525,7 +525,7 @@ resource "azurerm_monitor_diagnostic_setting" "document_intelligence" {
 # =============================================================================
 module "speech_services" {
   source  = "Azure/avm-res-cognitiveservices-account/azurerm"
-  version = "0.6.0"
+  version = "0.7.1"
   count   = var.speech_services.enabled ? 1 : 0
 
   name                = "${local.name_prefix}-speech-${random_string.suffix.result}"

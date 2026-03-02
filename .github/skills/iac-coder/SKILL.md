@@ -58,6 +58,13 @@ Follow BC Gov Azure Landing Zone guidance for networking and DNS behavior. This 
 - Prefer AVM modules over raw resources
 - Include registry URL in module comments
 
+### count / for_each — Plan-Time Values Only
+- **Never** use resource attributes (module outputs derived from resource state) in `count` or `for_each` expressions. During `terraform destroy`, resource outputs become unknown and Terraform cannot resolve the count, causing `Invalid count argument` errors.
+- **Always** use plan-time-known values: input variables, locals computed from variables, `terraform.workspace`, or static values.
+- If a feature needs conditional resource creation, add an explicit `enable_*` boolean variable (default `false`) instead of deriving presence from a resource-produced value like a resource ID or workspace ID.
+- Example — **bad**: `count = var.log_analytics_workspace_id != null ? 1 : 0` (where `var.log_analytics_workspace_id` comes from a module output)
+- Example — **good**: `count = var.enable_diagnostics ? 1 : 0` (plain boolean variable, always known)
+
 ## Validation Gates (Required)
 Run these gates before handoff:
 1. Formatting: `terraform fmt -recursive` on changed Terraform roots/modules

@@ -18,7 +18,10 @@ jobs:
     runs-on: ubuntu-24.04
     strategy:
       matrix:
-        package: [azure-proxy/chisel, azure-proxy/privoxy]
+        package:
+          - azure-proxy/chisel
+          - azure-proxy/privoxy
+          - jobs/apim-key-rotation
     timeout-minutes: 10
     steps:
       - uses: bcgov/action-builder-ghcr@v4.2.1
