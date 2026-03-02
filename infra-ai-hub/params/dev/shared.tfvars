@@ -183,6 +183,9 @@ shared_config = {
     enabled = true
     sku     = "S" # Options: F0 (free), S (standard)
 
+    # PII detection language (used when tenant does not set apim_policies.pii_redaction.detection_language)
+    pii_detection_language = "en"
+
     # Keep disabled - access via private endpoint only
     public_network_access_enabled = false
   }

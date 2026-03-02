@@ -472,7 +472,7 @@ The fragment supports additional configuration variables set by the tenant polic
    - See [Microsoft Learn: PII Entity Categories](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/concepts/entity-categories)
    - If empty or not set, all categories are detected
 
-2. **`piiDetectionLanguage`** (string, default `"en"`)
+2. **`piiDetectionLanguage`** (string, from config)
    - Controls the `documents[0].language` field in the Language Service request
    - Affects detection accuracy for language-specific PII entities
    - Examples: `"en"`, `"fr"`, `"es"`
@@ -504,7 +504,7 @@ When PII redaction is enabled (`apim_policies.pii_redaction.enabled` is true AND
 1. Extracts the request body as text and sets it to the `piiInputContent` variable
 2. Sets PII configuration variables from tenant settings:
    - `piiExcludedCategories` (from `apim_policies.pii_redaction.excluded_categories`)
-   - `piiDetectionLanguage` (from `apim_policies.pii_redaction.detection_language`, default `"en"`)
+   - `piiDetectionLanguage` (from `apim_policies.pii_redaction.detection_language`, or `shared_config.language_service.pii_detection_language` when unset)
    - `piiPreserveJsonStructure` (from `apim_policies.pii_redaction.preserve_json_structure`, default `true`)
    - `piiStructuralWhitelist` (from `apim_policies.pii_redaction.structural_whitelist`)
 3. Includes the `pii-anonymization` fragment, which uses these variables to call Language Service and sets `piiAnonymizedContent`

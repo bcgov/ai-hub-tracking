@@ -1184,8 +1184,8 @@ apim_policies {
     # Optional: Exclude specific PII categories from detection
     excluded_categories     = ["PhoneNumber", "Address"]
 
-    # Optional: Language for detection (default: "en")
-    detection_language      = "en"
+    # Optional: Language for detection (set in shared_config.language_service.pii_detection_language or per-tenant here)
+    detection_language      = "en"  # e.g. "en", "fr", "es"; set in config, do not hardcode in code
 
     # Optional: Preserve JSON structure (default: true)
     preserve_json_structure = true

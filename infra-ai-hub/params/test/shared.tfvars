@@ -158,6 +158,7 @@ shared_config = {
   language_service = {
     enabled                       = true
     sku                           = "S"
+    pii_detection_language        = "en"
     public_network_access_enabled = false
   }
 

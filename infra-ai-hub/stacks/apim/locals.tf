@@ -95,7 +95,7 @@ locals {
         pii_excluded_categories        = try(config.apim_policies.pii_redaction.excluded_categories, [])
         pii_preserve_json_structure    = try(config.apim_policies.pii_redaction.preserve_json_structure, true)
         pii_structural_whitelist       = try(config.apim_policies.pii_redaction.structural_whitelist, [])
-        pii_detection_language         = try(config.apim_policies.pii_redaction.detection_language, "en")
+        pii_detection_language         = try(config.apim_policies.pii_redaction.detection_language, try(var.shared_config.language_service.pii_detection_language, ""))
         pii_fail_closed                = try(config.apim_policies.pii_redaction.fail_closed, false)
         key_rotation_enabled           = local.key_rotation_config.rotation_enabled
         keyvault_uri                   = local.hub_keyvault_uri

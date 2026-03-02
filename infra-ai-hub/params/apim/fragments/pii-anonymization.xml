@@ -116,7 +116,7 @@
 
         Optional configuration variables:
         - piiExcludedCategories: JSON array of PII categories to exclude
-        - piiDetectionLanguage: Language code for detection (default: "en")
+        - piiDetectionLanguage: Language code for detection (set via policy variable from config; no default in fragment)
         - piiFailClosed: "true" to block requests when redaction fails (default: "false" = fail-open)
 
         Failure behavior:
@@ -178,7 +178,7 @@
                 </set-header>
                 <set-body>@{
                     var inputText = context.Variables.GetValueOrDefault&lt;string&gt;("piiInputContent", "");
-                    var language = context.Variables.GetValueOrDefault&lt;string&gt;("piiDetectionLanguage", "en");
+                    var language = context.Variables.GetValueOrDefault&lt;string&gt;("piiDetectionLanguage", "");
 
                     var excludedCategoriesJson = context.Variables.GetValueOrDefault&lt;string&gt;("piiExcludedCategories", "[]");
                     JArray excludedCategories;
