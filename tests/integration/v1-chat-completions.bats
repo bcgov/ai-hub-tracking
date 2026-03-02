@@ -264,7 +264,7 @@ skip_if_no_key() {
 
 @test "V1: Bearer token auth returns 200 via /v1/ format" {
     skip_if_no_key "wlrs-water-form-assistant"
-
+    skip_if_no_appgw  # Bearer <sub-key> normalization requires App Gateway rewrite rules
     response=$(chat_completion_v1_bearer "wlrs-water-form-assistant" "gpt-4.1-mini" "Say hello" 10)
     parse_response "${response}"
 
@@ -274,7 +274,7 @@ skip_if_no_key() {
 
 @test "V1: Bearer token auth works with /deployments/ format too" {
     skip_if_no_key "wlrs-water-form-assistant"
-
+    skip_if_no_appgw  # Bearer <sub-key> normalization requires App Gateway rewrite rules
     local path="/openai/deployments/gpt-4.1-mini/chat/completions?api-version=${OPENAI_API_VERSION}"
     local body='{"messages":[{"role":"user","content":"Say hello"}],"max_tokens":10}'
 
