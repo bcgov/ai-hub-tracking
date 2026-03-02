@@ -58,10 +58,10 @@ shared_config = {
 
     private_dns_zone_ids = []
 
-    # Subscription key rotation (managed by GitHub Actions workflow)
+    # Subscription key rotation (runs as Container App Job — see stacks/key-rotation)
     key_rotation = {
-      rotation_enabled       = false # Disabled in prod until validated in test
-      rotation_interval_days = 30    # Must be less than 90 days (APIM max key lifetime)
+      rotation_enabled       = true # Global toggle on; per-tenant opt-in via key_rotation_enabled
+      rotation_interval_days = 30   # Must be less than 90 days (APIM max key lifetime)
     }
   }
 
@@ -147,6 +147,10 @@ shared_config = {
     # NOTE: Requires /23 subnet and increases cost
     zone_redundancy_enabled = false # Enable when /23 subnet available
 
+    # ACA subnet configuration (passed to network module)
+    subnet_name          = "aca-subnet"
+    subnet_prefix_length = 27 # /27 = 32 IPs (minimum for consumption-only without zone redundancy)
+
     # Dedicated workload profiles for production workloads
     # workload_profiles = {
     #   "dedicated-d4" = {
@@ -204,4 +208,5 @@ shared_config = {
     # Teams webhook URL is set via monitoring_webhook_url in sensitive tfvars.
     alert_emails = ["omprakash.2.mishra@gov.bc.ca"]
   }
+
 }

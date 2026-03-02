@@ -15,7 +15,7 @@ tenant = {
   }
 
   key_vault = {
-    enabled                    = false
+    enabled                    = true
     sku                        = "standard"
     purge_protection_enabled   = true
     soft_delete_retention_days = 30 # Shorter retention for dev
@@ -215,10 +215,9 @@ tenant = {
   # Options:
   #   mode = "subscription_key" (default) - Simple API key in header
   #   mode = "oauth2" - Azure AD OAuth2 with JWT tokens
-  #   store_in_keyvault = false (default) - Do NOT store in KV (avoids auto-rotation issues)
   apim_auth = {
-    mode              = "subscription_key" # Start with subscription key, switch to oauth2 later
-    store_in_keyvault = false              # Keep false if KV has auto-rotation policies!
+    mode                 = "subscription_key" # Start with subscription key, switch to oauth2 later
+    key_rotation_enabled = false              # Per-tenant opt-in for APIM key rotation
   }
 
   # Tenant user management (applies across environments)

@@ -744,31 +744,40 @@ Each tenant can be configured with one of two authentication modes:
 | Subscription Key | `apim_auth.mode = "subscription_key"` | Simple API key, quick setup |
 | OAuth 2.0 / Azure AD | `apim_auth.mode = "oauth2"` | Enterprise, short-lived tokens |
 
-#### Key Storage Warning ⚠️
+#### Automatic Key Rotation
+
+APIM subscription keys are **automatically rotated** by a Container App Job when enabled. Rotation uses an alternating primary/secondary pattern to ensure zero-downtime for clients.
+
+**Two-level toggle:**
+- **Global:** `apim.key_rotation.rotation_enabled = true` in shared.tfvars enables the Container App Job
+- **Per-tenant:** `apim_auth.key_rotation_enabled = true` in tenant.tfvars opts a tenant into rotation
+
+Both must be `true` for a tenant's keys to be rotated.
+
+**Hub Key Vault:** All subscription-key tenants have their primary and secondary keys stored in the shared hub Key Vault automatically (regardless of rotation status). This provides a single, secure location for key retrieval.
 
 ```hcl
+# shared.tfvars
+apim = {
+  key_rotation = {
+    rotation_enabled       = true
+    rotation_interval_days = 30
+  }
+}
+
+# tenant.tfvars
 apim_auth = {
-  mode              = "subscription_key"
-  store_in_keyvault = false  # DEFAULT - recommended!
+  mode                 = "subscription_key"
+  key_rotation_enabled = true  # Opt-in to automatic rotation
 }
 ```
-
-**Why `store_in_keyvault = false` is the default:**
-- Many organizations have Key Vault policies that auto-rotate secrets every 90 days
-- If APIM keys are stored in Key Vault, auto-rotation generates a NEW random value
-- This breaks all client apps since the rotated value doesn't match the actual APIM key
-- APIM subscription keys should be rotated **in APIM**, not in Key Vault
-
-**Shared Hub Key Vault behavior:**
-- The shared hub key vault is always deployed as part of shared infrastructure
-- `apim.key_rotation.rotation_enabled` controls key rotation workflows and secret writes, not key vault creation
 
 #### Subscription Key Mode (Default) - Recommended Workflow
 
 ```hcl
 apim_auth = {
-  mode              = "subscription_key"
-  store_in_keyvault = false  # Avoid auto-rotation issues
+  mode                 = "subscription_key"
+  key_rotation_enabled = false  # Enable when ready for automatic rotation
 }
 ```
 
@@ -801,9 +810,9 @@ curl -X POST https://api.example.com/wlrs/openai/v1/chat/completions \
 ```
 
 **Key Rotation Process:**
-1. Platform team regenerates key in Azure Portal (APIM → Subscriptions → Regenerate)
-2. Platform team shares new key with tenant team
-3. Tenant team updates their app configuration
+1. All tenant subscription keys are stored in the shared hub Key Vault on first deploy
+2. When `key_rotation_enabled = true`, the Container App Job automatically rotates keys on schedule
+3. For tenants not yet opted in, keys are still accessible in the hub KV but not auto-rotated
 
 **Terraform output (for automation):**
 ```bash
@@ -814,8 +823,8 @@ terraform output -json apim_tenant_subscriptions
 
 ```hcl
 apim_auth = {
-  mode              = "oauth2"
-  store_in_keyvault = false  # Avoid auto-rotation issues
+  mode                 = "oauth2"
+  key_rotation_enabled = false
   oauth2 = {
     secret_expiry_hours = 8760  # 1 year (optional)
   }

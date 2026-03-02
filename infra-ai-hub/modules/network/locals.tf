@@ -109,4 +109,5 @@ locals {
   )
   aca_base        = local.num_address_spaces >= 4 ? local.parsed_spaces[local.infra_space_idx_2].prefix : local.infra_base
   aca_subnet_cidr = var.aca_subnet.enabled ? "${local.aca_base}.${local.aca_offset}/${var.aca_subnet.prefix_length}" : null
+
 }

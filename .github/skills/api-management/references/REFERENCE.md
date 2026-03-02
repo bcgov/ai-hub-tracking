@@ -125,7 +125,7 @@ The Azure Portal visual designer cannot render policy tiles when `backend-id` is
 
 ## Key Rotation
 
-APIM subscription keys are rotated via `infra-ai-hub/scripts/rotate-apim-keys.sh`, scheduled daily by `.github/workflows/apim-key-rotation.yml`.
+APIM subscription keys are rotated by a **Container App Job** (cron trigger) deployed as a custom container from GHCR. Source code is in `jobs/apim-key-rotation/`, with the Terraform module at `infra-ai-hub/modules/key-rotation-function/`. The job is gated by the `rotation_enabled` flag in `stacks/key-rotation/main.tf`.
 
 ### Alternating Pattern
 ```
@@ -139,15 +139,15 @@ Default interval: 7 days (`ROTATION_INTERVAL_DAYS`).
 
 ### Hub Key Vault Secret Naming
 
-All secrets are centralized in a single hub Key Vault with tenant-prefixed names:
+All subscription-key tenants have their APIM keys stored in the centralized hub Key Vault on first deploy (seeded by Terraform). Rotation metadata secrets are only created for rotation-opted tenants.
 
-| Secret | Content |
-|---|---|
-| `{tenant}-apim-primary-key` | Current primary subscription key |
-| `{tenant}-apim-secondary-key` | Current secondary subscription key |
-| `{tenant}-apim-rotation-metadata` | JSON metadata (see below) |
+| Secret | Scope | Content |
+|---|---|---|
+| `{tenant}-apim-primary-key` | All subscription-key tenants | Current primary subscription key |
+| `{tenant}-apim-secondary-key` | All subscription-key tenants | Current secondary subscription key |
+| `{tenant}-apim-rotation-metadata` | Rotation-opted tenants only | JSON metadata (see below) |
 
-All secrets have a **90-day expiry** to satisfy Landing Zone policy.
+All secrets have a **90-day expiry** to satisfy Landing Zone policy. Terraform uses `lifecycle { ignore_changes = [value] }` so existing secrets are never overwritten.
 
 ### Rotation Metadata Schema
 
@@ -198,6 +198,6 @@ Use this table for every APIM change review/runbook:
 - Verify `Operation-Location` rewrite is still active and points to App Gateway host.
 
 ### Key rotation failures
-- Check `apim-key-rotation.yml` workflow logs for az CLI auth errors (OIDC token expiry).
-- Verify hub Key Vault exists and OIDC identity has `Key Vault Secrets Officer` role.
+- Check the Container App Job logs (Log Stream in Azure Portal or Log Analytics) for authentication or SDK errors.
+- Verify hub Key Vault exists and the Container App Job's managed identity has `Key Vault Secrets Officer` role.
 - If a rotation is stuck, check `{tenant}-apim-rotation-metadata` for `last_rotated_slot` and manually verify which APIM slot is active.

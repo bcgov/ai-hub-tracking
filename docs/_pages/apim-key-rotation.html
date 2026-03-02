@@ -25,7 +25,7 @@
         <li><strong>Week 2: Regenerate PRIMARY</strong> &mdash; tenants continue using SECONDARY (regenerated last week, still valid)</li>
         <li><strong>Week 3: Regenerate SECONDARY</strong> &mdash; alternates indefinitely</li>
     </ol>
-    <p>Both keys are stored in the centralized hub Key Vault after every rotation. Tenants can fetch new keys at their convenience via the APIM internal endpoint or by requesting access from the platform team.</p>
+    <p>Both keys for <strong>every</strong> subscription-key tenant are stored in the centralized hub Key Vault on first deploy. After rotation, the rotation job updates them with the new values. Tenants can fetch new keys at their convenience via the APIM internal endpoint or by requesting access from the platform team.</p>
 </div>
 
 <div class="card">
@@ -151,12 +151,12 @@ az keyvault secret set \
 
 <div class="card">
     <h3>Shared Config (<code>params/{env}/shared.tfvars</code>)</h3>
-    <p>Key rotation is configured globally for all tenants in the shared config:</p>
+    <p>Key rotation has a <strong>global master toggle</strong> that acts as the central on/off switch for the entire environment:</p>
     <pre>apim = {
   # ... existing APIM config ...
 
   key_rotation = {
-    rotation_enabled       = true   # Master flag (on/off for all tenants)
+    rotation_enabled       = true   # Master flag (on/off for entire environment)
     rotation_interval_days = 7      # Rotate every N days (same for all tenants)
   }
 }</pre>
@@ -174,7 +174,7 @@ az keyvault secret set \
                 <td><code>rotation_enabled</code></td>
                 <td>bool</td>
                 <td><code>false</code></td>
-                <td>Master flag. When <code>false</code>, no keys are rotated for any tenant.</td>
+                <td>Master flag. When <code>false</code>, no keys are rotated for any tenant regardless of per-tenant settings.</td>
             </tr>
             <tr>
                 <td><code>rotation_interval_days</code></td>
@@ -187,14 +187,47 @@ az keyvault secret set \
 </div>
 
 <div class="card">
+    <h3>Per-Tenant Toggle (<code>params/{env}/tenants/{tenant}/tenant.tfvars</code>)</h3>
+    <p>Each tenant can individually opt in to key rotation via the <code>key_rotation_enabled</code> flag in their <code>apim_auth</code> block. This is an <strong>opt-in</strong> model &mdash; tenants must explicitly set <code>true</code> to participate:</p>
+    <pre>apim_auth = {
+  mode                 = "subscription_key"
+  key_rotation_enabled = true   # Opt-in to automatic key rotation
+}</pre>
+
+    <div class="alert alert-info" style="margin-top: 0.75rem;">
+        <div>
+            <strong>Two-Level Toggle:</strong> Both the global <code>rotation_enabled</code> AND the per-tenant <code>key_rotation_enabled</code> must be <code>true</code> for a tenant to participate in rotation. The global toggle is the master switch for the entire environment.
+        </div>
+    </div>
+
+    <table>
+        <thead>
+            <tr>
+                <th>Global <code>rotation_enabled</code></th>
+                <th>Tenant <code>key_rotation_enabled</code></th>
+                <th>Tenant Rotated?</th>
+                <th>APIM <code>/apim-keys</code> Endpoint</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr><td><code>true</code></td><td><code>true</code></td><td>Yes</td><td>Available</td></tr>
+            <tr><td><code>true</code></td><td><code>false</code></td><td>No</td><td>Not rendered</td></tr>
+            <tr><td><code>false</code></td><td><code>true</code></td><td>No</td><td>Not rendered</td></tr>
+            <tr><td><code>false</code></td><td><code>false</code></td><td>No</td><td>Not rendered</td></tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="card">
     <h3>Tenant Prerequisites</h3>
-    <p>For a tenant to participate in key rotation, it only needs:</p>
+    <p>For a tenant to participate in key rotation, it needs:</p>
     <ul>
         <li><code>apim_auth.mode = "subscription_key"</code> (default)</li>
+        <li><code>apim_auth.key_rotation_enabled = true</code> (opt-in per tenant)</li>
     </ul>
     <div class="alert alert-info" style="margin-top: 0.75rem;">
         <div>
-            <strong>Note:</strong> A per-tenant Key Vault is <strong>not required</strong> for key rotation. All rotation keys are stored in a centralized hub Key Vault managed by the platform team. Any tenant using subscription_key auth is automatically eligible.
+            <strong>Note:</strong> A per-tenant Key Vault is <strong>not required</strong>. All subscription-key tenants have their APIM keys stored in the centralized hub Key Vault on first deploy, regardless of rotation opt-in. The <code>key_rotation_enabled</code> flag defaults to <code>false</code> &mdash; tenants must explicitly opt in for automatic rotation.
         </div>
     </div>
 </div>
@@ -279,7 +312,7 @@ print(f"Safe slot: {safe_slot}, key: {safe_key[:8]}...")</pre>
     <p>If you've missed a rotation schedule or need a fresh set of keys, contact the platform team directly. The platform team manages the centralized hub Key Vault and can provide your current keys or trigger an ad-hoc rotation.</p>
     <div class="alert alert-info" style="margin-top: 0.75rem;">
         <div>
-            <strong>Hub Key Vault:</strong> All tenant rotation keys are stored centrally in the hub Key Vault (<code>{app_name}-{env}-hkv</code>). Tenants do not need their own Key Vault for rotation. Secret names follow the pattern: <code>{tenant}-apim-primary-key</code>, <code>{tenant}-apim-secondary-key</code>.
+            <strong>Hub Key Vault:</strong> All subscription-key tenant keys are stored centrally in the hub Key Vault (<code>{app_name}-{env}-hkv</code>) on first deploy, regardless of whether rotation is enabled. Secret names follow the pattern: <code>{tenant}-apim-primary-key</code>, <code>{tenant}-apim-secondary-key</code>.
         </div>
     </div>
 </div>
@@ -327,7 +360,7 @@ fi</pre>
 <h2>Key Vault Secrets Reference</h2>
 
 <div class="card">
-    <p>All secrets are stored in the centralized hub Key Vault (<code>{app_name}-{env}-hkv</code>) with tenant-prefixed names:</p>
+    <p>All subscription-key tenants have their keys stored in the centralized hub Key Vault (<code>{app_name}-{env}-hkv</code>) on first deploy, with tenant-prefixed names:</p>
     <table>
         <thead>
             <tr>
@@ -340,12 +373,12 @@ fi</pre>
             <tr>
                 <td><code>{tenant}-apim-primary-key</code></td>
                 <td>Current value of the APIM primary key slot for this tenant.</td>
-                <td>Terraform (seed) + Rotation script</td>
+                <td>Terraform (seed); Rotation script (if opted in)</td>
             </tr>
             <tr>
                 <td><code>{tenant}-apim-secondary-key</code></td>
                 <td>Current value of the APIM secondary key slot for this tenant.</td>
-                <td>Terraform (seed) + Rotation script</td>
+                <td>Terraform (seed); Rotation script (if opted in)</td>
             </tr>
             <tr>
                 <td><code>{tenant}-apim-rotation-metadata</code></td>
@@ -389,15 +422,10 @@ fi</pre>
             </tr>
         </tbody>
     </table>
-    <p>The GitHub Actions workflow runs weekly, but the bash script checks whether the rotation interval has actually elapsed before regenerating keys. A 30-day interval means the script will skip most weekly runs.</p>
-    <div class="alert alert-warning" style="margin-top: 0.75rem;">
-        <div>
-            <strong>Repository Maintenance Required:</strong> GitHub automatically disables scheduled workflows after 60 days of repo inactivity. This repo must have regular commits or activity to keep the rotation workflow running. If the workflow gets disabled, re-enable it from the Actions tab or trigger manually via <code>workflow_dispatch</code>.
-        </div>
-    </div>
+    <p>The Container App Job runs on a cron schedule (configurable NCRONTAB), but the rotation logic checks whether the rotation interval has actually elapsed before regenerating keys. A 30-day interval means most invocations will be no-ops.</p>
     <div class="alert alert-info" style="margin-top: 0.75rem;">
         <div>
-            <strong>Missed Rotation?</strong> If a rotation was missed due to workflow inactivity, tenants can contact the platform team for a new set of keys or to trigger an ad-hoc rotation.
+            <strong>Missed Rotation?</strong> If the Container App Job was suspended or redeploying, rotation will resume automatically on the next invocation. Tenants can also contact the platform team for a new set of keys or to trigger an ad-hoc rotation.
         </div>
     </div>
 </div>
@@ -472,23 +500,27 @@ fi</pre>
     <pre>terraform output apim_key_rotation_summary</pre>
     <p>Ensure the <code>azurerm_role_assignment.apim_keyvault_secrets_user</code> resource exists on the hub Key Vault. Check that the hub Key Vault (<code>{app_name}-{env}-hkv</code>) is deployed and accessible.</p>
 
-    <h3>GitHub Actions rotation stopped running</h3>
-    <p>GitHub disables scheduled workflows after 60 days of repo inactivity. This repo requires regular maintenance (commits, activity) to keep scheduled workflows active.</p>
+    <h3>Container App Job not rotating keys</h3>
+    <p>Check the Container App Job logs (Log Stream in Azure Portal or Log Analytics) for errors. Common causes:</p>
     <ol>
-        <li>Go to Actions tab &rarr; Find "APIM Key Rotation" workflow</li>
-        <li>Click "Enable workflow"</li>
-        <li>Or trigger manually via <code>workflow_dispatch</code></li>
+        <li>Managed identity missing <code>Key Vault Secrets Officer</code> role on hub Key Vault</li>
+        <li>Managed identity missing <code>Contributor</code> role on APIM for key regeneration</li>
+        <li>Container App Job is suspended or the Container App revision is unhealthy</li>
         <li><strong>Contact the platform team</strong> if rotation was missed &mdash; they can issue new keys or trigger an ad-hoc rotation</li>
     </ol>
 
     <h3>I want to temporarily disable rotation for my environment</h3>
     <p>Set <code>rotation_enabled = false</code> in <code>params/{env}/shared.tfvars</code> and deploy. The rotation workflow will skip all tenants.</p>
 
+    <h3>I want to disable rotation for a single tenant</h3>
+    <p>Set <code>key_rotation_enabled = false</code> in the tenant's <code>apim_auth</code> block in <code>params/{env}/tenants/{tenant}/tenant.tfvars</code> and deploy. That tenant will be excluded from rotation while others continue normally.</p>
+
     <h3>My tenant is not eligible for rotation</h3>
     <p>Check:</p>
     <pre>terraform output apim_key_rotation_summary</pre>
     <p>Common reasons:</p>
     <ul>
+        <li><code>apim_auth.key_rotation_enabled != true</code> &mdash; tenant has not opted in to rotation</li>
         <li><code>apim_auth.mode != "subscription_key"</code> &mdash; rotation only applies to subscription key auth</li>
         <li>Rotation is globally disabled (<code>rotation_enabled = false</code> in <code>shared.tfvars</code>)</li>
     </ul>
@@ -508,14 +540,19 @@ fi</pre>
         </thead>
         <tbody>
             <tr>
-                <td>Rotation Script</td>
-                <td>Self-contained bash script: discovers APIM + hub KV, rotates keys, stores in hub KV</td>
-                <td><code>infra-ai-hub/scripts/rotate-apim-keys.sh</code></td>
+                <td>Container App Job</td>
+                <td>Scheduled Python job: discovers APIM + hub KV, rotates keys, stores in hub KV</td>
+                <td><code>jobs/apim-key-rotation/</code></td>
             </tr>
             <tr>
-                <td>GitHub Actions Workflow</td>
-                <td>Thin wrapper: checkout, OIDC login, calls script with <code>--environment</code></td>
-                <td><code>.github/workflows/apim-key-rotation.yml</code></td>
+                <td>Container Build Workflow</td>
+                <td>Builds custom container image and pushes to GHCR on PR/merge</td>
+                <td><code>.github/workflows/.builds.yml</code> (matrix entry)</td>
+            </tr>
+            <tr>
+                <td>Terraform Module</td>
+                <td>Deploys Container App Job, Container App Environment, managed identity, RBAC</td>
+                <td><code>infra-ai-hub/modules/key-rotation-function/</code></td>
             </tr>
             <tr>
                 <td>Hub Key Vault</td>
@@ -534,8 +571,13 @@ fi</pre>
             </tr>
             <tr>
                 <td>Shared Config</td>
-                <td>Rotation enabled flag + interval days</td>
+                <td>Master rotation toggle + interval days</td>
                 <td><code>infra-ai-hub/params/{env}/shared.tfvars</code></td>
+            </tr>
+            <tr>
+                <td>Per-Tenant Config</td>
+                <td>Per-tenant opt-in toggle (<code>apim_auth.key_rotation_enabled</code>)</td>
+                <td><code>infra-ai-hub/params/{env}/tenants/{tenant}/tenant.tfvars</code></td>
             </tr>
         </tbody>
     </table>
@@ -544,11 +586,11 @@ fi</pre>
 <div class="card">
     <h3>Security Considerations</h3>
     <ul>
-        <li><strong>OIDC Authentication</strong>: The rotation workflow uses the same OIDC identity as Terraform deployments. No stored secrets.</li>
-        <li><strong>Centralized Hub Key Vault</strong>: All rotation keys are stored in a single hub KV. APIM reads keys via its system-assigned MI with one RBAC assignment. Scales to 1000+ tenants.</li>
-        <li><strong>No Per-Tenant KV Required</strong>: Tenants do not need their own Key Vault for rotation. The hub KV handles all tenants centrally.</li>
+        <li><strong>Managed Identity Authentication</strong>: The Container App Job uses a system-assigned managed identity for APIM and Key Vault access. No stored secrets.</li>
+        <li><strong>Centralized Hub Key Vault</strong>: All subscription-key tenant keys are stored in a single hub KV on first deploy, regardless of rotation opt-in. APIM reads keys via its system-assigned MI with one RBAC assignment. Scales to 1000+ tenants.</li>
+        <li><strong>No Per-Tenant KV Required</strong>: Tenants do not need their own Key Vault. The hub KV handles all tenants centrally.</li>
         <li><strong>Audit Trail</strong>: Every key change is versioned in Key Vault with rotation metadata tags.</li>
-        <li><strong>No Key in Logs</strong>: The rotation script never prints key values. Only metadata appears in logs.</li>
+        <li><strong>No Key in Logs</strong>: The rotation function never prints key values. Only metadata appears in logs.</li>
         <li><strong>Terraform Lifecycle</strong>: Key Vault secrets use <code>ignore_changes = [value, tags]</code> so Terraform won't overwrite rotated keys.</li>
         <li><strong>Internal Endpoint Security</strong>: The <code>/internal/apim-keys</code> endpoint requires a valid subscription key. Only authenticated tenants can read their own keys.</li>
     </ul>

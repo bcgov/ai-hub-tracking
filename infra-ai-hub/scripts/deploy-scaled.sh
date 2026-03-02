@@ -6,6 +6,7 @@
 #   Phase 1: shared
 #   Phase 2: tenant (per-tenant, parallel)
 #   Phase 3: foundry + apim + tenant-user-mgmt (all in parallel)
+#   Phase 4: key-rotation (depends on APIM outputs from phase 3)
 # For destroy, execution is reversed.
 #
 # This is an internal engine. The public entrypoint is `deploy-terraform.sh`.
@@ -584,6 +585,7 @@ stack_state_key() {
     foundry) echo "ai-services-hub/${ENVIRONMENT}/foundry.tfstate" ;;
     apim) echo "ai-services-hub/${ENVIRONMENT}/apim.tfstate" ;;
     tenant-user-mgmt) echo "ai-services-hub/${ENVIRONMENT}/tenant-user-management.tfstate" ;;
+    key-rotation) echo "ai-services-hub/${ENVIRONMENT}/key-rotation.tfstate" ;;
     *) echo "" ;;
   esac
 }
@@ -856,6 +858,20 @@ run_phase3_parallel() {
   fi
 }
 
+# ---------------------------------------------------------------------------
+# Phase 4: key-rotation — depends on APIM outputs from phase 3
+# ---------------------------------------------------------------------------
+run_key_rotation() {
+  tf_init_stack key-rotation
+  tf_run_stack key-rotation "$1" "${INFRA_DIR}/.tenants-${ENVIRONMENT}.auto.tfvars"
+}
+
+run_phase4() {
+  local action="$1"
+  log_info "Running phase-4: key-rotation"
+  run_key_rotation "$action"
+}
+
 run_tenant_per_tenant_destroy() {
   local tenant_files=()
   while IFS= read -r f; do
@@ -917,6 +933,7 @@ case "$COMMAND" in
     run_shared validate
     run_tenant_per_tenant validate
     run_phase3_parallel validate
+    run_phase4 validate
     ;;
   plan)
     run_shared plan
@@ -927,13 +944,16 @@ case "$COMMAND" in
     fi
     run_tenant_per_tenant plan
     run_phase3_parallel plan
+    run_phase4 plan
     ;;
   apply)
     run_shared apply
     run_tenant_per_tenant apply
     run_phase3_parallel apply
+    run_phase4 apply
     ;;
   destroy)
+    run_phase4 destroy
     run_phase3_parallel destroy
     run_tenant_per_tenant_destroy
     run_shared destroy

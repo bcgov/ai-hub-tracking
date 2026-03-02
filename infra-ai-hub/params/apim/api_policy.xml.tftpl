@@ -78,9 +78,10 @@
 
         <!-- Path-based routing to appropriate backend service -->
         <choose>
-%{ if key_rotation_enabled ~}
+%{ if apim_keys_endpoint_enabled ~}
             <!-- Internal endpoint: fetch APIM subscription keys from Key Vault -->
             <!-- Returns both primary and secondary keys + rotation metadata as JSON -->
+            <!-- Available for ALL subscription-key tenants (keys stored in KV for all) -->
             <when condition="@(context.Request.Url.Path.ToLower().EndsWith(&quot;internal/apim-keys&quot;))">
                 <!-- Only allow GET -->
                 <choose>
@@ -112,7 +113,8 @@
                         <value>@("Bearer " + (string)context.Variables["kv-token"])</value>
                     </set-header>
                 </send-request>
-                <!-- Fetch rotation metadata from hub Key Vault -->
+%{ if key_rotation_enabled ~}
+                <!-- Fetch rotation metadata from hub Key Vault (only for rotation-opted tenants) -->
                 <send-request mode="new" response-variable-name="kvMetadataResp" timeout="10" ignore-error="true">
                     <set-url>@($"${keyvault_uri}secrets/${tenant_name}-apim-rotation-metadata?api-version=7.4")</set-url>
                     <set-method>GET</set-method>
@@ -120,12 +122,12 @@
                         <value>@("Bearer " + (string)context.Variables["kv-token"])</value>
                     </set-header>
                 </send-request>
-                <!-- Return explicit error if any Key Vault call failed -->
+%{ endif ~}
+                <!-- Return explicit error if primary or secondary Key Vault reads failed -->
                 <choose>
                     <when condition="@(
                         ((IResponse)context.Variables[&quot;kvPrimaryResp&quot;]) == null || ((IResponse)context.Variables[&quot;kvPrimaryResp&quot;]).StatusCode &gt;= 400 ||
-                        ((IResponse)context.Variables[&quot;kvSecondaryResp&quot;]) == null || ((IResponse)context.Variables[&quot;kvSecondaryResp&quot;]).StatusCode &gt;= 400 ||
-                        ((IResponse)context.Variables[&quot;kvMetadataResp&quot;]) == null || ((IResponse)context.Variables[&quot;kvMetadataResp&quot;]).StatusCode &gt;= 400
+                        ((IResponse)context.Variables[&quot;kvSecondaryResp&quot;]) == null || ((IResponse)context.Variables[&quot;kvSecondaryResp&quot;]).StatusCode &gt;= 400
                     )">
                         <return-response>
                             <set-status code="502" reason="Bad Gateway" />
@@ -135,16 +137,14 @@
                             <set-body>@{
                                 var primaryResp = ((IResponse)context.Variables["kvPrimaryResp"]);
                                 var secondaryResp = ((IResponse)context.Variables["kvSecondaryResp"]);
-                                var metadataResp = ((IResponse)context.Variables["kvMetadataResp"]);
 
                                 var result = new JObject(
                                     new JProperty("error", new JObject(
                                         new JProperty("code", "KeyVaultReadFailed"),
-                                        new JProperty("message", "Failed to read one or more APIM key secrets from Key Vault."),
+                                        new JProperty("message", "Failed to read APIM key secrets from Key Vault."),
                                         new JProperty("details", new JObject(
                                             new JProperty("primary_status", primaryResp == null ? 0 : primaryResp.StatusCode),
-                                            new JProperty("secondary_status", secondaryResp == null ? 0 : secondaryResp.StatusCode),
-                                            new JProperty("metadata_status", metadataResp == null ? 0 : metadataResp.StatusCode)
+                                            new JProperty("secondary_status", secondaryResp == null ? 0 : secondaryResp.StatusCode)
                                         ))
                                     ))
                                 );
@@ -162,15 +162,22 @@
                     <set-body>@{
                         var primaryBody = ((IResponse)context.Variables["kvPrimaryResp"])?.Body?.As<JObject>(preserveContent: true);
                         var secondaryBody = ((IResponse)context.Variables["kvSecondaryResp"])?.Body?.As<JObject>(preserveContent: true);
-                        var metadataBody = ((IResponse)context.Variables["kvMetadataResp"])?.Body?.As<JObject>(preserveContent: true);
 
                         var primaryKey = primaryBody?["value"]?.ToString() ?? "";
                         var secondaryKey = secondaryBody?["value"]?.ToString() ?? "";
-                        var metadataRaw = metadataBody?["value"]?.ToString() ?? "{}";
 
+%{ if key_rotation_enabled ~}
+                        var metadataBody = ((IResponse)context.Variables["kvMetadataResp"])?.Body?.As<JObject>(preserveContent: true);
+                        var metadataRaw = metadataBody?["value"]?.ToString() ?? "{}";
                         JObject metadata;
                         try { metadata = JObject.Parse(metadataRaw); }
                         catch { metadata = new JObject(); }
+%{ else ~}
+                        var metadata = new JObject(
+                            new JProperty("key_rotation_enabled", false),
+                            new JProperty("message", "Automatic key rotation is not enabled for this tenant")
+                        );
+%{ endif ~}
 
                         var result = new JObject(
                             new JProperty("tenant", "${tenant_name}"),
@@ -213,6 +220,7 @@
                     </set-header>
                     <set-body>${jsonencode({
   tenant = tenant_name
+  base_url = "${base_url}/${tenant_name}"
   models = [for m in model_deployments : {
     name              = m.name
     model_name        = m.model_name
@@ -220,13 +228,48 @@
     scale_type        = m.scale_type
     capacity_k_tpm    = m.capacity
     tokens_per_minute = m.capacity * 1000
+    endpoints = {
+      azure_openai = {
+        endpoint    = "${base_url}/${tenant_name}"
+        api_version = "2025-03-01-preview"
+        url         = "${base_url}/${tenant_name}/openai/deployments/${m.name}/chat/completions?api-version=2025-03-01-preview"
+      }
+      openai_compatible = {
+        base_url = "${base_url}/${tenant_name}/openai/v1"
+        model    = m.name
+        url      = "${base_url}/${tenant_name}/openai/v1/chat/completions"
+      }
+    }
   }]
   services = {
-    ai_search             = ai_search_enabled
-    document_intelligence = document_intelligence_enabled
-    openai                = openai_enabled
-    speech_services       = speech_services_enabled
-    storage               = storage_enabled
+    openai = {
+      enabled   = openai_enabled
+      endpoints = openai_enabled ? {
+        azure_openai      = "${base_url}/${tenant_name}"
+        openai_compatible = "${base_url}/${tenant_name}/openai/v1"
+        api_version       = "2025-03-01-preview"
+      } : null
+    }
+    document_intelligence = {
+      enabled  = document_intelligence_enabled
+      endpoint = document_intelligence_enabled ? "${base_url}/${tenant_name}" : null
+      example  = document_intelligence_enabled ? "${base_url}/${tenant_name}/documentintelligence/documentModels/prebuilt-layout:analyze?api-version=2024-11-30" : null
+    }
+    ai_search = {
+      enabled  = ai_search_enabled
+      endpoint = ai_search_enabled ? "${base_url}/${tenant_name}/ai-search" : null
+      example  = ai_search_enabled ? "${base_url}/${tenant_name}/ai-search/indexes/{index-name}/docs/search?api-version=2024-07-01" : null
+    }
+    speech_services = {
+      enabled      = speech_services_enabled
+      stt_endpoint = speech_services_enabled ? "${base_url}/${tenant_name}/speech/recognition/conversation/cognitiveservices/v1?language=en-US" : null
+      tts_endpoint = speech_services_enabled ? "${base_url}/${tenant_name}/cognitiveservices/v1" : null
+    }
+    storage = {
+      enabled  = storage_enabled
+      endpoint = storage_enabled ? "${base_url}/${tenant_name}/storage" : null
+      example  = storage_enabled ? "${base_url}/${tenant_name}/storage/{container-name}/{blob-name}" : null
+    }
   }
 })}</set-body>
                 </return-response>

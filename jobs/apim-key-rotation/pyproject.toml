@@ -1,0 +1,30 @@
+[project]
+name = "apim-key-rotation"
+version = "2.0.0"
+description = "APIM subscription key rotation — runs as Container App Job"
+requires-python = ">=3.13"
+dependencies = [
+    "azure-identity>=1.19.0",
+    "azure-keyvault-secrets>=4.9.0",
+    "azure-mgmt-apimanagement>=4.0.1",
+    "pydantic>=2.10.0",
+    "pydantic-settings>=2.7.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.25.0",
+    "ruff>=0.9.0",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
