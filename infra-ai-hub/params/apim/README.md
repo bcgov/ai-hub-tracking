@@ -292,9 +292,10 @@ PII anonymization via Language Service:
   - AND Language Service is enabled in shared config
 - Detects and redacts: emails, phone numbers, URLs, social security numbers, credit card numbers, addresses, etc.
 - **Document chunking**: Large messages (>5000 chars) are automatically split at word boundaries into sub-documents with compound IDs (`i_0`, `i_1`, ...) and reassembled after redaction
+- **Request batching**: The Language Service accepts max 5 documents per synchronous request. The fragment sends multiple requests in batches of 5 (up to 100 documents total); results are merged for reassembly.
 - **Coverage verification** (P1 safety): After the PII API responds, the fragment verifies EVERY message received complete redaction:
-  - **Document-limit protection**: The Language Service accepts max 5 documents per synchronous request. If more are needed, excess messages are detected as unscanned
-  - **Partial-chunking detection**: When chunks are truncated by the 5-doc limit, the fragment compares redacted length vs original and keeps original content instead of silently truncating
+  - **Document-limit protection**: When the payload requires more than 100 documents, excess messages are detected as unscanned (fullCoverage=false).
+  - **Partial-chunking detection**: When chunks are missing (e.g. API error for a batch), the fragment compares redacted length vs original and keeps original content instead of silently truncating
   - **Fail-closed mode** blocks the request (503) when coverage is incomplete, reporting `partial-redaction-N-msgs-unscanned` or `partial-redaction-N-msgs-truncated`
   - **Fail-open mode** passes through original content for unscanned/partial messages and logs coverage metrics to App Insights
 
@@ -406,11 +407,11 @@ Detect and mask PII in text content using Language Service PII entity recognitio
     - `policyKind`: `CharacterMask`
     - `redactionCharacter`: `#`
 - `analysisInput.documents[]`:
-  - Each chat message with content becomes a separate document
+  - Each chat message with content becomes a separate document (up to 100 documents total)
   - Messages >5000 chars are chunked at word boundaries into sub-documents
   - Compound IDs: message index `i`, chunk `j` → id `"i_j"` (e.g., `"1_0"`, `"1_1"`)
   - Non-chunked messages use simple IDs (e.g., `"0"`, `"1"`)
-  - Maximum 5 documents per synchronous request (Language Service API limit)
+  - Maximum 5 documents per synchronous request; the fragment sends multiple requests in batches of 5 (up to 20 batches) and merges results
 
 **Response Handling:**
 - Extracts `results.documents[].redactedText` for each document
@@ -435,7 +436,7 @@ The fragment emits a `trace` event (source `pii-anonymization`) to Application I
 - `pii-content-changed`: Boolean flag indicating whether any redaction occurred (true if input differs from output)
 - `pii-coverage-full`: Whether all messages with content were fully redacted (`True`/`False`)
 - `pii-msgs-with-content`: Total messages that had non-empty content
-- `pii-msgs-unscanned`: Messages completely skipped (e.g., 5-doc limit exceeded)
+- `pii-msgs-unscanned`: Messages completely skipped (e.g., payload has >100 documents)
 - `pii-msgs-partial`: Messages with partial chunk coverage (truncated by doc limit)
 
 These diagnostics enable monitoring of PII detection effectiveness, Language Service API health, coverage completeness, and understanding which entity types are most commonly detected across tenants.

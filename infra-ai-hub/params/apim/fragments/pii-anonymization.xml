@@ -8,12 +8,12 @@
     <!--
         Architecture:
         - Parses the JSON request body and extracts each message's content
-        - Sends message contents as separate documents in one PII API call
-          (up to 5 documents per synchronous request per Azure Language Service limits)
-        - Large messages are automatically chunked at word boundaries to stay
-          within the per-document character limit (5000 chars, safe for all tiers)
+        - Builds a full list of documents (per message, chunked at 5000 chars)
+        - Sends documents in BATCHES of up to 5 per request (Azure limit)
+        - Multiple send-request calls for >5 documents; results merged for reassembly
         - Chunked documents use compound IDs (e.g., "1_0", "1_1") and are
           reassembled in order after redaction
+        - Per-document character limit: 5000 chars (safe for all Language Service tiers)
         - Replaces each message content with its redacted version
         - JSON envelope (roles, parameters, model) is never scanned
         - Falls back to raw-body single-document mode for non-JSON payloads
@@ -66,25 +66,17 @@
            received complete redaction. This catches two real loopholes:
 
            a) Document-limit protection: The Language Service accepts at most
-              5 documents per synchronous request. When the payload requires
-              more (many messages, or large messages that chunk into many
-              documents), excess content is silently dropped — the API
-              never sees it. The coverage check detects this by comparing
-              the set of messages that have redacted output against those
-              that don't.
-              Example: 6 short messages = 6 docs needed, but only 5 get
-              sent. The remaining message passes through unscanned.
+              5 documents per synchronous request. This fragment sends multiple
+              requests in batches of 5 (up to 100 documents total). If the
+              payload requires more than 100 documents, excess is unscanned and
+              the coverage check reports msgsUnscanned / fullCoverage=false.
 
            b) Partial-chunking detection: When a large message is split into
-              chunks and only some chunks fit within the 5-document limit,
-              the reassembled text would be shorter than the original. The
-              fragment detects this by comparing total redacted chunk length
+              chunks and only some chunks are returned (e.g. API error for a
+              batch), the reassembled text would be shorter than the original.
+              The fragment detects this by comparing total redacted chunk length
               against original message length. CharacterMask preserves text
               length, so any discrepancy means missing chunks.
-              Example: A 30K-char message needs 6 chunks. If the 5-doc
-              limit only allows 3 chunks, the reassembled text is ~15K chars
-              — the trailing 15K chars (potentially containing PII) would
-              be silently lost.
 
            c) Document-error tolerance: If the Language Service returns
               errors for specific documents (e.g., unsupported language),
@@ -106,8 +98,7 @@
            to App Insights for monitoring.
 
         Performance optimizations:
-        - Single Body.As<string>() read (cached in piiResponseBodyStr)
-        - Single JObject.Parse() pass for diagnostics (cached in piiDiagnostics)
+        - Document list built once; batches of 5 sent sequentially; results merged
         - Timing via piiStartTimeTicks / piiDurationMs for latency monitoring
 
         Prerequisites - Set these variables before including this fragment:
@@ -160,8 +151,77 @@
             <!-- ====== TIMING: Capture start time for PII API latency measurement ====== -->
             <set-variable name="piiStartTimeTicks" value="@(DateTime.UtcNow.Ticks.ToString())" />
 
+            <!-- ====== PHASE 1: Build full document list (cap 100 docs for batching) ====== -->
+            <set-variable name="piiDocumentBuildResult" value="@{
+                var inputText = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
+                var language = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionLanguage&quot;, &quot;en&quot;);
+                var documents = new JArray();
+                var maxDocChars = 5000;
+                var maxDocsTotal = 100;
+                try {
+                    var bodyObj = JObject.Parse(inputText);
+                    var messages = bodyObj[&quot;messages&quot;] as JArray;
+                    if (messages != null) {
+                        for (int i = 0; i &lt; messages.Count &amp;&amp; documents.Count &lt; maxDocsTotal; i++) {
+                            var content = messages[i]?[&quot;content&quot;]?.ToString();
+                            if (!string.IsNullOrWhiteSpace(content)) {
+                                if (content.Length &lt;= maxDocChars) {
+                                    documents.Add(new JObject {
+                                        {&quot;text&quot;, content},
+                                        {&quot;id&quot;, i.ToString()},
+                                        {&quot;language&quot;, language}
+                                    });
+                                } else {
+                                    int chunkIdx = 0;
+                                    int pos = 0;
+                                    while (pos &lt; content.Length &amp;&amp; documents.Count &lt; maxDocsTotal) {
+                                        int end = Math.Min(pos + maxDocChars, content.Length);
+                                        if (end &lt; content.Length) {
+                                            int lastSpace = content.LastIndexOf(' ', end - 1, end - pos);
+                                            if (lastSpace &gt; pos) { end = lastSpace + 1; }
+                                        }
+                                        documents.Add(new JObject {
+                                            {&quot;text&quot;, content.Substring(pos, end - pos)},
+                                            {&quot;id&quot;, i + &quot;_&quot; + chunkIdx},
+                                            {&quot;language&quot;, language}
+                                        });
+                                        pos = end;
+                                        chunkIdx++;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                } catch { }
+                if (documents.Count == 0) {
+                    documents.Add(new JObject {
+                        {&quot;text&quot;, inputText},
+                        {&quot;id&quot;, &quot;raw&quot;},
+                        {&quot;language&quot;, language}
+                    });
+                }
+                var result = new JObject {
+                    {&quot;documents&quot;, documents},
+                    {&quot;count&quot;, documents.Count}
+                };
+                return result.ToString(Newtonsoft.Json.Formatting.None);
+            }" />
+
+            <set-variable name="piiTotalDocs" value="@{
+                try {
+                    var build = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDocumentBuildResult&quot;, &quot;{\&quot;count\&quot;:0}&quot;));
+                    return build[&quot;count&quot;]?.ToString() ?? &quot;0&quot;;
+                } catch { return &quot;0&quot;; }
+            }" />
+
+            <set-variable name="piiRedactedMapJson" value="{}" />
+            <set-variable name="piiAnyBatchFailed" value="false" />
+            <set-variable name="piiAccumulatedEntityCount" value="0" />
+            <set-variable name="piiAccumulatedEntityTypes" value="" />
+            <set-variable name="piiAccumulatedDocErrors" value="" />
+
             <!-- Call Azure Language Service PII API with per-message documents -->
-            <send-request mode="new" response-variable-name="piiAnalysisResponse" timeout="20" ignore-error="true">
+            <send-request mode="new" response-variable-name="piiBatch0Response" timeout="20" ignore-error="true">
                 <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
                 <set-method>POST</set-method>
                 <set-header name="Content-Type" exists-action="override">
@@ -177,108 +237,862 @@
                     }</value>
                 </set-header>
                 <set-body>@{
-                    var inputText = context.Variables.GetValueOrDefault&lt;string&gt;("piiInputContent", "");
-                    var language = context.Variables.GetValueOrDefault&lt;string&gt;("piiDetectionLanguage", "en");
-
-                    var excludedCategoriesJson = context.Variables.GetValueOrDefault&lt;string&gt;("piiExcludedCategories", "[]");
+                    var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                    var allDocs = (JArray)build[&quot;documents&quot;];
+                    int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                    int start = 0;
+                    int end = Math.Min(5, count);
+                    var batchDocs = new JArray();
+                    for (int i = start; i &lt; end; i++) { batchDocs.Add(allDocs[i]); }
+                    var excludedCategoriesJson = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
                     JArray excludedCategories;
-                    try {
-                        excludedCategories = JArray.Parse(excludedCategoriesJson);
-                    } catch {
-                        excludedCategories = new JArray();
-                    }
-
-                    var documents = new JArray();
-                    var maxDocChars = 5000; // Safe for all Language Service tiers (F0 limit is 5120)
-                    var maxDocs = 5; // Azure Language Service synchronous PII limit: 5 docs/request
-                    try {
-                        var bodyObj = JObject.Parse(inputText);
-                        var messages = bodyObj["messages"] as JArray;
-                        if (messages != null) {
-                            for (int i = 0; i &lt; messages.Count &amp;&amp; documents.Count &lt; maxDocs; i++) {
-                                var content = messages[i]?["content"]?.ToString();
-                                if (!string.IsNullOrWhiteSpace(content)) {
-                                    if (content.Length &lt;= maxDocChars) {
-                                        documents.Add(new JObject {
-                                            {"text", content},
-                                            {"id", i.ToString()},
-                                            {"language", language}
-                                        });
-                                    } else {
-                                        // Chunk oversized messages at word boundaries
-                                        int chunkIdx = 0;
-                                        int pos = 0;
-                                        while (pos &lt; content.Length &amp;&amp; documents.Count &lt; maxDocs) {
-                                            int end = Math.Min(pos + maxDocChars, content.Length);
-                                            if (end &lt; content.Length) {
-                                                int lastSpace = content.LastIndexOf(' ', end - 1, end - pos);
-                                                if (lastSpace &gt; pos) { end = lastSpace + 1; }
-                                            }
-                                            documents.Add(new JObject {
-                                                {"text", content.Substring(pos, end - pos)},
-                                                {"id", i + "_" + chunkIdx},
-                                                {"language", language}
-                                            });
-                                            pos = end;
-                                            chunkIdx++;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    } catch { /* JSON parse failed - fall through to raw fallback */ }
-
-                    if (documents.Count == 0) {
-                        documents.Add(new JObject {
-                            {"text", inputText},
-                            {"id", "raw"},
-                            {"language", language}
-                        });
-                    }
-
+                    try { excludedCategories = JArray.Parse(excludedCategoriesJson); } catch { excludedCategories = new JArray(); }
                     var request = new JObject();
-                    request["kind"] = "PiiEntityRecognition";
-                    var parameters = new JObject {
-                        {"modelVersion", "latest"},
-                        {"redactionPolicy", new JObject {
-                            {"policyKind", "CharacterMask"},
-                            {"redactionCharacter", "#"}
-                        }}
+                    request[&quot;kind&quot;] = &quot;PiiEntityRecognition&quot;;
+                    request[&quot;parameters&quot;] = new JObject {
+                        {&quot;modelVersion&quot;, &quot;latest&quot;},
+                        {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} }}
                     };
-                    if (excludedCategories.Count > 0) {
-                        parameters["excludePiiCategories"] = excludedCategories;
-                    }
-                    request["parameters"] = parameters;
-                    request["analysisInput"] = new JObject {
-                        {"documents", documents}
-                    };
+                    if (excludedCategories.Count > 0) { request[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = excludedCategories; }
+                    request[&quot;analysisInput&quot;] = new JObject { {&quot;documents&quot;, batchDocs} };
                     return request.ToString();
                 }</set-body>
             </send-request>
 
-            <!-- Cache HTTP status code FIRST (before reading body) -->
+            <set-variable name="piiRedactedMapJson" value="@{
+                try {
+                    var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch0Response&quot;);
+                    var code = resp != null ? ((int)resp.StatusCode).ToString() : &quot;0&quot;;
+                    if (code != &quot;200&quot;) { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                    var jobj = JObject.Parse(body);
+                    var docs = jobj.SelectToken(&quot;$.results.documents&quot;) as JArray;
+                    var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                    if (docs != null) { foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; } }
+                    return current.ToString(Newtonsoft.Json.Formatting.None);
+                } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+            }" />
             <set-variable name="piiDetectionStatusCode" value="@{
                 try {
-                    var response = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiAnalysisResponse&quot;);
-                    return response != null ? ((int)response.StatusCode).ToString() : &quot;no-response&quot;;
-                } catch {
-                    return &quot;error&quot;;
-                }
+                    var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch0Response&quot;);
+                    return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;;
+                } catch { return &quot;0&quot;; }
+            }" />
+            <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+            <set-variable name="piiAccumulatedEntityCount" value="@{
+                try {
+                    var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch0Response&quot;);
+                    if (r == null || ((int)r.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAccumulatedEntityCount&quot;, &quot;0&quot;);
+                    var body = r.Body.As&lt;string&gt;(preserveContent: true);
+                    var jobj = JObject.Parse(body);
+                    var docs = jobj.SelectToken(&quot;$.results.documents&quot;) as JArray;
+                    int sum = int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAccumulatedEntityCount&quot;, &quot;0&quot;));
+                    if (docs != null) foreach (var d in docs) { var ents = d[&quot;entities&quot;] as JArray; sum += ents?.Count ?? 0; }
+                    return sum.ToString();
+                } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAccumulatedEntityCount&quot;, &quot;0&quot;); }
+            }" />
+            <set-variable name="piiAccumulatedEntityTypes" value="@{
+                try {
+                    var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch0Response&quot;);
+                    if (r == null || ((int)r.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAccumulatedEntityTypes&quot;, &quot;&quot;);
+                    var body = r.Body.As&lt;string&gt;(preserveContent: true);
+                    var jobj = JObject.Parse(body);
+                    var docs = jobj.SelectToken(&quot;$.results.documents&quot;) as JArray;
+                    var set = new System.Collections.Generic.HashSet&lt;string&gt;();
+                    foreach (var s in (context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAccumulatedEntityTypes&quot;, &quot;&quot;) ?? &quot;&quot;).Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)) set.Add(s.Trim());
+                    if (docs != null) foreach (var d in docs) { var ents = d[&quot;entities&quot;] as JArray; if (ents != null) foreach (var e in ents) { var c = e[&quot;category&quot;]?.ToString(); if (c != null) set.Add(c); } }
+                    return string.Join(&quot;,&quot;, set);
+                } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAccumulatedEntityTypes&quot;, &quot;&quot;); }
+            }" />
+            <set-variable name="piiAccumulatedDocErrors" value="@{
+                try {
+                    var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch0Response&quot;);
+                    if (r == null || ((int)r.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAccumulatedDocErrors&quot;, &quot;&quot;);
+                    var body = r.Body.As&lt;string&gt;(preserveContent: true);
+                    var jobj = JObject.Parse(body);
+                    var errs = jobj.SelectToken(&quot;$.results.errors&quot;) as JArray;
+                    var prev = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAccumulatedDocErrors&quot;, &quot;&quot;);
+                    if (errs == null || errs.Count == 0) return prev;
+                    var list = new System.Collections.Generic.List&lt;string&gt;();
+                    if (!string.IsNullOrEmpty(prev)) list.Add(prev);
+                    foreach (var err in errs) { var id = err[&quot;id&quot;]?.ToString() ?? &quot;?&quot;; var msg = err.SelectToken(&quot;$.error.message&quot;)?.ToString() ?? &quot;unknown&quot;; list.Add(&quot;doc-&quot; + id + &quot;:&quot; + msg); }
+                    return string.Join(&quot;; &quot;, list);
+                } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAccumulatedDocErrors&quot;, &quot;&quot;); }
             }" />
 
-            <!-- ====== PERFORMANCE: Cache response body string ONCE ====== -->
-            <!-- Only reads Body.As<string> for HTTP 200 responses -->
-            <set-variable name="piiResponseBodyStr" value="@{
-                try {
-                    var statusCode = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;0&quot;);
-                    if (statusCode != &quot;200&quot;) { return &quot;&quot;; }
-                    var response = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiAnalysisResponse&quot;);
-                    if (response == null) { return &quot;&quot;; }
-                    return response.Body.As&lt;string&gt;(preserveContent: true);
-                } catch (Exception ex) {
-                    return &quot;&quot;;
-                }
-            }" />
+            <!-- Batches 1-9 when total docs > 5, 10, 15, ... 45 -->
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 5)">
+                    <send-request mode="new" response-variable-name="piiBatch1Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 5, end = Math.Min(10, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) { batchDocs.Add(allDocs[i]); }
+                            var excludedCategoriesJson = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray excludedCategories;
+                            try { excludedCategories = JArray.Parse(excludedCategoriesJson); } catch { excludedCategories = new JArray(); }
+                            var request = new JObject {
+                                {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;},
+                                {&quot;parameters&quot;, new JObject {
+                                    {&quot;modelVersion&quot;, &quot;latest&quot;},
+                                    {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} }}
+                                }},
+                                {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} }}
+                            };
+                            if (excludedCategories.Count > 0) { request[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = excludedCategories; }
+                            return request.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch1Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var jobj = JObject.Parse(body);
+                            var docs = jobj.SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) { foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; } }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch1Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 10)">
+                    <send-request mode="new" response-variable-name="piiBatch2Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 10, end = Math.Min(15, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch2Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch2Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 15)">
+                    <send-request mode="new" response-variable-name="piiBatch3Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 15, end = Math.Min(20, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch3Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch3Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 20)">
+                    <send-request mode="new" response-variable-name="piiBatch4Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 20, end = Math.Min(25, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch4Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch4Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 25)">
+                    <send-request mode="new" response-variable-name="piiBatch5Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 25, end = Math.Min(30, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch5Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch5Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 30)">
+                    <send-request mode="new" response-variable-name="piiBatch6Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 30, end = Math.Min(35, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch6Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch6Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 35)">
+                    <send-request mode="new" response-variable-name="piiBatch7Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 35, end = Math.Min(40, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch7Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch7Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 40)">
+                    <send-request mode="new" response-variable-name="piiBatch8Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 40, end = Math.Min(45, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch8Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch8Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 45)">
+                    <send-request mode="new" response-variable-name="piiBatch9Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 45, end = Math.Min(50, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch9Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch9Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <!-- Batches 10-19 (docs 50-99) -->
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 50)">
+                    <send-request mode="new" response-variable-name="piiBatch10Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 50, end = Math.Min(55, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch10Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch10Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 55)">
+                    <send-request mode="new" response-variable-name="piiBatch11Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 55, end = Math.Min(60, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch11Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch11Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 60)">
+                    <send-request mode="new" response-variable-name="piiBatch12Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 60, end = Math.Min(65, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch12Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch12Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 65)">
+                    <send-request mode="new" response-variable-name="piiBatch13Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 65, end = Math.Min(70, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch13Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch13Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 70)">
+                    <send-request mode="new" response-variable-name="piiBatch14Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 70, end = Math.Min(75, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch14Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch14Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 75)">
+                    <send-request mode="new" response-variable-name="piiBatch15Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 75, end = Math.Min(80, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch15Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch15Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 80)">
+                    <send-request mode="new" response-variable-name="piiBatch16Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 80, end = Math.Min(85, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch16Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch16Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 85)">
+                    <send-request mode="new" response-variable-name="piiBatch17Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 85, end = Math.Min(90, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch17Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch17Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 90)">
+                    <send-request mode="new" response-variable-name="piiBatch18Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 90, end = Math.Min(95, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch18Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch18Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+            <choose>
+                <when condition="@(int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;)) > 95)">
+                    <send-request mode="new" response-variable-name="piiBatch19Response" timeout="20" ignore-error="true">
+                        <set-url>{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview</set-url>
+                        <set-method>POST</set-method>
+                        <set-header name="Content-Type" exists-action="override"><value>application/json</value></set-header>
+                        <set-header name="Authorization" exists-action="override"><value>@{
+                            try { return "Bearer " + (string)context.Variables["pii-msi-access-token"]; } catch { return "Bearer unavailable"; }
+                        }</value></set-header>
+                        <set-body>@{
+                            var build = JObject.Parse(context.Variables[&quot;piiDocumentBuildResult&quot;]);
+                            var allDocs = (JArray)build[&quot;documents&quot;];
+                            int count = build[&quot;count&quot;].Value&lt;int&gt;();
+                            int start = 95, end = Math.Min(100, count);
+                            var batchDocs = new JArray();
+                            for (int i = start; i &lt; end; i++) batchDocs.Add(allDocs[i]);
+                            var exc = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                            JArray exCat; try { exCat = JArray.Parse(exc); } catch { exCat = new JArray(); }
+                            var req = new JObject { {&quot;kind&quot;, &quot;PiiEntityRecognition&quot;}, {&quot;parameters&quot;, new JObject { {&quot;modelVersion&quot;, &quot;latest&quot;}, {&quot;redactionPolicy&quot;, new JObject { {&quot;policyKind&quot;, &quot;CharacterMask&quot;}, {&quot;redactionCharacter&quot;, &quot;#&quot;} } } } }, {&quot;analysisInput&quot;, new JObject { {&quot;documents&quot;, batchDocs} } } };
+                            if (exCat.Count > 0) req[&quot;parameters&quot;][&quot;excludePiiCategories&quot;] = exCat;
+                            return req.ToString();
+                        }</set-body>
+                    </send-request>
+                    <set-variable name="piiRedactedMapJson" value="@{
+                        try {
+                            var resp = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch19Response&quot;);
+                            if (resp == null || ((int)resp.StatusCode) != 200) return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                            var body = resp.Body.As&lt;string&gt;(preserveContent: true);
+                            var docs = JObject.Parse(body).SelectToken(&quot;$.results.documents&quot;) as JArray;
+                            var current = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;));
+                            if (docs != null) foreach (var d in docs) { var id = d[&quot;id&quot;]?.ToString(); var rt = d[&quot;redactedText&quot;]?.ToString(); if (id != null &amp;&amp; rt != null) current[id] = rt; }
+                            return current.ToString(Newtonsoft.Json.Formatting.None);
+                        } catch { return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;); }
+                    }" />
+                    <set-variable name="piiDetectionStatusCode" value="@{
+                        try { var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiBatch19Response&quot;); return r != null ? ((int)r.StatusCode).ToString() : &quot;0&quot;; } catch { return &quot;0&quot;; }
+                    }" />
+                    <set-variable name="piiAnyBatchFailed" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;200&quot;) != &quot;200&quot; ? &quot;true&quot; : context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;))" />
+                </when>
+            </choose>
+
+            <!-- Status code and map are set by batch blocks above -->
 
             <!-- ====== PERFORMANCE: Compute PII API call duration ====== -->
             <set-variable name="piiDurationMs" value="@{
@@ -290,49 +1104,29 @@
                 }
             }" />
 
-            <!-- Compute piiRedactionSucceeded from CACHED response body -->
+            <!-- Compute piiRedactionSucceeded from merged redacted map and batch failure flag -->
             <set-variable name="piiRedactionSucceeded" value="@{
                 try {
+                    if (context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnyBatchFailed&quot;, &quot;false&quot;) == &quot;true&quot;) { return &quot;false&quot;; }
                     var statusCode = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;0&quot;);
                     if (statusCode != &quot;200&quot;) { return &quot;false&quot;; }
-                    var bodyStr = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiResponseBodyStr&quot;, &quot;&quot;);
-                    if (string.IsNullOrEmpty(bodyStr)) { return &quot;false&quot;; }
-                    var responseBody = JObject.Parse(bodyStr);
-                    var docs = responseBody.SelectToken(&quot;$.results.documents&quot;) as JArray;
-                    if (docs != null) {
-                        foreach (var doc in docs) {
-                            if (doc[&quot;redactedText&quot;] != null) { return &quot;true&quot;; }
-                        }
-                    }
-                    return &quot;false&quot;;
+                    var mapStr = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                    var map = JObject.Parse(mapStr);
+                    return (map.Count > 0).ToString().ToLower();
                 } catch {
                     return &quot;false&quot;;
                 }
             }" />
 
-            <!-- ====== SAFETY: Compute per-message redaction coverage ====== -->
-            <!-- Detects when messages are unscanned (25-doc limit) or partially -->
-            <!-- chunked (truncated). Fail-closed mode blocks on incomplete coverage. -->
+            <!-- ====== SAFETY: Compute per-message redaction coverage from merged map ====== -->
             <set-variable name="piiRedactionCoverage" value="@{
                 try {
                     var statusCode = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;0&quot;);
                     if (statusCode != &quot;200&quot;) {
                         return new JObject {{&quot;fullCoverage&quot;,true},{&quot;msgsWithContent&quot;,0},{&quot;msgsRedacted&quot;,0},{&quot;msgsPartial&quot;,0},{&quot;msgsUnscanned&quot;,0}}.ToString(Newtonsoft.Json.Formatting.None);
                     }
-                    var bodyStr = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiResponseBodyStr&quot;, &quot;&quot;);
-                    if (string.IsNullOrEmpty(bodyStr)) {
-                        return new JObject {{&quot;fullCoverage&quot;,false},{&quot;msgsWithContent&quot;,0},{&quot;msgsRedacted&quot;,0},{&quot;msgsPartial&quot;,0},{&quot;msgsUnscanned&quot;,0}}.ToString(Newtonsoft.Json.Formatting.None);
-                    }
-                    var responseBody = JObject.Parse(bodyStr);
-                    var resultDocs = responseBody.SelectToken(&quot;$.results.documents&quot;) as JArray;
-                    var redactedMap = new System.Collections.Generic.Dictionary&lt;string, string&gt;();
-                    if (resultDocs != null) {
-                        foreach (var doc in resultDocs) {
-                            var id = doc[&quot;id&quot;]?.ToString();
-                            var redacted = doc[&quot;redactedText&quot;]?.ToString();
-                            if (id != null &amp;&amp; redacted != null) { redactedMap[id] = redacted; }
-                        }
-                    }
+                    var mapStr = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                    var redactedMap = JObject.Parse(mapStr);
                     var inputText = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
                     var bodyObj = JObject.Parse(inputText);
                     var messages = bodyObj[&quot;messages&quot;] as JArray;
@@ -351,7 +1145,7 @@
                                 int totalChunkLen = 0;
                                 int chunkIdx = 0;
                                 while (redactedMap.ContainsKey(i + &quot;_&quot; + chunkIdx)) {
-                                    totalChunkLen += redactedMap[i + &quot;_&quot; + chunkIdx].Length;
+                                    totalChunkLen += redactedMap[i + &quot;_&quot; + chunkIdx].ToString().Length;
                                     chunkIdx++;
                                 }
                                 if (totalChunkLen &gt;= content.Length) {
@@ -439,31 +1233,17 @@
                 </when>
             </choose>
 
-            <!-- Reconstruct JSON body from CACHED response body -->
+            <!-- Reconstruct JSON body from merged redacted map -->
             <set-variable name="piiAnonymizedContent" value="@{
                 try {
                     var statusCode = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;0&quot;);
                     if (statusCode != &quot;200&quot;) {
                         return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
                     }
-                    var bodyStr = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiResponseBodyStr&quot;, &quot;&quot;);
-                    if (string.IsNullOrEmpty(bodyStr)) {
-                        return context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
-                    }
-                    var responseBody = JObject.Parse(bodyStr);
-                    var resultDocs = responseBody.SelectToken(&quot;$.results.documents&quot;) as JArray;
-                    var redactedMap = new System.Collections.Generic.Dictionary&lt;string, string&gt;();
-                    if (resultDocs != null) {
-                        foreach (var doc in resultDocs) {
-                            var id = doc[&quot;id&quot;]?.ToString();
-                            var redacted = doc[&quot;redactedText&quot;]?.ToString();
-                            if (id != null &amp;&amp; redacted != null) {
-                                redactedMap[id] = redacted;
-                            }
-                        }
-                    }
+                    var mapStr = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactedMapJson&quot;, &quot;{}&quot;);
+                    var redactedMap = JObject.Parse(mapStr);
                     if (redactedMap.ContainsKey(&quot;raw&quot;)) {
-                        return redactedMap[&quot;raw&quot;];
+                        return redactedMap[&quot;raw&quot;].ToString();
                     }
                     var inputText = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
                     var bodyObj = JObject.Parse(inputText);
@@ -472,27 +1252,19 @@
                         for (int i = 0; i &lt; messages.Count; i++) {
                             var key = i.ToString();
                             if (redactedMap.ContainsKey(key)) {
-                                // Non-chunked message: direct replacement
-                                ((JObject)messages[i])[&quot;content&quot;] = redactedMap[key];
+                                ((JObject)messages[i])[&quot;content&quot;] = redactedMap[key].ToString();
                             } else {
-                                // Chunked message: reassemble from compound IDs (i_0, i_1, ...)
                                 var sb = new System.Text.StringBuilder();
                                 int chunkIdx = 0;
                                 while (redactedMap.ContainsKey(i + &quot;_&quot; + chunkIdx)) {
-                                    sb.Append(redactedMap[i + &quot;_&quot; + chunkIdx]);
+                                    sb.Append(redactedMap[i + &quot;_&quot; + chunkIdx].ToString());
                                     chunkIdx++;
                                 }
                                 if (chunkIdx &gt; 0) {
                                     var originalContent = messages[i]?[&quot;content&quot;]?.ToString() ?? &quot;&quot;;
-                                    // Only replace if all chunks are accounted for (full coverage).
-                                    // CharacterMask preserves text length, so redacted length must
-                                    // match original. If shorter, chunks were truncated by the
-                                    // 25-doc limit — keep original content to avoid silent data loss.
-                                    // Fail-closed mode will have already blocked the request.
                                     if (sb.Length &gt;= originalContent.Length) {
                                         ((JObject)messages[i])[&quot;content&quot;] = sb.ToString();
                                     }
-                                    // Else: partial coverage — keep original unredacted content
                                 }
                             }
                         }
@@ -503,49 +1275,23 @@
                 }
             }" />
 
-            <!-- ====== PERFORMANCE: Single-pass diagnostics from CACHED response body ====== -->
+            <!-- ====== PERFORMANCE: Single-pass diagnostics from merged batch data ====== -->
             <set-variable name="piiDiagnostics" value="@{
                 try {
                     var statusCode = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;0&quot;);
                     if (statusCode != &quot;200&quot;) {
                         return &quot;{}&quot;;
                     }
-                    var bodyStr = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiResponseBodyStr&quot;, &quot;&quot;);
-                    if (string.IsNullOrEmpty(bodyStr)) { return &quot;{}&quot;; }
-                    var responseBody = JObject.Parse(bodyStr);
-                    var docs = responseBody.SelectToken(&quot;$.results.documents&quot;) as JArray;
-                    var errors = responseBody.SelectToken(&quot;$.results.errors&quot;) as JArray;
-                    int docCount = docs?.Count ?? 0;
-                    int totalEntities = 0;
-                    var categories = new System.Collections.Generic.HashSet&lt;string&gt;();
-                    if (docs != null) {
-                        foreach (var doc in docs) {
-                            var entities = doc[&quot;entities&quot;] as JArray;
-                            int eCount = entities?.Count ?? 0;
-                            totalEntities += eCount;
-                            if (entities != null) {
-                                foreach (var e in entities) {
-                                    var cat = e[&quot;category&quot;]?.ToString();
-                                    if (cat != null) { categories.Add(cat); }
-                                }
-                            }
-                        }
-                    }
-                    var docErrorsList = new System.Collections.Generic.List&lt;string&gt;();
-                    if (errors != null &amp;&amp; errors.Count &gt; 0) {
-                        foreach (var err in errors) {
-                            var id = err[&quot;id&quot;]?.ToString() ?? &quot;?&quot;;
-                            var msg = err.SelectToken(&quot;$.error.message&quot;)?.ToString() ?? &quot;unknown&quot;;
-                            docErrorsList.Add(&quot;doc-&quot; + id + &quot;:&quot; + msg);
-                        }
-                    }
+                    int docCount = int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiTotalDocs&quot;, &quot;0&quot;));
+                    int totalEntities = int.Parse(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAccumulatedEntityCount&quot;, &quot;0&quot;));
+                    var categories = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAccumulatedEntityTypes&quot;, &quot;&quot;) ?? &quot;&quot;;
+                    var docErrors = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAccumulatedDocErrors&quot;, &quot;&quot;) ?? &quot;&quot;;
                     var result = new JObject {
                         {&quot;docCount&quot;, docCount},
-                        {&quot;docErrors&quot;, docErrorsList.Count &gt; 0 ? string.Join(&quot;; &quot;, docErrorsList) : &quot;none&quot;},
+                        {&quot;docErrors&quot;, string.IsNullOrEmpty(docErrors) ? &quot;none&quot; : docErrors},
                         {&quot;entityCount&quot;, totalEntities},
-                        {&quot;entityTypes&quot;, categories.Count &gt; 0 ? string.Join(&quot;,&quot;, categories) : &quot;none&quot;}
+                        {&quot;entityTypes&quot;, string.IsNullOrEmpty(categories) ? &quot;none&quot; : categories}
                     };
-                    // Merge redaction coverage metrics for unified diagnostics
                     try {
                         var covJson = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiRedactionCoverage&quot;, &quot;{}&quot;);
                         var cov = JObject.Parse(covJson);
