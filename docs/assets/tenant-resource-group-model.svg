@@ -97,7 +97,7 @@
   <rect x="20" y="315" width="440" height="300" rx="10" fill="url(#tenantGrad)" stroke="#fcba19" stroke-width="2" filter="url(#shadow)"/>
   <rect x="20" y="315" width="440" height="35" rx="10" fill="#fcba19"/>
   <text x="240" y="338" text-anchor="middle" fill="#003366" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Ministry Health RG</text>
-  <text x="420" y="338" text-anchor="middle" fill="#003366" font-family="Arial, sans-serif" font-size="11">50 IPs</text>
+  <text x="420" y="338" text-anchor="middle" fill="#003366" font-family="Arial, sans-serif" font-size="11">~5 IPs</text>
 
   <!-- Tenant A Services -->
   <rect x="35" y="360" width="130" height="70" rx="5" fill="white" stroke="#8b5cf6" stroke-width="1"/>
@@ -147,7 +147,7 @@
   <rect x="480" y="315" width="440" height="300" rx="10" fill="url(#tenantGrad)" stroke="#fcba19" stroke-width="2" filter="url(#shadow)"/>
   <rect x="480" y="315" width="440" height="35" rx="10" fill="#fcba19"/>
   <text x="700" y="338" text-anchor="middle" fill="#003366" font-family="Arial, sans-serif" font-size="14" font-weight="bold">Ministry SDPR RG</text>
-  <text x="880" y="338" text-anchor="middle" fill="#003366" font-family="Arial, sans-serif" font-size="11">50 IPs</text>
+  <text x="880" y="338" text-anchor="middle" fill="#003366" font-family="Arial, sans-serif" font-size="11">~5 IPs</text>
 
   <!-- Tenant B Services (simplified) -->
   <rect x="495" y="360" width="130" height="70" rx="5" fill="white" stroke="#8b5cf6" stroke-width="1"/>
@@ -241,11 +241,11 @@
 
   <g transform="translate(700, 680)">
     <rect x="0" y="0" width="310" height="100" rx="8" fill="#f0f9ff" stroke="#0078d4" stroke-width="1"/>
-    <text x="155" y="25" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="13" font-weight="bold">IP Budget Per Tenant</text>
-    <text x="155" y="45" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">Default: 50 IPs per Resource Group</text>
-    <text x="155" y="60" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">Each private endpoint = 1 IP</text>
-    <text x="155" y="75" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">AKS nodes consume multiple IPs</text>
-    <text x="155" y="90" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="10" font-weight="bold">Plan carefully, request increase if needed</text>
+    <text x="155" y="25" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="13" font-weight="bold">PE IPs Per Tenant (up to)</text>
+    <text x="155" y="45" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">~5 IPs per tenant (1 IP per PE)</text>
+    <text x="155" y="60" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">KV + AI Search + Cosmos + DocIntel + Speech</text>
+    <text x="155" y="75" text-anchor="middle" fill="#333" font-family="Arial, sans-serif" font-size="11">Storage: public (no PE required)</text>
+    <text x="155" y="90" text-anchor="middle" fill="#0078d4" font-family="Arial, sans-serif" font-size="10" font-weight="bold">Capacity: ~50 tenants per /24 PE subnet</text>
   </g>
 
   <g transform="translate(1030, 680)">

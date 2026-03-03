@@ -898,7 +898,7 @@ Before creating the tenant config, determine which PE subnet to assign:
 2. **Prod**: Check current PE count per subnet to find the one with most remaining capacity:
    - Azure Portal → VNet → Subnets → each `privateendpoints-subnet*` → "Connected devices" count
    - Or CLI: `az network vnet subnet show --resource-group <rg> --vnet-name <vnet> --name privateendpoints-subnet --query 'ipConfigurations | length(@)'`
-3. Each `/24` PE subnet holds ~251 usable IPs; each tenant uses up to 5 PEs
+3. Each `/24` PE subnet holds ~251 usable IPs; each tenant uses up to 6 PE IPs (Cosmos DB = 2 IPs: sql global + canadacentral regional)
 4. Record the chosen key (e.g., `privateendpoints-subnet-1`) — it is **immutable** after first deploy
 
 #### 1. Create Tenant Configuration File

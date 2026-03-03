@@ -144,7 +144,7 @@
     <rect x="0" y="0" width="340" height="60" rx="5" fill="white" stroke="#f59e0b" stroke-width="1"/>
     <text x="15" y="20" fill="#f59e0b" font-family="Arial, sans-serif" font-size="16">?</text>
     <text x="40" y="20" fill="#333" font-family="Arial, sans-serif" font-size="13" font-weight="bold">Additional IP Allocation</text>
-    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Beyond default 50 IPs per tenant</text>
+    <text x="40" y="36" fill="#666" font-family="Arial, sans-serif" font-size="10">Beyond ~5 PE IPs per tenant (add more PE subnet address spaces)</text>
     <text x="40" y="50" fill="#92400e" font-family="Arial, sans-serif" font-size="9">Requires: capacity planning justification</text>
   </g>
 
@@ -305,10 +305,10 @@
 
   <g transform="translate(860, 970)">
     <rect x="0" y="0" width="290" height="90" rx="5" fill="#003366"/>
-    <text x="145" y="20" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="12" font-weight="bold">Default Allocation Per Tenant</text>
-    <text x="145" y="45" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="24" font-weight="bold">50 IPs</text>
-    <text x="145" y="65" text-anchor="middle" fill="#ccc" font-family="Arial, sans-serif" font-size="10">Covers: Foundry + Storage + Search + KV</text>
-    <text x="145" y="80" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="10">Request increase with justification</text>
+    <text x="145" y="20" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="12" font-weight="bold">PE IPs Per Tenant (up to)</text>
+    <text x="145" y="45" text-anchor="middle" fill="white" font-family="Arial, sans-serif" font-size="24" font-weight="bold">~5 IPs</text>
+    <text x="145" y="65" text-anchor="middle" fill="#ccc" font-family="Arial, sans-serif" font-size="10">KV + AI Search + Cosmos + DocIntel + Speech</text>
+    <text x="145" y="80" text-anchor="middle" fill="#fcba19" font-family="Arial, sans-serif" font-size="10">Storage: public access — no PE needed</text>
   </g>
 
 </svg>

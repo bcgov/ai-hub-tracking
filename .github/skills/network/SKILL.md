@@ -133,9 +133,9 @@ The network module automatically derives a PE pool from all subnets whose name s
 - **Explicit `pe_subnet_key` in tenant config** (`var.tenants[key].pe_subnet_key`) — **ALWAYS set**, validated at plan time
 - Resolution is strict: invalid/missing key in the shared PE pool fails at plan time (no silent fallback)
 
-Each tenant creates up to 5 PEs (Key Vault, AI Search, Cosmos DB, Document Intelligence, Speech Services). All PEs for a tenant land on the **same** subnet ("tenant affinity"). Storage Account has no PE (public access in Landing Zone).
+Each tenant creates up to 5 PEs but 6 IPs total (Cosmos DB PE = 2 IPs: sql global + canadacentral regional endpoint). All PEs for a tenant land on the **same** subnet ("tenant affinity"). Storage Account has no PE (public access in Landing Zone).
 
-Shared stack PEs (AI Foundry Hub, Language Service, Hub Key Vault) always use the primary `privateendpoints-subnet` (~4-5 PEs).
+Shared stack PEs always use the primary `privateendpoints-subnet` — consuming exactly **5 IPs**: AI Foundry Hub PE (3 IPs: cognitiveservices, openai, services.ai sub-resources), Language Service PE (1 IP), Hub Key Vault PE (1 IP).
 
 ### PE Subnet Assignment Strategy
 
@@ -143,9 +143,9 @@ Shared stack PEs (AI Foundry Hub, Language Service, Hub Key Vault) always use th
 
 **Capacity math:**
 - Each `/24` PE subnet holds ~251 usable IPs (Azure reserves 5)
-- Each tenant consumes up to 5 PE IPs → ~50 tenants per `/24` subnet
-- Shared stack consumes ~5 PEs on primary subnet (reducing tenant capacity to ~49 on primary)
-- Prod has 3 PE subnets → theoretical max ~148 tenants
+- Each tenant consumes up to 6 PE IPs (Cosmos DB = 2) → ~41 tenants per `/24` subnet
+- Shared stack consumes exactly 5 IPs on primary subnet: Foundry Hub 3 IPs (AIServices kind exposes cognitiveservices + openai + services.ai) + Language Service 1 IP + Hub KV 1 IP → reduces tenant capacity to ~41 on primary (246 ÷ 6)
+- Prod has 3 PE subnets → theoretical max ~123 tenants
 
 **Assignment rules for new tenants:**
 1. Check current PE count per subnet (Azure Portal → subnet → Connected devices, or `az network vnet subnet show`)

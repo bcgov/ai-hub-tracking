@@ -1480,7 +1480,7 @@
         </div>
         <div class="diagram-card-info">
             <h4>IP Budget Breakdown</h4>
-            <p>Detailed IP allocation: base infrastructure, per-tenant consumption, 50 IP calculation</p>
+            <p>Detailed IP allocation: base infrastructure, per-tenant consumption (~6 IPs each), capacity math (~41 tenants per /24 PE subnet)</p>
         </div>
     </div>
 </div>
@@ -1502,7 +1502,7 @@
         </div>
         <div class="diagram-card-info">
             <h4>Network Environments</h4>
-            <p>All 4 VNets (prod, test, dev, tools) with subnet allocations and NSG rules</p>
+            <p>3 VNets (prod, test, dev) with subnet allocations and NSG rules</p>
         </div>
     </div>
     <div class="diagram-card" onclick="loadDiagram('network-arch', this)">
@@ -1724,7 +1724,7 @@
         <h3 id="network-environments" style="margin-top: 0;">Network Environments</h3>
         <p>Complete environment layout:</p>
         <ul style="margin-bottom: 0;">
-            <li>All 4 VNets (da4cf6-prod/test/dev/tools)</li>
+            <li>3 VNets (da4cf6-prod/test/dev) — tools VNet is a separate peered spoke (CI/CD only, not in this allocation)</li>
             <li>Subnet allocations per environment</li>
             <li>Canada Central (prod) vs Canada East (non-prod)</li>
             <li>Client connectivity via App Gateway + APIM</li>
