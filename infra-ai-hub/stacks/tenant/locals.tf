@@ -11,7 +11,12 @@ locals {
   #   - Uses explicit pe_subnet_key only.
   #   - Invalid/missing key in the shared PE pool fails at plan time.
   # ---------------------------------------------------------------------------
-  pe_subnet_ids_by_key = data.terraform_remote_state.shared.outputs.private_endpoint_subnet_ids_by_key
+  pe_subnet_ids_by_key = try(
+    data.terraform_remote_state.shared.outputs.private_endpoint_subnet_ids_by_key,
+    {
+      "privateendpoints-subnet" = data.terraform_remote_state.shared.outputs.private_endpoint_subnet_id
+    }
+  )
 
   resolved_pe_subnet_id = {
     for key, config in local.enabled_tenants : key => local.pe_subnet_ids_by_key[config.pe_subnet_key]
