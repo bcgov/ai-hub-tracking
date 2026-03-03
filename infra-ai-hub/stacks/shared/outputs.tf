@@ -14,6 +14,21 @@ output "private_endpoint_subnet_cidr" {
   value = module.network.private_endpoint_subnet_cidr
 }
 
+output "private_endpoint_subnet_cidrs" {
+  description = "Sorted list of all PE subnet CIDRs in the pool (covers primary + overflow PE subnets)"
+  value       = sort(values(module.network.private_endpoint_subnet_cidrs_by_key))
+}
+
+output "private_endpoint_subnet_ids_by_key" {
+  description = "Map of PE pool key to subnet resource ID"
+  value       = module.network.private_endpoint_subnet_ids_by_key
+}
+
+output "private_endpoint_subnet_cidrs_by_key" {
+  description = "Map of PE pool key to CIDR string"
+  value       = module.network.private_endpoint_subnet_cidrs_by_key
+}
+
 output "private_endpoint_nsg_id" {
   value = module.network.private_endpoint_nsg_id
 }

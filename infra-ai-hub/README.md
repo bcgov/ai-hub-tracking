@@ -93,7 +93,7 @@ Azure OpenAI models have varying regional availability. This infrastructure supp
 ```mermaid
 flowchart LR
     subgraph "Canada Central"
-        VNET[Landing Zone VNet<br/>10.46.15.0/24]
+        VNET[Landing Zone VNet<br/>10.x.x.0/24]
         PE_SUB[PE Subnet Pool<br/>8x /27 subnets]
         PE[Private Endpoint<br/>cognitiveservices]
     end
@@ -137,59 +137,63 @@ module "ai_foundry_hub" {
 
 ## Network Architecture
 
-The network module creates a scalable subnet architecture that supports tenant growth.
+The network module uses an explicit `subnet_allocation` variable. In CI/CD, values are passed via `TF_VAR_subnet_allocation` (GitHub environment secret). For local runs, `TF_VAR_subnet_allocation` is mandatory and must be exported before running Terraform. Source of truth is in the tools storage account `tftoolsaihubtracking`, container `tools`, under `network-info/subnet-allocation/`. There is no offset computation or formulaic derivation.
 
 ```mermaid
 flowchart TB
-    subgraph "Landing Zone VNet"
-        subgraph "Address Space 1: 10.46.15.0/24"
-            PE1[PE Subnet 0<br/>10.46.15.0/27]
-            PE2[PE Subnet 1<br/>10.46.15.32/27]
-            PE3[PE Subnet 2<br/>10.46.15.64/27]
-            PE4[PE Subnet 3<br/>10.46.15.96/27]
-            PE5[PE Subnet 4-7<br/>...]
+    subgraph "Test Environment"
+        subgraph "10.x.x.0/24 — PE Space"
+            PE[PE Subnet<br/>10.x.x.0/24<br/>251 usable IPs]
         end
         
-        subgraph "Address Space 2: 10.46.16.0/24"
-            APIM[APIM Subnet<br/>10.46.16.0/27]
-            APPGW[App Gateway<br/>10.46.16.32/27]
-            ACA[ACA Subnet<br/>10.46.16.64/27]
-            FUTURE[Future Use<br/>...]
+        subgraph "10.x.x.0/24 — Workload Space"
+            APIM[APIM Subnet<br/>10.x.x.0/27]
+            APPGW[App Gateway<br/>10.x.x.32/27]
+            ACA[ACA Subnet<br/>10.x.x.64/27]
         end
     end
     
-    subgraph "PE Allocation"
-        T1[Tenant 1] --> PE1
-        T2[Tenant 2] --> PE1
-        T3[Tenant 3] --> PE1
-        T4[Tenant 4] --> PE2
-        TN[Tenant N] --> PE3
+    subgraph "PE Pool Selection"
+        TENANT[Tenant Stack] -->|resolved_pe_subnet_id| PE
+        APIMSTACK[APIM Stack] -->|resolved_apim_pe_subnet_id| PE
     end
     
-    style PE1 fill:#50c878,color:#fff
-    style PE2 fill:#50c878,color:#fff
-    style PE3 fill:#87ceeb,color:#000
+    style PE fill:#50c878,color:#fff
     style APIM fill:#ff6b6b,color:#fff
     style APPGW fill:#ffd93d,color:#000
     style ACA fill:#c9b1ff,color:#000
 ```
 
-### Subnet Allocation Strategy
+### Current Environment Allocations
 
-| # of /24s | PE Pool | APIM | AppGW | ACA |
-|-----------|---------|------|-------|-----|
-| 1 | .0/27 | .32/27 | .64/27 | .96/27 |
-| 2 | 1st /24 (8x/27) | 2nd .0/27 | 2nd .32/27 | 2nd .64/27 |
-| 4+ | 1st+2nd (16x/27) | 3rd .0/27 | 4th .0/27 | 4th .32/27 |
+| Environment | Address Spaces | PE Pool | Workload Subnets |
+|---|---|---|---|
+| Dev | 1 × /24 | 1 × /27 | APIM /27 + ACA /27 |
+| Test | 2 × /24 | 1 × /24 (dedicated) | APIM /27 + AppGW /27 + ACA /27 |
+| Prod | 4 × /24 (target) | 3 × /24 PE pool | APIM /27 + AppGW /27 + ACA /27 |
 
 ### PE Subnet Pool
 
-Each /27 subnet provides ~27 usable IPs (5 reserved by Azure). With 10 private endpoints per tenant average:
+Subnets named `privateendpoints-subnet` or `privateendpoints-subnet-<n>` (with `<n>` starting at `1`) are auto-collected into an ordered pool keyed by their actual subnet names (`privateendpoints-subnet`, `privateendpoints-subnet-1`, etc.). Downstream stacks select PE subnets by key:
 
-| Environment | Address Spaces | PE Subnets | Max Tenants |
-|-------------|---------------|------------|-------------|
-| Test | 2 x /24 | 8 | ~20 |
-| Prod | 4 x /24 | 16 | ~40+ |
+- **Tenant stack**: `pe_subnet_key` is **mandatory** — every enabled tenant must declare which PE subnet it uses. Validated at `terraform plan` time. Assign-on-first-deploy, sticky forever (changing it destroys/recreates all tenant PEs).
+- **APIM stack**: Pinned — explicit key or primary fallback
+
+See the [Network Skill Reference](/.github/skills/network/references/REFERENCE.md) for full PE pool derivation details.
+
+### External VNet Peered Projects (Direct APIM Access)
+
+Teams running workloads in Azure with VNet peering to this hub can bypass App Gateway and consume APIM directly over private networking. Configure via `external_peered_projects` in `params/{env}/shared.tfvars`:
+
+```hcl
+external_peered_projects = {
+  "example-project" = { cidrs = ["10.97.64.0/20"], priority = 400 }
+}
+```
+
+Each entry creates an inbound HTTPS NSG rule on the APIM subnet at the caller-assigned priority (400–499). NSGs are stateful — no outbound mirror needed. See the [Network Skill](/.github/skills/network/SKILL.md) for details.
+
+In CI/CD, this value can also be provided via GitHub environment secret `EXTERNAL_PEERED_PROJECTS` (JSON object). When present, the reusable deploy workflow exports it as `TF_VAR_external_peered_projects` so Terraform receives the same value without committing CIDRs to repo files.
 
 ---
 
@@ -230,7 +234,7 @@ flowchart TD
 
 **Path**: `modules/network`
 
-Creates subnet infrastructure with NSGs for the Landing Zone VNet.
+Creates subnet infrastructure with NSGs for the Landing Zone VNet. Uses `azapi_resource` for atomic NSG attachment (Landing Zone compliant).
 
 #### Inputs
 
@@ -239,21 +243,21 @@ Creates subnet infrastructure with NSGs for the Landing Zone VNet.
 | `name_prefix` | string | ✅ | Prefix for resource names |
 | `vnet_name` | string | ✅ | Existing VNet name |
 | `vnet_resource_group_name` | string | ✅ | VNet resource group |
-| `target_vnet_address_spaces` | list(string) | ✅ | VNet address spaces |
 | `source_vnet_address_space` | string | ✅ | Source VNet CIDR for NSG rules |
-| `apim_subnet` | object | ❌ | APIM subnet config |
-| `appgw_subnet` | object | ❌ | App Gateway subnet config |
-| `aca_subnet` | object | ❌ | Container Apps subnet config |
+| `subnet_allocation` | map(map(string)) | ✅ | Explicit subnet allocation — outer key = address space CIDR, inner key = subnet name, inner value = full subnet CIDR |
 
 #### Outputs
 
 | Name | Description |
 |------|-------------|
-| `private_endpoint_subnet_id` | Primary PE subnet ID |
-| `private_endpoint_subnet_pool` | Map of all PE subnets |
-| `apim_subnet_id` | APIM subnet ID |
-| `appgw_subnet_id` | App Gateway subnet ID |
-| `aca_subnet_id` | ACA subnet ID |
+| `private_endpoint_subnet_id` | Primary PE subnet resource ID |
+| `private_endpoint_subnet_ids_by_key` | PE pool: key → resource ID |
+| `private_endpoint_subnet_cidrs_by_key` | PE pool: key → CIDR |
+| `private_endpoint_subnet_keys_ordered` | Sorted list of PE pool keys |
+| `private_endpoint_subnet_pool` | PE pool: key → { name, cidr } |
+| `apim_subnet_id` | APIM subnet ID (null if not allocated) |
+| `appgw_subnet_id` | App Gateway subnet ID (null if not allocated) |
+| `aca_subnet_id` | ACA subnet ID (null if not allocated) |
 | `vnet_id` | VNet resource ID |
 
 ---
@@ -587,6 +591,11 @@ tenants = {
     tenant_name  = "contoso-platform"
     display_name = "Contoso AI Platform"
     enabled      = true
+
+    # PE subnet assignment — sticky, do not change after first deploy (destroys/recreates all PEs)
+    # Check current PE count per subnet to pick the one with most remaining capacity.
+    # Valid keys: privateendpoints-subnet, privateendpoints-subnet-1, privateendpoints-subnet-2, ...
+    pe_subnet_key = "privateendpoints-subnet"
     
     tags = {
       ministry    = "CONTOSO"
@@ -881,6 +890,17 @@ apim_auth = {
 
 Each tenant is configured individually in a dedicated folder. Follow these steps:
 
+#### Prerequisites — PE Subnet Assignment
+
+Before creating the tenant config, determine which PE subnet to assign:
+
+1. **Dev/Test**: Always use `"privateendpoints-subnet"` (only one PE subnet available)
+2. **Prod**: Check current PE count per subnet to find the one with most remaining capacity:
+   - Azure Portal → VNet → Subnets → each `privateendpoints-subnet*` → "Connected devices" count
+   - Or CLI: `az network vnet subnet show --resource-group <rg> --vnet-name <vnet> --name privateendpoints-subnet --query 'ipConfigurations | length(@)'`
+3. Each `/24` PE subnet holds ~251 usable IPs; each tenant uses up to 5 PEs
+4. Record the chosen key (e.g., `privateendpoints-subnet-1`) — it is **immutable** after first deploy
+
 #### 1. Create Tenant Configuration File
 
 Create a new tenant directory and configuration file:
@@ -897,6 +917,10 @@ tenant = {
   tenant_name  = "my-new-tenant"
   display_name = "My New Tenant"
   enabled      = true
+
+  # PE subnet assignment — sticky, do not change after first deploy (destroys/recreates all PEs)
+  # See Prerequisites above for how to choose the right subnet.
+  pe_subnet_key = "privateendpoints-subnet"
   
   tags = {
     ministry    = "MY_MINISTRY"
@@ -913,6 +937,8 @@ tenant = {
   document_intelligence = { enabled = true }
 }
 ```
+
+> ⚠️ **`pe_subnet_key` is mandatory.** Terraform plan will fail if it's missing from any enabled tenant.
 
 Refer to `params/test/tenants/README.md` for complete configuration options.
 
@@ -1406,6 +1432,32 @@ Before starting, ensure you have:
 
 ---
 
+### Required: Load `TF_VAR_subnet_allocation`
+
+For local runs, `TF_VAR_subnet_allocation` is required. Fetch the environment JSON from tools storage and export it before running `plan/apply`.
+
+```bash
+# Switch to tools subscription to read the source file
+az account set --subscription "da4cf6-tools - AI Services Hub"
+
+# Example: prod allocation (adjust file name for dev/test as needed)
+TF_VAR_subnet_allocation=$(az storage blob download \
+  --account-name tftoolsaihubtracking \
+  --container-name tools \
+  --name network-info/subnet-allocation/subnet-allocation-prod.json \
+  --auth-mode login \
+  --file - | jq -c .)
+
+export TF_VAR_subnet_allocation
+
+# Switch back to target environment subscription before terraform operations
+az account set --subscription "da4cf6-dev - AI Services Hub"
+```
+
+If this variable is missing, Terraform validation for `subnet_allocation` will fail.
+
+---
+
 ### Architecture Overview
 
 ```
@@ -1573,7 +1625,6 @@ client_id                  = ""
 use_oidc                   = false
 vnet_name                  = "$licenseplate-dev-vwan-spoke"
 vnet_resource_group_name   = "$licenseplate-dev-networking"
-target_vnet_address_spaces = ["$dev_address_space"]
 source_vnet_address_space  = "$source_address_space"
 ```
 

@@ -38,6 +38,24 @@ variable "shared_config" {
 variable "tenants" {
   type    = map(any)
   default = {}
+
+  validation {
+    condition = alltrue([
+      for key, config in var.tenants :
+      try(config.pe_subnet_key, "") != ""
+      if try(config.enabled, false)
+    ])
+    error_message = "Every enabled tenant must have pe_subnet_key set (e.g., \"privateendpoints-subnet\"). This is mandatory and must not change after first deploy — changing it destroys and recreates all tenant PEs."
+  }
+
+  validation {
+    condition = alltrue([
+      for key, config in var.tenants :
+      can(regex("^privateendpoints-subnet(-[1-9]\\d*)?$", config.pe_subnet_key))
+      if try(config.enabled, false) && try(config.pe_subnet_key, "") != ""
+    ])
+    error_message = "pe_subnet_key must match 'privateendpoints-subnet' or 'privateendpoints-subnet-<n>' where n >= 1."
+  }
 }
 
 variable "tenant_tags" {

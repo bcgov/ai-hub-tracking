@@ -87,6 +87,7 @@ If a gate cannot be run locally, state exactly what was not run and why.
 - Use Private Endpoints for all PaaS services
 - Set subnets as Private Subnets (Zero Trust)
 - Use existing VNet provided by platform team
+- After purging/recreating the AI Foundry resource, allow ~5 min for PE DNS propagation before running integration tests or the next apply — the destroy script confirms API-level deletion but not DNS propagation. See the [Failure Playbook](references/REFERENCE.md#️⚠️-critical-ai-foundry-private-endpoint-broken-after-purgeapply-deploymentnotfound-404) for full diagnosis steps.
 
 ## Detailed References
 

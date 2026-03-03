@@ -43,7 +43,7 @@ params/
 
 ```hcl
 # =============================================================================
-# TENANT: My New Tenant - DEV ENVIRONMENT
+# TENANT: My New Tenant - PROD ENVIRONMENT
 # =============================================================================
 
 tenant = {
@@ -51,9 +51,15 @@ tenant = {
   display_name = "My New Tenant"
   enabled      = true
 
+  # PE subnet assignment — mandatory, sticky, do not change after first deploy
+  # Dev/test: always "privateendpoints-subnet" (single PE subnet)
+  # Prod: check current PE count per subnet, pick the one with most capacity
+  # Valid keys: privateendpoints-subnet, privateendpoints-subnet-1, privateendpoints-subnet-2, ...
+  pe_subnet_key = "privateendpoints-subnet"
+
   tags = {
     ministry    = "YOUR-MINISTRY"
-    environment = "dev"
+    environment = "prod"
     owner       = "your-team"
   }
 
