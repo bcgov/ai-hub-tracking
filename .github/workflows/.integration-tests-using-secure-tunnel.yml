@@ -55,7 +55,6 @@ jobs:
             TF_VAR_dev_address_spaces: ${{ secrets.DEV_ADDRESS_SPACES }}
             TF_VAR_test_address_spaces: ${{ secrets.TEST_ADDRESS_SPACES }}
             TF_VAR_prod_address_spaces: ${{ secrets.PROD_ADDRESS_SPACES }}
-            TF_VAR_target_vnet_address_spaces: ${{ secrets.TARGET_VNET_ADDRESS_SPACES }}
             TF_VAR_source_vnet_address_space: ${{ secrets.SOURCE_VNET_ADDRESS_SPACE }}
             TF_VAR_key_vault_name: ${{ format('{0}{1}{2}kv', 'aihub', inputs.environment_name, vars.SUBSCRIPTION_NAME) }}
             BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}

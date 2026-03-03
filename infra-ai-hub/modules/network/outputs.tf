@@ -1,6 +1,6 @@
 output "private_endpoint_subnet_id" {
   description = "Resource ID of the primary private endpoint subnet (first in pool)"
-  value       = azapi_resource.private_endpoints_subnet.id
+  value       = azapi_resource.pe_subnets["privateendpoints-subnet"].id
 }
 
 output "private_endpoint_subnet_cidr" {
@@ -19,11 +19,31 @@ output "private_endpoint_subnet_pool" {
 }
 
 # -----------------------------------------------------------------------------
+# PE Pool Outputs (for PE pool growth and tenant allocation)
+# All pool entries have deployed resources via for_each.
+# -----------------------------------------------------------------------------
+
+output "private_endpoint_subnet_ids_by_key" {
+  description = "Map of PE subnet pool key to resource ID."
+  value       = { for k, v in azapi_resource.pe_subnets : k => v.id }
+}
+
+output "private_endpoint_subnet_cidrs_by_key" {
+  description = "Map of PE subnet pool key to CIDR string."
+  value       = { for k, v in local.pe_subnet_pool : k => v.cidr }
+}
+
+output "private_endpoint_subnet_keys_ordered" {
+  description = "Ordered list of PE subnet pool keys for deterministic iteration."
+  value       = sort(keys(local.pe_subnet_pool))
+}
+
+# -----------------------------------------------------------------------------
 # APIM Subnet Outputs (for VNet injection)
 # -----------------------------------------------------------------------------
 output "apim_subnet_id" {
   description = "Resource ID of the APIM subnet (null if not enabled)"
-  value       = var.apim_subnet.enabled ? azapi_resource.apim_subnet[0].id : null
+  value       = local.apim_enabled ? azapi_resource.apim_subnet[0].id : null
 }
 
 output "apim_subnet_cidr" {
@@ -33,7 +53,7 @@ output "apim_subnet_cidr" {
 
 output "apim_nsg_id" {
   description = "Resource ID of the APIM NSG (null if not enabled)"
-  value       = var.apim_subnet.enabled ? azurerm_network_security_group.apim[0].id : null
+  value       = local.apim_enabled ? azurerm_network_security_group.apim[0].id : null
 }
 
 # -----------------------------------------------------------------------------
@@ -41,7 +61,7 @@ output "apim_nsg_id" {
 # -----------------------------------------------------------------------------
 output "appgw_subnet_id" {
   description = "Resource ID of the App Gateway subnet (null if not enabled)"
-  value       = var.appgw_subnet.enabled ? azapi_resource.appgw_subnet[0].id : null
+  value       = local.appgw_enabled ? azapi_resource.appgw_subnet[0].id : null
 }
 
 output "appgw_subnet_cidr" {
@@ -51,7 +71,7 @@ output "appgw_subnet_cidr" {
 
 output "appgw_nsg_id" {
   description = "Resource ID of the App Gateway NSG (null if not enabled)"
-  value       = var.appgw_subnet.enabled ? azurerm_network_security_group.appgw[0].id : null
+  value       = local.appgw_enabled ? azurerm_network_security_group.appgw[0].id : null
 }
 
 # -----------------------------------------------------------------------------
@@ -59,7 +79,7 @@ output "appgw_nsg_id" {
 # -----------------------------------------------------------------------------
 output "aca_subnet_id" {
   description = "Resource ID of the ACA subnet (null if not enabled)"
-  value       = var.aca_subnet.enabled ? azapi_resource.aca_subnet[0].id : null
+  value       = local.aca_enabled ? azapi_resource.aca_subnet[0].id : null
 }
 
 output "aca_subnet_cidr" {
@@ -69,7 +89,7 @@ output "aca_subnet_cidr" {
 
 output "aca_nsg_id" {
   description = "Resource ID of the ACA NSG (null if not enabled)"
-  value       = var.aca_subnet.enabled ? azurerm_network_security_group.aca[0].id : null
+  value       = local.aca_enabled ? azurerm_network_security_group.aca[0].id : null
 }
 
 

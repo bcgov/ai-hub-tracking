@@ -22,27 +22,9 @@ module "network" {
   vnet_name                = var.vnet_name
   vnet_resource_group_name = var.vnet_resource_group_name
 
-  target_vnet_address_spaces   = var.target_vnet_address_spaces
-  source_vnet_address_space    = var.source_vnet_address_space
-  private_endpoint_subnet_name = var.private_endpoint_subnet_name
-
-  apim_subnet = {
-    enabled       = lookup(var.shared_config.apim, "vnet_injection_enabled", false)
-    name          = lookup(var.shared_config.apim, "subnet_name", "apim-subnet")
-    prefix_length = lookup(var.shared_config.apim, "subnet_prefix_length", 27)
-  }
-
-  appgw_subnet = {
-    enabled       = lookup(var.shared_config.app_gateway, "enabled", false)
-    name          = lookup(var.shared_config.app_gateway, "subnet_name", "appgw-subnet")
-    prefix_length = lookup(var.shared_config.app_gateway, "subnet_prefix_length", 27)
-  }
-
-  aca_subnet = {
-    enabled       = lookup(var.shared_config.container_app_environment, "enabled", false)
-    name          = lookup(var.shared_config.container_app_environment, "subnet_name", "aca-subnet")
-    prefix_length = lookup(var.shared_config.container_app_environment, "subnet_prefix_length", 27)
-  }
+  source_vnet_address_space = var.source_vnet_address_space
+  subnet_allocation         = var.subnet_allocation
+  external_peered_projects  = var.external_peered_projects
 
   depends_on = [azurerm_resource_group.main]
 }

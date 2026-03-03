@@ -58,20 +58,24 @@ variable "vnet_resource_group_name" {
   type        = string
 }
 
-variable "target_vnet_address_spaces" {
-  description = "Target VNet address spaces"
-  type        = list(string)
-}
-
 variable "source_vnet_address_space" {
   description = "Source VNet address space"
   type        = string
 }
 
-variable "private_endpoint_subnet_name" {
-  description = "Private endpoint subnet name"
-  type        = string
-  default     = "privateendpoints-subnet"
+variable "subnet_allocation" {
+  description = "Explicit subnet allocation map. Outer key = address space CIDR, inner key = subnet name, inner value = full subnet CIDR."
+  type        = map(map(string))
+  nullable    = false
+}
+
+variable "external_peered_projects" {
+  description = "Map of external project names to their peered VNet config for direct APIM access (bypasses App Gateway). Key = project name, value = { cidrs = [...], priority = 4xx }."
+  type = map(object({
+    cidrs    = list(string)
+    priority = number
+  }))
+  default = {}
 }
 
 variable "shared_config" {

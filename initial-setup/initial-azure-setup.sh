@@ -963,7 +963,6 @@ Repository Secrets:
 Environment Secrets (per env: dev/test/prod/tools):
 - VNET_NAME: (derived from networking RG)
 - VNET_RESOURCE_GROUP_NAME: (networking RG)
-- TARGET_VNET_ADDRESS_SPACES: (JSON array) addressSpace.addressPrefixes from the env VNet
 
 Managed Identity Details:
 - Name: $IDENTITY_NAME
@@ -1409,44 +1408,8 @@ EOF
     printf "✓ Set Actions secret VNET_RESOURCE_GROUP_NAME=%s\n" "$RESOURCE_GROUP"
 
     # ---------------------------------------------------------------------
-    # VNet address spaces (for passing to Terraform)
-    # TARGET_VNET_ADDRESS_SPACES: JSON array string (env-specific)
     # SOURCE_VNET_ADDRESS_SPACE: single CIDR (repo-level, set from tools)
     # ---------------------------------------------------------------------
-    local target_vnet_address_spaces_json=""
-    local -a target_vnet_address_prefixes=()
-    while IFS= read -r line; do
-        # Skip empty lines (defensive)
-        [[ -n "$line" ]] && target_vnet_address_prefixes+=("$line")
-    done < <(
-        az network vnet show \
-            --resource-group "$RESOURCE_GROUP" \
-            --name "$vnet_name" \
-            --query "addressSpace.addressPrefixes" \
-            --output tsv 2>/dev/null || true
-    )
-
-    if [[ ${#target_vnet_address_prefixes[@]} -gt 0 ]]; then
-        target_vnet_address_spaces_json="["
-        for ((i=0; i<${#target_vnet_address_prefixes[@]}; i++)); do
-            target_vnet_address_spaces_json+="\"${target_vnet_address_prefixes[$i]}\""
-            if [[ $i -lt $((${#target_vnet_address_prefixes[@]} - 1)) ]]; then
-                target_vnet_address_spaces_json+=","
-            fi
-        done
-        target_vnet_address_spaces_json+="]"
-    fi
-
-    if [[ -n "$target_vnet_address_spaces_json" ]]; then
-        gh secret set TARGET_VNET_ADDRESS_SPACES \
-            --repo "$GITHUB_REPO" \
-            --env "$GITHUB_ENVIRONMENT" \
-            --body "$target_vnet_address_spaces_json"
-        log_success "Set env secret TARGET_VNET_ADDRESS_SPACES for '$GITHUB_ENVIRONMENT'"
-        printf "✓ Set Actions secret TARGET_VNET_ADDRESS_SPACES=%s\n" "$target_vnet_address_spaces_json"
-    else
-        log_warning "Could not query VNet address spaces for '$vnet_name' in '$RESOURCE_GROUP'"
-    fi
 
     if [[ "$GITHUB_ENVIRONMENT" == "tools" ]]; then
         local source_vnet_address_space=""

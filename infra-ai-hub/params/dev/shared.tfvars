@@ -193,3 +193,82 @@ shared_config = {
   }
 
 }
+
+# =============================================================================
+# SUBNET ALLOCATION
+# Single source of truth for address space ↔ subnet mapping.
+# Outer key = address space CIDR, inner key = subnet name, value = full subnet CIDR.
+#
+# Supported subnet names (exact keys required by network module):
+#   "privateendpoints-subnet"    — Primary PE subnet (no delegation)
+#   "privateendpoints-subnet-<n>" — Additional PE subnets, <n> = 1, 2, 3, ...
+#   "apim-subnet"               — APIM VNet injection (/27 min)
+#   "appgw-subnet"              — Application Gateway (/27 min, no delegation)
+#   "aca-subnet"                — Container Apps Environment (/27 min)
+#
+# CIDRs are explicit — the value is the exact subnet CIDR, not a prefix length.
+# Subnets are independent; changing one does not affect others.
+#
+# --- CURRENT LAYOUT (dev): single /24 ---
+#   10.x.x.0/27   privateendpoints-subnet  (32 IPs)
+#   10.x.x.32/27  apim-subnet              (32 IPs)
+#   10.x.x.64/27  aca-subnet               (32 IPs)
+#   10.x.x.96/27  ← unused / reserved
+#   10.x.x.128/25 ← unused / reserved
+#
+# --- GROWTH PATTERNS ---
+#
+# (A) Enable App Gateway (when WAF needed in dev for parity testing):
+#   Add "appgw-subnet" = "10.x.x.96/27" alongside aca-subnet in the existing space.
+#   Note: appgw lands at priority 2 (between apim and aca), shifting aca
+#   forward — but because CIDRs are computed at plan time, this only matters
+#   if aca-subnet doesn't exist yet. If aca is already deployed, add a second
+#   address space instead to avoid recomputing aca's CIDR.
+#
+# (B) More private endpoints (e.g., 10+ PE resources exhaust /27):
+#   Add a second address space dedicated to overflow PEs:
+#   "10.x.x.0/24" = { "privateendpoints-subnet-1" = "10.x.x.0/27" }
+#   The network module will expose the overflow subnet CIDR via
+#   private_endpoint_subnet_cidrs_by_key["privateendpoints-subnet-1"] and its ID via
+#   private_endpoint_subnet_ids_by_key["privateendpoints-subnet-1"] in the shared stack outputs.
+#   Individual tenants are routed to specific PE subnets via
+#   pe_subnet_key in each tenant's config (var.tenants[key].pe_subnet_key).
+#
+# (C) AKS cluster (future, requires /22–/23 for nodes+pods):
+#   AKS is not a named subnet type yet — add a new address space with a
+#   custom subnet name once AKS support is implemented in the network module.
+#   Typical sizing: /22 (1024 IPs) for small clusters, /21 for larger ones.
+#   Example (not yet supported):
+#   "10.x.x.0/22" = { "aks-nodes-subnet" = "10.x.x.0/22" }
+# =============================================================================
+# *** subnet_allocation is NOT defined here — it is provided via the
+# *** TF_VAR_subnet_allocation environment variable (GitHub environment secret
+# *** in CI, or exported locally). This avoids committing IP addresses to the repo.
+#
+# Example structure (dev, single /24):
+#   subnet_allocation = {
+#     "10.x.x.0/24" = {
+#       "privateendpoints-subnet" = "10.x.x.0/27"  # 32 IPs
+#       "apim-subnet"             = "10.x.x.32/27" # 32 IPs
+#       "aca-subnet"              = "10.x.x.64/27" # 32 IPs
+#     }
+#   }
+
+# =============================================================================
+# External VNet Peered Projects — Direct APIM Access (bypassing App Gateway)
+# Teams with VNet peering can reach APIM directly over private networking.
+# Each entry creates an inbound HTTPS NSG rule on the APIM subnet.
+# NSGs are stateful — no outbound mirror rule needed.
+#
+# Format: project-name = { cidrs = ["cidr-1", "cidr-2"], priority = 4xx }
+# Project names must be lowercase alphanumeric with hyphens.
+# Priorities must be unique per project, in range 400–499. Use gaps (400, 410, 420)
+# so inserting a new project never forces renumbering.
+#
+# Example:
+#   external_peered_projects = {
+#     "forest-client" = { cidrs = ["10.x.x.0/20"],                   priority = 400 }
+#     "nr-data-hub"   = { cidrs = ["10.x.x.0/22", "10.x.x.0/22"], priority = 410 }
+#   }
+# =============================================================================
+# external_peered_projects = {}
