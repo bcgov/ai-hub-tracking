@@ -212,6 +212,106 @@ parse_response() {
     export RESPONSE_STATUS RESPONSE_BODY
 }
 
+# Parse a header-inclusive response (from apim_request_with_headers) into three variables:
+#   RESPONSE_STATUS  — HTTP status code (last line of output)
+#   RESPONSE_HEADERS — raw response headers, one per line, CR stripped
+#   RESPONSE_BODY    — response body (everything after the header blank line)
+#
+# curl -i output structure:
+#   HTTP/1.1 <status> <reason>\r\n
+#   Header: value\r\n
+#   ...\r\n
+#   \r\n
+#   <body>
+#   <status_code>          ← appended by -w "\n%{http_code}"
+parse_response_with_headers() {
+    local response="${1}"
+
+    # Status code is always the last line (appended by -w "\n%{http_code}")
+    RESPONSE_STATUS=$(echo "${response}" | tail -n1)
+
+    # Strip the trailing status line
+    local without_status
+    without_status=$(echo "${response}" | sed '$d')
+
+    # Headers: everything up to (but not including) the first blank line, CR stripped
+    RESPONSE_HEADERS=$(echo "${without_status}" | sed -n '1,/^[[:space:]]*$/{ /^[[:space:]]*$/d; p }' | tr -d '\r')
+
+    # Body: everything after the first blank line
+    RESPONSE_BODY=$(echo "${without_status}" | awk 'found{print} /^[[:space:]]*$/{found=1}')
+
+    export RESPONSE_STATUS RESPONSE_HEADERS RESPONSE_BODY
+}
+
+# Extract a single header value from RESPONSE_HEADERS (set by parse_response_with_headers).
+# Matching is case-insensitive. Returns empty string if not found.
+# Usage: get_response_header <header-name>
+get_response_header() {
+    local name="${1}"
+    echo "${RESPONSE_HEADERS}" | grep -i "^${name}:" | head -1 | sed 's/^[^:]*:[[:space:]]*//' | tr -d '\r'
+}
+
+# HTTP request wrapper that includes response headers in output.
+# Identical to apim_request but adds curl -i so headers are captured.
+# Use parse_response_with_headers to split the output.
+# Usage: apim_request_with_headers <method> <tenant> <path> [body]
+apim_request_with_headers() {
+    local method="${1}"
+    local tenant="${2}"
+    local path="${3}"
+    local body="${4:-}"
+
+    local subscription_key
+    subscription_key=$(get_subscription_key "${tenant}")
+
+    if [[ -z "${subscription_key}" ]]; then
+        echo "Error: No subscription key for tenant ${tenant}" >&2
+        return 1
+    fi
+
+    local url="${APIM_GATEWAY_URL}/${tenant}${path}"
+
+    local curl_opts=(
+        -s                                          # Silent
+        -i                                          # Include response headers in output
+        -w "\n%{http_code}"                         # Append HTTP status code as last line
+        -H "api-key: ${subscription_key}"
+        -H "Content-Type: application/json"
+        -H "Accept: application/json"
+        --max-time 60
+    )
+
+    if [[ -n "${body}" ]]; then
+        curl_opts+=(-d "${body}")
+    fi
+
+    local response
+    response=$(curl -X "${method}" "${curl_opts[@]}" "${url}")
+
+    local status
+    status=$(echo "${response}" | tail -n1)
+
+    # 401 fallback: key may be stale after rotation; refresh from KV and retry once
+    if [[ "${status}" == "401" ]] && refresh_tenant_key_from_vault "${tenant}"; then
+        subscription_key=$(get_subscription_key "${tenant}")
+        curl_opts=(
+            -s
+            -i
+            -w "\n%{http_code}"
+            -H "api-key: ${subscription_key}"
+            -H "Content-Type: application/json"
+            -H "Accept: application/json"
+            --max-time 60
+        )
+        if [[ -n "${body}" ]]; then
+            curl_opts+=(-d "${body}")
+        fi
+        response=$(curl -X "${method}" "${curl_opts[@]}" "${url}")
+    fi
+
+    echo "${response}"
+}
+
 # Retry configuration for rate limiting and transient failures
 # With low quota allocations, rate limits are tighter — use more retries + backoff
 MAX_RETRIES="${MAX_RETRIES:-5}"

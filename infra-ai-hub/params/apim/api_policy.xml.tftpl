@@ -24,12 +24,15 @@
                     var match = System.Text.RegularExpressions.Regex.Match(path, @&quot;/deployments/([^/]+)/&quot;);
                     if (match.Success) { return match.Groups[1].Value; }
                     // For /v1/ format: model field is the deployment name lookup key on Azure OpenAI
-                    // Client sends e.g. "gpt-4.1-mini"; tenant-prefix to match deployment name
+                    // Client sends e.g. "gpt-4.1-mini"; use bare model name to match deployment names
+                    // NOTE: do NOT prepend tenant prefix here — rate-limit <when> conditions compare
+                    // against bare deployment names from tfvars (e.g. "gpt-4.1-mini", not "tenant-gpt-4.1-mini").
+                    // URL rewriting (further below) adds the tenant prefix independently for backend routing.
                     if (path.ToLower().Contains(&quot;/v1/&quot;)) {
                         try {
                             var body = context.Request.Body.As&lt;JObject&gt;(preserveContent: true);
                             var model = body?[&quot;model&quot;]?.ToString();
-                            if (!string.IsNullOrEmpty(model)) { return &quot;${tenant_name}-&quot; + model; }
+                            if (!string.IsNullOrEmpty(model)) { return model; }
                         } catch { }
                     }
                     return &quot;unknown&quot;;
