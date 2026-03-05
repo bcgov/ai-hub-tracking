@@ -1,4 +1,18 @@
-"""Form schema definition – versioned field metadata for the tenant onboarding form."""
+"""Form schema definition – versioned field metadata for the tenant onboarding form.
+
+The :data:`FORM_VERSION` constant is stored with each submission so that the
+admin review page and the audit trail can detect when a request was created
+with an older schema version (useful when the form evolves over time).
+
+Updating the form
+-----------------
+1. Bump :data:`FORM_VERSION` using ``YYYY.MM.N`` format.
+2. Add/modify entries in :data:`MODEL_FAMILIES`, :data:`MINISTRIES`, or
+   :data:`CAPACITY_TIERS` as required.
+3. Update :mod:`src.services.tfvars_generator` if the HCL structure changes.
+4. Update :class:`~src.models.tenant.TenantFormData` if new fields are added.
+5. Update the Jinja2 form template (``tenant_form.html``) to render new fields.
+"""
 
 from __future__ import annotations
 

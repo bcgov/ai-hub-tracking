@@ -1,0 +1,113 @@
+# =============================================================================
+# Deploy – Tenant Onboarding Portal
+# =============================================================================
+# Zips the portal source, deploys it to the target environment's Azure App
+# Service, and lets Oryx build the Python dependencies in-place.
+#
+# Deployment model (no Docker):
+#   1. Zip tenant-onboarding-portal/ (excludes tests/, infra/, __pycache__).
+#   2. az webapp deploy --type zip triggers the SCM/Kudu endpoint.
+#   3. SCM_DO_BUILD_DURING_DEPLOYMENT=true (set by Terraform) tells Oryx to
+#      run `pip install -r requirements.txt` inside the App Service sandbox.
+#   4. Gunicorn + Uvicorn start the ASGI app on port 8000.
+#
+# Required per-environment GitHub Environments secrets:
+#   AZURE_CLIENT_ID        – OIDC-federated service principal client ID
+#   AZURE_TENANT_ID        – Azure AD tenant ID
+#   AZURE_SUBSCRIPTION_ID  – Azure subscription ID
+#
+# Required per-environment GitHub Environments variables:
+#   PORTAL_RESOURCE_GROUP     – resource group name
+#   PORTAL_APP_SERVICE_NAME   – App Service name (e.g. app-dev-ai-hub-portal)
+# =============================================================================
+
+name: Deploy Portal
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Target environment to deploy the portal to
+        type: choice
+        options:
+          - dev
+          - test
+          - prod
+        required: true
+        default: dev
+
+jobs:
+  deploy:
+    name: Deploy to ${{ inputs.environment }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    permissions:
+      id-token: write   # Required for OIDC login to Azure
+      contents: read    # Required to checkout the repo
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # Build deployment zip
+      # Excludes:  tests (not needed at runtime), infra (Terraform only),
+      #            byte-compiled cache (__pycache__), local .env files.
+      # The zip is placed one directory above the portal root so that
+      # `az webapp deploy` can reference it by relative path.
+      # -----------------------------------------------------------------------
+      - name: Create deployment zip
+        working-directory: tenant-onboarding-portal
+        run: |
+          zip -r ../portal-deploy.zip . \
+            --exclude "*/__pycache__/*" \
+            --exclude "*.pyc" \
+            --exclude "*/tests/*" \
+            --exclude "infra/*" \
+            --exclude ".env*" \
+            --exclude ".git*"
+          echo "Zip size: $(du -sh ../portal-deploy.zip | cut -f1)"
+
+      # -----------------------------------------------------------------------
+      # Azure login via OIDC (Workload Identity Federation).
+      # No long-lived secrets — the GitHub runner exchanges its OIDC token
+      # for a short-lived Azure access token.
+      # -----------------------------------------------------------------------
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # -----------------------------------------------------------------------
+      # Deploy zip to App Service.
+      # --async false waits until Oryx finishes building before reporting
+      # success; this makes the deploy step fail-fast on build errors.
+      # -----------------------------------------------------------------------
+      - name: Deploy to App Service
+        run: |
+          az webapp deploy \
+            --resource-group "${{ vars.PORTAL_RESOURCE_GROUP }}" \
+            --name "${{ vars.PORTAL_APP_SERVICE_NAME }}" \
+            --src-path portal-deploy.zip \
+            --type zip \
+            --async false \
+            --timeout 300
+
+      - name: Verify deployment health
+        run: |
+          APP_URL="https://${{ vars.PORTAL_APP_SERVICE_NAME }}.azurewebsites.net"
+          echo "Checking ${APP_URL}/healthz ..."
+          for i in $(seq 1 6); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${APP_URL}/healthz")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Portal is healthy (HTTP ${STATUS})"
+              exit 0
+            fi
+            echo "Attempt ${i}/6 – HTTP ${STATUS}, retrying in 10s..."
+            sleep 10
+          done
+          echo "❌ Portal health check failed after 60s"
+          exit 1

@@ -1,4 +1,22 @@
-"""Generate tenant.tfvars HCL from form data for each environment."""
+"""Generate tenant.tfvars HCL from form data for each environment.
+
+The public entry point is :func:`generate_all_env_tfvars`, which accepts a
+:class:`~src.models.tenant.TenantFormData` instance and returns a dict
+mapping environment name to the full HCL string for that environment.
+
+Design notes
+------------
+* All block-level helpers are private (``_``-prefixed) and produce a
+  multi-line HCL string for a single ``tenant { ... }`` sub-block.
+* ``ENV_DEFAULTS`` drives the env-specific differences (retention, SKUs,
+  diagnostics). Add a new key here to fan it out to all environments.
+* The generated HCL must remain consistent with the reference tenant in
+  ``infra-ai-hub/params/test/tenants/``. When the Terraform schema changes,
+  update :data:`ENV_DEFAULTS` and the affected block helpers.
+* ``speech_services`` is *always* emitted (even when disabled) because the
+  ``map(any)`` Terraform type requires every key present to avoid HCL type
+  unification errors.
+"""
 
 from __future__ import annotations
 
@@ -7,7 +25,7 @@ from typing import Any
 from src.models.form_schema import CAPACITY_TIERS, MODEL_FAMILIES
 from src.models.tenant import TenantFormData
 
-# Environment-specific overrides
+# Environment-specific overrides applied to every generated tfvars.
 ENV_DEFAULTS: dict[str, dict[str, Any]] = {
     "dev": {
         "environment_tag": "dev",
@@ -34,12 +52,41 @@ ENV_DEFAULTS: dict[str, dict[str, Any]] = {
 
 
 def generate_all_env_tfvars(data: TenantFormData) -> dict[str, str]:
-    """Generate tfvars for all three environments from a single form submission."""
+    """Generate tenant.tfvars HCL for all three environments in one call.
+
+    Parameters
+    ----------
+    data:
+        Validated form data from :class:`~src.models.tenant.TenantFormData`.
+
+    Returns
+    -------
+    dict[str, str]
+        Mapping ``{"dev": "<hcl>", "test": "<hcl>", "prod": "<hcl>"}``.
+        Each value is a complete, ready-to-write ``tenant.tfvars`` file.
+    """
     return {env: _generate_tfvars(data, env) for env in ("dev", "test", "prod")}
 
 
 def _generate_tfvars(data: TenantFormData, env: str) -> str:
-    """Generate a single tenant.tfvars HCL string for the given environment."""
+    """Render a complete tenant.tfvars HCL string for a single environment.
+
+    Assembles the top-level ``tenant { ... }`` block by delegating each
+    sub-block to a dedicated helper.  Env-specific values (retention,
+    diagnostics) are supplied via :data:`ENV_DEFAULTS`.
+
+    Parameters
+    ----------
+    data:
+        Validated :class:`~src.models.tenant.TenantFormData` instance.
+    env:
+        Target environment: ``"dev"``, ``"test"``, or ``"prod"``.
+
+    Returns
+    -------
+    str
+        Multi-line HCL string ready to be written to ``tenant.tfvars``.
+    """
     defaults = ENV_DEFAULTS[env]
     env_label = env.upper()
 
@@ -108,10 +155,27 @@ def _generate_tfvars(data: TenantFormData, env: str) -> str:
     return "\n".join(lines) + "\n"
 
 
-# ---- Block generators ----
+# ---------------------------------------------------------------------------
+# Block generators — each returns a self-contained HCL string for one
+# sub-block inside the tenant { ... } map.
+# ---------------------------------------------------------------------------
 
 
 def _key_vault_block(enabled: bool, defaults: dict) -> str:
+    """Render the ``key_vault { ... }`` HCL sub-block.
+
+    Parameters
+    ----------
+    enabled:
+        Whether the Key Vault service is requested by the tenant.
+    defaults:
+        Env-specific defaults dict from :data:`ENV_DEFAULTS`.
+
+    Returns
+    -------
+    str
+        Multi-line HCL block indented for the ``tenant {}`` context.
+    """
     return "\n".join([
         f"  key_vault = {{",
         f"    enabled                    = {'true' if enabled else 'false'}",
@@ -123,6 +187,25 @@ def _key_vault_block(enabled: bool, defaults: dict) -> str:
 
 
 def _storage_account_block(enabled: bool, defaults: dict, env: str) -> str:
+    """Render the ``storage_account { ... }`` HCL sub-block.
+
+    Adds a ``diagnostics { ... }`` sub-block for ``test`` to enable capacity
+    and transaction metrics.
+
+    Parameters
+    ----------
+    enabled:
+        Whether the Storage Account is requested.
+    defaults:
+        Env-specific defaults dict from :data:`ENV_DEFAULTS`.
+    env:
+        Target environment name. ``"test"`` adds a diagnostics block.
+
+    Returns
+    -------
+    str
+        Multi-line HCL block indented for the ``tenant {}`` context.
+    """
     lines = [
         f"  storage_account = {{",
         f"    enabled                  = {'true' if enabled else 'false'}",
@@ -144,6 +227,18 @@ def _storage_account_block(enabled: bool, defaults: dict, env: str) -> str:
 
 
 def _ai_search_block(enabled: bool) -> str:
+    """Render the ``ai_search { ... }`` HCL sub-block.
+
+    Parameters
+    ----------
+    enabled:
+        Whether Azure AI Search is requested.
+
+    Returns
+    -------
+    str
+        Multi-line HCL block indented for the ``tenant {}`` context.
+    """
     return "\n".join([
         f"  ai_search = {{",
         f"    enabled            = {'true' if enabled else 'false'}",
@@ -157,6 +252,23 @@ def _ai_search_block(enabled: bool) -> str:
 
 
 def _cosmos_db_block(enabled: bool, defaults: dict) -> str:
+    """Render the ``cosmos_db { ... }`` HCL sub-block.
+
+    When enabled, adds ``database_name`` and ``container_name`` defaults.
+    These attributes are omitted when disabled to avoid Terraform drift.
+
+    Parameters
+    ----------
+    enabled:
+        Whether Cosmos DB is requested.
+    defaults:
+        Env-specific defaults dict from :data:`ENV_DEFAULTS`.
+
+    Returns
+    -------
+    str
+        Multi-line HCL block indented for the ``tenant {}`` context.
+    """
     lines = [
         f"  cosmos_db = {{",
         f"    enabled                      = {'true' if enabled else 'false'}",
@@ -179,6 +291,20 @@ def _cosmos_db_block(enabled: bool, defaults: dict) -> str:
 
 
 def _document_intelligence_block(enabled: bool, env: str) -> str:
+    """Render the ``document_intelligence { ... }`` HCL sub-block.
+
+    Parameters
+    ----------
+    enabled:
+        Whether Document Intelligence (Form Recognizer) is requested.
+    env:
+        Target environment name. ``"test"`` adds a diagnostics block.
+
+    Returns
+    -------
+    str
+        Multi-line HCL block indented for the ``tenant {}`` context.
+    """
     lines = [
         f"  document_intelligence = {{",
         f"    enabled = {'true' if enabled else 'false'}",
@@ -198,6 +324,18 @@ def _document_intelligence_block(enabled: bool, env: str) -> str:
 
 
 def _log_analytics_block(defaults: dict) -> str:
+    """Render the ``log_analytics { ... }`` HCL sub-block.
+
+    Parameters
+    ----------
+    defaults:
+        Env-specific defaults dict; ``log_retention_days`` is used.
+
+    Returns
+    -------
+    str
+        Multi-line HCL block indented for the ``tenant {}`` context.
+    """
     return "\n".join([
         f"  log_analytics = {{",
         f"    enabled        = true",
@@ -208,6 +346,26 @@ def _log_analytics_block(defaults: dict) -> str:
 
 
 def _openai_block(enabled: bool, model_deployments: list[dict], env: str) -> str:
+    """Render the ``openai { ... }`` HCL sub-block, including model deployments.
+
+    When ``enabled`` is True and ``model_deployments`` is non-empty, a
+    ``model_deployments = [ ... ]`` list is inlined. The ``test`` environment
+    additionally includes a ``diagnostics { ... }`` sub-block.
+
+    Parameters
+    ----------
+    enabled:
+        Whether Azure OpenAI is requested.
+    model_deployments:
+        List of expanded deployment dicts from :func:`_build_model_deployments`.
+    env:
+        Target environment name.
+
+    Returns
+    -------
+    str
+        Multi-line HCL block indented for the ``tenant {}`` context.
+    """
     lines = [
         f"  openai = {{",
         f"    enabled = {'true' if enabled else 'false'}",
@@ -240,6 +398,18 @@ def _openai_block(enabled: bool, model_deployments: list[dict], env: str) -> str
 
 
 def _apim_auth_block(auth_mode: str) -> str:
+    """Render the ``apim_auth { ... }`` HCL sub-block.
+
+    Parameters
+    ----------
+    auth_mode:
+        Authentication mode: ``"subscription_key"`` or ``"oauth2"``.
+
+    Returns
+    -------
+    str
+        Multi-line HCL block indented for the ``tenant {}`` context.
+    """
     return "\n".join([
         f"  apim_auth = {{",
         f'    mode                 = "{auth_mode}"',
@@ -249,6 +419,21 @@ def _apim_auth_block(auth_mode: str) -> str:
 
 
 def _build_user_management(admin_emails: list[str]) -> str:
+    """Render the ``user_management { ... }`` HCL sub-block.
+
+    When ``admin_emails`` is empty, an empty block is emitted to satisfy the
+    ``map(any)`` type requirement.
+
+    Parameters
+    ----------
+    admin_emails:
+        List of @gov.bc.ca email addresses to seed as admin members.
+
+    Returns
+    -------
+    str
+        Multi-line HCL block indented for the ``tenant {}`` context.
+    """
     if not admin_emails:
         return "  user_management = {}"
 
@@ -265,6 +450,22 @@ def _build_user_management(admin_emails: list[str]) -> str:
 
 
 def _apim_policies_block(data: TenantFormData) -> str:
+    """Render the ``apim_policies { ... }`` HCL sub-block.
+
+    Covers rate-limiting, PII redaction, usage logging, streaming metrics,
+    tracking dimensions, and intelligent routing.  All values come from the
+    form data; defaults are supplied in :class:`~src.models.tenant.TenantFormData`.
+
+    Parameters
+    ----------
+    data:
+        The validated form data instance.
+
+    Returns
+    -------
+    str
+        Multi-line HCL block indented for the ``tenant {}`` context.
+    """
     return "\n".join([
         f"  apim_policies = {{",
         f"    rate_limiting = {{",
@@ -292,7 +493,28 @@ def _apim_policies_block(data: TenantFormData) -> str:
 
 
 def _build_model_deployments(families: list[str], capacity_tier: str) -> list[dict]:
-    """Expand selected model families into individual deployment entries."""
+    """Expand selected model family keys into individual deployment entries.
+
+    Each entry corresponds to one ``model_deployments`` item in the generated
+    HCL.  Capacity is scaled by the tier multiplier from
+    :data:`~src.models.form_schema.CAPACITY_TIERS` and clamped to a minimum
+    of 1 PTU to prevent invalid zero-capacity deployments.
+
+    Parameters
+    ----------
+    families:
+        List of model family keys (e.g. ``["gpt-4.1", "embeddings"]``).
+        Unknown keys are silently skipped.
+    capacity_tier:
+        Capacity tier key (``"reduced"``, ``"standard"``, ``"elevated"``).
+        Defaults to ``"standard"`` if the key is not found.
+
+    Returns
+    -------
+    list[dict]
+        List of dicts with keys: ``name``, ``model_name``, ``model_version``,
+        ``scale_type``, ``capacity``.
+    """
     multiplier = CAPACITY_TIERS.get(capacity_tier, CAPACITY_TIERS["standard"])["multiplier"]
     deployments = []
     for family_key in families:
