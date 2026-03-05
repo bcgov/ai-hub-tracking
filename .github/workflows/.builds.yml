@@ -22,7 +22,6 @@ jobs:
           - azure-proxy/chisel
           - azure-proxy/privoxy
           - jobs/apim-key-rotation
-          - tenant-onboarding-portal
     timeout-minutes: 10
     steps:
       - uses: bcgov/action-builder-ghcr@v4.2.1

@@ -34,8 +34,8 @@ module "portal" {
   location            = var.location
   sku_name            = var.sku_name
 
-  container_image = var.container_image
-  container_tag   = var.container_tag
+  python_version  = var.python_version
+  startup_command = var.startup_command
 
   secret_key         = var.secret_key
   oidc_discovery_url = var.oidc_discovery_url

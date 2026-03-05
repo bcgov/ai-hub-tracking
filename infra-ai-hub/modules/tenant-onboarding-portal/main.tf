@@ -1,7 +1,8 @@
 # -----------------------------------------------------------------------------
 # Tenant Onboarding Portal – App Service Module
 # -----------------------------------------------------------------------------
-# Deploys a containerised FastAPI portal on Azure App Service (Linux).
+# Deploys the FastAPI portal on Azure App Service (Linux) using the
+# native Python runtime (Oryx build).  No container image required.
 # Uses the existing Storage Account for Table Storage.
 # -----------------------------------------------------------------------------
 
@@ -29,9 +30,10 @@ resource "azurerm_linux_web_app" "portal" {
     always_on = var.sku_name != "F1"
 
     application_stack {
-      docker_registry_url = "https://ghcr.io"
-      docker_image_name   = "${var.container_image}:${var.container_tag}"
+      python_version = var.python_version
     }
+
+    app_command_line = var.startup_command
   }
 
   app_settings = merge(
@@ -42,19 +44,12 @@ resource "azurerm_linux_web_app" "portal" {
       "PORTAL_OIDC_CLIENT_SECRET"               = var.oidc_client_secret
       "PORTAL_TABLE_STORAGE_ACCOUNT_URL"        = var.table_storage_account_url
       "PORTAL_ADMIN_EMAILS"                     = var.admin_emails
-      "WEBSITES_PORT"                           = "8000"
-      "DOCKER_REGISTRY_SERVER_URL"              = "https://ghcr.io"
+      "SCM_DO_BUILD_DURING_DEPLOYMENT"          = "true"
     },
     var.extra_app_settings,
   )
 
   tags = var.tags
-
-  lifecycle {
-    ignore_changes = [
-      site_config[0].application_stack[0].docker_image_name,
-    ]
-  }
 }
 
 # Grant the portal's managed identity access to Table Storage

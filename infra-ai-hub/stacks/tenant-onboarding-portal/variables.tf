@@ -44,14 +44,14 @@ variable "sku_name" {
   default = "B1"
 }
 
-variable "container_image" {
+variable "python_version" {
   type    = string
-  default = "bcgov/ai-hub-tracking/tenant-onboarding-portal"
+  default = "3.13"
 }
 
-variable "container_tag" {
+variable "startup_command" {
   type    = string
-  default = "latest"
+  default = "gunicorn -w 2 -k uvicorn.workers.UvicornWorker src.main:app"
 }
 
 variable "secret_key" {

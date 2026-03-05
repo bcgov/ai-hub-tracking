@@ -7,6 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "fastapi>=0.115,<1",
     "uvicorn[standard]>=0.34,<1",
+    "gunicorn>=23,<24",
     "jinja2>=3.1,<4",
     "python-multipart>=0.0.18,<1",
     "pydantic>=2.10,<3",

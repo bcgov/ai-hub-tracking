@@ -23,16 +23,16 @@ variable "sku_name" {
   default     = "B1"
 }
 
-variable "container_image" {
-  description = "Container image path in GHCR (without tag)."
+variable "python_version" {
+  description = "Python runtime version for App Service."
   type        = string
-  default     = "bcgov/ai-hub-tracking/tenant-onboarding-portal"
+  default     = "3.13"
 }
 
-variable "container_tag" {
-  description = "Container image tag."
+variable "startup_command" {
+  description = "Startup command for the App Service (gunicorn + uvicorn workers)."
   type        = string
-  default     = "latest"
+  default     = "gunicorn -w 2 -k uvicorn.workers.UvicornWorker src.main:app"
 }
 
 variable "secret_key" {
