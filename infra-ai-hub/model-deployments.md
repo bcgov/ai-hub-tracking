@@ -70,15 +70,13 @@ Quota allocation strategy: **1% per tenant** for all models.
 
 ### Cohere Models (ai-hub-admin only)
 
-| Model | Quota Limit | ai-hub-admin (1%) |
-|-------|------------:|------------------:|
+The following 6 models were tested and excluded:
+- `Cohere-command-r`, `Cohere-command-r-plus` — **deprecated** (`ServiceModelDeprecated` since 06/30/2025)
+- `Cohere-command-r-08-2024`, `Cohere-command-r-plus-08-2024`, `Cohere-embed-v3-english`, `Cohere-embed-v3-multilingual` — **not in BC Gov Private Marketplace** (`UserError`)
+
+| Model | Quota Limit | ai-hub-admin |
+|-------|------------:|-------------:|
 | cohere-command-a | 1,000 | 10 |
-| Cohere-command-r | not tracked | 10 |
-| Cohere-command-r-08-2024 | not tracked | 10 |
-| Cohere-command-r-plus | not tracked | 10 |
-| Cohere-command-r-plus-08-2024 | not tracked | 10 |
-| Cohere-embed-v3-english | not tracked | 10 |
-| Cohere-embed-v3-multilingual | not tracked | 10 |
 | Cohere-rerank-v4.0-pro | 3,000 | 30 |
 | Cohere-rerank-v4.0-fast | 3,000 | 30 |
 

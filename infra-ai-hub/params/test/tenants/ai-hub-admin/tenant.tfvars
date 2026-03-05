@@ -263,6 +263,10 @@ tenant = {
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # Cohere Models (format auto-detected from model name in foundry stack)
+      # Excluded models:
+      #   Cohere-command-r, Cohere-command-r-plus       — ServiceModelDeprecated (since 06/30/2025)
+      #   Cohere-command-r-08-2024, Cohere-command-r-plus-08-2024,
+      #   Cohere-embed-v3-english, Cohere-embed-v3-multilingual — not in BC Gov Private Marketplace
       # Command Series
       {
         name           = "cohere-command-a"
@@ -270,55 +274,6 @@ tenant = {
         model_version  = "1"
         scale_type     = "GlobalStandard"
         capacity       = 10 # 1% of 1,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
-      {
-        name           = "Cohere-command-r"
-        model_name     = "Cohere-command-r"
-        model_version  = "1"
-        scale_type     = "GlobalStandard"
-        capacity       = 10 # quota not tracked
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
-      {
-        name           = "Cohere-command-r-08-2024"
-        model_name     = "Cohere-command-r-08-2024"
-        model_version  = "1"
-        scale_type     = "GlobalStandard"
-        capacity       = 10 # quota not tracked
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
-      {
-        name           = "Cohere-command-r-plus"
-        model_name     = "Cohere-command-r-plus"
-        model_version  = "1"
-        scale_type     = "GlobalStandard"
-        capacity       = 10 # quota not tracked
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
-      {
-        name           = "Cohere-command-r-plus-08-2024"
-        model_name     = "Cohere-command-r-plus-08-2024"
-        model_version  = "1"
-        scale_type     = "GlobalStandard"
-        capacity       = 10 # quota not tracked
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
-      # Embed Series
-      {
-        name           = "Cohere-embed-v3-english"
-        model_name     = "Cohere-embed-v3-english"
-        model_version  = "1"
-        scale_type     = "GlobalStandard"
-        capacity       = 10 # quota not tracked
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
-      {
-        name           = "Cohere-embed-v3-multilingual"
-        model_name     = "Cohere-embed-v3-multilingual"
-        model_version  = "1"
-        scale_type     = "GlobalStandard"
-        capacity       = 10 # quota not tracked
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # Rerank Series
