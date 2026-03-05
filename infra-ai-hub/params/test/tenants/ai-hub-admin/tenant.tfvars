@@ -262,13 +262,12 @@ tenant = {
         capacity       = 100 # 1% of 10,000
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
-      # Cohere Models (model_format = "Cohere")
+      # Cohere Models (format auto-detected from model name in foundry stack)
       # Command Series
       {
         name           = "cohere-command-a"
         model_name     = "cohere-command-a"
         model_version  = "1"
-        model_format   = "Cohere"
         scale_type     = "GlobalStandard"
         capacity       = 10 # 1% of 1,000
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
@@ -277,7 +276,6 @@ tenant = {
         name           = "Cohere-command-r"
         model_name     = "Cohere-command-r"
         model_version  = "1"
-        model_format   = "Cohere"
         scale_type     = "GlobalStandard"
         capacity       = 10 # quota not tracked
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
@@ -286,7 +284,6 @@ tenant = {
         name           = "Cohere-command-r-08-2024"
         model_name     = "Cohere-command-r-08-2024"
         model_version  = "1"
-        model_format   = "Cohere"
         scale_type     = "GlobalStandard"
         capacity       = 10 # quota not tracked
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
@@ -295,7 +292,6 @@ tenant = {
         name           = "Cohere-command-r-plus"
         model_name     = "Cohere-command-r-plus"
         model_version  = "1"
-        model_format   = "Cohere"
         scale_type     = "GlobalStandard"
         capacity       = 10 # quota not tracked
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
@@ -304,7 +300,6 @@ tenant = {
         name           = "Cohere-command-r-plus-08-2024"
         model_name     = "Cohere-command-r-plus-08-2024"
         model_version  = "1"
-        model_format   = "Cohere"
         scale_type     = "GlobalStandard"
         capacity       = 10 # quota not tracked
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
@@ -314,7 +309,6 @@ tenant = {
         name           = "Cohere-embed-v3-english"
         model_name     = "Cohere-embed-v3-english"
         model_version  = "1"
-        model_format   = "Cohere"
         scale_type     = "GlobalStandard"
         capacity       = 10 # quota not tracked
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
@@ -323,7 +317,6 @@ tenant = {
         name           = "Cohere-embed-v3-multilingual"
         model_name     = "Cohere-embed-v3-multilingual"
         model_version  = "1"
-        model_format   = "Cohere"
         scale_type     = "GlobalStandard"
         capacity       = 10 # quota not tracked
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
@@ -333,7 +326,6 @@ tenant = {
         name           = "Cohere-rerank-v4.0-pro"
         model_name     = "Cohere-rerank-v4.0-pro"
         model_version  = "1"
-        model_format   = "Cohere"
         scale_type     = "GlobalStandard"
         capacity       = 30 # 1% of 3,000
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
@@ -342,7 +334,6 @@ tenant = {
         name           = "Cohere-rerank-v4.0-fast"
         model_name     = "Cohere-rerank-v4.0-fast"
         model_version  = "1"
-        model_format   = "Cohere"
         scale_type     = "GlobalStandard"
         capacity       = 30 # 1% of 3,000
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
