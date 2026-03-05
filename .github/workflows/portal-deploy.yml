@@ -1,27 +1,45 @@
 # =============================================================================
 # Deploy – Tenant Onboarding Portal
 # =============================================================================
-# Zips the portal source, deploys it to the target environment's Azure App
-# Service, and lets Oryx build the Python dependencies in-place.
+# Two-stage deployment:
+#   1. provision  – runs `terraform apply` inside tenant-onboarding-portal/infra/
+#                   to create/update the App Service and RBAC assignments.
+#   2. deploy     – zips the portal source and pushes it to the App Service via
+#                   `az webapp deploy --type zip`.  Oryx then installs
+#                   requirements.txt inside the sandbox.
 #
-# Deployment model (no Docker):
-#   1. Zip tenant-onboarding-portal/ (excludes tests/, infra/, __pycache__).
-#   2. az webapp deploy --type zip triggers the SCM/Kudu endpoint.
-#   3. SCM_DO_BUILD_DURING_DEPLOYMENT=true (set by Terraform) tells Oryx to
-#      run `pip install -r requirements.txt` inside the App Service sandbox.
-#   4. Gunicorn + Uvicorn start the ASGI app on port 8000.
+# Terraform state is stored in an Azure Storage Account (azurerm backend).
+# All sensitive values are passed as TF_VAR_* environment variables from
+# GitHub Environments secrets — no terraform.tfvars file is committed.
 #
 # Required per-environment GitHub Environments secrets:
-#   AZURE_CLIENT_ID        – OIDC-federated service principal client ID
-#   AZURE_TENANT_ID        – Azure AD tenant ID
-#   AZURE_SUBSCRIPTION_ID  – Azure subscription ID
+#   AZURE_CLIENT_ID            – OIDC-federated service principal client ID
+#   AZURE_TENANT_ID            – Azure AD tenant ID
+#   AZURE_SUBSCRIPTION_ID      – Azure subscription ID
+#   BACKEND_RESOURCE_GROUP     – resource group that holds the TF state storage account
+#   BACKEND_STORAGE_ACCOUNT    – storage account name for Terraform state
+#   PORTAL_SECRET_KEY          – Starlette session encryption key (≥32 bytes)
+#   PORTAL_OIDC_CLIENT_SECRET  – Keycloak confidential client secret
+#   PORTAL_TABLE_STORAGE_ACCOUNT_ID – Storage Account resource ID (for RBAC)
 #
 # Required per-environment GitHub Environments variables:
-#   PORTAL_RESOURCE_GROUP     – resource group name
-#   PORTAL_APP_SERVICE_NAME   – App Service name (e.g. app-dev-ai-hub-portal)
+#   PORTAL_RESOURCE_GROUP            – resource group to deploy into
+#   PORTAL_LOCATION                  – Azure region (e.g. canadacentral)
+#   PORTAL_SKU_NAME                  – App Service Plan SKU (e.g. B1)
+#   PORTAL_ENABLE_ALWAYS_ON          – true/false (false for F1 free tier)
+#   PORTAL_OIDC_DISCOVERY_URL        – BCGov Keycloak .well-known URL
+#   PORTAL_OIDC_CLIENT_ID            – Keycloak client ID
+#   PORTAL_OIDC_ADMIN_ROLE           – Keycloak role for admin access
+#   PORTAL_TABLE_STORAGE_ACCOUNT_URL – https://<account>.table.core.windows.net
+#   PORTAL_ENABLE_TABLE_RBAC         – true/false
+#   PORTAL_ADMIN_EMAILS              – comma-separated fallback admin emails
 # =============================================================================
 
 name: Deploy Portal
+
+env:
+  TF_VERSION: 1.12.2
+  TF_WORKING_DIR: tenant-onboarding-portal/infra
 
 on:
   workflow_dispatch:
@@ -37,25 +55,128 @@ on:
         default: dev
 
 jobs:
-  deploy:
-    name: Deploy to ${{ inputs.environment }}
+  # ---------------------------------------------------------------------------
+  # Job 1: provision
+  # Runs terraform apply to create/update the App Service and RBAC resources.
+  # Outputs the App Service name and hostname so the deploy job can use them
+  # without an additional lookup.
+  # ---------------------------------------------------------------------------
+  provision:
+    name: Terraform apply (${{ inputs.environment }})
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
 
     permissions:
-      id-token: write   # Required for OIDC login to Azure
-      contents: read    # Required to checkout the repo
+      id-token: write
+      contents: read
+
+    outputs:
+      app_service_name: ${{ steps.tf_outputs.outputs.app_service_name }}
+      app_hostname:     ${{ steps.tf_outputs.outputs.app_hostname }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          # Expose raw output so we can parse `terraform output` values.
+          terraform_wrapper: false
+
+      # -----------------------------------------------------------------------
+      # terraform init — partial backend config supplied via -backend-config
+      # flags so no sensitive values are committed to the repository.
+      # -----------------------------------------------------------------------
+      - name: Terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          ARM_USE_OIDC:       "true"
+          ARM_CLIENT_ID:      ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID:      ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ secrets.BACKEND_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=portal/${{ inputs.environment }}/terraform.tfstate" \
+            -backend-config="use_oidc=true"
+
+      # -----------------------------------------------------------------------
+      # terraform apply — all variable values come from GitHub Environments
+      # secrets/vars via TF_VAR_* so no tfvars file is needed in CI.
+      # -----------------------------------------------------------------------
+      - name: Terraform apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          CI:  "true"
+          ARM_USE_OIDC:        "true"
+          ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          # Infrastructure shape
+          TF_VAR_app_env:             ${{ inputs.environment }}
+          TF_VAR_location:            ${{ vars.PORTAL_LOCATION }}
+          TF_VAR_resource_group_name: ${{ vars.PORTAL_RESOURCE_GROUP }}
+          TF_VAR_sku_name:            ${{ vars.PORTAL_SKU_NAME }}
+          TF_VAR_enable_always_on:    ${{ vars.PORTAL_ENABLE_ALWAYS_ON }}
+          TF_VAR_enable_table_rbac:   ${{ vars.PORTAL_ENABLE_TABLE_RBAC }}
+          # Sensitive infra inputs
+          TF_VAR_subscription_id:           ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_tenant_id:                 ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_client_id:                 ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_table_storage_account_id:  ${{ secrets.PORTAL_TABLE_STORAGE_ACCOUNT_ID }}
+          # App settings pushed into App Service environment
+          TF_VAR_secret_key:                  ${{ secrets.PORTAL_SECRET_KEY }}
+          TF_VAR_oidc_discovery_url:          ${{ vars.PORTAL_OIDC_DISCOVERY_URL }}
+          TF_VAR_oidc_client_id:              ${{ vars.PORTAL_OIDC_CLIENT_ID }}
+          TF_VAR_oidc_client_secret:          ${{ secrets.PORTAL_OIDC_CLIENT_SECRET }}
+          TF_VAR_oidc_admin_role:             ${{ vars.PORTAL_OIDC_ADMIN_ROLE }}
+          TF_VAR_table_storage_account_url:   ${{ vars.PORTAL_TABLE_STORAGE_ACCOUNT_URL }}
+          TF_VAR_admin_emails:                ${{ vars.PORTAL_ADMIN_EMAILS }}
+        run: terraform apply -auto-approve -input=false
+
+      - name: Read Terraform outputs
+        id: tf_outputs
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "app_service_name=$(terraform output -raw app_service_name)" >> "$GITHUB_OUTPUT"
+          echo "app_hostname=$(terraform output -raw app_service_default_hostname)" >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------------------
+  # Job 2: deploy
+  # Zips the portal source and uploads it to the App Service via az webapp
+  # deploy.  Oryx installs requirements.txt during deployment (no Docker).
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy code (${{ inputs.environment }})
+    needs: provision
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+
+    permissions:
+      id-token: write
+      contents: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
       # -----------------------------------------------------------------------
-      # Build deployment zip
-      # Excludes:  tests (not needed at runtime), infra (Terraform only),
-      #            byte-compiled cache (__pycache__), local .env files.
-      # The zip is placed one directory above the portal root so that
-      # `az webapp deploy` can reference it by relative path.
+      # Build deployment zip.
+      # Excludes:  tests/ (not needed at runtime)
+      #            infra/ (Terraform only, not application code)
+      #            __pycache__/ + *.pyc (byte-compiled cache)
+      #            .env* (local dev secrets must not be deployed)
       # -----------------------------------------------------------------------
       - name: Create deployment zip
         working-directory: tenant-onboarding-portal
@@ -69,28 +190,23 @@ jobs:
             --exclude ".git*"
           echo "Zip size: $(du -sh ../portal-deploy.zip | cut -f1)"
 
-      # -----------------------------------------------------------------------
-      # Azure login via OIDC (Workload Identity Federation).
-      # No long-lived secrets — the GitHub runner exchanges its OIDC token
-      # for a short-lived Azure access token.
-      # -----------------------------------------------------------------------
       - name: Login to Azure (OIDC)
         uses: azure/login@v2
         with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       # -----------------------------------------------------------------------
-      # Deploy zip to App Service.
-      # --async false waits until Oryx finishes building before reporting
-      # success; this makes the deploy step fail-fast on build errors.
+      # Push the zip to App Service via the SCM endpoint.
+      # --async false waits for Oryx to finish pip install before reporting
+      # success, so the step fails fast if requirements.txt is broken.
       # -----------------------------------------------------------------------
       - name: Deploy to App Service
         run: |
           az webapp deploy \
             --resource-group "${{ vars.PORTAL_RESOURCE_GROUP }}" \
-            --name "${{ vars.PORTAL_APP_SERVICE_NAME }}" \
+            --name "${{ needs.provision.outputs.app_service_name }}" \
             --src-path portal-deploy.zip \
             --type zip \
             --async false \
@@ -98,7 +214,7 @@ jobs:
 
       - name: Verify deployment health
         run: |
-          APP_URL="https://${{ vars.PORTAL_APP_SERVICE_NAME }}.azurewebsites.net"
+          APP_URL="https://${{ needs.provision.outputs.app_hostname }}"
           echo "Checking ${APP_URL}/healthz ..."
           for i in $(seq 1 6); do
             STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${APP_URL}/healthz")
