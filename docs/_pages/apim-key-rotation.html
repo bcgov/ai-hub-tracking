@@ -6,6 +6,12 @@
 <p>This guide explains how APIM subscription keys are automatically rotated for tenant teams, and how to update your application to use the new keys.</p>
 
 <div class="alert alert-info">
+    <div>
+        <strong>Scope:</strong> This guide applies only to tenants configured with <code>apim_auth.mode = "subscription_key"</code>. Managed identity tenants (<code>apim_auth.mode = "oauth2"</code>) do not use APIM subscription keys, so rotation and <code>/internal/apim-keys</code> do not apply.
+    </div>
+</div>
+
+<div class="alert alert-info">
     <div class="alert-icon">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
     </div>
@@ -216,6 +222,15 @@ az keyvault secret set \
             <tr><td><code>false</code></td><td><code>false</code></td><td>No</td><td>Not rendered</td></tr>
         </tbody>
     </table>
+</div>
+
+<div class="card">
+    <h3>VNet-Peered Tenant Note</h3>
+    <p>VNet peering affects network routing only. It does not change key rotation behavior or authentication mode.</p>
+    <ul>
+        <li>VNet-peered tenants using <code>subscription_key</code> follow this guide exactly.</li>
+        <li>VNet-peered tenants using <code>oauth2</code> (managed identity) are out of scope for key rotation.</li>
+    </ul>
 </div>
 
 <div class="card">

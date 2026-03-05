@@ -3,7 +3,12 @@
 
 <h1>APIM Internal Endpoints</h1>
 
-<p>Each tenant API exposes two internal endpoints that are available only to authenticated callers holding a valid APIM subscription key. Neither endpoint proxies traffic to an AI backend — both are implemented entirely in APIM policy and return responses directly.</p>
+<p>Each tenant API exposes two internal endpoints implemented entirely in APIM policy (no backend proxy). Authentication depends on the tenant auth mode:</p>
+
+<ul>
+    <li><code>subscription_key</code> tenants authenticate with the <code>api-key</code> header.</li>
+    <li><code>oauth2</code> (managed identity) tenants authenticate with a Bearer token.</li>
+</ul>
 
 <div class="alert alert-info">
     <div class="alert-icon">
@@ -11,7 +16,7 @@
     </div>
     <div>
         <strong>Authentication Required</strong><br>
-        All internal endpoints require a valid APIM subscription key in the <code>api-key</code> header. Unauthenticated requests receive <code>401 Unauthorized</code>. Only <code>GET</code> is accepted &mdash; any other method returns <code>405 Method Not Allowed</code>.
+        <code>GET</code> is required for both endpoints; other methods return <code>405 Method Not Allowed</code>. For auth, use your tenant's configured mode: <code>api-key</code> for <code>subscription_key</code> tenants, or Bearer JWT for <code>oauth2</code> tenants. Invalid or missing credentials return <code>401 Unauthorized</code>.
     </div>
 </div>
 
@@ -19,14 +24,20 @@
     <div class="card">
         <h3 style="margin-top:0;"><code>/internal/apim-keys</code></h3>
         <p>Returns both subscription keys and rotation metadata sourced from the centralized hub Key Vault at request time.</p>
-        <p><strong>Requires:</strong> APIM enabled with subscription-key auth. Available for <strong>all</strong> tenants (not gated on per-tenant key rotation).</p>
+        <p><strong>Requires:</strong> APIM enabled with <code>subscription_key</code> auth mode. Available for all subscription-key tenants (not gated on per-tenant key rotation).</p>
         <a href="#apim-keys">View reference &darr;</a>
     </div>
     <div class="card">
         <h3 style="margin-top:0;"><code>/internal/tenant-info</code></h3>
         <p>Returns the tenant's deployed AI models with quota information and a list of enabled services. Always available &mdash; no Key Vault access needed.</p>
-        <p><strong>Requires:</strong> nothing beyond a valid subscription key.</p>
+        <p><strong>Requires:</strong> valid tenant auth (subscription key or Bearer token based on tenant mode).</p>
         <a href="#tenant-info">View reference &darr;</a>
+    </div>
+</div>
+
+<div class="alert alert-info" style="margin-top: 0.75rem;">
+    <div>
+        <strong>VNet-peered callers:</strong> if your workload runs in a peered VNet, network peering only establishes connectivity. You still need valid APIM credentials for your tenant mode.
     </div>
 </div>
 
@@ -45,6 +56,11 @@
     <p>Pass either the primary or secondary subscription key in the <code>api-key</code> header. APIM validates it before running any policy logic &mdash; the still-valid key (not the one just rotated) always works.</p>
     <pre>curl -s -H "api-key: YOUR_SUBSCRIPTION_KEY" \
     "https://your-apim-gateway.azure-api.net/YOUR_TENANT/internal/apim-keys" | jq .</pre>
+</div>
+
+<div class="card">
+    <h3>Not Available for Managed Identity Tenants</h3>
+    <p><code>/internal/apim-keys</code> is not exposed when <code>apim_auth.mode = "oauth2"</code>. Managed identity tenants do not use APIM subscription keys, so key retrieval and key rotation do not apply.</p>
 </div>
 
 <div class="card">
@@ -134,8 +150,17 @@
 
 <div class="card">
     <h3>Authentication</h3>
-    <p>Pass the subscription key in the <code>api-key</code> header. APIM validates it before returning any data.</p>
-    <pre>curl -s -H "api-key: YOUR_SUBSCRIPTION_KEY" \
+    <p>Use your tenant auth mode:</p>
+    <ul>
+        <li><code>subscription_key</code> tenant: pass <code>api-key</code> header.</li>
+        <li><code>oauth2</code> tenant: pass a Bearer access token with the tenant API audience and assigned API role.</li>
+    </ul>
+    <pre># subscription_key tenant
+curl -s -H "api-key: YOUR_SUBSCRIPTION_KEY" \
+    "https://your-apim-gateway.azure-api.net/YOUR_TENANT/internal/tenant-info" | jq .
+
+# oauth2 / managed identity tenant
+curl -s -H "Authorization: Bearer YOUR_ACCESS_TOKEN" \
     "https://your-apim-gateway.azure-api.net/YOUR_TENANT/internal/tenant-info" | jq .</pre>
 </div>
 
@@ -271,7 +296,7 @@
             <tr><th>Status</th><th>Cause</th></tr>
         </thead>
         <tbody>
-            <tr><td><code>401</code></td><td>Missing or invalid subscription key.</td></tr>
+            <tr><td><code>401</code></td><td>Missing or invalid credentials for the tenant auth mode (subscription key or JWT).</td></tr>
             <tr><td><code>405</code></td><td>Non-GET method used.</td></tr>
         </tbody>
     </table>

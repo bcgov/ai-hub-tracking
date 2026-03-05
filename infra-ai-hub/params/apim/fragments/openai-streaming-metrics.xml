@@ -23,7 +23,9 @@
             <!-- Emit token metrics for streaming requests -->
             <!-- azure-openai-emit-token-metric handles streaming token counting -->
             <azure-openai-emit-token-metric namespace="AIHub-Streaming">
-                <dimension name="Subscription-Id" value="@(context.Subscription?.Id ?? "Portal-Admin")" />
+                <!-- For oauth2/MSI callers, Subscription-Id is the caller's MSI object ID (oid claim). -->
+                <!-- For subscription-key callers, it is the APIM subscription ID. -->
+                <dimension name="Subscription-Id" value="@(context.Variables.GetValueOrDefault<string>("caller-id", context.Subscription?.Id ?? "Portal-Admin"))" />
                 <dimension name="Product-Name" value="@(context.Product?.Name ?? "Portal-Admin")" />
                 <dimension name="Tenant-Id" value="@(context.Request.Headers.GetValueOrDefault("X-Tenant-Id", "unknown"))" />
                 <dimension name="API-Id" value="@(context.Api?.Id ?? "unknown")" />
@@ -38,7 +40,8 @@
                 <metadata name="event-type" value="openai-streaming" />
                 <metadata name="request-id" value="@(context.RequestId.ToString())" />
                 <metadata name="timestamp" value="@(DateTime.UtcNow.ToString("o"))" />
-                <metadata name="subscription-id" value="@(context.Subscription?.Id ?? "Portal-Admin")" />
+                <metadata name="subscription-id" value="@(context.Variables.GetValueOrDefault<string>("caller-id", context.Subscription?.Id ?? "Portal-Admin"))" />
+                <metadata name="tenant-display-name" value="@(context.Subscription?.Name ?? context.Variables.GetValueOrDefault<string>("tenant-display-name", "Portal-Admin"))" />
                 <metadata name="tenant-id" value="@(context.Request.Headers.GetValueOrDefault("X-Tenant-Id", "unknown"))" />
                 <metadata name="backend-id" value="@(context.Variables.GetValueOrDefault<string>("backendId", "unknown"))" />
                 <metadata name="deployment-name" value="@(context.Variables.GetValueOrDefault<string>("deploymentName", "unknown"))" />

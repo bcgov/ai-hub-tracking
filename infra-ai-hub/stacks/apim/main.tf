@@ -877,6 +877,57 @@ resource "azurerm_api_management_product_api" "tenant" {
   depends_on = [module.apim]
 }
 
+# ---------------------------------------------------------------------------
+# Azure AD Application Registrations for OAuth2 / Managed Identity tenants
+# One app registration per tenant configured with apim_auth.mode = "oauth2".
+#
+# Access flow (no caller-side changes required):
+#   1. Peered team provides their MSI object ID
+#   2. Platform adds it to apim_auth.oauth2.allowed_principals in tenant.tfvars
+#   3. Terraform creates azuread_app_role_assignment granting APIAccess to that MSI
+#   4. Caller acquires token: credential.get_token("<client_id>/.default")
+#      (DefaultAzureCredential / ManagedIdentityCredential — no config change needed)
+#   5. APIM validate-jwt checks the 'roles' claim for 'APIAccess'
+# ---------------------------------------------------------------------------
+resource "azuread_application" "apim_oauth2" {
+  for_each     = local.tenants_with_oauth2
+  display_name = "${var.app_name}-${var.app_env}-${each.key}-apim"
+
+  api {
+    # v2.0 tokens — aligns with the openid-config URL in the validate-jwt policy
+    requested_access_token_version = 2
+  }
+
+  # Single app role representing permission to call this tenant's APIM API.
+  # Azure AD injects 'roles: ["APIAccess"]' into the JWT when the caller's MSI
+  # has this role assigned. Revoking the assignment removes the claim immediately.
+  app_role {
+    allowed_member_types = ["Application"] # MSIs are Application principals
+    description          = "Permission to call the ${each.key} AI Hub APIM API"
+    display_name         = "APIAccess"
+    enabled              = true
+    # Fixed UUID — unique within this app, stable across re-creates
+    id    = "e49c5a84-4b69-4d57-9f9a-ba6c1e2f3d80"
+    value = "APIAccess"
+  }
+}
+
+resource "azuread_service_principal" "apim_oauth2" {
+  for_each  = local.tenants_with_oauth2
+  client_id = azuread_application.apim_oauth2[each.key].client_id
+}
+
+# Grant each allowed MSI the APIAccess app role on its tenant's app registration.
+# Adding a principal: append its object ID to apim_auth.oauth2.allowed_principals, run terraform apply.
+# Revoking access:    remove the object ID, run terraform apply — the assignment is destroyed.
+resource "azuread_app_role_assignment" "apim_caller_msi" {
+  for_each = local.oauth2_principal_assignments
+
+  principal_object_id = each.value.principal_oid
+  resource_object_id  = azuread_service_principal.apim_oauth2[each.value.tenant_key].object_id
+  app_role_id         = "e49c5a84-4b69-4d57-9f9a-ba6c1e2f3d80" # APIAccess role
+}
+
 resource "azapi_resource" "defender_api_collection" {
   for_each = {
     for key, config in local.enabled_tenants : key => config

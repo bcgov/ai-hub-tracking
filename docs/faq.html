@@ -1346,7 +1346,7 @@
     <p>The AI Hub provides shared AI services for BC Gov teams through a fully automated, multi-tenant platform. The following services are live in <strong>dev</strong> and <strong>test</strong>:</p>
     <ul>
         <li><strong>Azure AI Foundry</strong> — GPT-4.1, GPT-4o, GPT-5 chat models; o1/o3-mini/o4-mini reasoning models; text-embedding models</li>
-        <li><strong>API Management (APIM)</strong> — Per-tenant subscription keys, rate limiting (<code>x-ms-tenant</code> header routing), and TPM quota metering</li>
+        <li><strong>API Management (APIM)</strong> — Per-tenant authentication (<code>subscription_key</code> or <code>oauth2</code>/managed identity), rate limiting (<code>x-ms-tenant</code> header routing), and TPM quota metering</li>
         <li><strong>App Gateway + WAF</strong> — Public ingress with TLS termination and cognitive service routing (Document Intelligence OCR, Language PII)</li>
         <li><strong>Language Service (PII detection)</strong> — ML-based PII detection via APIM, available to all tenants</li>
         <li><strong>Azure AI Search, Speech, Document Intelligence</strong> — Shared cognitive services routed via App Gateway</li>
@@ -1357,9 +1357,10 @@
 <div class="card">
     <h3 id="how-does-vnet-peering-work-between-environments" style="margin-top:0;">How does VNet peering work between environments?</h3>
      <span class="badge badge-gold">Answered</span>
-    <p>AI Hub uses VNet peering for CI/CD.</p>
+    <p>AI Hub uses VNet peering for CI/CD and for approved tenant connectivity patterns between trusted VNets.</p>
     <ul>
         <li><strong>tools-> dev, test, prod</strong> Outbound traffic from tools is allowed to dev, test, prod for CI/CD purposes.</li>
+        <li><strong>Tenant auth still required</strong> VNet peering provides network reachability only; APIM still enforces tenant auth mode (<code>api-key</code> for <code>subscription_key</code>, Bearer token for <code>oauth2</code> managed identity tenants).</li>
     </ul>
 
 </div>

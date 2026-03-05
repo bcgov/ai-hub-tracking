@@ -47,7 +47,11 @@
             <when condition="@(context.Request.Url.Path.ToLower().Contains("openai"))">
                 <azure-openai-emit-token-metric namespace="AIHub">
                     <dimension name="API ID" />
-                    <dimension name="Subscription ID" />
+                    <!-- Subscription ID: bare dimension auto-populates from context.Subscription, which is null  -->
+                    <!-- for oauth2/MSI callers (no subscription key). An explicit null-safe value produces "N/A" -->
+                    <!-- instead of a blank dimension, preserving metric cardinality in Azure Monitor.           -->
+                    <!-- Note: caller-id (set in API-level inbound) is not yet in scope here (global runs first).-->
+                    <dimension name="Subscription ID" value="@(context.Subscription?.Id ?? "N/A")" />
                     <dimension name="Tenant" value="@(context.Request.Headers.GetValueOrDefault("X-Tenant-Id", "unknown"))" />
                 </azure-openai-emit-token-metric>
             </when>

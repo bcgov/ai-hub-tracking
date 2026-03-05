@@ -1,6 +1,45 @@
 <policies>
     <inbound>
         <base />
+%{ if oauth2_enabled ~}
+        <!-- OAuth2 / Managed Identity access control -->
+        <!-- Callers use their existing MSI — no changes needed on their side. -->
+        <!-- Access is granted via Azure AD app role assignment (Terraform: apim_auth.oauth2.allowed_principals). -->
+        <!-- Callers acquire a token with: credential.get_token("${oauth2_app_client_id}/.default") -->
+%{ if oauth2_app_client_id == "" ~}
+        <!-- MISCONFIGURATION: app registration not yet provisioned (first-apply race) -->
+        <return-response>
+            <set-status code="503" reason="Service Unavailable" />
+            <set-header name="Content-Type" exists-action="override">
+                <value>application/json</value>
+            </set-header>
+            <set-body>{"error":{"code":"Misconfiguration","message":"Tenant OAuth2 app registration is not yet provisioned. Contact the platform team."}}</set-body>
+        </return-response>
+%{ else ~}
+        <!-- Validate caller MSI JWT: issuer + audience. -->
+        <!-- Access control is enforced by Azure AD: callers without the APIAccess app role -->
+        <!-- assigned to their MSI will not receive that claim and will be rejected with 401. -->
+        <!-- To grant access: add the MSI object ID to apim_auth.oauth2.allowed_principals in tenant.tfvars -->
+        <validate-jwt header-name="Authorization" failed-validation-httpcode="401" require-scheme="Bearer" output-token-variable-name="caller-jwt">
+            <openid-config url="https://login.microsoftonline.com/${aad_tenant_id}/v2.0/.well-known/openid-configuration" />
+            <audiences>
+                <audience>${oauth2_app_client_id}</audience>
+                <audience>api://${oauth2_app_client_id}</audience>
+            </audiences>
+            <required-claims>
+                <!-- 'roles' claim is injected by Azure AD when the caller's MSI has the APIAccess role assigned -->
+                <claim name="roles" match="any">
+                    <value>APIAccess</value>
+                </claim>
+            </required-claims>
+        </validate-jwt>
+        <!-- Caller identity for rate limiting: oid from the validated JWT -->
+        <set-variable name="caller-id" value="@(((Jwt)context.Variables[&quot;caller-jwt&quot;]).Claims.GetValueOrDefault(&quot;oid&quot;, new string[0]).DefaultIfEmpty(&quot;anonymous&quot;).First())" />
+%{ endif ~}
+%{ else ~}
+        <!-- Caller identity for rate limiting: APIM subscription ID -->
+        <set-variable name="caller-id" value="@(context.Subscription?.Id ?? &quot;anonymous&quot;)" />
+%{ endif ~}
 %{ if tracking_dimensions_enabled ~}
         <!-- Extract tracking dimensions from headers -->
         <include-fragment fragment-id="tracking-dimensions" />
@@ -9,6 +48,10 @@
         <set-header name="X-Tenant-Id" exists-action="override">
             <value>${tenant_name}</value>
         </set-header>
+        <!-- Tenant display name as a context variable for use in telemetry fragments. -->
+        <!-- Fragments can fall back to this when context.Subscription.Name is null   -->
+        <!-- (e.g. oauth2/MSI callers have no APIM subscription).                     -->
+        <set-variable name="tenant-display-name" value="${tenant_display_name}" />
 %{ if openai_enabled && rate_limiting_enabled ~}
         <!-- Per-model token rate limiting for OpenAI requests only -->
         <!-- Each model has its own rate limit matching its Azure OpenAI deployment capacity -->
@@ -42,7 +85,7 @@
                     <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;deploymentName&quot;, &quot;&quot;) == &quot;${model.name}&quot;)">
                         <!-- Rate limit for ${model.name}: ${model.capacity}k TPM (deployment capacity is in thousands of TPM) -->
                         <llm-token-limit
-                            counter-key="@(context.Subscription.Id + &quot;-${model.name}&quot;)"
+                            counter-key="@((string)context.Variables[&quot;caller-id&quot;] + &quot;-${model.name}&quot;)"
                             tokens-per-minute="${model.capacity * 1000}"
                             estimate-prompt-tokens="true"
                             remaining-tokens-variable-name="remainingTokens"
@@ -53,7 +96,7 @@
                     <otherwise>
                         <!-- Fallback rate limit for unknown models: ${tokens_per_minute} TPM -->
                         <llm-token-limit
-                            counter-key="@(context.Subscription.Id + &quot;-unknown&quot;)"
+                            counter-key="@((string)context.Variables[&quot;caller-id&quot;] + &quot;-unknown&quot;)"
                             tokens-per-minute="${tokens_per_minute}"
                             estimate-prompt-tokens="true"
                             remaining-tokens-variable-name="remainingTokens"
@@ -73,7 +116,7 @@
                 <rate-limit-by-key
                     calls="${non_openai_requests_per_minute}"
                     renewal-period="60"
-                    counter-key="@(context.Subscription.Id + &quot;-non-openai&quot;)"
+                    counter-key="@((string)context.Variables[&quot;caller-id&quot;] + &quot;-non-openai&quot;)"
                     increment-condition="@(context.Response.StatusCode >= 200)" />
             </when>
         </choose>

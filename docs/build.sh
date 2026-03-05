@@ -91,8 +91,34 @@ ls -la "$SCRIPT_DIR"/*.html 2>/dev/null || echo "  No HTML files generated"
 # Requires Node.js (no external npm packages needed)
 echo ""
 echo "Generating search index..."
+NODE_BIN=""
+
 if command -v node &>/dev/null; then
-    node "$SCRIPT_DIR/generate-search-index.js" "$SCRIPT_DIR"
+    NODE_BIN="$(command -v node)"
+elif command -v node.exe &>/dev/null; then
+    NODE_BIN="$(command -v node.exe)"
+elif [ -x "/mnt/c/Program Files/nodejs/node.exe" ]; then
+    NODE_BIN="/mnt/c/Program Files/nodejs/node.exe"
+elif [ -x "/mnt/c/Program Files (x86)/nodejs/node.exe" ]; then
+    NODE_BIN="/mnt/c/Program Files (x86)/nodejs/node.exe"
+fi
+
+if [ -n "$NODE_BIN" ]; then
+    NODE_SCRIPT_PATH="$SCRIPT_DIR/generate-search-index.js"
+    NODE_SITE_PATH="$SCRIPT_DIR"
+
+    # Windows node.exe expects Windows-style paths; convert when needed.
+    if [[ "$NODE_BIN" == *.exe ]]; then
+        if command -v wslpath &>/dev/null; then
+            NODE_SCRIPT_PATH="$(wslpath -w "$NODE_SCRIPT_PATH")"
+            NODE_SITE_PATH="$(wslpath -w "$NODE_SITE_PATH")"
+        elif command -v cygpath &>/dev/null; then
+            NODE_SCRIPT_PATH="$(cygpath -w "$NODE_SCRIPT_PATH")"
+            NODE_SITE_PATH="$(cygpath -w "$NODE_SITE_PATH")"
+        fi
+    fi
+
+    "$NODE_BIN" "$NODE_SCRIPT_PATH" "$NODE_SITE_PATH"
 else
     echo "  WARNING: Node.js not found – search index was NOT generated."
 fi

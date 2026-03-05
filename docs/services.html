@@ -1089,7 +1089,45 @@
     </div>
     <div>
         <strong>All services run on private endpoints — no public internet exposure.</strong>
-        Access is through the APIM gateway using your tenant's subscription key. See <a href="apim-internal-endpoints.html">APIM Internal Endpoints</a> for the API reference.
+        Access is through the APIM gateway using either your tenant subscription key or Microsoft Entra token (managed identity tenants). See <a href="apim-internal-endpoints.html">APIM Internal Endpoints</a> for endpoint-specific auth rules.
+    </div>
+</div>
+
+<h2 id="tenant-access-modes">Tenant Access Modes</h2>
+
+<p>The platform supports two tenant authentication patterns. Your tenant chooses one mode in <code>apim_auth.mode</code>.</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Tenant Pattern</th>
+            <th>Auth Mode</th>
+            <th>Client Credential</th>
+            <th>Network Expectation</th>
+            <th>Notes</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>Standard API Tenant</strong></td>
+            <td><code>subscription_key</code></td>
+            <td><code>api-key</code> header</td>
+            <td>Public ingress via App Gateway/APIM (backend remains private)</td>
+            <td>Supports <code>/internal/apim-keys</code> and key rotation.</td>
+        </tr>
+        <tr>
+            <td><strong>Managed Identity Tenant</strong></td>
+            <td><code>oauth2</code></td>
+            <td>Bearer token from workload identity / managed identity</td>
+            <td>Common for workloads in VNet-peered environments</td>
+            <td>No APIM subscription key lifecycle; access is controlled with Entra app role assignments.</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="alert alert-info" style="margin-top: 0.75rem;">
+    <div>
+        <strong>VNet-peered tenants:</strong> peering provides private network reachability, but authentication is still enforced at APIM. Peered workloads should use the tenant's configured auth mode (subscription key or managed identity token).
     </div>
 </div>
 

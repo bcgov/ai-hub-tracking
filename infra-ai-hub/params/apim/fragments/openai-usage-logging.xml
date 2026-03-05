@@ -24,9 +24,11 @@
                 <metadata name="request-id" value="@(context.RequestId.ToString())" />
                 <metadata name="timestamp" value="@(DateTime.UtcNow.ToString("o"))" />
                 <!-- Subscription & Product Info -->
-                <metadata name="subscription-id" value="@(context.Subscription?.Id ?? "Portal-Admin")" />
-                <metadata name="subscription-name" value="@(context.Subscription?.Name ?? "Portal-Admin")" />
-                <metadata name="product-name" value="@(context.Product?.Name ?? "Portal-Admin")" />
+                <!-- For oauth2/MSI callers, subscription-id is the caller's MSI object ID (oid claim). -->
+                <!-- For subscription-key callers, it is the APIM subscription ID. -->
+                <metadata name="subscription-id" value="@(context.Variables.GetValueOrDefault<string>("caller-id", context.Subscription?.Id ?? "Portal-Admin"))" />
+                <metadata name="subscription-name" value="@(context.Subscription?.Name ?? context.Variables.GetValueOrDefault<string>("tenant-display-name", "Portal-Admin"))" />
+                <metadata name="product-name" value="@(context.Product?.Name ?? context.Variables.GetValueOrDefault<string>("tenant-display-name", "Portal-Admin"))" />
                 <!-- Tenant Info -->
                 <metadata name="tenant-id" value="@(context.Request.Headers.GetValueOrDefault("X-Tenant-Id", "unknown"))" />
                 <metadata name="api-id" value="@(context.Api?.Id ?? "unknown")" />

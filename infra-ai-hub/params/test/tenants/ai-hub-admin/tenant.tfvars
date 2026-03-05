@@ -302,8 +302,14 @@ tenant = {
   #   mode = "subscription_key" (default) - Simple API key in header
   #   mode = "oauth2" - Azure AD OAuth2 with JWT tokens
   apim_auth = {
-    mode                 = "subscription_key" # Start with subscription key, switch to oauth2 later
-    key_rotation_enabled = true               # Per-tenant opt-in for APIM key rotation
+    mode                 = "oauth2"
+    key_rotation_enabled = false # Not used for oauth2 tenants
+    oauth2 = {
+      # User-assigned managed identity principal object ID allowed to call this tenant API.
+      allowed_principals = [
+        "1b413232-c83c-4310-adca-6619aaa45992",
+      ]
+    }
   }
 
   # Tenant user management (applies across environments)

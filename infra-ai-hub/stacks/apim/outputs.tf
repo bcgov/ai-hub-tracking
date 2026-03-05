@@ -42,3 +42,14 @@ output "apim_tenant_subscriptions" {
     }
   }
 }
+
+output "apim_tenant_oauth2_app_ids" {
+  description = "Azure AD app registrations for OAuth2-mode tenants. Provide client_id to callers; they use 'api://<client_id>' as the token audience and their MSI object ID must be in allowed_principals."
+  value = {
+    for key, app in azuread_application.apim_oauth2 : key => {
+      client_id    = app.client_id
+      display_name = app.display_name
+      audience     = "api://${app.client_id}"
+    }
+  }
+}

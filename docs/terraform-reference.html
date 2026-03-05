@@ -2091,11 +2091,12 @@
 <div class="card" style="border-left-color: #0078d4;">
 <p><strong>Location:</strong> <code>infra-ai-hub/stacks/shared/</code></p>
 <details>
-<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (6)</summary>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (7)</summary>
 <ul style="margin-top: 0.5rem;">
 <li><code>backend.tf</code></li>
 <li><code>locals.tf</code></li>
 <li><code>main.tf</code></li>
+<li><code>monitoring.tf</code></li>
 <li><code>outputs.tf</code></li>
 <li><code>providers.tf</code></li>
 <li><code>variables.tf</code></li>
@@ -2171,22 +2172,22 @@
 <td>Landing zone VNet resource group</td>
 </tr>
 <tr>
-<td><code>target_vnet_address_spaces</code></td>
-<td><code>list(string)</code></td>
-<td><code>required</code></td>
-<td>Target VNet address spaces</td>
-</tr>
-<tr>
 <td><code>source_vnet_address_space</code></td>
 <td><code>string</code></td>
 <td><code>required</code></td>
 <td>Source VNet address space</td>
 </tr>
 <tr>
-<td><code>private_endpoint_subnet_name</code></td>
-<td><code>string</code></td>
-<td><code>privateendpoints-subnet</code></td>
-<td>Private endpoint subnet name</td>
+<td><code>subnet_allocation</code></td>
+<td><code>map(map(string))</code></td>
+<td><code>required</code></td>
+<td>Explicit subnet allocation map. Outer key = address space CIDR, inner key = subnet name, inner value = full subnet CIDR.</td>
+</tr>
+<tr>
+<td><code>external_peered_projects</code></td>
+<td><code>map(object({</code></td>
+<td><code>{}</code></td>
+<td>Map of external project names to their peered VNet config for direct APIM access (bypasses App Gateway). Key = project name, value = { cidrs = [...], priority = 4xx }.</td>
 </tr>
 <tr>
 <td><code>shared_config</code></td>
@@ -2224,6 +2225,12 @@
 <td><code>tfstate</code></td>
 <td>Backend container name (unused by shared stack logic, accepted for command consistency)</td>
 </tr>
+<tr>
+<td><code>monitoring_webhook_url</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Teams Power Automate webhook URL for hub alert notifications. Optional — provide this and/or alert_emails in shared_config.monitoring. Store in sensitive tfvars, never in source-controlled params.</td>
+</tr>
 </table>
 <h4>Outputs</h4>
 <table>
@@ -2245,6 +2252,18 @@
 <td><em>No description</em></td>
 </tr>
 <tr>
+<td><code>private_endpoint_subnet_cidrs</code></td>
+<td>Sorted list of all PE subnet CIDRs in the pool (covers primary + overflow PE subnets)</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_ids_by_key</code></td>
+<td>Map of PE pool key to subnet resource ID</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_cidrs_by_key</code></td>
+<td>Map of PE pool key to CIDR string</td>
+</tr>
+<tr>
 <td><code>private_endpoint_nsg_id</code></td>
 <td><em>No description</em></td>
 </tr>
@@ -2255,6 +2274,18 @@
 <tr>
 <td><code>appgw_subnet_id</code></td>
 <td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>aca_subnet_id</code></td>
+<td>ACA subnet ID for Container App Environment</td>
+</tr>
+<tr>
+<td><code>container_app_environment_id</code></td>
+<td>Container App Environment resource ID (null if not enabled)</td>
+</tr>
+<tr>
+<td><code>container_app_environment_name</code></td>
+<td>Container App Environment name (null if not enabled)</td>
 </tr>
 <tr>
 <td><code>ai_foundry_hub_id</code></td>
@@ -2331,6 +2362,10 @@
 <tr>
 <td><code>appgw_url</code></td>
 <td>App Gateway frontend URL (https://<frontend_hostname>). Null when App Gateway is not deployed.</td>
+</tr>
+<tr>
+<td><code>hub_alerts_action_group_id</code></td>
+<td>Resource ID of the hub monitoring action group. Referenced by the APIM stack to attach APIM resource health alerts.</td>
 </tr>
 </table>
 <h4>Resources Created</h4>
@@ -2412,6 +2447,12 @@
 <td><code>map(any)</code></td>
 <td><code>{}</code></td>
 <td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>tenant_tags</code></td>
+<td><code>map(map(string))</code></td>
+<td><code>{}</code></td>
+<td>Per-tenant tags (up to 20 key/value pairs each). Kept separate from var.tenants to avoid HCL structural type unification errors when different tenants have different tag keys.</td>
 </tr>
 <tr>
 <td><code>backend_resource_group</code></td>
@@ -2545,6 +2586,12 @@
 <td><em>No description</em></td>
 </tr>
 <tr>
+<td><code>tenant_tags</code></td>
+<td><code>map(map(string))</code></td>
+<td><code>{}</code></td>
+<td>Per-tenant tags (up to 20 key/value pairs each). Kept separate from var.tenants to avoid HCL structural type unification errors when different tenants have different tag keys.</td>
+</tr>
+<tr>
 <td><code>backend_resource_group</code></td>
 <td><code>string</code></td>
 <td><code>required</code></td>
@@ -2580,11 +2627,12 @@
 <div class="card" style="border-left-color: #0078d4;">
 <p><strong>Location:</strong> <code>infra-ai-hub/stacks/apim/</code></p>
 <details>
-<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (6)</summary>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (7)</summary>
 <ul style="margin-top: 0.5rem;">
 <li><code>backend.tf</code></li>
 <li><code>locals.tf</code></li>
 <li><code>main.tf</code></li>
+<li><code>monitoring.tf</code></li>
 <li><code>outputs.tf</code></li>
 <li><code>providers.tf</code></li>
 <li><code>variables.tf</code></li>
@@ -2660,6 +2708,12 @@
 <td><em>No description</em></td>
 </tr>
 <tr>
+<td><code>apim_pe_subnet_key</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Optional PE subnet pool key for APIM private endpoint. When set, uses the mapped PE subnet instead of primary. APIM is pinned (not auto-balanced).</td>
+</tr>
+<tr>
 <td><code>defender_resource_types</code></td>
 <td><code>map(object({</code></td>
 <td><code>{}</code></td>
@@ -2692,6 +2746,10 @@
 <td><em>No description</em></td>
 </tr>
 <tr>
+<td><code>apim_id</code></td>
+<td>APIM resource ID (consumed by key-rotation stack for RBAC)</td>
+</tr>
+<tr>
 <td><code>apim_name</code></td>
 <td><em>No description</em></td>
 </tr>
@@ -2701,7 +2759,7 @@
 </tr>
 <tr>
 <td><code>rotation_enabled_tenants</code></td>
-<td>Comma-separated list of tenant names that have both the global rotation toggle and per-tenant <code>key_rotation_enabled</code> set to <code>true</code>. Consumed by the key-rotation stack to pass as <code>INCLUDED_TENANTS</code> env var.</td>
+<td>Comma-separated list of tenant names with key rotation enabled (per-tenant opt-in)</td>
 </tr>
 <tr>
 <td><code>apim_tenant_subscriptions</code></td>
@@ -2940,6 +2998,12 @@
 <td><code>object({</code></td>
 <td><code>{}</code></td>
 <td>Configuration for waiting on policy-managed DNS zone groups</td>
+</tr>
+<tr>
+<td><code>subscription_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure subscription ID.</td>
 </tr>
 <tr>
 <td><code>scripts_dir</code></td>
@@ -3670,16 +3734,16 @@
 <td>Log Analytics Workspace ID for diagnostics</td>
 </tr>
 <tr>
+<td><code>enable_diagnostics</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable diagnostic settings. Use this instead of null-checking log_analytics_workspace_id to avoid count depending on resource attributes during destroy.</td>
+</tr>
+<tr>
 <td><code>tags</code></td>
 <td><code>map(string)</code></td>
 <td><code>{}</code></td>
 <td>Tags to apply to resources</td>
-</tr>
-<tr>
-<td><code>enable_telemetry</code></td>
-<td><code>bool</code></td>
-<td><code>false</code></td>
-<td>Enable AVM telemetry</td>
 </tr>
 </table>
 <h4>Outputs</h4>
@@ -3702,6 +3766,11 @@
 <td>Static IP address of the Container App Environment</td>
 </tr>
 </table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_container_app_environment (main)</code></li>
+<li><code>azurerm_monitor_diagnostic_setting (cae)</code></li>
+</ul>
 </div>
 <h3 id="hub-container-registry">container-registry</h3>
 <div class="card" style="border-left-color: #22c55e;">
@@ -3961,6 +4030,18 @@
 <td><code>{}</code></td>
 <td>Tags to apply to resources</td>
 </tr>
+<tr>
+<td><code>ddos_protection_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Enable DDoS IP Protection on the App Gateway public IP. Provides per-IP adaptive L3/L4 DDoS mitigation, telemetry, and alerting. Cost: ~$199 USD/month per IP.</td>
+</tr>
+<tr>
+<td><code>log_analytics_workspace_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Log Analytics workspace ID for diagnostic settings on the public IP and DNS zone</td>
+</tr>
 </table>
 <h4>Outputs</h4>
 <table>
@@ -4000,6 +4081,7 @@
 <li><code>azurerm_dns_zone (this)</code></li>
 <li><code>azurerm_public_ip (appgw)</code></li>
 <li><code>azurerm_dns_a_record (apex)</code></li>
+<li><code>azurerm_monitor_diagnostic_setting (pip)</code></li>
 </ul>
 </div>
 <h3 id="hub-foundry-project">foundry-project</h3>
@@ -4136,12 +4218,215 @@
 <li><code>azurerm_role_assignment (project_to_search)</code></li>
 <li><code>azurerm_role_assignment (project_to_cosmos)</code></li>
 <li><code>azurerm_role_assignment (project_to_docint)</code></li>
-<li><code>azapi_resource (connection_keyvault)</code></li>
 <li><code>azapi_resource (connection_storage)</code></li>
 <li><code>azapi_resource (connection_ai_search)</code></li>
 <li><code>azapi_resource (connection_cosmos)</code></li>
 <li><code>azapi_resource (ai_model_deployment)</code></li>
 <li><code>azapi_resource (connection_docint)</code></li>
+</ul>
+</div>
+<h3 id="hub-key-rotation-function">key-rotation-function</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>=============================================================================</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/key-rotation-function/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (4)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>name_prefix</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Naming prefix (e.g., ai-services-hub-dev)</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Resource group for all resources</td>
+</tr>
+<tr>
+<td><code>resource_group_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Resource group ID (for RBAC scoping)</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td>Resource tags</td>
+</tr>
+<tr>
+<td><code>container_app_environment_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Container App Environment resource ID</td>
+</tr>
+<tr>
+<td><code>container_registry_url</code></td>
+<td><code>string</code></td>
+<td><code>ghcr.io</code></td>
+<td>Container registry URL (e.g., ghcr.io)</td>
+</tr>
+<tr>
+<td><code>container_image_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Container image name (e.g., bcgov/ai-hub-tracking/apim-key-rotation)</td>
+</tr>
+<tr>
+<td><code>container_image_tag</code></td>
+<td><code>string</code></td>
+<td><code>latest</code></td>
+<td>Container image tag</td>
+</tr>
+<tr>
+<td><code>cpu</code></td>
+<td><code>number</code></td>
+<td><code>0.5</code></td>
+<td>CPU cores allocated to the container (e.g., 0.5)</td>
+</tr>
+<tr>
+<td><code>memory</code></td>
+<td><code>string</code></td>
+<td><code>1Gi</code></td>
+<td>Memory allocated to the container (e.g., 1Gi)</td>
+</tr>
+<tr>
+<td><code>cron_expression</code></td>
+<td><code>string</code></td>
+<td><code>0</code></td>
+<td>Cron expression for the job schedule (e.g., 0 9 * * * for daily 09:00 UTC)</td>
+</tr>
+<tr>
+<td><code>replica_timeout_seconds</code></td>
+<td><code>number</code></td>
+<td><code>1800</code></td>
+<td>Maximum seconds a replica can run before being terminated</td>
+</tr>
+<tr>
+<td><code>key_propagation_wait_seconds</code></td>
+<td><code>number</code></td>
+<td><code>10</code></td>
+<td>Seconds to pause after APIM key regeneration for propagation (per tenant)</td>
+</tr>
+<tr>
+<td><code>replica_retry_limit</code></td>
+<td><code>number</code></td>
+<td><code>1</code></td>
+<td>Maximum number of retries for a failed replica</td>
+</tr>
+<tr>
+<td><code>apim_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>APIM resource ID (for RBAC)</td>
+</tr>
+<tr>
+<td><code>apim_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>APIM instance name (passed to job as env var)</td>
+</tr>
+<tr>
+<td><code>hub_keyvault_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Hub Key Vault resource ID (for RBAC)</td>
+</tr>
+<tr>
+<td><code>hub_keyvault_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Hub Key Vault name (passed to job as env var)</td>
+</tr>
+<tr>
+<td><code>environment</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Target environment (dev, test, prod)</td>
+</tr>
+<tr>
+<td><code>app_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Application name prefix</td>
+</tr>
+<tr>
+<td><code>subscription_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure subscription ID</td>
+</tr>
+<tr>
+<td><code>rotation_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Master rotation toggle</td>
+</tr>
+<tr>
+<td><code>rotation_interval_days</code></td>
+<td><code>number</code></td>
+<td><code>7</code></td>
+<td>Days between rotations (must be < 90)</td>
+</tr>
+<tr>
+<td><code>dry_run</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>When true, logs what would happen without making changes</td>
+</tr>
+<tr>
+<td><code>included_tenants</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Comma-separated list of tenant names to include in rotation (empty = no tenants — safe default)</td>
+</tr>
+<tr>
+<td><code>secret_expiry_days</code></td>
+<td><code>number</code></td>
+<td><code>90</code></td>
+<td>Key Vault secret expiry in days (Landing Zone max: 90)</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>job_id</code></td>
+<td>Resource ID of the key rotation Container App Job</td>
+</tr>
+<tr>
+<td><code>job_name</code></td>
+<td>Name of the key rotation Container App Job</td>
+</tr>
+<tr>
+<td><code>principal_id</code></td>
+<td>System-assigned Managed Identity principal ID</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>terraform_data (image_refresh)</code></li>
+<li><code>azurerm_container_app_job (rotation)</code></li>
+<li><code>azurerm_role_assignment (job_kv_secrets_officer)</code></li>
+<li><code>azurerm_role_assignment (job_apim_contributor)</code></li>
+<li><code>azurerm_role_assignment (job_rg_reader)</code></li>
 </ul>
 </div>
 <h3 id="hub-network">network</h3>
@@ -4193,39 +4478,21 @@
 <td>Resource group name where the virtual network exists (target environment)</td>
 </tr>
 <tr>
-<td><code>target_vnet_address_spaces</code></td>
-<td><code>list(string)</code></td>
-<td><code>required</code></td>
-<td>Address spaces of the target environment VNet. The first entry (index 0) is used to derive the private endpoint subnet.</td>
-</tr>
-<tr>
 <td><code>source_vnet_address_space</code></td>
 <td><code>string</code></td>
 <td><code>required</code></td>
 <td>Address space of the source environment VNet (single CIDR string), used for NSG allow rules (e.g., tools VNet CIDR).</td>
 </tr>
 <tr>
-<td><code>private_endpoint_subnet_name</code></td>
-<td><code>string</code></td>
-<td><code>privateendpoints-subnet</code></td>
-<td>Name of the private endpoint subnet to create in the target VNet</td>
-</tr>
-<tr>
-<td><code>apim_subnet</code></td>
-<td><code>object({</code></td>
-<td><code>{</code></td>
+<td><code>subnet_allocation</code></td>
+<td><code>map(map(string))</code></td>
+<td><code>required</code></td>
 <td><em>No description</em></td>
 </tr>
 <tr>
-<td><code>appgw_subnet</code></td>
-<td><code>object({</code></td>
-<td><code>{</code></td>
-<td>Configuration for the Application Gateway subnet. Automatically placed after PE/APIM subnets.</td>
-</tr>
-<tr>
-<td><code>aca_subnet</code></td>
-<td><code>object({</code></td>
-<td><code>{</code></td>
+<td><code>external_peered_projects</code></td>
+<td><code>map(object({</code></td>
+<td><code>{}</code></td>
 <td><em>No description</em></td>
 </tr>
 </table>
@@ -4247,6 +4514,18 @@
 <tr>
 <td><code>private_endpoint_subnet_pool</code></td>
 <td>Map of all PE subnets available for tenant allocation (name => cidr)</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_ids_by_key</code></td>
+<td>Map of PE subnet pool key to resource ID.</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_cidrs_by_key</code></td>
+<td>Map of PE subnet pool key to CIDR string.</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_keys_ordered</code></td>
+<td>Ordered list of PE subnet pool keys for deterministic iteration.</td>
 </tr>
 <tr>
 <td><code>apim_subnet_id</code></td>
@@ -4296,12 +4575,13 @@
 <h4>Resources Created</h4>
 <ul>
 <li><code>azurerm_network_security_group (private_endpoints)</code></li>
-<li><code>azapi_resource (private_endpoints_subnet)</code></li>
+<li><code>azapi_resource (pe_subnets)</code></li>
 <li><code>azurerm_network_security_group (apim)</code></li>
 <li><code>azapi_resource (apim_subnet)</code></li>
 <li><code>azurerm_network_security_group (appgw)</code></li>
 <li><code>azurerm_route_table (appgw)</code></li>
 <li><code>azurerm_route (appgw_internet)</code></li>
+<li><code>azurerm_route (appgw_bcgov_internal)</code></li>
 <li><code>azapi_resource (appgw_subnet)</code></li>
 <li><code>azurerm_network_security_group (aca)</code></li>
 <li><code>azapi_resource (aca_subnet)</code></li>
@@ -4773,9 +5053,9 @@
 </tr>
 <tr>
 <td><code>custom_rules</code></td>
-<td><code>string</code></td>
+<td><code>list(object(...))</code></td>
 <td><code>[]</code></td>
-<td>Custom WAF rules</td>
+<td>Custom WAF rules (MatchRule or RateLimitRule)</td>
 </tr>
 <tr>
 <td><code>tags</code></td>

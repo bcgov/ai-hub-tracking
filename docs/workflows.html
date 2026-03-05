@@ -1915,12 +1915,81 @@ on:
             <td>VNet CIDR block</td>
             <td>Your infrastructure</td>
         </tr>
+        <tr>
+            <td><code>SOURCE_VNET_ADDRESS_SPACE</code></td>
+            <td>Source VNet(tools) CIDR for NSG rules</td>
+            <td>Your infrastructure</td>
+        </tr>
+        <tr>
+            <td><code>SUBNET_ALLOCATION</code></td>
+            <td>JSON object for <code>subnet_allocation</code> (<code>map(map(string))</code>)</td>
+            <td>Azure Blob (network-info/subnet-allocation) then copied to GitHub secret</td>
+        </tr>
+        <tr>
+            <td><code>EXTERNAL_PEERED_PROJECTS</code></td>
+            <td>Optional JSON object for <code>external_peered_projects</code> (<code>map(object)</code>)</td>
+            <td>Azure Blob (network-info/subnet-allocation) then copied to GitHub secret</td>
+        </tr>
     </tbody>
 </table>
+
+<h3 id="subnet-allocation-process-blob-first">Subnet Allocation Process (Blob First)</h3>
+
+<p>For visibility and team collaboration, keep network JSON in Azure Blob first, then copy the same JSON into GitHub environment secrets.</p>
+
+<ol>
+    <li>Update the environment file in Blob storage (for example, <code>subnet-allocation-dev.json</code> or <code>subnet-allocation-test.json</code> in <code>network-info/subnet-allocation</code>).</li>
+    <li>Copy the JSON payload and paste it into the matching GitHub environment secret <code>SUBNET_ALLOCATION</code>.</li>
+    <li>If direct APIM access from peered VNets is needed, copy the <code>external_peered_projects</code> JSON payload into optional secret <code>EXTERNAL_PEERED_PROJECTS</code>.</li>
+    <li>Run <code>plan</code> in that environment to validate before apply.</li>
+</ol>
+
+<div class="alert alert-info">
+    <div><strong>Format rule:</strong> Paste raw JSON in GitHub secrets (single line is safest). Do not use HCL syntax (for example, <code>subnet_allocation = { ... }</code> or <code>external_peered_projects = { ... }</code>) and do not paste escaped JSON with backslashes.</div>
+</div>
+
+<h3 id="how-json-flows-into-terraform">How JSON Flows into Terraform</h3>
+
+<ol>
+    <li>GitHub Actions reads <code>secrets.SUBNET_ALLOCATION</code>.</li>
+    <li>The reusable workflow maps it to <code>TF_VAR_subnet_allocation</code>.</li>
+    <li>Terraform parses the JSON into <code>var.subnet_allocation</code> (<code>map(map(string))</code>).</li>
+    <li>If <code>secrets.EXTERNAL_PEERED_PROJECTS</code> is present, the workflow exports it as <code>TF_VAR_external_peered_projects</code> and Terraform parses it into <code>var.external_peered_projects</code>.</li>
+</ol>
+
+<h3 id="common-errors-you-might-see">Common Errors You Might See</h3>
+
+<ul>
+    <li><strong>Missing secret:</strong> <code>Error: Required environment secret SUBNET_ALLOCATION is missing or empty.</code></li>
+    <li><strong>Invalid JSON:</strong> <code>Error: SUBNET_ALLOCATION must be valid JSON and a non-empty JSON object.</code></li>
+    <li><strong>Invalid optional peered-project JSON:</strong> workflow JSON parse step fails when <code>EXTERNAL_PEERED_PROJECTS</code> is not a valid JSON object.</li>
+    <li><strong>Type/shape mismatch in Terraform:</strong> validation errors from <code>variable "subnet_allocation"</code> (invalid CIDR, duplicate subnet names, missing PE subnet, unsupported subnet key).</li>
+    <li><strong>Peered-project validation errors:</strong> Terraform errors for <code>external_peered_projects</code> (invalid CIDR, priority outside 400–499, duplicate priority, invalid project name format).</li>
+    <li><strong>Wrong precedence assumptions:</strong> values in <code>-var-file</code> override <code>TF_VAR_*</code>; keep <code>subnet_allocation</code> out of committed <code>shared.tfvars</code>.</li>
+</ul>
 
 <h2 id="running-workflows-locally">Running Workflows Locally</h2>
 
 <p>For local development and testing, use the deployment scripts in each Terraform root:</p>
+
+<div class="alert alert-warning">
+        <div><strong>Mandatory variable:</strong> Local runs must export <code>TF_VAR_subnet_allocation</code> before <code>plan/apply</code>. Source of truth is the tools storage account <code>tftoolsaihubtracking</code>, container <code>tools</code>, path <code>network-info/subnet-allocation/</code>.</div>
+</div>
+
+<pre># Load required subnet allocation JSON (example: prod)
+az account set --subscription "da4cf6-tools - AI Services Hub"
+tmpfile=$(mktemp)
+az storage blob download \
+    --account-name tftoolsaihubtracking \
+    --container-name tools \
+    --name network-info/subnet-allocation/subnet-allocation-prod.json \
+    --auth-mode login \
+    --file "$tmpfile"
+export TF_VAR_subnet_allocation="$(jq -c . "$tmpfile")"
+rm -f "$tmpfile"
+
+# Switch back to your deployment subscription before running terraform
+az account set --subscription "da4cf6-dev - AI Services Hub"</pre>
 
 <pre># Ensure you're logged in
 az login
@@ -1935,7 +2004,7 @@ az login
 ./infra-ai-hub/scripts/deploy-terraform.sh apply test</pre>
 
 <div class="alert alert-info">
-    <div><strong>Note:</strong> Local runs use your Azure CLI credentials instead of OIDC. Make sure you have the required permissions.</div>
+    <div><strong>Note:</strong> Local runs use your Azure CLI credentials instead of OIDC. Make sure you have the required permissions and that <code>TF_VAR_subnet_allocation</code> is exported in the shell.</div>
 </div>
     </main>
     <footer class="site-footer">

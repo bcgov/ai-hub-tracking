@@ -8,6 +8,18 @@ locals {
     for key, config in local.enabled_tenants : key => replace(config.display_name, " ", "_")
   }
 
+  # ---------------------------------------------------------------------------
+  # Auth mode validation — fail early on typos instead of silently switching mode
+  # Allowed values: "subscription_key" (default), "oauth2"
+  # ---------------------------------------------------------------------------
+  _validated_auth_modes = {
+    for key, config in local.enabled_tenants : key => lookup(lookup(config, "apim_auth", {}), "mode", "subscription_key")
+  }
+  _invalid_auth_modes = {
+    for key, mode in local._validated_auth_modes : key => mode
+    if !contains(["subscription_key", "oauth2"], mode)
+  }
+
   apim_config = var.shared_config.apim
 
   key_rotation_config = local.apim_config.key_rotation
@@ -47,6 +59,17 @@ locals {
     if local.apim_config.enabled
   }
 
+  # Tenants using Azure AD OAuth2 (Managed Identity) authentication instead of subscription keys
+  tenants_with_oauth2 = {
+    for key, config in local.enabled_tenants : key => config
+    if lookup(lookup(config, "apim_auth", {}), "mode", "subscription_key") == "oauth2"
+  }
+
+  # Map of azuread app client IDs keyed by tenant name (populated only for oauth2 tenants)
+  oauth2_app_client_ids = {
+    for key, app in azuread_application.apim_oauth2 : key => app.client_id
+  }
+
   hub_keyvault_uri = local.apim_config.enabled ? (
     try(data.terraform_remote_state.shared.outputs.hub_key_vault_uri, "")
   ) : ""
@@ -83,9 +106,10 @@ locals {
 
   tenant_products = {
     for key, config in local.enabled_tenants : key => {
-      display_name          = config.display_name
-      description           = "API access for ${config.display_name}"
-      subscription_required = true
+      display_name = config.display_name
+      description  = "API access for ${config.display_name}"
+      # oauth2 tenants do not use APIM subscription keys — product does not require one
+      subscription_required = lookup(lookup(config, "apim_auth", {}), "mode", "subscription_key") == "subscription_key"
       approval_required     = false
       state                 = "published"
     }
@@ -131,17 +155,38 @@ locals {
         keyvault_uri                   = local.hub_keyvault_uri
         tenant_info_enabled            = true
         base_url                       = local.tenant_info_base_url
+        tenant_display_name            = config.display_name
+        # OAuth2 / Managed Identity auth vars (only meaningful when mode != "subscription_key")
+        # Access control is managed via RBAC (azuread_app_role_assignment) — not in policy XML.
+        oauth2_enabled       = lookup(lookup(config, "apim_auth", {}), "mode", "subscription_key") == "oauth2"
+        oauth2_app_client_id = lookup(local.oauth2_app_client_ids, key, "")
+        aad_tenant_id        = var.tenant_id
       }
     )
   }
 
+  # Flat map of (tenant, msi_object_id) pairs for azuread_app_role_assignment.
+  # Key format: "<tenant_key>-<principal_oid>" — unique and stable.
+  oauth2_principal_assignments = {
+    for pair in flatten([
+      for tenant_key, config in local.tenants_with_oauth2 : [
+        for principal_oid in try(config.apim_auth.oauth2.allowed_principals, []) : {
+          key           = "${tenant_key}-${principal_oid}"
+          tenant_key    = tenant_key
+          principal_oid = principal_oid
+        }
+      ]
+    ]) : pair.key => pair
+  }
+
   tenant_apis = {
     for tenant_key, tenant_config in local.enabled_tenants : tenant_key => {
-      display_name          = "${tenant_config.display_name} API"
-      description           = "API gateway for ${tenant_config.display_name} AI services"
-      path                  = tenant_key
-      protocols             = ["https"]
-      subscription_required = true
+      display_name = "${tenant_config.display_name} API"
+      description  = "API gateway for ${tenant_config.display_name} AI services"
+      path         = tenant_key
+      protocols    = ["https"]
+      # oauth2 tenants authenticate via JWT — no APIM subscription key required
+      subscription_required = lookup(lookup(tenant_config, "apim_auth", {}), "mode", "subscription_key") == "subscription_key"
       api_type              = "http"
       revision              = "1"
       service_url           = null
@@ -183,5 +228,15 @@ locals {
   # ---------------------------------------------------------------------------
   monitoring_config = {
     enabled = lookup(lookup(var.shared_config, "monitoring", {}), "enabled", false)
+  }
+}
+
+# ---------------------------------------------------------------------------
+# Validate tenant auth modes — catch typos at plan time
+# ---------------------------------------------------------------------------
+check "valid_auth_modes" {
+  assert {
+    condition     = length(local._invalid_auth_modes) == 0
+    error_message = "Invalid apim_auth.mode for tenants: ${join(", ", [for k, v in local._invalid_auth_modes : "${k}=${v}"])}. Allowed values: subscription_key, oauth2."
   }
 }

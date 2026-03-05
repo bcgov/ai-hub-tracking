@@ -253,6 +253,10 @@ tenant = {
   apim_auth = {
     mode                 = "subscription_key" # Start with subscription key, switch to oauth2 later
     key_rotation_enabled = false              # Per-tenant opt-in for APIM key rotation
+    oauth2 = {
+      # Keep object shape consistent across tenants; unused in subscription_key mode.
+      allowed_principals = []
+    }
   }
 
   # Tenant user management (applies across environments)
