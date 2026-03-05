@@ -97,11 +97,13 @@ tenant = {
       metric_categories = ["AllMetrics"]
     }
     # Capacity = 1% of regional quota limit per model
-    # Quota limits: gpt-4.1=30k, gpt-4.1-mini=150k, gpt-4.1-nano=150k,
+    # OpenAI quota limits: gpt-4.1=30k, gpt-4.1-mini=150k, gpt-4.1-nano=150k,
     #   gpt-4o=30k, gpt-4o-mini=150k, gpt-5-mini=10k, gpt-5-nano=150k,
     #   gpt-5.1-chat=5k, gpt-5.1-codex-mini=10k, o1=5k, o3-mini=5k,
     #   o4-mini=10k, text-embedding-ada-002=10k, text-embedding-3-large=10k,
     #   text-embedding-3-small=10k
+    # Cohere quota limits: cohere-command-a=1k, Cohere-command-r*=not tracked,
+    #   Cohere-embed-v3-*=not tracked, Cohere-rerank-v4.0-pro=3k, Cohere-rerank-v4.0-fast=3k
     # -------------------------------------------------------------------------
     # Content Filters (RAI Policies)
     # -------------------------------------------------------------------------
@@ -258,6 +260,37 @@ tenant = {
         model_version  = "1"
         scale_type     = "GlobalStandard"
         capacity       = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+      # Cohere Models (format auto-detected from model name in foundry stack)
+      # Excluded models:
+      #   Cohere-command-r, Cohere-command-r-plus       — ServiceModelDeprecated (since 06/30/2025)
+      #   Cohere-command-r-08-2024, Cohere-command-r-plus-08-2024,
+      #   Cohere-embed-v3-english, Cohere-embed-v3-multilingual — not in BC Gov Private Marketplace
+      # Command Series
+      {
+        name           = "cohere-command-a"
+        model_name     = "cohere-command-a"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 10 # 1% of 1,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+      # Rerank Series
+      {
+        name           = "Cohere-rerank-v4.0-pro"
+        model_name     = "Cohere-rerank-v4.0-pro"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 30 # 1% of 3,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+      {
+        name           = "Cohere-rerank-v4.0-fast"
+        model_name     = "Cohere-rerank-v4.0-fast"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 30 # 1% of 3,000
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
     ]

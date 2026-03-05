@@ -43,7 +43,11 @@ module "foundry_project" {
       rai_policy_name        = lookup(deployment, "rai_policy_name", null)
       version_upgrade_option = lookup(deployment, "version_upgrade_option", "OnceNewDefaultVersionAvailable")
       model = {
-        format  = lookup(deployment, "model_format", "OpenAI")
+        format = coalesce(
+          # Look up the model name's prefix against the vendor format map in locals.
+          one([for prefix, fmt in local.model_format_prefixes : fmt if startswith(lower(deployment.model_name), prefix)]),
+          local.default_model_format
+        )
         name    = deployment.model_name
         version = deployment.model_version
       }
