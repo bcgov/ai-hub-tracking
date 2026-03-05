@@ -6,19 +6,149 @@ A FastAPI web application that lets BCGov employees authenticate via IDIR (BCGov
 
 ## Architecture
 
-```
-Browser → BCGov Keycloak (IDIR) → FastAPI (App Service, native Python)
-                                        ↓
-                              Azure Table Storage
-                              TenantRequests  (versioned per tenant)
-                              TenantRegistry  (current-state pointer)
+```mermaid
+flowchart LR
+    subgraph Users
+        U([BCGov Employee])
+        A([AI Hub Admin])
+    end
+
+    subgraph Azure
+        subgraph AppService [App Service – native Python]
+            Portal[FastAPI Portal\nGunicorn + Uvicorn]
+        end
+        TS[(Azure Table Storage\nTenantRequests\nTenantRegistry)]
+    end
+
+    KC[BCGov Keycloak\nIDIR SSO]
+
+    U  -->|1 login / submit form| Portal
+    A  -->|2 approve / reject|    Portal
+    Portal -->|3 auth code flow|  KC
+    KC     -->|4 id_token + roles| Portal
+    Portal <-->|5 read / write|   TS
 ```
 
 **No Docker.** The portal runs as a native Python App Service. Azure deploys a zip, Oryx installs `requirements.txt` inside the sandbox, and Gunicorn + Uvicorn serve the ASGI app.
 
 ---
 
-## Local Development
+## User Flows
+
+### OIDC Login (IDIR via BCGov Keycloak)
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Browser
+    participant Portal as FastAPI Portal
+    participant KC as BCGov Keycloak (IDIR)
+
+    User->>Browser: Navigate to portal
+
+    alt Production (PORTAL_OIDC_DISCOVERY_URL is set)
+        Browser->>Portal: GET /auth/login
+        Portal->>Browser: 302 → Keycloak /authorize
+        Browser->>KC: Authorization request
+        User->>KC: Authenticate with IDIR credentials
+        KC->>Browser: 302 → /auth/callback?code=…
+        Browser->>Portal: GET /auth/callback?code=…
+        Portal->>KC: Exchange code for tokens
+        KC-->>Portal: id_token + access_token
+        Note over Portal: Validate aud claim in id_token<br/>(token-confusion protection)
+        Note over Portal: Decode access_token JWT<br/>→ extract realm_access.roles<br/>→ extract resource_access.&lt;client&gt;.roles
+        Portal->>Browser: Set signed session cookie
+        Browser->>Portal: GET /tenants/ (with session)
+        Portal-->>Browser: Dashboard
+    else Dev mode (PORTAL_OIDC_DISCOVERY_URL is empty)
+        Browser->>Portal: GET /auth/login
+        Note over Portal: Synthetic session created<br/>dev@gov.bc.ca + portal-admin role
+        Portal->>Browser: 302 → /tenants/
+    end
+```
+
+---
+
+### Tenant Request Submission
+
+```mermaid
+sequenceDiagram
+    actor User
+    participant Portal as FastAPI Portal
+    participant Val as Pydantic Validator
+    participant Gen as tfvars Generator
+    participant Store as Table Storage
+
+    User->>Portal: GET /tenants/new
+    Portal-->>User: Blank tenant form
+
+    User->>Portal: POST /tenants/new (form data)
+    Portal->>Val: TenantFormData.from_form(data)
+
+    alt Validation fails
+        Val-->>Portal: ValidationError
+        Portal-->>User: HTTP 422 – field errors
+    else Validation passes
+        Val-->>Portal: TenantFormData
+        Portal->>Gen: generate_all_env_tfvars(data)
+        Note over Gen: Generates HCL for dev / test / prod
+        Gen-->>Portal: {dev: "…", test: "…", prod: "…"}
+        Portal->>Store: create_request(tenant, v1, status=submitted)
+        Store-->>Portal: OK
+        Portal-->>User: 303 → /tenants/&lt;name&gt;
+    end
+```
+
+---
+
+### Request Lifecycle
+
+```mermaid
+stateDiagram-v2
+    direction LR
+    [*]       --> submitted  : User submits form (v1)
+    submitted --> approved   : Admin approves
+    submitted --> rejected   : Admin rejects
+    rejected  --> submitted  : User updates & re-submits (v2, v3 …)
+    approved  --> [*]
+```
+
+> Each re-submission creates a new versioned row (`v2`, `v3`, …) in `TenantRequests`. Previous versions are preserved for audit purposes.
+
+---
+
+### Admin Approval
+
+```mermaid
+sequenceDiagram
+    actor Admin
+    participant Portal as FastAPI Portal
+    participant AuthZ as Admin Guard
+    participant Store as Table Storage
+
+    Admin->>Portal: GET /admin/requests
+    Portal->>AuthZ: require_admin(session)
+
+    alt Has portal-admin role (realm_access or resource_access)
+        AuthZ-->>Portal: OK
+        Portal->>Store: list_all_requests()
+        Store-->>Portal: All pending / approved / rejected rows
+        Portal-->>Admin: Admin dashboard
+    else No admin role & not in email allow-list
+        AuthZ-->>Portal: HTTP 403
+        Portal-->>Admin: 403 Forbidden
+    end
+
+    Admin->>Portal: POST /admin/requests/{name}/approve
+    Portal->>AuthZ: require_admin(session)
+    Portal->>Store: update_status(submitted → approved)
+    Store-->>Portal: OK
+    Portal-->>Admin: 303 → /admin/requests
+```
+
+---
+
+
 
 ### Prerequisites
 
@@ -193,6 +323,27 @@ tenant-onboarding-portal/
 ## Deployment
 
 Deployment is fully automated via `.github/workflows/portal-deploy.yml` (manual trigger).
+
+```mermaid
+flowchart TD
+    Trigger([workflow_dispatch\nenvironment: dev / test / prod])
+
+    subgraph job1 [Job 1 — provision]
+        TFInit["terraform init\n–backend-config from secrets"]
+        TFApply["terraform apply\n• App Service Plan\n• Linux Web App\n• RBAC role assignment"]
+        TFOut["terraform output\napp_service_name\napp_hostname"]
+        TFInit --> TFApply --> TFOut
+    end
+
+    subgraph job2 [Job 2 — deploy  ❮needs: provision❯]
+        Zip["zip portal source\n(excludes tests/ infra/ __pycache__)"]
+        Push["az webapp deploy --type zip\nOryx installs requirements.txt"]
+        Health["GET /healthz\n6 retries × 10 s"]
+        Zip --> Push --> Health
+    end
+
+    Trigger --> job1 --> job2
+```
 
 **Stages:**
 
