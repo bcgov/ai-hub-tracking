@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% set is_admin = true %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block content %}
+<h2 style="margin-bottom: 24px;">Admin Dashboard</h2>
+
+<!-- Pending Approvals -->
+<div class="card">
+  <div class="section-title">Pending Approvals</div>
+  {% if pending %}
+  <table>
+    <thead>
+      <tr><th>Project</th><th>Display Name</th><th>Ministry</th><th>Version</th><th>Submitted By</th><th>Date</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+      {% for p in pending %}
+      <tr>
+        <td><strong>{{ p.PartitionKey }}</strong></td>
+        <td>{{ p.DisplayName }}</td>
+        <td>{{ p.Ministry }}</td>
+        <td>{{ p.RowKey }}</td>
+        <td>{{ p.SubmittedBy }}</td>
+        <td>{{ p.CreatedAt }}</td>
+        <td><a href="/admin/review/{{ p.PartitionKey }}/{{ p.RowKey }}" class="btn btn-primary" style="padding: 5px 12px; font-size: 0.8rem;">Review</a></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color: #666; padding: 16px 0;">No pending approval requests.</p>
+  {% endif %}
+</div>
+
+<!-- All Tenants -->
+<div class="card">
+  <div class="section-title">All Tenants</div>
+  {% if all_tenants %}
+  <table>
+    <thead>
+      <tr><th>Project</th><th>Display Name</th><th>Ministry</th><th>Version</th><th>Status</th></tr>
+    </thead>
+    <tbody>
+      {% for t in all_tenants %}
+      <tr>
+        <td><a href="/tenants/{{ t.PartitionKey }}">{{ t.PartitionKey }}</a></td>
+        <td>{{ t.DisplayName }}</td>
+        <td>{{ t.Ministry }}</td>
+        <td>{{ t.RowKey }}</td>
+        <td><span class="badge badge-{{ t.Status }}">{{ t.Status }}</span></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p style="color: #666; padding: 16px 0;">No tenants onboarded yet.</p>
+  {% endif %}
+</div>
+{% endblock %}

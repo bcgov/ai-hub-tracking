@@ -1,0 +1,15 @@
+{% extends "base.html" %}
+{% block title %}Welcome{% endblock %}
+{% block content %}
+<div class="card" style="text-align: center; padding: 60px 24px;">
+  <h2 style="margin-bottom: 16px;">AI Services Hub – Tenant Onboarding Portal</h2>
+  <p style="margin-bottom: 24px; color: #666; max-width: 600px; margin-left: auto; margin-right: auto;">
+    Request and manage your AI Services Hub tenant configuration. Log in with your IDIR credentials to get started.
+  </p>
+  {% if user %}
+    <a href="/tenants/" class="btn btn-primary">Go to My Projects</a>
+  {% else %}
+    <a href="/auth/login" class="btn btn-primary">Login with IDIR</a>
+  {% endif %}
+</div>
+{% endblock %}

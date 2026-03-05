@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% set is_admin = true %}
+{% block title %}Review – {{ tenant_request.PartitionKey if tenant_request else 'Not Found' }}{% endblock %}
+{% block content %}
+{% if tenant_request %}
+<h2 style="margin-bottom: 24px;">Review: {{ tenant_request.DisplayName }} ({{ tenant_request.RowKey }})</h2>
+
+<!-- Request Details -->
+<div class="card">
+  <div class="section-title">Request Details</div>
+  <table>
+    <tr><th style="width:200px;">Project Name</th><td>{{ tenant_request.PartitionKey }}</td></tr>
+    <tr><th>Display Name</th><td>{{ tenant_request.DisplayName }}</td></tr>
+    <tr><th>Ministry</th><td>{{ tenant_request.Ministry }}</td></tr>
+    <tr><th>Submitted By</th><td>{{ tenant_request.SubmittedBy }}</td></tr>
+    <tr><th>Submitted At</th><td>{{ tenant_request.CreatedAt }}</td></tr>
+    <tr><th>Status</th><td><span class="badge badge-{{ tenant_request.Status }}">{{ tenant_request.Status }}</span></td></tr>
+  </table>
+</div>
+
+<!-- Form Data -->
+{% if tenant_request.FormData %}
+<div class="card">
+  <div class="section-title">Form Submission Data</div>
+  <table>
+    {% for key, value in tenant_request.FormData.items() %}
+    <tr><th style="width:250px;">{{ key }}</th><td>{{ value }}</td></tr>
+    {% endfor %}
+  </table>
+</div>
+{% endif %}
+
+<!-- Generated tfvars -->
+{% if tenant_request.GeneratedTfvars %}
+<div class="card">
+  <div class="section-title">Generated tenant.tfvars</div>
+  {% for env_name, tfvars_content in tenant_request.GeneratedTfvars.items() %}
+  <details {% if loop.first %}open{% endif %} style="margin-bottom: 16px;">
+    <summary style="cursor: pointer; font-weight: 600; padding: 8px 0;">{{ env_name | upper }} Environment</summary>
+    <pre>{{ tfvars_content }}</pre>
+  </details>
+  {% endfor %}
+</div>
+{% endif %}
+
+<!-- Approve / Reject -->
+{% if tenant_request.Status == 'submitted' %}
+<div class="card">
+  <div class="section-title">Decision</div>
+  <div class="form-group">
+    <label for="review_notes">Review Notes (optional)</label>
+    <textarea id="review_notes" name="review_notes_input" rows="3" placeholder="Add comments for the requester..."></textarea>
+  </div>
+  <div style="display: flex; gap: 12px;">
+    <form method="post" action="/admin/approve/{{ tenant_request.PartitionKey }}/{{ tenant_request.RowKey }}">
+      <input type="hidden" name="review_notes" id="approve_notes">
+      <button type="submit" class="btn btn-success" onclick="document.getElementById('approve_notes').value = document.getElementById('review_notes').value;">✓ Approve</button>
+    </form>
+    <form method="post" action="/admin/reject/{{ tenant_request.PartitionKey }}/{{ tenant_request.RowKey }}">
+      <input type="hidden" name="review_notes" id="reject_notes">
+      <button type="submit" class="btn btn-danger" onclick="document.getElementById('reject_notes').value = document.getElementById('review_notes').value;">✗ Reject</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+{% else %}
+<div class="card" style="text-align: center; padding: 40px;">
+  <p>Request not found.</p>
+  <a href="/admin/" class="btn btn-primary" style="margin-top: 16px;">Back to Admin Dashboard</a>
+</div>
+{% endif %}
+{% endblock %}

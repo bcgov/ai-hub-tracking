@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+{% block title %}{% if mode == 'create' %}New Project{% else %}Edit Project{% endif %}{% endblock %}
+{% block content %}
+<h2 style="margin-bottom: 24px;">{% if mode == 'create' %}New Tenant Project{% else %}Update Tenant Project{% endif %}</h2>
+
+<form method="post" action="{% if mode == 'create' %}/tenants/new{% else %}/tenants/{{ values.get('project_name', '') }}/edit{% endif %}">
+
+  <!-- Section 1: Project Identity -->
+  <div class="card">
+    <div class="section-title">Project Identity</div>
+    <div class="form-group">
+      <label for="project_name">Project Name (slug)</label>
+      <input type="text" id="project_name" name="project_name" required pattern="[a-z0-9][a-z0-9-]*[a-z0-9]" minlength="3"
+             value="{{ values.get('project_name', '') }}" {% if mode == 'edit' %}readonly{% endif %}
+             placeholder="e.g. my-ai-project">
+      <div class="form-hint">Lowercase letters, numbers, and hyphens only. Cannot be changed after creation.</div>
+    </div>
+    <div class="form-group">
+      <label for="display_name">Display Name</label>
+      <input type="text" id="display_name" name="display_name" required
+             value="{{ values.get('display_name', '') }}" placeholder="e.g. My AI Project">
+    </div>
+    <div class="form-group">
+      <label for="ministry">Ministry</label>
+      <select id="ministry" name="ministry" required>
+        <option value="">Select a ministry...</option>
+        {% for m in form_schema.ministries %}
+        <option value="{{ m }}" {% if values.get('ministry') == m %}selected{% endif %}>{{ m }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="form-group">
+      <label for="department">Department (optional)</label>
+      <input type="text" id="department" name="department"
+             value="{{ values.get('department', '') }}" placeholder="e.g. Corporate Online Services">
+    </div>
+  </div>
+
+  <!-- Section 2: AI Services -->
+  <div class="card">
+    <div class="section-title">AI Services</div>
+    <p style="margin-bottom: 16px; font-size: 0.9rem; color: #666;">Toggle the services your project needs. Sensible defaults are applied for all environments.</p>
+
+    <div class="toggle-row">
+      <label for="openai_enabled">Azure OpenAI</label>
+      <div class="toggle-switch">
+        <input type="checkbox" id="openai_enabled" name="openai_enabled" {% if values.get('openai_enabled', true) %}checked{% endif %}>
+        <span class="toggle-slider"></span>
+      </div>
+    </div>
+    <div class="toggle-row">
+      <label for="storage_account_enabled">Storage Account</label>
+      <div class="toggle-switch">
+        <input type="checkbox" id="storage_account_enabled" name="storage_account_enabled" {% if values.get('storage_account_enabled', true) %}checked{% endif %}>
+        <span class="toggle-slider"></span>
+      </div>
+    </div>
+    <div class="toggle-row">
+      <label for="ai_search_enabled">AI Search (Cognitive Search)</label>
+      <div class="toggle-switch">
+        <input type="checkbox" id="ai_search_enabled" name="ai_search_enabled" {% if values.get('ai_search_enabled', false) %}checked{% endif %}>
+        <span class="toggle-slider"></span>
+      </div>
+    </div>
+    <div class="toggle-row">
+      <label for="document_intelligence_enabled">Document Intelligence (Form Recognizer)</label>
+      <div class="toggle-switch">
+        <input type="checkbox" id="document_intelligence_enabled" name="document_intelligence_enabled" {% if values.get('document_intelligence_enabled', false) %}checked{% endif %}>
+        <span class="toggle-slider"></span>
+      </div>
+    </div>
+    <div class="toggle-row">
+      <label for="speech_services_enabled">Speech Services</label>
+      <div class="toggle-switch">
+        <input type="checkbox" id="speech_services_enabled" name="speech_services_enabled" {% if values.get('speech_services_enabled', false) %}checked{% endif %}>
+        <span class="toggle-slider"></span>
+      </div>
+    </div>
+    <div class="toggle-row">
+      <label for="cosmos_db_enabled">Cosmos DB</label>
+      <div class="toggle-switch">
+        <input type="checkbox" id="cosmos_db_enabled" name="cosmos_db_enabled" {% if values.get('cosmos_db_enabled', false) %}checked{% endif %}>
+        <span class="toggle-slider"></span>
+      </div>
+    </div>
+    <div class="toggle-row">
+      <label for="key_vault_enabled">Key Vault</label>
+      <div class="toggle-switch">
+        <input type="checkbox" id="key_vault_enabled" name="key_vault_enabled" {% if values.get('key_vault_enabled', false) %}checked{% endif %}>
+        <span class="toggle-slider"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 3: OpenAI Models -->
+  <div class="card" id="openai-models-section">
+    <div class="section-title">OpenAI Model Selection</div>
+    <div class="form-group">
+      <label>Model Families</label>
+      <div class="form-hint" style="margin-bottom: 12px;">Select the model families to deploy. Each family includes all models in the series.</div>
+      {% set selected_families = values.get('model_families', ['gpt-4.1', 'gpt-4o', 'embeddings']) %}
+      {% for key, family in form_schema.model_families.items() %}
+      <div style="padding: 8px 0;">
+        <label style="font-weight: 400;">
+          <input type="checkbox" name="model_families" value="{{ key }}"
+                 {% if key in selected_families %}checked{% endif %}>
+          {{ family.label }}
+          <span style="color: #666; font-size: 0.8rem;">({{ family.models | length }} models)</span>
+        </label>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="form-group">
+      <label for="capacity_tier">Capacity Tier</label>
+      <select id="capacity_tier" name="capacity_tier">
+        {% for key, tier in form_schema.capacity_tiers.items() %}
+        <option value="{{ key }}" {% if values.get('capacity_tier', 'standard') == key %}selected{% endif %}>{{ tier.label }}</option>
+        {% endfor %}
+      </select>
+      <div class="form-hint">Controls token-per-minute quota allocation per model.</div>
+    </div>
+  </div>
+
+  <!-- Section 4: Policies & Auth -->
+  <div class="card">
+    <div class="section-title">Policies &amp; Authentication</div>
+    <div class="form-group">
+      <label for="apim_auth_mode">APIM Authentication Mode</label>
+      <select id="apim_auth_mode" name="apim_auth_mode">
+        {% for mode in form_schema.auth_modes %}
+        <option value="{{ mode.value }}" {% if values.get('apim_auth_mode', 'subscription_key') == mode.value %}selected{% endif %}>{{ mode.label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="toggle-row">
+      <label for="rate_limiting_enabled">Rate Limiting</label>
+      <div class="toggle-switch">
+        <input type="checkbox" id="rate_limiting_enabled" name="rate_limiting_enabled" {% if values.get('rate_limiting_enabled', true) %}checked{% endif %}>
+        <span class="toggle-slider"></span>
+      </div>
+    </div>
+    <div class="form-group" id="tpm-group" style="margin-top: 12px;">
+      <label for="tokens_per_minute">Tokens per Minute</label>
+      <input type="number" id="tokens_per_minute" name="tokens_per_minute" min="100" max="100000" step="100"
+             value="{{ values.get('tokens_per_minute', 1000) }}">
+    </div>
+    <div class="toggle-row">
+      <label for="pii_redaction_enabled">PII Redaction</label>
+      <div class="toggle-switch">
+        <input type="checkbox" id="pii_redaction_enabled" name="pii_redaction_enabled" {% if values.get('pii_redaction_enabled', true) %}checked{% endif %}>
+        <span class="toggle-slider"></span>
+      </div>
+    </div>
+    <div class="toggle-row">
+      <label for="usage_logging_enabled">Usage Logging</label>
+      <div class="toggle-switch">
+        <input type="checkbox" id="usage_logging_enabled" name="usage_logging_enabled" {% if values.get('usage_logging_enabled', true) %}checked{% endif %}>
+        <span class="toggle-slider"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Section 5: Team -->
+  <div class="card">
+    <div class="section-title">Team</div>
+    <div class="form-group">
+      <label for="admin_emails">Admin Email Addresses</label>
+      <textarea id="admin_emails" name="admin_emails" rows="4"
+                placeholder="Enter @gov.bc.ca email addresses, one per line or comma-separated">{{ values.get('admin_emails', []) | join(', ') if values.get('admin_emails') else '' }}</textarea>
+      <div class="form-hint">Must be @gov.bc.ca email addresses. These users will be seed admins for the tenant.</div>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 12px; justify-content: flex-end;">
+    <a href="/tenants/" class="btn btn-secondary">Cancel</a>
+    <button type="submit" class="btn btn-primary">{% if mode == 'create' %}Submit for Approval{% else %}Submit Update{% endif %}</button>
+  </div>
+</form>
+
+<script>
+  // Show/hide OpenAI models section based on toggle
+  const openaiToggle = document.getElementById('openai_enabled');
+  const modelsSection = document.getElementById('openai-models-section');
+  function toggleModels() { modelsSection.style.display = openaiToggle.checked ? '' : 'none'; }
+  openaiToggle.addEventListener('change', toggleModels);
+  toggleModels();
+
+  // Show/hide TPM field based on rate limiting toggle
+  const rlToggle = document.getElementById('rate_limiting_enabled');
+  const tpmGroup = document.getElementById('tpm-group');
+  function toggleTpm() { tpmGroup.style.display = rlToggle.checked ? '' : 'none'; }
+  rlToggle.addEventListener('change', toggleTpm);
+  toggleTpm();
+</script>
+{% endblock %}

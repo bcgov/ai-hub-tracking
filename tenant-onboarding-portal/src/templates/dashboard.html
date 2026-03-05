@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% block title %}My Projects{% endblock %}
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+  <h2>My Projects</h2>
+  <a href="/tenants/new" class="btn btn-primary">+ New Project</a>
+</div>
+
+{% if tenants %}
+<div class="card">
+  <table>
+    <thead>
+      <tr>
+        <th>Project Name</th>
+        <th>Display Name</th>
+        <th>Ministry</th>
+        <th>Version</th>
+        <th>Status</th>
+        <th>Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for t in tenants %}
+      <tr>
+        <td><strong>{{ t.PartitionKey }}</strong></td>
+        <td>{{ t.DisplayName }}</td>
+        <td>{{ t.Ministry }}</td>
+        <td>{{ t.RowKey }}</td>
+        <td><span class="badge badge-{{ t.Status }}">{{ t.Status }}</span></td>
+        <td>
+          <a href="/tenants/{{ t.PartitionKey }}" class="btn btn-secondary" style="padding: 5px 12px; font-size: 0.8rem;">View</a>
+          <a href="/tenants/{{ t.PartitionKey }}/edit" class="btn btn-secondary" style="padding: 5px 12px; font-size: 0.8rem;">Edit</a>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% else %}
+<div class="card" style="text-align: center; padding: 40px;">
+  <p style="color: #666; margin-bottom: 16px;">You haven't created any projects yet.</p>
+  <a href="/tenants/new" class="btn btn-primary">Create Your First Project</a>
+</div>
+{% endif %}
+{% endblock %}
