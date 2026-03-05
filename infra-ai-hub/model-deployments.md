@@ -30,6 +30,20 @@ All models listed are available via GlobalStandard SKU without explicit access a
 | text-embedding-3-large | Embedding | 10,000 |
 | text-embedding-3-small | Embedding | 10,000 |
 
+### Cohere Models (Canada East)
+
+| Model | Kind | Quota Limit |
+|-------|------|------------:|
+| cohere-command-a | Chat | 1,000 |
+| Cohere-command-r | Chat | not tracked |
+| Cohere-command-r-08-2024 | Chat | not tracked |
+| Cohere-command-r-plus | Chat | not tracked |
+| Cohere-command-r-plus-08-2024 | Chat | not tracked |
+| Cohere-embed-v3-english | Embedding | not tracked |
+| Cohere-embed-v3-multilingual | Embedding | not tracked |
+| Cohere-rerank-v4.0-pro | Rerank | 3,000 |
+| Cohere-rerank-v4.0-fast | Rerank | 3,000 |
+
 ---
 
 ## TEST Environment
@@ -53,6 +67,20 @@ Quota allocation strategy: **1% per tenant** for all models.
 | text-embedding-ada-002 | 10,000 | 100 | 100 | 100 | 100 | 100 | 500 (5%) | 9,500 |
 | text-embedding-3-large | 10,000 | 100 | 100 | 100 | 100 | 100 | 500 (5%) | 9,500 |
 | text-embedding-3-small | 10,000 | 100 | 100 | 100 | 100 | 100 | 500 (5%) | 9,500 |
+
+### Cohere Models (ai-hub-admin only)
+
+| Model | Quota Limit | ai-hub-admin (1%) |
+|-------|------------:|------------------:|
+| cohere-command-a | 1,000 | 10 |
+| Cohere-command-r | not tracked | 10 |
+| Cohere-command-r-08-2024 | not tracked | 10 |
+| Cohere-command-r-plus | not tracked | 10 |
+| Cohere-command-r-plus-08-2024 | not tracked | 10 |
+| Cohere-embed-v3-english | not tracked | 10 |
+| Cohere-embed-v3-multilingual | not tracked | 10 |
+| Cohere-rerank-v4.0-pro | 3,000 | 30 |
+| Cohere-rerank-v4.0-fast | 3,000 | 30 |
 
 > ¹ `ai-hub-admin / gpt-5.1-chat` uses a custom content filter policy (`ai-hub-admin-gpt-5.1-chat-filter`). See [Content Filters](#content-filters-rai-policies) below.
 
