@@ -23,7 +23,7 @@ module "tenant" {
   location                     = var.location
   ai_location                  = var.shared_config.ai_foundry.ai_location
 
-  private_endpoint_subnet_id = data.terraform_remote_state.shared.outputs.private_endpoint_subnet_id
+  private_endpoint_subnet_id = local.resolved_pe_subnet_id[each.key]
   log_analytics_workspace_id = lookup(lookup(each.value, "log_analytics", {}), "enabled", false) ? null : data.terraform_remote_state.shared.outputs.log_analytics_workspace_id
 
   private_endpoint_dns_wait = {

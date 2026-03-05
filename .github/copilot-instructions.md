@@ -63,9 +63,9 @@ Use when creating, modifying, or debugging integration tests.
 
 ### [Network](./skills/network/SKILL.md)
 Use when adding or modifying subnets, CIDR allocation, NSG rules, or delegation in the network module.
-- Subnet CIDR offset calculations in `infra-ai-hub/modules/network/locals.tf`
+- Explicit `subnet_allocation` model (`map(map(string))`) in `infra-ai-hub/modules/network/locals.tf`
 - NSG resources and azapi subnet definitions in `infra-ai-hub/modules/network/main.tf`
-- Address space allocation model (1 /24, 2 /24s, 4+ /24s)
+- PE subnet pool derivation and downstream PE selection (tenant 3-tier, APIM pinned)
 - Subnet delegation requirements per Azure service
 
 ### [External Docs Research](./skills/external-docs/SKILL.md)

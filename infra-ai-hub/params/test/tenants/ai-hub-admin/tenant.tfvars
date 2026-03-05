@@ -9,6 +9,10 @@ tenant = {
   display_name = "AI Hub Admin"
   enabled      = true
 
+  # PE subnet assignment — sticky, do not change after first deploy (destroys/recreates all PEs)
+  # Valid keys: privateendpoints-subnet, privateendpoints-subnet-1, privateendpoints-subnet-2, ...
+  pe_subnet_key = "privateendpoints-subnet"
+
   tags = {
     ministry    = "CITZ"
     environment = "test"
@@ -93,63 +97,90 @@ tenant = {
       metric_categories = ["AllMetrics"]
     }
     # Capacity = 1% of regional quota limit per model
-    # Quota limits: gpt-4.1=30k, gpt-4.1-mini=150k, gpt-4.1-nano=150k,
+    # OpenAI quota limits: gpt-4.1=30k, gpt-4.1-mini=150k, gpt-4.1-nano=150k,
     #   gpt-4o=30k, gpt-4o-mini=150k, gpt-5-mini=10k, gpt-5-nano=150k,
     #   gpt-5.1-chat=5k, gpt-5.1-codex-mini=10k, o1=5k, o3-mini=5k,
     #   o4-mini=10k, text-embedding-ada-002=10k, text-embedding-3-large=10k,
     #   text-embedding-3-small=10k
+    # Cohere quota limits: cohere-command-a=1k, Cohere-command-r*=not tracked,
+    #   Cohere-embed-v3-*=not tracked, Cohere-rerank-v4.0-pro=3k, Cohere-rerank-v4.0-fast=3k
+    # -------------------------------------------------------------------------
+    # Content Filters (RAI Policies)
+    # -------------------------------------------------------------------------
+    # Each deployment MUST have the content_filter key (null or object) so that
+    # Terraform's map(any) can infer a uniform type across all tenants.
+    #
+    #   content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+    #     -> Uses Azure's built-in Microsoft.DefaultV2 policy. No custom resource
+    #        is created.
+    #
+    #   content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [...] }
+    #     -> Creates a tenant-scoped raiPolicy resource on the AI Foundry Hub and
+    #        attaches it to this deployment.
+    #
+    # Valid filter names     : hate | violence | sexual | selfharm
+    # Valid severity_threshold: Low | Medium | High
+    # Valid source           : Prompt | Completion
+    # -------------------------------------------------------------------------
     model_deployments = [
       # GPT-4.1 Series
       {
-        name          = "gpt-4.1"
-        model_name    = "gpt-4.1"
-        model_version = "2025-04-14"
-        scale_type    = "GlobalStandard"
-        capacity      = 300 # 1% of 30,000
+        name           = "gpt-4.1"
+        model_name     = "gpt-4.1"
+        model_version  = "2025-04-14"
+        scale_type     = "GlobalStandard"
+        capacity       = 300 # 1% of 30,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "gpt-4.1-mini"
-        model_name    = "gpt-4.1-mini"
-        model_version = "2025-04-14"
-        scale_type    = "GlobalStandard"
-        capacity      = 1500 # 1% of 150,000
+        name           = "gpt-4.1-mini"
+        model_name     = "gpt-4.1-mini"
+        model_version  = "2025-04-14"
+        scale_type     = "GlobalStandard"
+        capacity       = 1500 # 1% of 150,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "gpt-4.1-nano"
-        model_name    = "gpt-4.1-nano"
-        model_version = "2025-04-14"
-        scale_type    = "GlobalStandard"
-        capacity      = 1500 # 1% of 150,000
+        name           = "gpt-4.1-nano"
+        model_name     = "gpt-4.1-nano"
+        model_version  = "2025-04-14"
+        scale_type     = "GlobalStandard"
+        capacity       = 1500 # 1% of 150,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # GPT-4o Series
       {
-        name          = "gpt-4o"
-        model_name    = "gpt-4o"
-        model_version = "2024-11-20"
-        scale_type    = "GlobalStandard"
-        capacity      = 300 # 1% of 30,000
+        name           = "gpt-4o"
+        model_name     = "gpt-4o"
+        model_version  = "2024-11-20"
+        scale_type     = "GlobalStandard"
+        capacity       = 300 # 1% of 30,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "gpt-4o-mini"
-        model_name    = "gpt-4o-mini"
-        model_version = "2024-07-18"
-        scale_type    = "GlobalStandard"
-        capacity      = 1500 # 1% of 150,000
+        name           = "gpt-4o-mini"
+        model_name     = "gpt-4o-mini"
+        model_version  = "2024-07-18"
+        scale_type     = "GlobalStandard"
+        capacity       = 1500 # 1% of 150,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # GPT-5 Series
       {
-        name          = "gpt-5-mini"
-        model_name    = "gpt-5-mini"
-        model_version = "2025-08-07"
-        scale_type    = "GlobalStandard"
-        capacity      = 100 # 1% of 10,000
+        name           = "gpt-5-mini"
+        model_name     = "gpt-5-mini"
+        model_version  = "2025-08-07"
+        scale_type     = "GlobalStandard"
+        capacity       = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "gpt-5-nano"
-        model_name    = "gpt-5-nano"
-        model_version = "2025-08-07"
-        scale_type    = "GlobalStandard"
-        capacity      = 1500 # 1% of 150,000
+        name           = "gpt-5-nano"
+        model_name     = "gpt-5-nano"
+        model_version  = "2025-08-07"
+        scale_type     = "GlobalStandard"
+        capacity       = 1500 # 1% of 150,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # GPT-5.1 Series
       {
@@ -158,57 +189,109 @@ tenant = {
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
         capacity      = 50 # 1% of 5,000
+        # Custom RAI policy: block harmful content at High threshold on all categories.
+        content_filter = {
+          base_policy_name = "Microsoft.DefaultV2"
+          filters = [
+            { name = "hate", severity_threshold = "High", source = "Prompt", blocking = true, enabled = true },
+            { name = "hate", severity_threshold = "High", source = "Completion", blocking = true, enabled = true },
+            { name = "violence", severity_threshold = "High", source = "Prompt", blocking = true, enabled = true },
+            { name = "violence", severity_threshold = "High", source = "Completion", blocking = true, enabled = true },
+            { name = "sexual", severity_threshold = "High", source = "Prompt", blocking = true, enabled = true },
+            { name = "sexual", severity_threshold = "High", source = "Completion", blocking = true, enabled = true },
+            { name = "selfharm", severity_threshold = "High", source = "Prompt", blocking = true, enabled = true },
+            { name = "selfharm", severity_threshold = "High", source = "Completion", blocking = true, enabled = true },
+          ]
+        }
       },
       {
-        name          = "gpt-5.1-codex-mini"
-        model_name    = "gpt-5.1-codex-mini"
-        model_version = "2025-11-13"
-        scale_type    = "GlobalStandard"
-        capacity      = 100 # 1% of 10,000
+        name           = "gpt-5.1-codex-mini"
+        model_name     = "gpt-5.1-codex-mini"
+        model_version  = "2025-11-13"
+        scale_type     = "GlobalStandard"
+        capacity       = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # Reasoning Models
       {
-        name          = "o1"
-        model_name    = "o1"
-        model_version = "2024-12-17"
-        scale_type    = "GlobalStandard"
-        capacity      = 50 # 1% of 5,000
+        name           = "o1"
+        model_name     = "o1"
+        model_version  = "2024-12-17"
+        scale_type     = "GlobalStandard"
+        capacity       = 50 # 1% of 5,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "o3-mini"
-        model_name    = "o3-mini"
-        model_version = "2025-01-31"
-        scale_type    = "GlobalStandard"
-        capacity      = 50 # 1% of 5,000
+        name           = "o3-mini"
+        model_name     = "o3-mini"
+        model_version  = "2025-01-31"
+        scale_type     = "GlobalStandard"
+        capacity       = 50 # 1% of 5,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "o4-mini"
-        model_name    = "o4-mini"
-        model_version = "2025-04-16"
-        scale_type    = "GlobalStandard"
-        capacity      = 100 # 1% of 10,000
+        name           = "o4-mini"
+        model_name     = "o4-mini"
+        model_version  = "2025-04-16"
+        scale_type     = "GlobalStandard"
+        capacity       = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # Embeddings
       {
-        name          = "text-embedding-ada-002"
-        model_name    = "text-embedding-ada-002"
-        model_version = "2"
-        scale_type    = "GlobalStandard"
-        capacity      = 100 # 1% of 10,000
+        name           = "text-embedding-ada-002"
+        model_name     = "text-embedding-ada-002"
+        model_version  = "2"
+        scale_type     = "GlobalStandard"
+        capacity       = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "text-embedding-3-large"
-        model_name    = "text-embedding-3-large"
-        model_version = "1"
-        scale_type    = "GlobalStandard"
-        capacity      = 100 # 1% of 10,000
+        name           = "text-embedding-3-large"
+        model_name     = "text-embedding-3-large"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "text-embedding-3-small"
-        model_name    = "text-embedding-3-small"
-        model_version = "1"
-        scale_type    = "GlobalStandard"
-        capacity      = 100 # 1% of 10,000
+        name           = "text-embedding-3-small"
+        model_name     = "text-embedding-3-small"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+      # Cohere Models (format auto-detected from model name in foundry stack)
+      # Excluded models:
+      #   Cohere-command-r, Cohere-command-r-plus       — ServiceModelDeprecated (since 06/30/2025)
+      #   Cohere-command-r-08-2024, Cohere-command-r-plus-08-2024,
+      #   Cohere-embed-v3-english, Cohere-embed-v3-multilingual — not in BC Gov Private Marketplace
+      # Command Series
+      {
+        name           = "cohere-command-a"
+        model_name     = "cohere-command-a"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 10 # 1% of 1,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+      # Rerank Series
+      {
+        name           = "Cohere-rerank-v4.0-pro"
+        model_name     = "Cohere-rerank-v4.0-pro"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 30 # 1% of 3,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+      {
+        name           = "Cohere-rerank-v4.0-fast"
+        model_name     = "Cohere-rerank-v4.0-fast"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 30 # 1% of 3,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
     ]
   }

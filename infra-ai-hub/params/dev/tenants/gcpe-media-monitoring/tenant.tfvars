@@ -9,6 +9,10 @@ tenant = {
   display_name = "GCPE Media Monitoring"
   enabled      = true
 
+  # PE subnet assignment — sticky, do not change after first deploy (destroys/recreates all PEs)
+  # Valid keys: privateendpoints-subnet, privateendpoints-subnet-1, privateendpoints-subnet-2, ...
+  pe_subnet_key = "privateendpoints-subnet"
+
   tags = {
     ministry    = "CITZ"
     environment = "dev"

@@ -58,6 +58,27 @@ Follow BC Gov Azure Landing Zone guidance for networking and DNS behavior. This 
 - Prefer AVM modules over raw resources
 - Include registry URL in module comments
 
+### map(any) — Uniform Element Shape Required
+- **`map(any)` requires every element to have the same structural type.** When Terraform unifies list/map elements that differ in shape (e.g., some objects have an extra attribute that others lack), the plan fails with `all map elements must have the same type`.
+- **Never add ad-hoc attributes** to only some entries in a tfvars list/map. Attributes that only some providers or models need must be derived in stack logic, not carried in the tfvars schema.
+- **Derive computed attributes in `locals.tf`** rather than requiring callers to provide them. Example: model format (`OpenAI` vs `Cohere`) is derived from a `model_format_prefixes` map in `locals.tf` keyed on the model name prefix — no `model_format` attribute is needed in any tenant tfvars entry.
+- **Pattern for extensible derived attributes:**
+  ```hcl
+  # locals.tf — single place to add new providers/formats
+  model_format_prefixes = {
+    "cohere" = "Cohere"
+    # "mistral" = "MistralAI"
+  }
+  default_model_format = "OpenAI"
+
+  # main.tf — lookup with fallback, no tfvars attribute needed
+  format = coalesce(
+    one([for prefix, fmt in local.model_format_prefixes : fmt if startswith(lower(deployment.model_name), prefix)]),
+    local.default_model_format
+  )
+  ```
+- **When adding new list attributes** to any `map(any)` tenant variable (e.g., new field in `model_deployments`), you must add the field — or a safe default via `optional()` / `lookup()` — to **every** tenant tfvars entry in **every** environment simultaneously, or Terraform will fail to unify types.
+
 ### count / for_each — Plan-Time Values Only
 - **Never** use resource attributes (module outputs derived from resource state) in `count` or `for_each` expressions. During `terraform destroy`, resource outputs become unknown and Terraform cannot resolve the count, causing `Invalid count argument` errors.
 - **Always** use plan-time-known values: input variables, locals computed from variables, `terraform.workspace`, or static values.
@@ -87,6 +108,7 @@ If a gate cannot be run locally, state exactly what was not run and why.
 - Use Private Endpoints for all PaaS services
 - Set subnets as Private Subnets (Zero Trust)
 - Use existing VNet provided by platform team
+- After purging/recreating the AI Foundry resource, allow ~5 min for PE DNS propagation before running integration tests or the next apply — the destroy script confirms API-level deletion but not DNS propagation. See the [Failure Playbook](references/REFERENCE.md#️⚠️-critical-ai-foundry-private-endpoint-broken-after-purgeapply-deploymentnotfound-404) for full diagnosis steps.
 
 ## Detailed References
 

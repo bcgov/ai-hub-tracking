@@ -46,7 +46,7 @@ module "apim" {
   vnet_integration_subnet_id    = data.terraform_remote_state.shared.outputs.apim_subnet_id
 
   enable_private_endpoint    = true
-  private_endpoint_subnet_id = data.terraform_remote_state.shared.outputs.private_endpoint_subnet_id
+  private_endpoint_subnet_id = local.resolved_apim_pe_subnet_id
   private_dns_zone_ids       = lookup(local.apim_config, "private_dns_zone_ids", [])
 
   tenant_products            = local.tenant_products

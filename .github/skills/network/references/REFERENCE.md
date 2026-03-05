@@ -4,151 +4,179 @@ Supplementary detail for the [Network SKILL.md](../SKILL.md). Read the SKILL.md 
 
 ---
 
-## CIDR Offset Calculation Algorithm
+## Subnet Allocation Model
 
-Each infrastructure subnet calculates a fourth-octet offset within its /24 base. The offset depends on which preceding subnets are enabled (each /27 = 32 IPs).
+The network module uses a single `subnet_allocation` variable of type `map(map(string))`. All CIDRs are explicit — there is **no offset computation or address-space-count-based derivation**.
 
-### Key Locals
-
-| Local | Purpose |
-|---|---|
-| `infra_space_idx` | Index of /24 used for APIM (0, 1, or 2 depending on address space count) |
-| `infra_space_idx_2` | Index of /24 for AppGW/ACA/Func (same as `infra_space_idx` for 1–2 /24s; idx 3 for 4+) |
-| `infra_base` | First 3 octets of the infra /24 (e.g., `10.0.1`) |
-| `{subnet}_offset` | Fourth-octet offset within the infra /24 |
-| `{subnet}_base` | Which /24 the subnet lives in (may differ from `infra_base` for 4+ /24s) |
-
-### Offset Formula (1 × /24)
-
-All subnets share one /24. PE is always at offset 0. Each subsequent subnet shifts by 32 for each enabled preceding subnet:
-
-```
-PE:    offset = 0                                         (always)
-APIM:  offset = 32                                        (always 32, directly after PE)
-AppGW: offset = 32 + (APIM ? 32 : 0)                     (32 or 64)
-ACA:   offset = 32 + (APIM ? 32 : 0) + (AppGW ? 32 : 0) (32..96)
-Func:  offset = 32 + (APIM ? 32 : 0) + (AppGW ? 32 : 0) + (ACA ? 32 : 0)
-```
-
-### Offset Formula (2 × /24s)
-
-PE occupies the entire first /24 as a PE pool (8 × /27). Infra subnets start at offset 0 in the second /24:
-
-```
-APIM:  offset = 0
-AppGW: offset = (APIM ? 32 : 0)
-ACA:   offset = (APIM ? 32 : 0) + (AppGW ? 32 : 0)
-Func:  offset = (APIM ? 32 : 0) + (AppGW ? 32 : 0) + (ACA ? 32 : 0)
-```
-
-### Offset Formula (4+ × /24s)
-
-PE occupies the first 2 /24s (16 × /27). APIM gets the third /24 at offset 0. AppGW/ACA/Func use the fourth /24:
-
-```
-APIM:  /24 #3, offset = 0
-AppGW: /24 #4, offset = 0
-ACA:   /24 #4, offset = (AppGW ? 32 : 0)
-Func:  /24 #4, offset = (AppGW ? 32 : 0) + (ACA ? 32 : 0)
-```
-
-### Adding a New Offset
-
-Template for the new subnet's offset local:
+### Variable Shape
 
 ```hcl
-# 1 /24: starts after PE (32) + all preceding
-xxx_offset = local.num_address_spaces == 1 ? (
-    32 +
-    (var.apim_subnet.enabled ? 32 : 0) +
-    (var.appgw_subnet.enabled ? 32 : 0) +
-    (var.aca_subnet.enabled ? 32 : 0)
-  ) : local.num_address_spaces >= 4 ? (
-    # 4+ /24s: lives in /24 #4 after AppGW + ACA
-    (var.appgw_subnet.enabled ? 32 : 0) +
-    (var.aca_subnet.enabled ? 32 : 0)
-  ) : (
-    # 2 /24s: lives in second /24 after APIM + AppGW + ACA
-    (var.apim_subnet.enabled ? 32 : 0) +
-    (var.appgw_subnet.enabled ? 32 : 0) +
-    (var.aca_subnet.enabled ? 32 : 0)
-  )
+variable "subnet_allocation" {
+  type = map(map(string))
+  # Outer key = address space CIDR
+  # Inner key = subnet name
+  # Inner value = full subnet CIDR
+}
 ```
+
+### How CIDRs Are Resolved
+
+In `modules/network/locals.tf`:
+
+```hcl
+# Flatten all subnets across address spaces into a single name → cidr map
+subnet_cidrs = merge([
+  for space_cidr, subnets in var.subnet_allocation : {
+    for name, cidr in subnets : name => cidr
+  }
+]...)
+```
+
+Enabled flags are derived from subnet name existence:
+```hcl
+pe_enabled    = contains(keys(local.subnet_cidrs), "privateendpoints-subnet")
+apim_enabled  = contains(keys(local.subnet_cidrs), "apim-subnet")
+appgw_enabled = contains(keys(local.subnet_cidrs), "appgw-subnet")
+aca_enabled   = contains(keys(local.subnet_cidrs), "aca-subnet")
+```
+
+### Validation Rules (in variables.tf)
+
+1. `subnet_allocation` must contain at least one address space
+2. All values must be valid CIDR notation (tested via `can(cidrhost(cidr, 0))`)
+3. Subnet names must be one of: `privateendpoints-subnet`, `privateendpoints-subnet-<n>` (where `<n>` starts at 1), `apim-subnet`, `appgw-subnet`, `aca-subnet`
+4. At least one `privateendpoints-subnet` must exist
+5. Each subnet name appears in exactly one address space (no duplicates)
+
+---
+
+## PE Subnet Pool Derivation
+
+All subnets with names starting with `privateendpoints-subnet` are collected into a pool:
+
+```hcl
+pe_subnet_names = sort([
+  for name, _ in local.subnet_cidrs : name
+  if startswith(name, "privateendpoints-subnet")
+])
+
+pe_subnet_pool = {
+  for name in local.pe_subnet_names :
+  name => { name = name, cidr = local.subnet_cidrs[name] }
+}
+```
+
+Key behaviors:
+- Pool keys are the actual subnet names (`privateendpoints-subnet`, `privateendpoints-subnet-1`, etc.)
+- `pe_subnet_cidrs` is a sorted list of all PE CIDRs (used in NSG `destination_address_prefixes`)
+- All pool entries have deployed `azapi_resource.pe_subnets` instances via `for_each`
+
+### Pool Outputs
+
+| Output | Type | Description |
+|---|---|---|
+| `private_endpoint_subnet_ids_by_key` | map(string) | PE key → resource ID (null for undeployed) |
+| `private_endpoint_subnet_cidrs_by_key` | map(string) | PE key → CIDR string |
+| `private_endpoint_subnet_keys_ordered` | list(string) | Sorted list of pool keys |
+| `private_endpoint_subnet_pool` | map(object) | PE key → { name, cidr } |
 
 ---
 
 ## Visual Allocation Diagrams
 
-### 1 × /24 — All Subnets Enabled
+### Dev — 1 × /24 (Current)
 
 ```
-10.0.0.0/24
-├── 10.0.0.0/27   (PE)       offset=0    always
-├── 10.0.0.32/27  (APIM)     offset=32   if apim_subnet.enabled
-├── 10.0.0.64/27  (AppGW)    offset=64   if appgw_subnet.enabled
-├── 10.0.0.96/27  (ACA)      offset=96   if aca_subnet.enabled
-└── 10.0.0.128–255 (unused)
+10.x.x.0/24
+├── 10.x.x.0/27   (privateendpoints-subnet)  27 usable IPs
+├── 10.x.x.32/27  (apim-subnet)              27 usable IPs
+├── 10.x.x.64/27  (aca-subnet)               27 usable IPs
+└── 10.x.x.96–255 (unused — reserved for appgw-subnet growth)
 ```
 
-### 2 × /24s — All Subnets Enabled
+### Test — 2 × /24s (Current)
 
 ```
-10.0.0.0/24 — PE pool
-├── 10.0.0.0/27   (pe-subnet-0)
-├── 10.0.0.32/27  (pe-subnet-1)
-├── ...
-└── 10.0.0.224/27 (pe-subnet-7)
+10.x.x.0/24 — PE space (dedicated)
+└── 10.x.x.0/24  (privateendpoints-subnet)  251 usable IPs
 
-10.0.1.0/24 — Infrastructure
-├── 10.0.1.0/27   (APIM)     offset=0
-├── 10.0.1.32/27  (AppGW)    offset=32
-├── 10.0.1.64/27  (ACA)      offset=64
-└── 10.0.1.96/27  (Func)     offset=96
+10.x.x.0/24 — Workload space
+├── 10.x.x.0/27   (apim-subnet)              27 usable IPs
+├── 10.x.x.32/27  (appgw-subnet)             27 usable IPs
+├── 10.x.x.64/27  (aca-subnet)               27 usable IPs
+└── 10.x.x.96–255 (unused)
 ```
 
-### 4+ × /24s — All Subnets Enabled
+### Prod — 4 × /24s (Target Contract)
 
 ```
-10.0.0.0/24 — PE pool (part 1)
-10.0.1.0/24 — PE pool (part 2)
-10.0.2.0/24 — APIM (offset=0)
-10.0.3.0/24 — Infrastructure
-├── 10.0.3.0/27   (AppGW)    offset=0
-├── 10.0.3.32/27  (ACA)      offset=32
-└── 10.0.3.64/27  (Func)     offset=64
+10.x.x.0/24 — PE pool space 1
+└── (privateendpoints-subnet)    256 IPs
+
+10.x.x.0/24 — PE pool space 2
+└── (privateendpoints-subnet-1)  256 IPs
+
+10.x.x.0/24 — PE pool space 3
+└── (privateendpoints-subnet-2)  256 IPs
+
+10.x.x.0/24 — Workload space
+├── (apim-subnet)   /27  32 IPs
+├── (appgw-subnet)  /27  32 IPs
+└── (aca-subnet)    /27  32 IPs
 ```
 
 ---
 
-## PE Subnet Pool Calculation
+## Downstream PE Subnet Selection
 
-For environments with multiple /24s, the PE space scales:
+### Tenant Stack (stacks/tenant/locals.tf)
 
-| Address Spaces | PE /24 Count | PE /27 Subnets | Notes |
-|---|---|---|---|
-| 1 | — | 1 (single PE /27) | PE shares the /24 with infra |
-| 2 | 1 | 8 | Full first /24 as PE pool |
-| 4+ | 2 | 16 | First two /24s as PE pool |
+`pe_subnet_key` is **mandatory** for every enabled tenant (validated in `variables.tf`).
+Resolution is strict — invalid/missing key fails at plan time (no silent fallback):
 
-Tenant subnet names are generated dynamically: `{prefix}-pe-subnet-{N}`.
+```hcl
+resolved_pe_subnet_id = {
+  for key, config in local.enabled_tenants : key => local.pe_subnet_ids_by_key[config.pe_subnet_key]
+}
+```
+
+Validation: Every enabled tenant must have `pe_subnet_key` set and it must match `privateendpoints-subnet(-<n>)?` pattern.
+
+### APIM Stack (stacks/apim/locals.tf)
+
+Pinned PE — no auto-balancing. Null key uses primary; explicit key must exist (no silent fallback):
+
+```hcl
+resolved_apim_pe_subnet_id = (
+  var.apim_pe_subnet_key == null
+  ? data.terraform_remote_state.shared.outputs.private_endpoint_subnet_id
+  : data.terraform_remote_state.shared.outputs.private_endpoint_subnet_ids_by_key[var.apim_pe_subnet_key]
+)
+```
+
+Variable: `apim_pe_subnet_key` (string, default `null`) in `stacks/apim/variables.tf`.
 
 ---
 
 ## NSG Rules Per Subnet
 
 ### PE Subnet NSG (`{prefix}-pe-nsg`)
+
+Uses `destination_address_prefixes` (list) to cover all PE pool CIDRs.
+
 | Priority | Direction | Purpose |
 |---|---|---|
-| 100+ | Inbound | Allow from each target VNet address space (dynamic) |
-| 200+ | Outbound | Allow to each target VNet address space (dynamic) |
-| 300 | Inbound | Allow from source VNet (tools VNet) |
-| 301 | Outbound | Allow to source VNet |
+| 100+ | Inbound | Allow from each target VNet address space (dynamic, to PE pool CIDRs) |
+| 200+ | Outbound | Allow to each target VNet address space (from PE pool CIDRs) |
+| 300 | Inbound | Allow from source VNet (tools VNet, to PE pool CIDRs) |
+| 301 | Outbound | Allow to source VNet (from PE pool CIDRs) |
 
 ### APIM Subnet NSG (`{prefix}-apim-nsg`)
 | Priority | Direction | Purpose |
 |---|---|---|
 | 100 | Inbound | ApiManagement service tag (port 3443) |
 | 110 | Inbound | AzureLoadBalancer |
+| 400–499 | Inbound | External peered project VNets → APIM (443, dynamic, caller-assigned priority from `external_peered_projects`) |
 | 100 | Outbound | Storage (443) |
 | 110 | Outbound | AzureKeyVault (443) |
 | 120 | Outbound | VirtualNetwork (443, PE access) |
@@ -170,16 +198,8 @@ HTTP (80) intentionally blocked — no redirect provided.
 | 100 | Outbound | AzureContainerRegistry (443) |
 | 110 | Outbound | AzureMonitor (443) |
 | 120 | Outbound | AzureActiveDirectory (443) |
+| 130 | Outbound | VirtualNetwork (443, PE access) |
 | 200+ | Inbound | Allow from each target VNet address space (dynamic) |
-
-### Func Subnet NSG (`{prefix}-func-nsg`)
-| Priority | Direction | Purpose |
-|---|---|---|
-| 100 | Outbound | Storage (443, Functions runtime) |
-| 110 | Outbound | AzureKeyVault (443) |
-| 120 | Outbound | AzureActiveDirectory (443, MI auth) |
-| 130 | Outbound | AzureMonitor (443, App Insights) |
-| 140 | Outbound | VirtualNetwork (443, PE access) |
 
 ---
 
@@ -197,10 +217,10 @@ HTTP (80) intentionally blocked — no redirect provided.
 Subnets serialize on the VNet resource (Azure ARM locks). Each subnet must depend on ALL preceding subnets to avoid conflicts:
 
 ```
-azapi_resource.pe_subnet
-  └── azapi_resource.apim_subnet  (depends_on: [pe_subnet])
-       └── azapi_resource.appgw_subnet  (depends_on: [pe_subnet, apim_subnet])
-            └── azapi_resource.aca_subnet  (depends_on: [pe_subnet, apim_subnet, appgw_subnet])
+azapi_resource.private_endpoints_subnet
+  └── azapi_resource.apim_subnet  (depends_on: [private_endpoints_subnet])
+       └── azapi_resource.appgw_subnet  (depends_on: [private_endpoints_subnet, apim_subnet])
+            └── azapi_resource.aca_subnet  (depends_on: [private_endpoints_subnet, apim_subnet, appgw_subnet])
 ```
 
 Every subnet also includes `locks = [data.azurerm_virtual_network.target.id]`.
@@ -208,10 +228,11 @@ Every subnet also includes `locks = [data.azurerm_virtual_network.target.id]`.
 ### Cross-Stack Consumption
 
 ```
-shared stack (creates subnets)
-  ├── apim stack     → PE subnet, APIM subnet, Func subnet
-  ├── foundry stack  → PE subnet
-  └── tenant stack   → PE subnet pool
+shared stack (creates subnets, exposes PE pool outputs)
+  ├── tenant stack   → PE subnet (via resolved_pe_subnet_id per tenant)
+  ├── apim stack     → PE subnet (via resolved_apim_pe_subnet_id), APIM subnet
+  ├── foundry stack  → Does not consume PE subnet
+  └── key-rotation   → Does not consume PE subnet
 ```
 
 ---
@@ -234,12 +255,13 @@ No other subnet currently requires a route table.
 |---|---|---|
 | Reusing PE subnet for VNet integration | Deployment fails — PE subnet has no delegation | Always create a dedicated delegated subnet |
 | Sharing a delegated subnet between services | Only one delegation per subnet — second service fails | Each service gets its own subnet |
-| Wrong offset formula for 2 × /24 case | Subnet overlaps with existing subnet | Test offset for all 3 address space scenarios |
+| CIDR not within parent address space | Plan fails validation | Ensure inner CIDR falls within outer map key |
+| Duplicate subnet name across address spaces | Terraform validation fails | Each name must appear exactly once |
 | Missing `depends_on` in subnet chain | ARM conflict on VNet, intermittent failures | Include ALL preceding subnets in `depends_on` |
 | Using `azurerm_subnet` instead of `azapi_resource` | Landing Zone policy violation | Always use `azapi_resource` |
 | Forgetting shared stack output | Downstream stack can't access subnet ID | Add output in `stacks/shared/outputs.tf` |
 | Setting delegation on AppGW subnet | App Gateway rejects delegated subnets | AppGW subnet must have NO delegation |
-| Not testing disabled-subnet scenarios | Offset calculations break when preceding subnet is off | Validate CIDR for enabled/disabled combos |
+| Invalid PE key in tenant config | `coalesce` falls through to primary (safe) | Validate key existence in CI before apply |
 
 ---
 
@@ -250,6 +272,7 @@ No other subnet currently requires a route table.
 | `SubnetMustNotHaveDelegation` | Delegation set on AppGW or PE subnet | Remove delegation from `azapi_resource` body |
 | `SubnetDelegationCannotBeChanged` | Changing delegation on existing subnet | Delete + recreate (taint or `terraform destroy -target`) |
 | `NetworkSecurityGroupNotAssociated` | Using `azurerm_subnet` without NSG in body | Switch to `azapi_resource` |
-| `SubnetConflictWithOtherSubnet` | CIDR overlap from wrong offset | Walk offset formula for current address space count |
+| `SubnetConflictWithOtherSubnet` | CIDR overlap in `subnet_allocation` | Check CIDRs don't overlap within same address space |
 | `AnotherOperationInProgress` | Missing `depends_on` or `locks` | Add `depends_on` + VNet lock to subnet resource |
 | `PrivateEndpointCannotBeCreatedInSubnet` | Subnet has delegation or missing PE policy | Use PE subnet with `privateEndpointNetworkPolicies = "Disabled"` |
+| Tenant PE uses wrong subnet | Invalid `pe_subnet_key` or missing pool output | Check tenant's `pe_subnet_key` in tfvars matches a key in shared PE pool outputs. Do NOT change it after first deploy — destroys/recreates all PEs |

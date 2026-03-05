@@ -215,6 +215,39 @@ resource "azapi_resource" "connection_cosmos" {
 # so that all Hub-modifying resources are in one module that runs serially.
 # =============================================================================
 
+# =============================================================================
+# RAI POLICIES (Custom Content Filters)
+# Created on the shared AI Foundry Hub only for deployments that define
+# content_filter in their tfvars. All other deployments use Microsoft.DefaultV2.
+# Policy name pattern: "<tenant_name>-<deployment_name>-filter"
+# =============================================================================
+resource "azapi_resource" "rai_policy" {
+  for_each = { for k, v in var.ai_model_deployments : k => v if length(v.content_filter.filters) > 0 }
+
+  name      = replace("${var.tenant_name}-${each.value.name}-filter", ".", "-")
+  type      = "Microsoft.CognitiveServices/accounts/raiPolicies@2025-04-01-preview"
+  parent_id = var.ai_foundry_hub_id
+
+  body = {
+    properties = {
+      type           = "UserManaged"
+      basePolicyName = each.value.content_filter.base_policy_name
+      contentFilters = [for f in each.value.content_filter.filters : {
+        name              = f.name
+        blocking          = f.blocking
+        enabled           = f.enabled
+        severityThreshold = f.severity_threshold
+        source            = f.source
+      }]
+    }
+  }
+
+  schema_validation_enabled = false
+
+  # Serialize after project creation to avoid ETag conflicts on the shared Hub
+  depends_on = [azapi_resource.project]
+}
+
 # Model deployments are created on the shared AI Foundry Hub
 # Deployment names are prefixed with tenant_name to avoid conflicts across tenants
 # Example: tenant "wlrs" with model "gpt-4.1-mini" -> deployment name "wlrs-gpt-4.1-mini"
@@ -233,7 +266,7 @@ resource "azapi_resource" "ai_model_deployment" {
         name    = each.value.model.name
         version = each.value.model.version
       }
-      raiPolicyName        = each.value.rai_policy_name
+      raiPolicyName        = local.effective_rai_policy_name[each.key]
       versionUpgradeOption = each.value.version_upgrade_option
     }
     sku = {
@@ -244,9 +277,10 @@ resource "azapi_resource" "ai_model_deployment" {
 
   schema_validation_enabled = false
 
-  # Serialize after project creation to avoid ETag conflicts
+  # Serialize after project and RAI policy creation to avoid ETag conflicts
   depends_on = [
-    azapi_resource.project
+    azapi_resource.project,
+    azapi_resource.rai_policy,
   ]
 }
 
