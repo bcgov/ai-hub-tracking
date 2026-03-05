@@ -106,6 +106,17 @@ tenant = {
         model_version = "2025-04-14"
         scale_type    = "GlobalStandard"
         capacity      = 10
+        # Optional: custom content filter (RAI policy) for this deployment.
+        # Omit entirely to use Microsoft.DefaultV2 (Azure built-in default).
+        # content_filter = {
+        #   base_policy_name = "Microsoft.DefaultV2"
+        #   filters = [
+        #     { name = "hate",     severity_threshold = "High", source = "Prompt",     blocking = true, enabled = true },
+        #     { name = "hate",     severity_threshold = "High", source = "Completion", blocking = true, enabled = true },
+        #     { name = "violence", severity_threshold = "High", source = "Prompt",     blocking = true, enabled = true },
+        #     { name = "violence", severity_threshold = "High", source = "Completion", blocking = true, enabled = true },
+        #   ]
+        # }
       }
     ]
   }
@@ -220,6 +231,23 @@ Common models available in Azure OpenAI:
 - `text-embedding-3-small` - Embeddings (smaller)
 
 Check Azure OpenAI model availability for your specific region.
+
+### Content Filters (RAI Policies)
+
+Each `model_deployments` entry can include an optional `content_filter` block to create a custom RAI policy instead of using the Azure built-in `Microsoft.DefaultV2`.
+
+| Field | Allowed values | Required | Description |
+|-------|---------------|----------|-------------|
+| `base_policy_name` | string | No | Policy to inherit from. Default: `Microsoft.DefaultV2` |
+| `filters[].name` | `hate` `violence` `sexual` `selfharm` | Yes | Content category |
+| `filters[].severity_threshold` | `Low` `Medium` `High` | Yes | Severity at which the filter activates |
+| `filters[].source` | `Prompt` `Completion` | Yes | Apply to user input or model output |
+| `filters[].blocking` | bool | No | Hard-block the request (default: `true`) |
+| `filters[].enabled` | bool | No | Toggle this entry on/off (default: `true`) |
+
+Terraform validates all enum fields and creates a `raiPolicies` resource named `<tenant>-<deployment>-filter` on the shared Hub. Deployments without `content_filter` use `Microsoft.DefaultV2` and are unaffected.
+
+See `infra-ai-hub/model-deployments.md` for a full example.
 
 ## Deployment
 

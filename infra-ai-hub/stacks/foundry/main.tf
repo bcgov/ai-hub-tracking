@@ -51,6 +51,12 @@ module "foundry_project" {
         type     = lookup(deployment, "scale_type", "Standard")
         capacity = lookup(deployment, "capacity", 10)
       }
+      # content_filter: set to null to use Microsoft.DefaultV2 (Azure default).
+      # Set to a custom object in the tenant's model_deployments entry to create
+      # a tenant-scoped RAI policy for that specific deployment.
+      # NOTE: ALL deployments across ALL tenants must have this key (null or object)
+      # because Terraform's map(any) requires uniform element shapes.
+      content_filter = lookup(deployment, "content_filter", { base_policy_name = "Microsoft.DefaultV2", filters = [] })
     }
   }
 
