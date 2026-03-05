@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Outputs – Tenant Onboarding Portal Module
+# Outputs – Tenant Onboarding Portal Infrastructure
 # -----------------------------------------------------------------------------
 
 output "app_service_name" {

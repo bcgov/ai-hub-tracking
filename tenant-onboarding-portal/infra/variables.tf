@@ -1,5 +1,5 @@
 # -----------------------------------------------------------------------------
-# Variables – Tenant Onboarding Portal Module
+# Variables – Tenant Onboarding Portal Infrastructure
 # -----------------------------------------------------------------------------
 
 variable "app_env" {
@@ -7,14 +7,44 @@ variable "app_env" {
   type        = string
 }
 
+variable "location" {
+  description = "Azure region."
+  type        = string
+}
+
+variable "subscription_id" {
+  description = "Azure subscription ID."
+  type        = string
+  sensitive   = true
+}
+
+variable "tenant_id" {
+  description = "Azure AD tenant ID."
+  type        = string
+  sensitive   = true
+}
+
+variable "client_id" {
+  description = "Service principal / OIDC client ID for Terraform."
+  type        = string
+  sensitive   = true
+}
+
+variable "use_oidc" {
+  description = "Use OIDC authentication for the AzureRM provider."
+  type        = bool
+  default     = true
+}
+
 variable "resource_group_name" {
   description = "Resource group to deploy into."
   type        = string
 }
 
-variable "location" {
-  description = "Azure region."
-  type        = string
+variable "common_tags" {
+  description = "Tags to apply to all resources."
+  type        = map(string)
+  default     = {}
 }
 
 variable "sku_name" {
@@ -80,12 +110,6 @@ variable "admin_emails" {
 
 variable "extra_app_settings" {
   description = "Additional app settings to pass to the web app."
-  type        = map(string)
-  default     = {}
-}
-
-variable "tags" {
-  description = "Tags to apply to all resources."
   type        = map(string)
   default     = {}
 }
