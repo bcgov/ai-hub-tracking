@@ -232,13 +232,7 @@ resource "azapi_resource" "rai_policy" {
     properties = {
       type           = "UserManaged"
       basePolicyName = each.value.content_filter.base_policy_name
-      contentFilters = [for f in each.value.content_filter.filters : {
-        name              = f.name
-        blocking          = f.blocking
-        enabled           = f.enabled
-        severityThreshold = f.severity_threshold
-        source            = f.source
-      }]
+      contentFilters = local.canonical_rai_content_filters[each.key]
     }
   }
 
