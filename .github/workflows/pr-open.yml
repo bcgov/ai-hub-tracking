@@ -53,7 +53,7 @@ jobs:
       proxy_url: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_url }}
       proxy_auth: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_auth }}
       tag: latest
-      terraform_log_level: INFO
+      terraform_log_level: ERROR
     secrets: inherit
 
   update-pr-description:
