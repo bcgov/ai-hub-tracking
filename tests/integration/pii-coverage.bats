@@ -3,22 +3,18 @@
 # Integration tests for PII Redaction Coverage Verification (P1 Safety)
 # =============================================================================
 # These tests verify that the PII fragment correctly detects and handles
-# incomplete redaction coverage caused by the Azure Language Service's
-# 5-document-per-synchronous-request limit.
+# incomplete redaction coverage.
 #
-# Scenario:
-#   A payload with more content messages than the 5-doc limit causes excess
-#   messages to be silently dropped from PII scanning. The coverage check
-#   detects this:
-#   - Fail-closed tenants (SDPR): receive 503 + coverage diagnostics
-#   - Fail-open tenants (WLRS): request passes through, coverage logged
+# Batching: The fragment sends the Language Service API multiple requests of
+# up to 5 documents each (max 100 documents total). So payloads with ≤100
+# documents get full coverage; only when >100 documents are needed do we get
+# unscanned messages.
 #
-# Note on 5-doc limit:
-#   Azure Language Service PiiEntityRecognition limits synchronous requests
-#   to 5 documents. The fragment sends each message's content as a separate
-#   document (with chunking for oversized messages). When a request has >5
-#   content-bearing messages, only the first N that fit are sent to the API.
-#   The remainder are unscanned. The coverage check detects this gap.
+# Scenario 1 (≤50 docs): Payload with 8 messages → 8 docs → 2 API requests →
+#   full coverage. Fail-closed and fail-open both get 200.
+#
+# Scenario 2 (>100 docs): Payload with 102+ documents causes excess to be
+#   unscanned. Fail-closed blocks with 503; fail-open passes through.
 #
 # Tenants:
 #   - sdpr-invoice-automation: fail_closed=true  → blocks on incomplete coverage
@@ -79,19 +75,16 @@ skip_if_no_key() {
 }
 
 # =============================================================================
-# Test 1: FAIL-CLOSED (SDPR) — 7 user messages + 1 system = 8 docs > 5 → 503
+# Test 1: FAIL-CLOSED (SDPR) — 8 messages now get full coverage via batching → 200
 # =============================================================================
-# sdpr-invoice-automation has fail_closed=true.
-# With 8 messages (1 system + 7 user), the code cap of 5 documents means
-# only messages 0-4 get PII documents. Messages 5-7 are unscanned.
-# The PII API returns 200 (5 ≤ 5 limit), but coverage check detects
-# 3 unscanned messages → fullCoverage=false → 503 block.
+# With request batching (up to 50 docs in batches of 5), 8 messages = 8 docs
+# are sent in 2 API calls and merged. Full coverage → 200 even for fail-closed.
 # =============================================================================
 
-@test "PII-COVERAGE: fail-closed tenant blocks when messages exceed 5-doc limit" {
+@test "PII-COVERAGE: fail-closed tenant succeeds when 8 messages (full coverage via batching)" {
     skip_if_no_key "sdpr-invoice-automation"
 
-    echo "Building payload with 7 user messages (8 total = 8 docs needed, 5 sent)..." >&2
+    echo "Building payload with 7 user messages (8 total = 8 docs, 2 batches)..." >&2
     local body
     body=$(build_many_messages_payload 7)
 
@@ -103,52 +96,22 @@ skip_if_no_key() {
     echo "HTTP Status: ${RESPONSE_STATUS}" >&2
     echo "Response (first 500 chars): ${RESPONSE_BODY:0:500}" >&2
 
-    # Fail-closed + incomplete coverage → must block with 503
-    assert_status "503" "${RESPONSE_STATUS}"
+    # Full coverage via batching → must succeed with 200
+    assert_status "200" "${RESPONSE_STATUS}"
 
-    # Verify error response structure
-    local error_code
-    error_code=$(json_get "${RESPONSE_BODY}" '.error.code')
-    echo "Error code: ${error_code}" >&2
-    [[ "${error_code}" == "PiiRedactionUnavailable" ]]
-
-    # Verify failure_reason indicates partial redaction (not a PII API error)
-    local failure_reason
-    failure_reason=$(json_get "${RESPONSE_BODY}" '.error.failure_reason')
-    echo "Failure reason: ${failure_reason}" >&2
-    assert_contains "${failure_reason}" "partial-redaction"
-    assert_contains "${failure_reason}" "unscanned"
-
-    # Verify coverage object is present and accurate
-    local msgs_unscanned
-    msgs_unscanned=$(json_get "${RESPONSE_BODY}" '.error.coverage.msgsUnscanned')
-    echo "Messages unscanned: ${msgs_unscanned}" >&2
-    [[ "${msgs_unscanned}" -gt 0 ]]
-
-    local full_coverage
-    full_coverage=$(json_get "${RESPONSE_BODY}" '.error.coverage.fullCoverage')
-    echo "Full coverage: ${full_coverage}" >&2
-    [[ "${full_coverage}" == "false" || "${full_coverage}" == "False" ]]
-
-    # Verify message explains the partial-redaction situation
-    local error_message
-    error_message=$(json_get "${RESPONSE_BODY}" '.error.message')
-    echo "Error message: ${error_message}" >&2
-    assert_contains "${error_message}" "incomplete"
+    # Verify we got an LLM response (not a 503 error)
+    local content
+    content=$(json_get "${RESPONSE_BODY}" '.choices[0].message.content')
+    [[ -n "${content}" ]]
 }
 
 # =============================================================================
-# Test 2: FAIL-OPEN (WLRS) — 7 user messages + 1 system = 8 docs > 5 → 200
+# Test 2: FAIL-OPEN (WLRS) — 8 messages get full coverage via batching → 200
 # =============================================================================
-# wlrs-water-form-assistant has fail_closed=false.
-# Same payload: 8 messages, 5 docs processed by PII API.
-# Because fail-open, the request passes through to the LLM with:
-#   - First 5 messages PII-redacted (within limit)
-#   - Remaining 3 messages left with original content
-# Expect: HTTP 200 with an LLM response.
+# Same as Test 1: 8 messages, 2 batches, full coverage. Expect 200.
 # =============================================================================
 
-@test "PII-COVERAGE: fail-open tenant passes through when messages exceed 5-doc limit" {
+@test "PII-COVERAGE: fail-open tenant succeeds when 8 messages (full coverage via batching)" {
     skip_if_no_key "wlrs-water-form-assistant"
 
     echo "Building payload with 7 user messages (8 total = 8 docs needed, 5 sent)..." >&2
@@ -198,4 +161,42 @@ skip_if_no_key() {
     local content
     content=$(json_get "${RESPONSE_BODY}" '.choices[0].message.content')
     [[ -n "${content}" ]]
+}
+
+# =============================================================================
+# Test 4: >100 documents — fail-closed blocks (excess unscanned)
+# =============================================================================
+# Payload with 102 docs (1 system + 101 user messages) exceeds the 100-doc cap.
+# Only first 100 docs are sent; 2 messages unscanned → fullCoverage=false → 503.
+# =============================================================================
+
+@test "PII-COVERAGE: fail-closed tenant blocks when payload exceeds 100-doc cap" {
+    skip_if_no_key "sdpr-invoice-automation"
+
+    echo "Building payload with 101 user messages (102 total docs > 100 cap)..." >&2
+    local body
+    body=$(build_many_messages_payload 101)
+
+    echo "Sending to sdpr-invoice-automation (fail_closed=true)..." >&2
+    local path="/openai/deployments/${DEFAULT_MODEL}/chat/completions?api-version=${OPENAI_API_VERSION}"
+    response=$(apim_request_with_retry "POST" "sdpr-invoice-automation" "${path}" "${body}")
+    parse_response "${response}"
+
+    echo "HTTP Status: ${RESPONSE_STATUS}" >&2
+
+    # Fail-closed + incomplete coverage (>50 docs) → must block with 503
+    assert_status "503" "${RESPONSE_STATUS}"
+
+    local error_code
+    error_code=$(json_get "${RESPONSE_BODY}" '.error.code')
+    [[ "${error_code}" == "PiiRedactionUnavailable" ]]
+
+    local failure_reason
+    failure_reason=$(json_get "${RESPONSE_BODY}" '.error.failure_reason')
+    assert_contains "${failure_reason}" "partial-redaction"
+    assert_contains "${failure_reason}" "unscanned"
+
+    local msgs_unscanned
+    msgs_unscanned=$(json_get "${RESPONSE_BODY}" '.error.coverage.msgsUnscanned')
+    [[ "${msgs_unscanned}" -gt 0 ]]
 }
