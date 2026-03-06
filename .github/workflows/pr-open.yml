@@ -1,6 +1,7 @@
 name: PR # Build Containers on PR Open
 on:
   pull_request:
+    types: [opened, synchronize, reopened]
 
   workflow_dispatch:
 
@@ -125,10 +126,220 @@ jobs:
 
             await github.rest.pulls.update({ owner, repo, pull_number, body: newBody });
 
+  # ---------------------------------------------------------------------------
+  # Portal Preview: detect changes → provision → deploy → post PR comment.
+  # Only runs on actual pull_request events (not workflow_dispatch).
+  # Uses the 'tools' GitHub Environment for Azure OIDC credentials and secrets.
+  # Each PR gets its own B1 App Service Plan + App Service (destroyed on close).
+  # Secrets required in the 'tools' environment:
+  #   PORTAL_SECRET_KEY  – Starlette session key (≥32 chars)
+  # Variables required in the 'tools' environment:
+  #   PORTAL_RESOURCE_GROUP – resource group to deploy preview App Services into
+  #   PORTAL_LOCATION       – Azure region (e.g. canadacentral)
+  # ---------------------------------------------------------------------------
+  detect-portal-changes:
+    name: Detect portal changes
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'pull_request'
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - name: Checkout (with full history for diff)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes in tenant-onboarding-portal
+        id: diff
+        run: |
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
+            -- tenant-onboarding-portal/ | wc -l | tr -d ' ')
+          echo "Portal files changed: ${CHANGED}"
+          if [[ "${CHANGED}" -gt 0 ]]; then
+            echo "changed=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  provision-portal-preview:
+    name: Provision pr${{ github.event.number }}-ai-hub-onboarding
+    needs: detect-portal-changes
+    if: needs.detect-portal-changes.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    environment: tools
+    env:
+      TF_VERSION: 1.12.2
+      TF_WORKING_DIR: tenant-onboarding-portal/infra
+    outputs:
+      app_service_name: ${{ steps.tf_outputs.outputs.app_service_name }}
+      app_hostname: ${{ steps.tf_outputs.outputs.app_hostname }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          ARM_USE_OIDC: "true"
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ secrets.BACKEND_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=portal/pr${{ github.event.number }}/terraform.tfstate" \
+            -backend-config="use_oidc=true"
+
+      - name: Terraform apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          CI: "true"
+          ARM_USE_OIDC: "true"
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_app_env: "tools"
+          TF_VAR_location: ${{ vars.PORTAL_LOCATION }}
+          TF_VAR_resource_group_name: ${{ vars.PORTAL_RESOURCE_GROUP }}
+          TF_VAR_app_name_override: "pr${{ github.event.number }}-ai-hub-onboarding"
+          TF_VAR_sku_name: "B1"
+          TF_VAR_enable_always_on: "true"
+          TF_VAR_secret_key: ${{ secrets.PORTAL_SECRET_KEY }}
+          TF_VAR_oidc_discovery_url: ""
+          TF_VAR_oidc_client_id: ""
+          TF_VAR_oidc_client_secret: ""
+          TF_VAR_enable_table_rbac: "false"
+        run: terraform apply -auto-approve -input=false
+
+      - name: Read Terraform outputs
+        id: tf_outputs
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "app_service_name=$(terraform output -raw app_service_name)"         >> "$GITHUB_OUTPUT"
+          echo "app_hostname=$(terraform output -raw app_service_default_hostname)" >> "$GITHUB_OUTPUT"
+
+  deploy-portal-preview:
+    name: Deploy code to pr${{ github.event.number }}-ai-hub-onboarding
+    needs: provision-portal-preview
+    if: always() && needs.provision-portal-preview.result == 'success'
+    runs-on: ubuntu-24.04
+    environment: tools
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Create deployment zip
+        working-directory: tenant-onboarding-portal
+        run: |
+          zip -r ../portal-deploy.zip . \
+            --exclude "*/__pycache__/*" \
+            --exclude "*.pyc" \
+            --exclude "*/tests/*" \
+            --exclude "infra/*" \
+            --exclude ".env*" \
+            --exclude ".git*"
+          echo "Zip size: $(du -sh ../portal-deploy.zip | cut -f1)"
+
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to App Service
+        run: |
+          az webapp deploy \
+            --resource-group "${{ vars.PORTAL_RESOURCE_GROUP }}" \
+            --name "${{ needs.provision-portal-preview.outputs.app_service_name }}" \
+            --src-path portal-deploy.zip \
+            --type zip \
+            --async false \
+            --timeout 300
+
+      - name: Verify deployment health
+        run: |
+          APP_URL="https://${{ needs.provision-portal-preview.outputs.app_hostname }}"
+          echo "Checking ${APP_URL}/healthz ..."
+          for i in $(seq 1 6); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${APP_URL}/healthz")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ PR preview is healthy (HTTP ${STATUS})"
+              exit 0
+            fi
+            echo "Attempt ${i}/6 – HTTP ${STATUS}, retrying in 10s..."
+            sleep 10
+          done
+          echo "❌ PR preview health check failed after 60s"
+          exit 1
+
+  comment-portal-preview:
+    name: Post preview URL on PR
+    needs: [provision-portal-preview, deploy-portal-preview]
+    if: always() && needs.deploy-portal-preview.result == 'success'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Update PR comment with preview URL
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const hostname   = "${{ needs.provision-portal-preview.outputs.app_hostname }}";
+            const appName    = "${{ needs.provision-portal-preview.outputs.app_service_name }}";
+            const previewUrl = `https://${hostname}`;
+            const marker     = '<!-- portal-preview-url -->';
+            const body = [
+              marker,
+              '## Portal Preview',
+              '',
+              '| | |',
+              '|---|---|',
+              `| Preview URL | ${previewUrl} |`,
+              `| App Service | \`${appName}\` |`,
+              '| Mode | Dev auto-login (no Keycloak) |',
+              '',
+              `_Deployed by run [#${context.runNumber}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) — destroyed automatically on PR close._`,
+              marker,
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const prNum = context.payload.pull_request.number;
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number: prNum });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: prNum, body });
+            }
+
   result:
     name: Final Result
     if: always()
-    needs: [lint, builds, plan-against-test-environment, update-pr-description]
+    needs:
+      [
+        lint,
+        builds,
+        plan-against-test-environment,
+        update-pr-description,
+        deploy-portal-preview,
+        comment-portal-preview,
+      ]
     runs-on: ubuntu-24.04
     steps:
       - name: Report Status
@@ -141,11 +352,13 @@ jobs:
             [Builds]="${{ needs.builds.result }}"
             [Plan]="${{ needs.plan-against-test-environment.result }}"
             [PR-Description]="${{ needs.update-pr-description.result }}"
+            [Portal-Preview]="${{ needs.deploy-portal-preview.result }}"
+            [Portal-Comment]="${{ needs.comment-portal-preview.result }}"
           )
 
           echo "===== PR Check Results ====="
           failed=()
-          for job in Lint Builds Plan PR-Description; do
+          for job in Lint Builds Plan PR-Description Portal-Preview Portal-Comment; do
             status="${results[$job]}"
             if [[ "$status" == "success" || "$status" == "skipped" ]]; then
               echo "  ✅ ${job}: ${status}"
@@ -156,10 +369,10 @@ jobs:
           done
           echo "============================"
 
-          # PR-Description is non-blocking (only cosmetic)
+          # PR-Description and portal preview are non-blocking (cosmetic / convenience)
           critical_failures=()
           for f in "${failed[@]}"; do
-            if [[ "$f" != "PR-Description" ]]; then
+            if [[ "$f" != "PR-Description" && "$f" != "Portal-Preview" && "$f" != "Portal-Comment" ]]; then
               critical_failures+=("$f")
             fi
           done

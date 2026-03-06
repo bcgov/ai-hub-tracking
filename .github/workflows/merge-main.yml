@@ -105,3 +105,197 @@ jobs:
       tag: ${{ needs.semantic-version.outputs.tag }}
       terraform_log_level: INFO
     secrets: inherit
+
+  # ---------------------------------------------------------------------------
+  # Portal Preview: deploy ai-hub-onboarding to tools on every main merge that
+  # touches tenant-onboarding-portal/. Runs independently of the infra chain.
+  # Secrets/vars required in the 'tools' GitHub Environment:
+  #   PORTAL_SECRET_KEY
+  #   PORTAL_RESOURCE_GROUP, PORTAL_LOCATION
+  # ---------------------------------------------------------------------------
+  detect-portal-changes:
+    name: Detect portal changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes in tenant-onboarding-portal
+        id: diff
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- tenant-onboarding-portal/ | wc -l | tr -d ' ')
+          echo "Portal files changed: ${CHANGED}"
+          echo "changed=$([[ ${CHANGED} -gt 0 ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  provision-portal-tools:
+    name: Provision ai-hub-onboarding (tools)
+    needs: detect-portal-changes
+    if: needs.detect-portal-changes.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    environment: tools
+    timeout-minutes: 20
+    env:
+      TF_VERSION: 1.12.2
+      TF_WORKING_DIR: tenant-onboarding-portal/infra
+    outputs:
+      app_service_name: ${{ steps.tf_outputs.outputs.app_service_name }}
+      app_hostname: ${{ steps.tf_outputs.outputs.app_hostname }}
+      staging_hostname: ${{ steps.tf_outputs.outputs.staging_hostname }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Azure CLI Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform init
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          ARM_USE_OIDC: "true"
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+        run: |
+          terraform init -input=false \
+            -backend-config="resource_group_name=${{ secrets.BACKEND_RESOURCE_GROUP }}" \
+            -backend-config="storage_account_name=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=portal/tools/terraform.tfstate" \
+            -backend-config="use_oidc=true"
+
+      - name: Terraform apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          CI: "true"
+          ARM_USE_OIDC: "true"
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_app_env: "tools"
+          TF_VAR_location: ${{ vars.PORTAL_LOCATION }}
+          TF_VAR_resource_group_name: ${{ vars.PORTAL_RESOURCE_GROUP }}
+          TF_VAR_app_name_override: "ai-hub-onboarding"
+          TF_VAR_sku_name: "P0v4"
+          TF_VAR_enable_always_on: "true"
+          TF_VAR_secret_key: ${{ secrets.PORTAL_SECRET_KEY }}
+          TF_VAR_oidc_discovery_url: ${{ vars.PORTAL_OIDC_DISCOVERY_URL }}
+          TF_VAR_oidc_client_id: ${{ vars.PORTAL_OIDC_CLIENT_ID }}
+          TF_VAR_oidc_client_secret: ${{ secrets.PORTAL_OIDC_CLIENT_SECRET }}
+          TF_VAR_oidc_admin_role: ${{ vars.PORTAL_OIDC_ADMIN_ROLE }}
+          TF_VAR_table_storage_account_url: ${{ vars.PORTAL_TABLE_STORAGE_ACCOUNT_URL }}
+          TF_VAR_enable_table_rbac: ${{ vars.PORTAL_ENABLE_TABLE_RBAC }}
+          TF_VAR_table_storage_account_id: ${{ secrets.PORTAL_TABLE_STORAGE_ACCOUNT_ID }}
+          TF_VAR_admin_emails: ${{ vars.PORTAL_ADMIN_EMAILS }}
+          # Enable staging slot for zero-downtime slot-swap on the P0v4 ASP.
+          TF_VAR_enable_deployment_slot: "true"
+        run: terraform apply -auto-approve -input=false
+
+      - name: Read Terraform outputs
+        id: tf_outputs
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        run: |
+          echo "app_service_name=$(terraform output -raw app_service_name)"         >> "$GITHUB_OUTPUT"
+          echo "app_hostname=$(terraform output -raw app_service_default_hostname)" >> "$GITHUB_OUTPUT"
+          echo "staging_hostname=$(terraform output -raw staging_slot_hostname)"    >> "$GITHUB_OUTPUT"
+
+  deploy-portal-tools:
+    name: Deploy code to ai-hub-onboarding (tools)
+    needs: provision-portal-tools
+    if: always() && needs.provision-portal-tools.result == 'success'
+    runs-on: ubuntu-24.04
+    environment: tools
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Create deployment zip
+        working-directory: tenant-onboarding-portal
+        run: |
+          zip -r ../portal-deploy.zip . \
+            --exclude "*/__pycache__/*" \
+            --exclude "*.pyc" \
+            --exclude "*/tests/*" \
+            --exclude "infra/*" \
+            --exclude ".env*" \
+            --exclude ".git*"
+          echo "Zip size: $(du -sh ../portal-deploy.zip | cut -f1)"
+
+      - name: Azure CLI Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy to staging slot
+        run: |
+          az webapp deploy \
+            --resource-group "${{ vars.PORTAL_RESOURCE_GROUP }}" \
+            --name "${{ needs.provision-portal-tools.outputs.app_service_name }}" \
+            --slot staging \
+            --src-path portal-deploy.zip \
+            --type zip \
+            --async false \
+            --timeout 300
+
+      - name: Health check staging slot
+        run: |
+          STAGING_URL="https://${{ needs.provision-portal-tools.outputs.staging_hostname }}"
+          echo "Checking ${STAGING_URL}/healthz ..."
+          for i in $(seq 1 6); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${STAGING_URL}/healthz")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Staging slot healthy (HTTP ${STATUS}) — proceeding with swap"
+              break
+            fi
+            echo "Attempt ${i}/6 – HTTP ${STATUS}, retrying in 10s..."
+            sleep 10
+            if [ "$i" -eq 6 ]; then
+              echo "❌ Staging slot health check failed — swap aborted, production unaffected"
+              exit 1
+            fi
+          done
+
+      - name: Swap staging → production
+        run: |
+          az webapp deployment slot swap \
+            --resource-group "${{ vars.PORTAL_RESOURCE_GROUP }}" \
+            --name "${{ needs.provision-portal-tools.outputs.app_service_name }}" \
+            --slot staging \
+            --target-slot production
+          echo "✅ Slot swap complete"
+
+      - name: Verify production health
+        run: |
+          APP_URL="https://${{ needs.provision-portal-tools.outputs.app_hostname }}"
+          echo "Checking ${APP_URL}/healthz ..."
+          for i in $(seq 1 6); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${APP_URL}/healthz")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Production portal is healthy (HTTP ${STATUS})"
+              exit 0
+            fi
+            echo "Attempt ${i}/6 – HTTP ${STATUS}, retrying in 10s..."
+            sleep 10
+          done
+          echo "❌ Production health check failed after swap"
+          exit 1

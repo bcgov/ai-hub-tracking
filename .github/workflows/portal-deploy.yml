@@ -1,32 +1,28 @@
 # =============================================================================
-# Deploy – Tenant Onboarding Portal
+# Deploy – Tenant Onboarding Portal (tools environment)
 # =============================================================================
-# Two-stage deployment:
-#   1. provision  – runs `terraform apply` inside tenant-onboarding-portal/infra/
-#                   to create/update the App Service and RBAC assignments.
-#   2. deploy     – zips the portal source and pushes it to the App Service via
-#                   `az webapp deploy --type zip`.  Oryx then installs
-#                   requirements.txt inside the sandbox.
+# Manual re-deploy trigger for the production portal in the tools subscription.
+# Runs the same two-stage provision + slot-swap deploy as the auto-deploy in
+# merge-main.yml, but can be kicked off on demand without a code change.
 #
-# Terraform state is stored in an Azure Storage Account (azurerm backend).
-# All sensitive values are passed as TF_VAR_* environment variables from
-# GitHub Environments secrets — no terraform.tfvars file is committed.
+# Both deployment paths (merge-main auto + this manual trigger) target the
+# same App Service: ai-hub-onboarding (tools subscription, P0v4 ASP, staging
+# deployment slot for zero-downtime swaps).
 #
-# Required per-environment GitHub Environments secrets:
+# All secrets/variables are from the 'tools' GitHub Environment.
+# Required secrets:
 #   AZURE_CLIENT_ID            – OIDC-federated service principal client ID
 #   AZURE_TENANT_ID            – Azure AD tenant ID
 #   AZURE_SUBSCRIPTION_ID      – Azure subscription ID
-#   BACKEND_RESOURCE_GROUP     – resource group that holds the TF state storage account
+#   BACKEND_RESOURCE_GROUP     – resource group for TF state storage account
 #   BACKEND_STORAGE_ACCOUNT    – storage account name for Terraform state
 #   PORTAL_SECRET_KEY          – Starlette session encryption key (≥32 bytes)
 #   PORTAL_OIDC_CLIENT_SECRET  – Keycloak confidential client secret
 #   PORTAL_TABLE_STORAGE_ACCOUNT_ID – Storage Account resource ID (for RBAC)
 #
-# Required per-environment GitHub Environments variables:
+# Required variables:
 #   PORTAL_RESOURCE_GROUP            – resource group to deploy into
 #   PORTAL_LOCATION                  – Azure region (e.g. canadacentral)
-#   PORTAL_SKU_NAME                  – App Service Plan SKU (e.g. B1)
-#   PORTAL_ENABLE_ALWAYS_ON          – true/false (false for F1 free tier)
 #   PORTAL_OIDC_DISCOVERY_URL        – BCGov Keycloak .well-known URL
 #   PORTAL_OIDC_CLIENT_ID            – Keycloak client ID
 #   PORTAL_OIDC_ADMIN_ROLE           – Keycloak role for admin access
@@ -37,52 +33,43 @@
 
 name: Deploy Portal
 
+on:
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
 env:
   TF_VERSION: 1.12.2
   TF_WORKING_DIR: tenant-onboarding-portal/infra
 
-on:
-  workflow_dispatch:
-    inputs:
-      environment:
-        description: Target environment to deploy the portal to
-        type: choice
-        options:
-          - dev
-          - test
-          - prod
-        required: true
-        default: dev
-
 jobs:
   # ---------------------------------------------------------------------------
   # Job 1: provision
-  # Runs terraform apply to create/update the App Service and RBAC resources.
-  # Outputs the App Service name and hostname so the deploy job can use them
-  # without an additional lookup.
+  # Runs terraform apply to create/update the P0v4 App Service Plan,
+  # ai-hub-onboarding App Service, staging slot, and RBAC assignments.
   # ---------------------------------------------------------------------------
   provision:
-    name: Terraform apply (${{ inputs.environment }})
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
-
-    permissions:
-      id-token: write
-      contents: read
+    name: Terraform provision (tools)
+    runs-on: ubuntu-24.04
+    environment: tools
+    timeout-minutes: 20
 
     outputs:
       app_service_name: ${{ steps.tf_outputs.outputs.app_service_name }}
-      app_hostname:     ${{ steps.tf_outputs.outputs.app_hostname }}
+      app_hostname: ${{ steps.tf_outputs.outputs.app_hostname }}
+      staging_hostname: ${{ steps.tf_outputs.outputs.staging_hostname }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Login to Azure (OIDC)
         uses: azure/login@v2
         with:
-          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Setup Terraform
@@ -99,16 +86,16 @@ jobs:
       - name: Terraform init
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
-          ARM_USE_OIDC:       "true"
-          ARM_CLIENT_ID:      ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_TENANT_ID:      ${{ secrets.AZURE_TENANT_ID }}
+          ARM_USE_OIDC: "true"
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
         run: |
           terraform init -input=false \
             -backend-config="resource_group_name=${{ secrets.BACKEND_RESOURCE_GROUP }}" \
             -backend-config="storage_account_name=${{ secrets.BACKEND_STORAGE_ACCOUNT }}" \
             -backend-config="container_name=tfstate" \
-            -backend-config="key=portal/${{ inputs.environment }}/terraform.tfstate" \
+            -backend-config="key=portal/tools/terraform.tfstate" \
             -backend-config="use_oidc=true"
 
       # -----------------------------------------------------------------------
@@ -118,58 +105,59 @@ jobs:
       - name: Terraform apply
         working-directory: ${{ env.TF_WORKING_DIR }}
         env:
-          CI:  "true"
-          ARM_USE_OIDC:        "true"
-          ARM_CLIENT_ID:       ${{ secrets.AZURE_CLIENT_ID }}
-          ARM_TENANT_ID:       ${{ secrets.AZURE_TENANT_ID }}
+          CI: "true"
+          ARM_USE_OIDC: "true"
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           # Infrastructure shape
-          TF_VAR_app_env:             ${{ inputs.environment }}
-          TF_VAR_location:            ${{ vars.PORTAL_LOCATION }}
+          TF_VAR_app_env: "tools"
+          TF_VAR_location: ${{ vars.PORTAL_LOCATION }}
           TF_VAR_resource_group_name: ${{ vars.PORTAL_RESOURCE_GROUP }}
-          TF_VAR_sku_name:            ${{ vars.PORTAL_SKU_NAME }}
-          TF_VAR_enable_always_on:    ${{ vars.PORTAL_ENABLE_ALWAYS_ON }}
-          TF_VAR_enable_table_rbac:   ${{ vars.PORTAL_ENABLE_TABLE_RBAC }}
+          TF_VAR_sku_name: "P0v4"
+          TF_VAR_enable_always_on: "true"
+          TF_VAR_enable_table_rbac: ${{ vars.PORTAL_ENABLE_TABLE_RBAC }}
+          TF_VAR_app_name_override: "ai-hub-onboarding"
+          TF_VAR_enable_deployment_slot: "true"
           # Sensitive infra inputs
-          TF_VAR_subscription_id:           ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          TF_VAR_tenant_id:                 ${{ secrets.AZURE_TENANT_ID }}
-          TF_VAR_client_id:                 ${{ secrets.AZURE_CLIENT_ID }}
-          TF_VAR_table_storage_account_id:  ${{ secrets.PORTAL_TABLE_STORAGE_ACCOUNT_ID }}
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_table_storage_account_id: ${{ secrets.PORTAL_TABLE_STORAGE_ACCOUNT_ID }}
           # App settings pushed into App Service environment
-          TF_VAR_secret_key:                  ${{ secrets.PORTAL_SECRET_KEY }}
-          TF_VAR_oidc_discovery_url:          ${{ vars.PORTAL_OIDC_DISCOVERY_URL }}
-          TF_VAR_oidc_client_id:              ${{ vars.PORTAL_OIDC_CLIENT_ID }}
-          TF_VAR_oidc_client_secret:          ${{ secrets.PORTAL_OIDC_CLIENT_SECRET }}
-          TF_VAR_oidc_admin_role:             ${{ vars.PORTAL_OIDC_ADMIN_ROLE }}
-          TF_VAR_table_storage_account_url:   ${{ vars.PORTAL_TABLE_STORAGE_ACCOUNT_URL }}
-          TF_VAR_admin_emails:                ${{ vars.PORTAL_ADMIN_EMAILS }}
+          TF_VAR_secret_key: ${{ secrets.PORTAL_SECRET_KEY }}
+          TF_VAR_oidc_discovery_url: ${{ vars.PORTAL_OIDC_DISCOVERY_URL }}
+          TF_VAR_oidc_client_id: ${{ vars.PORTAL_OIDC_CLIENT_ID }}
+          TF_VAR_oidc_client_secret: ${{ secrets.PORTAL_OIDC_CLIENT_SECRET }}
+          TF_VAR_oidc_admin_role: ${{ vars.PORTAL_OIDC_ADMIN_ROLE }}
+          TF_VAR_table_storage_account_url: ${{ vars.PORTAL_TABLE_STORAGE_ACCOUNT_URL }}
+          TF_VAR_admin_emails: ${{ vars.PORTAL_ADMIN_EMAILS }}
         run: terraform apply -auto-approve -input=false
 
       - name: Read Terraform outputs
         id: tf_outputs
         working-directory: ${{ env.TF_WORKING_DIR }}
         run: |
-          echo "app_service_name=$(terraform output -raw app_service_name)" >> "$GITHUB_OUTPUT"
+          echo "app_service_name=$(terraform output -raw app_service_name)"         >> "$GITHUB_OUTPUT"
           echo "app_hostname=$(terraform output -raw app_service_default_hostname)" >> "$GITHUB_OUTPUT"
+          echo "staging_hostname=$(terraform output -raw staging_slot_hostname)"    >> "$GITHUB_OUTPUT"
 
   # ---------------------------------------------------------------------------
   # Job 2: deploy
-  # Zips the portal source and uploads it to the App Service via az webapp
-  # deploy.  Oryx installs requirements.txt during deployment (no Docker).
+  # Deploys to the staging slot, verifies health, then swaps staging →
+  # production for zero-downtime rollout. Oryx installs requirements.txt
+  # inside the slot sandbox before the swap.
   # ---------------------------------------------------------------------------
   deploy:
-    name: Deploy code (${{ inputs.environment }})
+    name: Deploy code (tools – slot swap)
     needs: provision
-    runs-on: ubuntu-latest
-    environment: ${{ inputs.environment }}
-
-    permissions:
-      id-token: write
-      contents: read
+    runs-on: ubuntu-24.04
+    environment: tools
+    timeout-minutes: 15
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       # -----------------------------------------------------------------------
       # Build deployment zip.
@@ -193,26 +181,49 @@ jobs:
       - name: Login to Azure (OIDC)
         uses: azure/login@v2
         with:
-          client-id:       ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id:       ${{ secrets.AZURE_TENANT_ID }}
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # -----------------------------------------------------------------------
-      # Push the zip to App Service via the SCM endpoint.
-      # --async false waits for Oryx to finish pip install before reporting
-      # success, so the step fails fast if requirements.txt is broken.
-      # -----------------------------------------------------------------------
-      - name: Deploy to App Service
+      - name: Deploy to staging slot
         run: |
           az webapp deploy \
             --resource-group "${{ vars.PORTAL_RESOURCE_GROUP }}" \
             --name "${{ needs.provision.outputs.app_service_name }}" \
+            --slot staging \
             --src-path portal-deploy.zip \
             --type zip \
             --async false \
             --timeout 300
 
-      - name: Verify deployment health
+      - name: Health check staging slot
+        run: |
+          STAGING_URL="https://${{ needs.provision.outputs.staging_hostname }}"
+          echo "Checking ${STAGING_URL}/healthz ..."
+          for i in $(seq 1 6); do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "${STAGING_URL}/healthz")
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Staging slot healthy (HTTP ${STATUS}) — proceeding with swap"
+              break
+            fi
+            echo "Attempt ${i}/6 – HTTP ${STATUS}, retrying in 10s..."
+            sleep 10
+            if [ "$i" -eq 6 ]; then
+              echo "❌ Staging slot health check failed — swap aborted, production unaffected"
+              exit 1
+            fi
+          done
+
+      - name: Swap staging → production
+        run: |
+          az webapp deployment slot swap \
+            --resource-group "${{ vars.PORTAL_RESOURCE_GROUP }}" \
+            --name "${{ needs.provision.outputs.app_service_name }}" \
+            --slot staging \
+            --target-slot production
+          echo "✅ Slot swap complete"
+
+      - name: Verify production health
         run: |
           APP_URL="https://${{ needs.provision.outputs.app_hostname }}"
           echo "Checking ${APP_URL}/healthz ..."
@@ -225,5 +236,5 @@ jobs:
             echo "Attempt ${i}/6 – HTTP ${STATUS}, retrying in 10s..."
             sleep 10
           done
-          echo "❌ Portal health check failed after 60s"
+          echo "❌ Production health check failed after swap"
           exit 1

@@ -308,9 +308,9 @@ tenant-onboarding-portal/
 │   ├── backend.tf               # azurerm backend (partial config — supplied at init)
 │   ├── providers.tf             # azurerm provider (OIDC auth)
 │   ├── locals.tf                # Resource name locals
-│   ├── main.tf                  # App Service Plan, Linux Web App, RBAC assignment
+│   ├── main.tf                  # App Service Plan, Linux Web App, RBAC assignment, staging slot
 │   ├── variables.tf             # All input variables with types + validations
-│   └── outputs.tf               # app_service_name, hostname, principal_id
+│   └── outputs.tf               # app_service_name, hostname, principal_id, staging_slot_hostname
 ├── docs/
 │   └── github-app-pr-automation.md  # Future: auto-raise PR on approval
 ├── pyproject.toml               # Project metadata, dependencies, ruff + pytest config
@@ -322,16 +322,87 @@ tenant-onboarding-portal/
 
 ## Deployment
 
-Deployment is fully automated via `.github/workflows/portal-deploy.yml` (manual trigger).
+Deployments run through three automated pathways — no manual steps required for normal operations.
+
+### 1 — Auto-deploy to tools (main merge)
+
+Triggered automatically by `merge-main.yml` whenever a merge to `main` changes files under `tenant-onboarding-portal/`. Deploys to the `tools` environment as `ai-hub-onboarding.<region>.azurewebsites.net` using a zero-downtime App Service staging slot swap.
+
+- **ASP**: dedicated P0v4 (Premium v4) plan — required for deployment slot support
+- **Subnet**: shared with the chisel proxy (same App Service VNet integration subnet in tools)
 
 ```mermaid
 flowchart TD
-    Trigger([workflow_dispatch\nenvironment: dev / test / prod])
+    Trigger([Merge to main\ntenant-onboarding-portal/** changed])
+
+    subgraph detect [Detect changes]
+        Diff["git diff HEAD~1 HEAD\n-- tenant-onboarding-portal/"]
+    end
+
+    subgraph provision [Provision — tools]
+        TFApply["terraform apply\n• ai-hub-onboarding App Service\n• staging deployment slot\n• RBAC — managed identity"]
+        TFOut["outputs: app_service_name\napp_hostname · staging_hostname"]
+        TFApply --> TFOut
+    end
+
+    subgraph deploy [Deploy — zero-downtime slot swap]
+        Zip["zip portal source"]
+        ToSlot["az webapp deploy --slot staging\nOryx installs requirements.txt in-slot"]
+        HealthSlot["GET staging/healthz\n6 retries × 10 s"]
+        Swap["az webapp deployment slot swap\nstaging → production (atomic, near-instant)"]
+        HealthProd["GET production/healthz\nverify post-swap"]
+        Zip --> ToSlot --> HealthSlot --> Swap --> HealthProd
+    end
+
+    Trigger --> detect --> provision --> deploy
+```
+
+If the staging health check fails the swap is aborted — production is never touched.
+
+---
+
+### 2 — PR preview deployments
+
+Triggered by `pr-open.yml` on `pull_request [opened, synchronize, reopened]` when the PR touches `tenant-onboarding-portal/`. Each PR gets its own short-lived App Service (`pr<N>-ai-hub-onboarding.<region>.azurewebsites.net`) deployed in dev auto-login mode (no Keycloak required). A PR comment is posted with the preview URL.
+
+- **ASP**: dedicated B1 (Basic) plan per PR — no deployment slots needed, destroyed with the App Service on close
+- **Subnet**: shared with the chisel proxy (same App Service VNet integration subnet in tools)
+
+```mermaid
+flowchart TD
+    Trigger([PR opened / updated\ntenant-onboarding-portal/** changed])
+
+    subgraph provision [Provision — tools]
+        TFApply["terraform apply\n• pr<N>-ai-hub-onboarding App Service\n  (reuses chisel P0v4 ASP)\n• state key: portal/pr<N>/terraform.tfstate"]
+    end
+
+    subgraph deploy [Deploy]
+        Push["az webapp deploy --type zip\nOryx installs requirements.txt"]
+        Health["GET /healthz — 6 retries × 10 s"]
+        Push --> Health
+    end
+
+    Comment["Post preview URL as PR comment"]
+
+    Trigger --> provision --> deploy --> Comment
+```
+
+**Destroyed automatically** when the PR is closed (merged or abandoned) by `pr-close.yml` — runs `terraform destroy` against the same state key.
+
+---
+
+### 3 — Manual deploy (re-deploy production to tools)
+
+Triggered via `portal-deploy.yml` (`workflow_dispatch`). Always targets `tools` — identical infrastructure to the auto-deploy path.
+
+```mermaid
+flowchart TD
+    Trigger(["workflow_dispatch\n(tools only — re-deploy production)"])
 
     subgraph job1 [Job 1 — provision]
         TFInit["terraform init\n–backend-config from secrets"]
-        TFApply["terraform apply\n• App Service Plan\n• Linux Web App\n• RBAC role assignment"]
-        TFOut["terraform output\napp_service_name\napp_hostname"]
+        TFApply["terraform apply\n• App Service Plan (or reuse existing)\n• Linux Web App\n• RBAC role assignment"]
+        TFOut["terraform output\napp_service_name · app_hostname"]
         TFInit --> TFApply --> TFOut
     end
 
@@ -345,12 +416,7 @@ flowchart TD
     Trigger --> job1 --> job2
 ```
 
-**Stages:**
-
-1. **`provision`** — runs `terraform apply` in `infra/` to create/update the App Service and RBAC role assignments. Outputs the App Service name + hostname.
-2. **`deploy`** — zips the portal source (excludes `tests/`, `infra/`, `__pycache__`), pushes the zip via `az webapp deploy --type zip`, waits for Oryx to build, then polls `/healthz` until healthy.
-
-**GitHub Environments required:** `dev`, `test`, `prod` — each with the secrets and variables listed in the workflow header comment.
+**GitHub Environments required:** `tools` only — both production and PR previews deploy to the `tools` subscription via the `tools` GitHub Environment.
 
 ### Provisioning infrastructure manually
 
@@ -379,6 +445,11 @@ terraform apply \
   -var="secret_key=$(python -c 'import secrets; print(secrets.token_hex(32))')" \
   -var="sku_name=B1" \
   -var="enable_always_on=true"
+  # Optional — override the computed name and SKU for tools/PR deployments:
+  # -var="app_name_override=ai-hub-onboarding"    # deterministic URL for production tools
+  # -var="sku_name=P0v4"                          # Premium v4 — required for staging slots
+  # -var="enable_deployment_slot=true"            # create staging slot (Standard+ only)
+  # -var="app_name_override=pr42-ai-hub-onboarding" -var="sku_name=B1"  # PR preview
 ```
 
 ### Deploying application code manually

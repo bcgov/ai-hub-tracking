@@ -3,12 +3,12 @@
 # -----------------------------------------------------------------------------
 
 variable "app_env" {
-  description = "Environment name: dev, test, or prod."
+  description = "Environment name used in resource naming and tagging (dev, test, prod, or tools)."
   type        = string
 
   validation {
-    condition     = contains(["dev", "test", "prod"], var.app_env)
-    error_message = "app_env must be one of: dev, test, prod."
+    condition     = contains(["dev", "test", "prod", "tools"], var.app_env)
+    error_message = "app_env must be one of: dev, test, prod, tools."
   }
 }
 
@@ -155,3 +155,19 @@ variable "extra_app_settings" {
   type        = map(string)
   default     = {}
 }
+
+# --- Naming / Service Plan overrides (tools and PR preview deployments) ---
+
+variable "enable_deployment_slot" {
+  description = "Create a 'staging' deployment slot to enable zero-downtime slot-swap deployments. Requires a slot-capable App Service Plan (Standard or above). Leave false for dev/test/prod on Basic SKUs or for short-lived PR previews."
+  type        = bool
+  default     = false
+}
+
+variable "app_name_override" {
+  description = "Override the computed App Service name. Set to 'ai-hub-onboarding' for the tools environment and 'pr<N>-ai-hub-onboarding' for PR previews. Leave blank (default) to use the conventional 'app-<env>-ai-hub-portal' name used by dev/test/prod."
+  type        = string
+  default     = ""
+}
+
+

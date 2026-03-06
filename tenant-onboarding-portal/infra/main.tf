@@ -11,6 +11,9 @@
 # App Service Plan
 # Hosts the FastAPI portal on a Linux worker. SKU is environment-driven;
 # set sku_name = "F1" and enable_always_on = false for free-tier dev slots.
+#
+# Skipped when service_plan_id is provided (tools / PR preview deployments
+# reuse the existing chisel proxy App Service Plan instead).
 # ---------------------------------------------------------------------------
 resource "azurerm_service_plan" "portal" {
   name                = local.app_service_plan_name
@@ -99,4 +102,50 @@ resource "azurerm_role_assignment" "portal_table_contributor" {
   scope                = var.table_storage_account_id
   role_definition_name = "Storage Table Data Contributor"
   principal_id         = azurerm_linux_web_app.portal.identity[0].principal_id
+}
+
+# ---------------------------------------------------------------------------
+# Staging deployment slot – zero-downtime slot-swap deployments.
+#
+# Workflow:
+#   1. GitHub Actions deploys the zip to this slot (Oryx builds in-slot).
+#   2. A health check verifies the staging slot is healthy.
+#   3. `az webapp deployment slot swap` atomically swaps staging ↔ production.
+#
+# Slot inherits all production app_settings so the runtime environment is
+# identical.  Only enabled when the ASP SKU supports slots (Standard/Premium).
+# ---------------------------------------------------------------------------
+resource "azurerm_linux_web_app_slot" "staging" {
+  count          = var.enable_deployment_slot ? 1 : 0
+  name           = "staging"
+  app_service_id = azurerm_linux_web_app.portal.id
+
+  site_config {
+    always_on = var.enable_always_on
+
+    application_stack {
+      python_version = var.python_version
+    }
+
+    app_command_line = var.startup_command
+  }
+
+  app_settings = merge(
+    {
+      "PORTAL_SECRET_KEY"                = var.secret_key
+      "PORTAL_OIDC_DISCOVERY_URL"        = var.oidc_discovery_url
+      "PORTAL_OIDC_CLIENT_ID"            = var.oidc_client_id
+      "PORTAL_OIDC_CLIENT_SECRET"        = var.oidc_client_secret
+      "PORTAL_OIDC_CLIENT_AUDIENCE"      = var.oidc_client_audience
+      "PORTAL_OIDC_ADMIN_ROLE"           = var.oidc_admin_role
+      "PORTAL_TABLE_STORAGE_ACCOUNT_URL" = var.table_storage_account_url
+      "PORTAL_ADMIN_EMAILS"              = var.admin_emails
+      "SCM_DO_BUILD_DURING_DEPLOYMENT"   = "true"
+    },
+    var.extra_app_settings,
+  )
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
 }
