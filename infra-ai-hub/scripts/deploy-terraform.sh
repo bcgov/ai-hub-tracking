@@ -492,7 +492,8 @@ main() {
     check_prerequisites
     setup_azure_auth
     setup_variables
-    
+    # unset provider log to reduce noise
+    unset TF_LOG_PROVIDER
     # Execute command
     case "$command" in
         plan)
