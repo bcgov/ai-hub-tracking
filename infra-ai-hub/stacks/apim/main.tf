@@ -542,6 +542,7 @@ resource "azurerm_api_management_policy_fragment" "cognitive_services_auth" {
   name              = "cognitive-services-auth"
   format            = "rawxml"
   value             = file("${path.root}/../../params/apim/fragments/cognitive-services-auth.xml")
+  depends_on        = [module.apim]
 }
 
 resource "azurerm_api_management_policy_fragment" "storage_auth" {
@@ -550,6 +551,7 @@ resource "azurerm_api_management_policy_fragment" "storage_auth" {
   name              = "storage-auth"
   format            = "rawxml"
   value             = file("${path.root}/../../params/apim/fragments/storage-auth.xml")
+  depends_on        = [module.apim]
 }
 
 resource "azurerm_api_management_policy_fragment" "keyvault_auth" {
@@ -558,6 +560,7 @@ resource "azurerm_api_management_policy_fragment" "keyvault_auth" {
   name              = "keyvault-auth"
   format            = "rawxml"
   value             = file("${path.root}/../../params/apim/fragments/keyvault-auth.xml")
+  depends_on        = [module.apim]
 }
 
 resource "azurerm_api_management_policy_fragment" "openai_usage_logging" {
@@ -566,6 +569,7 @@ resource "azurerm_api_management_policy_fragment" "openai_usage_logging" {
   name              = "openai-usage-logging"
   format            = "rawxml"
   value             = file("${path.root}/../../params/apim/fragments/openai-usage-logging.xml")
+  depends_on        = [module.apim]
 }
 
 resource "azurerm_api_management_policy_fragment" "openai_streaming_metrics" {
@@ -574,6 +578,7 @@ resource "azurerm_api_management_policy_fragment" "openai_streaming_metrics" {
   name              = "openai-streaming-metrics"
   format            = "rawxml"
   value             = file("${path.root}/../../params/apim/fragments/openai-streaming-metrics.xml")
+  depends_on        = [module.apim]
 }
 
 resource "azurerm_api_management_policy_fragment" "pii_anonymization" {
@@ -582,7 +587,7 @@ resource "azurerm_api_management_policy_fragment" "pii_anonymization" {
   name              = "pii-anonymization"
   format            = "rawxml"
   value             = file("${path.root}/../../params/apim/fragments/pii-anonymization.xml")
-  depends_on        = [azurerm_api_management_named_value.pii_service_url]
+  depends_on        = [module.apim, azurerm_api_management_named_value.pii_service_url]
 }
 
 resource "azurerm_api_management_policy_fragment" "intelligent_routing" {
@@ -591,6 +596,7 @@ resource "azurerm_api_management_policy_fragment" "intelligent_routing" {
   name              = "intelligent-routing"
   format            = "rawxml"
   value             = file("${path.root}/../../params/apim/fragments/intelligent-routing.xml")
+  depends_on        = [module.apim]
 }
 
 resource "azurerm_api_management_policy_fragment" "tracking_dimensions" {
@@ -599,6 +605,7 @@ resource "azurerm_api_management_policy_fragment" "tracking_dimensions" {
   name              = "tracking-dimensions"
   format            = "rawxml"
   value             = file("${path.root}/../../params/apim/fragments/tracking-dimensions.xml")
+  depends_on        = [module.apim]
 }
 
 resource "azurerm_api_management_api_policy" "tenant" {

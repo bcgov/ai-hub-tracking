@@ -191,25 +191,34 @@ tf_import_existing_resource_if_needed() {
 
       BEGIN {
         pending_id = ""
+        in_already_exists = 0
       }
 
       {
         gsub(/\r/, "", $0)
         line = $0
 
+        # Start of a different error block (e.g. 404) - stop pairing with this block
+        if (line ~ /^[[:space:]]*Error:/ && line !~ /already exists/) {
+          in_already_exists = 0
+          pending_id = ""
+        }
+
         if (line ~ /already exists/) {
+          in_already_exists = 1
           pending_id = ""
         }
 
         id = extract_id(line)
-        if (id != "") {
+        if (id != "" && in_already_exists) {
           pending_id = id
         }
 
         addr = extract_addr(line)
-        if (addr != "" && pending_id != "") {
+        if (addr != "" && pending_id != "" && in_already_exists) {
           print addr "\t" pending_id
           pending_id = ""
+          in_already_exists = 0
         }
       }
     ' "$tf_output_file"
