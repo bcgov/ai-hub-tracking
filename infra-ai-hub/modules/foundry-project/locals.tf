@@ -5,6 +5,32 @@
 locals {
   name_prefix = var.tenant_name
 
+  # Canonical ordering to match Azure RAI API normalization and avoid perpetual
+  # in-place drift when contentFilters are semantically identical.
+  #
+  # Sort key naming convention: "aa_*" prefix ensures these keys sort BEFORE
+  # "blocking"/"enabled"/"name" in the JSON string (jsonencode sorts object keys
+  # alphabetically), so sort() uses them as the primary sort discriminant instead
+  # of the filter name value.
+  #
+  # Name order matches Azure's own alphabetical return order (hate < selfharm <
+  # sexual < violence) to avoid positional drift after round-trip reads.
+  # Source order: Prompt before Completion.
+  #
+  # Name casing: lowercase to match what Azure normalizes on storage.
+  # Source casing: title-case to match Azure (Prompt, Completion).
+  rai_filter_name_order = {
+    hate     = 1
+    selfharm = 2
+    sexual   = 3
+    violence = 4
+  }
+
+  rai_filter_source_order = {
+    prompt     = 1
+    completion = 2
+  }
+
   # Project principal ID for role assignments (extracted after creation)
   project_principal_id = try(azapi_resource.project.output.identity.principalId, null)
 
@@ -17,5 +43,33 @@ locals {
       length(v.content_filter.filters) > 0 ? replace("${var.tenant_name}-${v.name}-filter", ".", "-") : null,
       "Microsoft.DefaultV2"
     )
+  }
+
+  # Normalize and sort RAI content filters per deployment.
+  # Sort key prefix "aa_" guarantees these are the FIRST keys in the JSON string
+  # (alphabetically before "blocking"), making sort() order by rank not by name.
+  canonical_rai_content_filters = {
+    for deployment_key, deployment in var.ai_model_deployments :
+    deployment_key => [
+      for decoded in [
+        for encoded in sort([
+          for f in deployment.content_filter.filters : jsonencode({
+            aa_name_order     = lookup(local.rai_filter_name_order, lower(f.name), 99)
+            aa_source_order   = lookup(local.rai_filter_source_order, lower(f.source), 99)
+            name              = lower(f.name)
+            blocking          = try(f.blocking, true)
+            enabled           = try(f.enabled, true)
+            severityThreshold = f.severity_threshold
+            source            = title(lower(f.source))
+          })
+        ]) : jsondecode(encoded)
+        ] : {
+        name              = decoded.name
+        blocking          = decoded.blocking
+        enabled           = decoded.enabled
+        severityThreshold = decoded.severityThreshold
+        source            = decoded.source
+      }
+    ]
   }
 }

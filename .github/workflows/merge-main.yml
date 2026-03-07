@@ -85,7 +85,7 @@ jobs:
       command: apply
       target_module: azure_proxy
       tag: latest
-      terraform_log_level: INFO
+      terraform_log_level: ERROR
     secrets: inherit
 
   apply-to-test-environment:
@@ -103,7 +103,7 @@ jobs:
       proxy_url: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_url }}
       proxy_auth: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_auth }}
       tag: ${{ needs.semantic-version.outputs.tag }}
-      terraform_log_level: INFO
+      terraform_log_level: ERROR
     secrets: inherit
 
   # ---------------------------------------------------------------------------

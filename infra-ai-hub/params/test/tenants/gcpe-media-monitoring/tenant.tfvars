@@ -9,7 +9,7 @@ tenant = {
   display_name = "GCPE Media Monitoring"
   enabled      = true
 
-  # PE subnet assignment — sticky, do not change after first deploy (destroys/recreates all PEs)
+  # PE subnet assignment â€” sticky, do not change after first deploy (destroys/recreates all PEs)
   # Valid keys: privateendpoints-subnet, privateendpoints-subnet-1, privateendpoints-subnet-2, ...
   pe_subnet_key = "privateendpoints-subnet"
 
@@ -122,104 +122,248 @@ tenant = {
     model_deployments = [
       # GPT-4.1 Series
       {
-        name           = "gpt-4.1"
-        model_name     = "gpt-4.1"
-        model_version  = "2025-04-14"
-        scale_type     = "GlobalStandard"
-        capacity       = 300 # 1% of 30,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "gpt-4.1"
+        model_name    = "gpt-4.1"
+        model_version = "2025-04-14"
+        scale_type    = "GlobalStandard"
+        capacity      = 300 # 1% of 30,000
+        content_filter = {
+          base_policy_name = "Microsoft.DefaultV2"
+          filters = [
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+          ]
+        }
       },
       {
-        name           = "gpt-4.1-mini"
-        model_name     = "gpt-4.1-mini"
-        model_version  = "2025-04-14"
-        scale_type     = "GlobalStandard"
-        capacity       = 1500 # 1% of 150,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "gpt-4.1-mini"
+        model_name    = "gpt-4.1-mini"
+        model_version = "2025-04-14"
+        scale_type    = "GlobalStandard"
+        capacity      = 1500 # 1% of 150,000
+        content_filter = {
+          base_policy_name = "Microsoft.DefaultV2"
+          filters = [
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+          ]
+        }
       },
       {
-        name           = "gpt-4.1-nano"
-        model_name     = "gpt-4.1-nano"
-        model_version  = "2025-04-14"
-        scale_type     = "GlobalStandard"
-        capacity       = 1500 # 1% of 150,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "gpt-4.1-nano"
+        model_name    = "gpt-4.1-nano"
+        model_version = "2025-04-14"
+        scale_type    = "GlobalStandard"
+        capacity      = 1500 # 1% of 150,000
+        content_filter = {
+          base_policy_name = "Microsoft.DefaultV2"
+          filters = [
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+          ]
+        }
       },
       # GPT-4o Series
       {
-        name           = "gpt-4o"
-        model_name     = "gpt-4o"
-        model_version  = "2024-11-20"
-        scale_type     = "GlobalStandard"
-        capacity       = 300 # 1% of 30,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "gpt-4o"
+        model_name    = "gpt-4o"
+        model_version = "2024-11-20"
+        scale_type    = "GlobalStandard"
+        capacity      = 300 # 1% of 30,000
+        content_filter = {
+          base_policy_name = "Microsoft.DefaultV2"
+          filters = [
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+          ]
+        }
       },
       {
-        name           = "gpt-4o-mini"
-        model_name     = "gpt-4o-mini"
-        model_version  = "2024-07-18"
-        scale_type     = "GlobalStandard"
-        capacity       = 1500 # 1% of 150,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "gpt-4o-mini"
+        model_name    = "gpt-4o-mini"
+        model_version = "2024-07-18"
+        scale_type    = "GlobalStandard"
+        capacity      = 1500 # 1% of 150,000
+        content_filter = {
+          base_policy_name = "Microsoft.DefaultV2"
+          filters = [
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+          ]
+        }
       },
       # GPT-5 Series
       {
-        name           = "gpt-5-mini"
-        model_name     = "gpt-5-mini"
-        model_version  = "2025-08-07"
-        scale_type     = "GlobalStandard"
-        capacity       = 100 # 1% of 10,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "gpt-5-mini"
+        model_name    = "gpt-5-mini"
+        model_version = "2025-08-07"
+        scale_type    = "GlobalStandard"
+        capacity      = 100 # 1% of 10,000
+        content_filter = {
+          base_policy_name = "Microsoft.DefaultV2"
+          filters = [
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+          ]
+        }
       },
       {
-        name           = "gpt-5-nano"
-        model_name     = "gpt-5-nano"
-        model_version  = "2025-08-07"
-        scale_type     = "GlobalStandard"
-        capacity       = 1500 # 1% of 150,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "gpt-5-nano"
+        model_name    = "gpt-5-nano"
+        model_version = "2025-08-07"
+        scale_type    = "GlobalStandard"
+        capacity      = 1500 # 1% of 150,000
+        content_filter = {
+          base_policy_name = "Microsoft.DefaultV2"
+          filters = [
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+          ]
+        }
       },
       # GPT-5.1 Series
       {
-        name           = "gpt-5.1-chat"
-        model_name     = "gpt-5.1-chat"
-        model_version  = "2025-11-13"
-        scale_type     = "GlobalStandard"
-        capacity       = 50 # 1% of 5,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "gpt-5.1-chat"
+        model_name    = "gpt-5.1-chat"
+        model_version = "2025-11-13"
+        scale_type    = "GlobalStandard"
+        capacity      = 50 # 1% of 5,000
+        content_filter = {
+          base_policy_name = "Microsoft.DefaultV2"
+          filters = [
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+          ]
+        }
       },
       {
-        name           = "gpt-5.1-codex-mini"
-        model_name     = "gpt-5.1-codex-mini"
-        model_version  = "2025-11-13"
-        scale_type     = "GlobalStandard"
-        capacity       = 100 # 1% of 10,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "gpt-5.1-codex-mini"
+        model_name    = "gpt-5.1-codex-mini"
+        model_version = "2025-11-13"
+        scale_type    = "GlobalStandard"
+        capacity      = 100 # 1% of 10,000
+        content_filter = {
+          base_policy_name = "Microsoft.DefaultV2"
+          filters = [
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+          ]
+        }
       },
       # Reasoning Models
       {
-        name           = "o1"
-        model_name     = "o1"
-        model_version  = "2024-12-17"
-        scale_type     = "GlobalStandard"
-        capacity       = 50 # 1% of 5,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "o1"
+        model_name    = "o1"
+        model_version = "2024-12-17"
+        scale_type    = "GlobalStandard"
+        capacity      = 50 # 1% of 5,000
+        content_filter = {
+          base_policy_name = "Microsoft.DefaultV2"
+          filters = [
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+          ]
+        }
       },
       {
-        name           = "o3-mini"
-        model_name     = "o3-mini"
-        model_version  = "2025-01-31"
-        scale_type     = "GlobalStandard"
-        capacity       = 50 # 1% of 5,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "o3-mini"
+        model_name    = "o3-mini"
+        model_version = "2025-01-31"
+        scale_type    = "GlobalStandard"
+        capacity      = 50 # 1% of 5,000
+        content_filter = {
+          base_policy_name = "Microsoft.DefaultV2"
+          filters = [
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+          ]
+        }
       },
       {
-        name           = "o4-mini"
-        model_name     = "o4-mini"
-        model_version  = "2025-04-16"
-        scale_type     = "GlobalStandard"
-        capacity       = 100 # 1% of 10,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "o4-mini"
+        model_name    = "o4-mini"
+        model_version = "2025-04-16"
+        scale_type    = "GlobalStandard"
+        capacity      = 100 # 1% of 10,000
+        content_filter = {
+          base_policy_name = "Microsoft.DefaultV2"
+          filters = [
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+          ]
+        }
       },
       # Embeddings
       {
