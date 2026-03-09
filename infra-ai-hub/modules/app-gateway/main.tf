@@ -105,7 +105,7 @@ resource "azurerm_application_gateway" "this" {
     port                                = var.backend_apim.https_port
     protocol                            = "Https"
     cookie_based_affinity               = "Disabled"
-    request_timeout                     = 30
+    request_timeout                     = 240
     pick_host_name_from_backend_address = true
     probe_name                          = local.probe_name
   }
