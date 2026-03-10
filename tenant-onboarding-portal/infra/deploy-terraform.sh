@@ -657,6 +657,12 @@ validate_deployment_zip() {
         return 0
     fi
 
+    # The Windows-style path validation is only relevant when PowerShell created the zip.
+    # Native Linux zip always produces forward-slash paths, so skip validation there.
+    if has_command zip; then
+        return 0
+    fi
+
     windows_zip_path="$(to_windows_path "$ZIP_PATH")"
         validation_script="\
             Add-Type -AssemblyName System.IO.Compression.FileSystem; \
