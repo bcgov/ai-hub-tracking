@@ -11,13 +11,20 @@
 # App Service Plan (AVM)
 # Registry: https://registry.terraform.io/modules/Azure/avm-res-web-serverfarm/azurerm/latest
 # ---------------------------------------------------------------------------
+
+### Create a resource group which is unique for each PR(non-prod) and single for PROD both lives in same tools environment of Azure
+resource "azurerm_resource_group" "portal" {
+  name     = local.resource_group_name
+  location = var.location
+}
+
 module "portal_plan" {
   source  = "Azure/avm-res-web-serverfarm/azurerm"
   version = "2.0.2"
 
   name      = local.app_service_plan_name
   location  = var.location
-  parent_id = data.azurerm_resource_group.portal.id
+  parent_id = azurerm_resource_group.portal.id
   os_type   = "Linux"
   sku_name  = var.sku_name
 
@@ -62,7 +69,7 @@ module "portal_storage" {
 
   name                = local.storage_account_name
   location            = var.location
-  resource_group_name = data.azurerm_resource_group.portal.name
+  resource_group_name = azurerm_resource_group.portal.name
 
   public_network_access_enabled = true
   account_replication_type      = var.storage_account_replication_type
@@ -94,7 +101,7 @@ module "portal" {
 
   name                     = local.app_service_name
   location                 = var.location
-  parent_id                = data.azurerm_resource_group.portal.id
+  parent_id                = azurerm_resource_group.portal.id
   service_plan_resource_id = module.portal_plan.resource_id
 
   kind                          = "webapp"
