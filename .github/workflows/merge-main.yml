@@ -163,7 +163,7 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
@@ -177,25 +177,22 @@ jobs:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          BACKEND_RESOURCE_GROUP: ${{ secrets.BACKEND_RESOURCE_GROUP }}
-          BACKEND_STORAGE_ACCOUNT: ${{ secrets.BACKEND_STORAGE_ACCOUNT }}
+          BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
           PORTAL_STATE_KEY: portal/tools/terraform.tfstate
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
-          TF_VAR_location: ${{ vars.PORTAL_LOCATION }}
-          TF_VAR_resource_group_name: ${{ vars.PORTAL_RESOURCE_GROUP }}
+          TF_VAR_location: "Canada Central"
+          TF_VAR_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
           TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
           TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
           TF_VAR_app_name_override: "ai-hub-onboarding"
           TF_VAR_sku_name: "P0v4"
           TF_VAR_enable_always_on: "true"
-          TF_VAR_oidc_discovery_url: ${{ vars.PORTAL_OIDC_DISCOVERY_URL }}
-          TF_VAR_oidc_client_id: ${{ vars.PORTAL_OIDC_CLIENT_ID }}
-          TF_VAR_oidc_client_secret: ${{ secrets.PORTAL_OIDC_CLIENT_SECRET }}
-          TF_VAR_oidc_admin_role: ${{ vars.PORTAL_OIDC_ADMIN_ROLE }}
-          TF_VAR_enable_table_rbac: ${{ vars.PORTAL_ENABLE_TABLE_RBAC }}
-          TF_VAR_admin_emails: ${{ vars.PORTAL_ADMIN_EMAILS }}
+          TF_VAR_oidc_discovery_url: https://loginproxy.gov.bc.ca/auth/realms/standard/.well-known/openid-configuration
+          TF_VAR_oidc_client_id: ai-hub-admin-portal-6366
+          TF_VAR_oidc_client_secret: ${{ secrets.PORTAL_PROD_OIDC_CLIENT_SECRET }}
           # Enable staging slot for zero-downtime slot-swap on the P0v4 ASP.
           TF_VAR_enable_deployment_slot: "true"
           PORTAL_NODE_VERSION_FILE: ${{ env.PORTAL_NODE_VERSION_FILE }}

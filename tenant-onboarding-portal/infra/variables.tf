@@ -122,7 +122,7 @@ variable "oidc_client_audience" {
 variable "oidc_admin_role" {
   description = "Keycloak role name that grants portal admin access. Mapped via realm_access.roles or resource_access.<client_id>.roles."
   type        = string
-  default     = "portal-admin"
+  default     = "ai-hub-onboarding-portal-admin"
 }
 
 # --- Azure Table Storage ---
@@ -147,7 +147,7 @@ variable "storage_account_replication_type" {
 variable "enable_table_rbac" {
   description = "Assign Storage Table Data Contributor to the App Service managed identity for the portal Storage Account."
   type        = bool
-  default     = true
+  default     = false
 }
 
 # --- Admin allow-list ---

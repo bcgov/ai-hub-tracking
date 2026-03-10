@@ -239,7 +239,7 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
@@ -253,22 +253,22 @@ jobs:
           ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
           ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
           ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          BACKEND_RESOURCE_GROUP: ${{ secrets.BACKEND_RESOURCE_GROUP }}
-          BACKEND_STORAGE_ACCOUNT: ${{ secrets.BACKEND_STORAGE_ACCOUNT }}
+          BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
           PORTAL_STATE_KEY: portal/pr${{ github.event.number }}/terraform.tfstate
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
-          TF_VAR_location: ${{ vars.PORTAL_LOCATION }}
-          TF_VAR_resource_group_name: ${{ vars.PORTAL_RESOURCE_GROUP }}
+          TF_VAR_location: "Canada Central"
+          TF_VAR_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
           TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
           TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
           TF_VAR_app_name_override: "pr${{ github.event.number }}-ai-hub-onboarding"
           TF_VAR_sku_name: "B1"
           TF_VAR_enable_always_on: "true"
-          TF_VAR_oidc_discovery_url: ""
-          TF_VAR_oidc_client_id: ""
-          TF_VAR_oidc_client_secret: ""
+          TF_VAR_oidc_discovery_url: "https://dev.loginproxy.gov.bc.ca/auth/realms/standard/.well-known/openid-configuration"
+          TF_VAR_oidc_client_id: "ai-hub-admin-portal-6366"
+          TF_VAR_oidc_client_secret: ${{ secrets.PORTAL_NONPROD_OIDC_CLIENT_SECRET }}
           TF_VAR_enable_table_rbac: "false"
           PORTAL_NODE_VERSION_FILE: ${{ env.PORTAL_NODE_VERSION_FILE }}
         run: bash ./deploy-terraform.sh apply tools --auto-approve --no-var-file
