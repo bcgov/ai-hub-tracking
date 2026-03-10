@@ -85,7 +85,7 @@ jobs:
       command: apply
       target_module: azure_proxy
       tag: latest
-      terraform_log_level: INFO
+      terraform_log_level: ERROR
     secrets: inherit
 
   apply-to-test-environment:
@@ -103,5 +103,97 @@ jobs:
       proxy_url: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_url }}
       proxy_auth: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_auth }}
       tag: ${{ needs.semantic-version.outputs.tag }}
-      terraform_log_level: INFO
+      terraform_log_level: ERROR
     secrets: inherit
+
+  # ---------------------------------------------------------------------------
+  # Portal deploy: update ai-hub-onboarding on every main merge that
+  # touches tenant-onboarding-portal/. Runs independently of the infra chain.
+  # The apply step provisions infra, packages the app, deploys to staging,
+  # swaps to production, and emits outputs directly.
+  # ---------------------------------------------------------------------------
+  detect-portal-changes:
+    name: Detect portal changes
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes in tenant-onboarding-portal
+        id: diff
+        run: |
+          CHANGED=$(git diff --name-only HEAD~1 HEAD -- tenant-onboarding-portal/ | wc -l | tr -d ' ')
+          echo "Portal files changed: ${CHANGED}"
+          echo "changed=$([[ ${CHANGED} -gt 0 ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  deploy-portal-tools:
+    name: Deploy ai-hub-onboarding (tools)
+    needs: detect-portal-changes
+    if: needs.detect-portal-changes.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    environment: tools
+    timeout-minutes: 20
+    env:
+      PORTAL_NODE_VERSION_FILE: tenant-onboarding-portal/.node-version
+      TF_VERSION: 1.12.2
+      TF_WORKING_DIR: tenant-onboarding-portal/infra
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ${{ env.PORTAL_NODE_VERSION_FILE }}
+          cache: npm
+          cache-dependency-path: |
+            tenant-onboarding-portal/backend/package-lock.json
+            tenant-onboarding-portal/frontend/package-lock.json
+
+      - name: Azure CLI Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform apply
+        id: apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          CI: "true"
+          ARM_USE_OIDC: "true"
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+          PORTAL_STATE_KEY: portal/tools/terraform.tfstate
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_location: "Canada Central"
+          TF_VAR_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
+          TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          TF_VAR_app_name_override: "ai-hub-onboarding"
+          TF_VAR_sku_name: "P0v4"
+          TF_VAR_enable_always_on: "true"
+          TF_VAR_oidc_discovery_url: https://loginproxy.gov.bc.ca/auth/realms/standard/.well-known/openid-configuration
+          TF_VAR_oidc_client_id: ai-hub-admin-portal-6366
+          TF_VAR_oidc_client_secret: ${{ secrets.PORTAL_PROD_OIDC_CLIENT_SECRET }}
+          # Enable staging slot for zero-downtime slot-swap on the P0v4 ASP.
+          TF_VAR_enable_deployment_slot: "true"
+          PORTAL_NODE_VERSION_FILE: ${{ env.PORTAL_NODE_VERSION_FILE }}
+        run: bash ./deploy-terraform.sh apply tools --auto-approve --no-var-file

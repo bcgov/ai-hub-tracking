@@ -77,7 +77,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
       - name: Azure CLI Login (OIDC)
         uses: azure/login@v2
         with:
@@ -86,7 +89,7 @@ jobs:
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
@@ -126,6 +129,27 @@ jobs:
           docker logs chisel-client
           docker logs privoxy
           curl --proxy http://127.0.0.1:8118 https://ifconfig.me
+
+      - name: Validate required network secret
+        shell: bash
+        env:
+          SUBNET_ALLOCATION: ${{ secrets.SUBNET_ALLOCATION }}
+          EXTERNAL_PEERED_PROJECTS: ${{ secrets.EXTERNAL_PEERED_PROJECTS }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${SUBNET_ALLOCATION}" ]]; then
+            echo "Error: Required environment secret SUBNET_ALLOCATION is missing or empty." >&2
+            echo "Add SUBNET_ALLOCATION in GitHub Environment secrets as a JSON object." >&2
+            exit 1
+          fi
+
+          python3 -c 'import json, os; value = os.environ.get("SUBNET_ALLOCATION", ""); parsed = json.loads(value); assert isinstance(parsed, dict) and bool(parsed)'
+
+          if [[ -n "${EXTERNAL_PEERED_PROJECTS}" ]]; then
+            python3 -c 'import json, os; value = os.environ.get("EXTERNAL_PEERED_PROJECTS", ""); parsed = json.loads(value); assert isinstance(parsed, dict)'
+          fi
+
       - name: Execute Deployment
         id: execute_deployment
         shell: bash
@@ -150,8 +174,9 @@ jobs:
           TF_VAR_dev_address_spaces: ${{ secrets.DEV_ADDRESS_SPACES }}
           TF_VAR_test_address_spaces: ${{ secrets.TEST_ADDRESS_SPACES }}
           TF_VAR_prod_address_spaces: ${{ secrets.PROD_ADDRESS_SPACES }}
-          TF_VAR_target_vnet_address_spaces: ${{ secrets.TARGET_VNET_ADDRESS_SPACES }}
           TF_VAR_source_vnet_address_space: ${{ secrets.SOURCE_VNET_ADDRESS_SPACE }}
+          TF_VAR_subnet_allocation: ${{ secrets.SUBNET_ALLOCATION }}
+          EXTERNAL_PEERED_PROJECTS_JSON: ${{ secrets.EXTERNAL_PEERED_PROJECTS }}
 
           # Container image tag override — prod uses semver tag, dev/test use latest
           TF_VAR_container_image_tag_job_key_rotation: ${{ inputs.tag != 'latest' && inputs.tag || '' }}
@@ -174,6 +199,10 @@ jobs:
           set -euo pipefail
 
           export no_proxy="$NO_PROXY"
+
+          if [[ -n "${EXTERNAL_PEERED_PROJECTS_JSON}" ]]; then
+            export TF_VAR_external_peered_projects="${EXTERNAL_PEERED_PROJECTS_JSON}"
+          fi
 
           # Make all scripts executable
           chmod +x ./scripts/*.sh

@@ -204,10 +204,11 @@
     <text x="640" y="712" text-anchor="middle" font-family="Arial, sans-serif" font-size="11" fill="#60a5fa" font-weight="bold">Shared Stack Private Endpoints</text>
 
     <!-- PE items - row 1 -->
-    <rect x="380" y="725" width="155" height="55" rx="6" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
-    <text x="457" y="748" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white" font-weight="bold">AI Foundry Hub</text>
-    <text x="457" y="762" text-anchor="middle" font-family="Arial, sans-serif" font-size="7" fill="#94a3b8">OpenAI models (Canada East)</text>
-    <text x="457" y="774" text-anchor="middle" font-family="monospace" font-size="7" fill="#60a5fa">cognitiveservices</text>
+    <rect x="380" y="725" width="155" height="70" rx="6" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
+    <text x="457" y="745" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white" font-weight="bold">AI Foundry Hub</text>
+    <text x="457" y="758" text-anchor="middle" font-family="Arial, sans-serif" font-size="7" fill="#94a3b8">OpenAI models (Canada East)</text>
+    <text x="457" y="770" text-anchor="middle" font-family="monospace" font-size="7" fill="#60a5fa">cognitiveservices · openai</text>
+    <text x="457" y="782" text-anchor="middle" font-family="monospace" font-size="7" fill="#60a5fa">services.ai · 3 IPs</text>
 
     <rect x="550" y="725" width="155" height="55" rx="6" fill="#1e3a5f" stroke="#60a5fa" stroke-width="1"/>
     <text x="627" y="748" text-anchor="middle" font-family="Arial, sans-serif" font-size="9" fill="white" font-weight="bold">APIM PE</text>
@@ -277,8 +278,8 @@
     <g font-family="monospace" font-size="8" fill="#94a3b8">
       <text x="385" y="930"><tspan fill="#4ade80">100 IN</tspan>  Allow 10.x.136.0/24 → 10.x.136.0/24 (self)</text>
       <text x="385" y="944"><tspan fill="#4ade80">101 IN</tspan>  Allow 10.x.82.0/24 → 10.x.136.0/24 (infra subnets)</text>
-      <text x="385" y="958"><tspan fill="#4ade80">300 IN</tspan>  Allow 10.x.115.0/24 → PE subnet (tools VNet)</text>
-      <text x="385" y="972"><tspan fill="#60a5fa">200-301 OUT</tspan> Allow PE ↔ VNet + PE ↔ Tools VNet</text>
+      <text x="385" y="958"><tspan fill="#4ade80">300 IN</tspan>  Allow peered VNets → PE subnet (external projects)</text>
+      <text x="385" y="972"><tspan fill="#60a5fa">200-301 OUT</tspan> Allow PE ↔ VNet address spaces</text>
     </g>
 
     <!-- ─── PRIVATE DNS ZONES ─── -->

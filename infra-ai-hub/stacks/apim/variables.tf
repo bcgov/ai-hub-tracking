@@ -49,6 +49,12 @@ variable "defender_enabled" {
   default = false
 }
 
+variable "apim_pe_subnet_key" {
+  description = "Optional PE subnet pool key for APIM private endpoint. When set, uses the mapped PE subnet instead of primary. APIM is pinned (not auto-balanced)."
+  type        = string
+  default     = null
+}
+
 variable "defender_resource_types" {
   type = map(object({
     subplan = optional(string, null)

@@ -11,7 +11,25 @@ output "private_endpoint_subnet_id" {
 }
 
 output "private_endpoint_subnet_cidr" {
-  value = module.network.private_endpoint_subnet_cidr
+  value     = module.network.private_endpoint_subnet_cidr
+  sensitive = true
+}
+
+output "private_endpoint_subnet_cidrs" {
+  description = "Sorted list of all PE subnet CIDRs in the pool (covers primary + overflow PE subnets)"
+  value       = sort(values(module.network.private_endpoint_subnet_cidrs_by_key))
+  sensitive   = true
+}
+
+output "private_endpoint_subnet_ids_by_key" {
+  description = "Map of PE pool key to subnet resource ID"
+  value       = module.network.private_endpoint_subnet_ids_by_key
+}
+
+output "private_endpoint_subnet_cidrs_by_key" {
+  description = "Map of PE pool key to CIDR string"
+  value       = module.network.private_endpoint_subnet_cidrs_by_key
+  sensitive   = true
 }
 
 output "private_endpoint_nsg_id" {
@@ -100,7 +118,8 @@ output "dns_zone_public_ip_id" {
 }
 
 output "dns_zone_public_ip_address" {
-  value = length(module.dns_zone) > 0 ? module.dns_zone[0].public_ip_address : null
+  value     = length(module.dns_zone) > 0 ? module.dns_zone[0].public_ip_address : null
+  sensitive = true
 }
 
 output "waf_policy_id" {

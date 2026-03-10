@@ -12,6 +12,24 @@ locals {
 
   key_rotation_config = local.apim_config.key_rotation
 
+  # ---------------------------------------------------------------------------
+  # PE subnet resolution for APIM
+  # APIM is pinned — null key uses primary; explicit key must exist in PE pool.
+  # Invalid explicit key fails at plan time (no silent fallback).
+  # ---------------------------------------------------------------------------
+  pe_subnet_ids_by_key = try(
+    data.terraform_remote_state.shared.outputs.private_endpoint_subnet_ids_by_key,
+    {
+      "privateendpoints-subnet" = data.terraform_remote_state.shared.outputs.private_endpoint_subnet_id
+    }
+  )
+
+  resolved_apim_pe_subnet_id = (
+    var.apim_pe_subnet_key == null
+    ? data.terraform_remote_state.shared.outputs.private_endpoint_subnet_id
+    : local.pe_subnet_ids_by_key[var.apim_pe_subnet_key]
+  )
+
   tenants_with_subscription_key = {
     for key, config in local.enabled_tenants : key => config
     if lookup(lookup(config, "apim_auth", {}), "mode", "subscription_key") == "subscription_key"

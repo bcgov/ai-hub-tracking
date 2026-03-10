@@ -108,7 +108,7 @@ variable "ai_model_deployments" {
   description = "AI model deployments to create on the shared AI Foundry Hub (prefixed with tenant name)"
   type = map(object({
     name                   = string
-    rai_policy_name        = optional(string, "Microsoft.DefaultV2") # Azure default; explicit to avoid drift
+    rai_policy_name        = optional(string) # Explicit policy name override; null = resolved by locals
     version_upgrade_option = optional(string, "OnceNewDefaultVersionAvailable")
     model = object({
       format  = optional(string, "OpenAI")
@@ -119,8 +119,53 @@ variable "ai_model_deployments" {
       type     = string
       capacity = number
     })
+    # When filters is non-empty, a custom raiPolicy resource is created on the Hub.
+    # Use filters = [] (empty) to keep Microsoft.DefaultV2 (Azure built-in default).
+    content_filter = optional(object({
+      base_policy_name = optional(string, "Microsoft.DefaultV2")
+      filters = optional(list(object({
+        name               = string # hate | violence | sexual | selfharm
+        severity_threshold = string # Low | Medium | High
+        blocking           = optional(bool, true)
+        enabled            = optional(bool, true)
+        source             = string # Prompt | Completion
+      })), [])
+    }), { base_policy_name = "Microsoft.DefaultV2", filters = [] })
   }))
   default = {}
+
+  validation {
+    condition = alltrue([
+      for deployment in values(var.ai_model_deployments) :
+      alltrue([
+        for f in deployment.content_filter.filters :
+        contains(["hate", "violence", "sexual", "selfharm"], f.name)
+      ])
+    ])
+    error_message = "content_filter.filters[*].name must be one of: hate, violence, sexual, selfharm."
+  }
+
+  validation {
+    condition = alltrue([
+      for deployment in values(var.ai_model_deployments) :
+      alltrue([
+        for f in deployment.content_filter.filters :
+        contains(["Low", "Medium", "High"], f.severity_threshold)
+      ])
+    ])
+    error_message = "content_filter.filters[*].severity_threshold must be one of: Low, Medium, High."
+  }
+
+  validation {
+    condition = alltrue([
+      for deployment in values(var.ai_model_deployments) :
+      alltrue([
+        for f in deployment.content_filter.filters :
+        contains(["Prompt", "Completion"], f.source)
+      ])
+    ])
+    error_message = "content_filter.filters[*].source must be one of: Prompt, Completion."
+  }
 }
 
 # =============================================================================

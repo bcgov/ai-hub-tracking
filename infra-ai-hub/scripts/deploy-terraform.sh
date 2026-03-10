@@ -29,6 +29,7 @@
 #   TF_VAR_subscription_id     - Azure Subscription ID
 #   TF_VAR_tenant_id           - Azure Tenant ID
 #   TF_VAR_client_id           - Azure Client ID (for OIDC)
+#   TF_VAR_subnet_allocation   - REQUIRED JSON map for subnet_allocation (source: tftoolsaihubtracking/tools/network-info/subnet-allocation/)
 #   ARM_USE_OIDC=true          - Use OIDC authentication
 #
 # Auto-Recovery Features:
@@ -491,7 +492,8 @@ main() {
     check_prerequisites
     setup_azure_auth
     setup_variables
-    
+    # unset provider log to reduce noise
+    unset TF_LOG_PROVIDER
     # Execute command
     case "$command" in
         plan)

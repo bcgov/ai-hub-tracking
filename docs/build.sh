@@ -33,7 +33,7 @@ for page in "$PAGES_DIR"/*.html; do
         # Extract page metadata from comments at top of file
         # Format: <!-- TITLE: Page Title -->
         # Format: <!-- NAV: index -->
-        page_title=$(grep -oP '<!--\s*TITLE:\s*\K[^-]+' "$page" | tr -d ' ' || echo "Documentation")
+        page_title=$(grep -oP '<!--\s*TITLE:\s*\K[^-]+' "$page" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' || echo "Documentation")
         nav_active=$(grep -oP '<!--\s*NAV:\s*\K\w+' "$page" || echo "")
 
         # Read partials
@@ -91,8 +91,20 @@ ls -la "$SCRIPT_DIR"/*.html 2>/dev/null || echo "  No HTML files generated"
 # Requires Node.js (no external npm packages needed)
 echo ""
 echo "Generating search index..."
+NODE_BIN=""
 if command -v node &>/dev/null; then
-    node "$SCRIPT_DIR/generate-search-index.js" "$SCRIPT_DIR"
+    NODE_BIN="node"
+elif command -v node.exe &>/dev/null; then
+    NODE_BIN="node.exe"
+fi
+
+if [ -n "$NODE_BIN" ]; then
+    if [ "$NODE_BIN" = "node.exe" ] && command -v wslpath &>/dev/null; then
+        # node.exe is a Windows binary; convert WSL paths to Windows paths
+        $NODE_BIN "$(wslpath -w "$SCRIPT_DIR/generate-search-index.js")" "$(wslpath -w "$SCRIPT_DIR")"
+    else
+        $NODE_BIN "$SCRIPT_DIR/generate-search-index.js" "$SCRIPT_DIR"
+    fi
 else
     echo "  WARNING: Node.js not found – search index was NOT generated."
 fi

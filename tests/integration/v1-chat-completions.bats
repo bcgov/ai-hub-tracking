@@ -313,6 +313,116 @@ skip_if_no_key() {
 }
 
 # =============================================================================
+# Rate Limit Header Validation — token budget correctness
+# -----------------------------------------------------------------------------
+# Regression for the tenant-prefix bug:
+#   APIM policy constructed deploymentName = "${tenant}-${model}" for /v1/ paths.
+#   This never matched any <when> condition → fell through to the 1,000 TPM fallback.
+#   x-ratelimit-limit-tokens: 1000 instead of 1,500,000 for gpt-4.1-mini.
+#
+# These tests assert that:
+#   1. /v1/ format returns a token limit >> 1000 (not the fallback)
+#   2. /deployments/ format returns the same token limit as /v1/
+#      (both hit the same <when> block in the APIM policy)
+# =============================================================================
+
+@test "V1-RateLimit: /v1/ format token limit is not the 1000 TPM fallback" {
+    # Why this catches the bug:
+    # Before fix: deploymentName = "wlrs-water-form-assistant-gpt-4.1-mini" → no <when> match
+    #             → <otherwise> fires → tokens-per-minute=1000 → x-ratelimit-limit-tokens: 1000
+    # After fix:  deploymentName = "gpt-4.1-mini" → matches <when> → capacity=1500
+    #             → tokens-per-minute=1500000 → x-ratelimit-limit-tokens: 1500000
+    skip_if_no_key "wlrs-water-form-assistant"
+
+    local path="/openai/v1/chat/completions"
+    local body='{"model":"gpt-4.1-mini","messages":[{"role":"user","content":"Say hello"}],"max_tokens":5}'
+
+    local raw_response
+    raw_response=$(apim_request_with_headers "POST" "wlrs-water-form-assistant" "${path}" "${body}")
+    parse_response_with_headers "${raw_response}"
+
+    echo "# /v1/ status: ${RESPONSE_STATUS}" >&3
+    assert_status "200" "${RESPONSE_STATUS}"
+
+    local limit
+    limit=$(get_response_header "x-ratelimit-limit-tokens")
+    echo "# /v1/ x-ratelimit-limit-tokens: ${limit}" >&3
+
+    [[ -n "${limit}" ]] || { echo "x-ratelimit-limit-tokens header is missing" >&2; return 1; }
+
+    # The 1,000 TPM fallback would produce limit=1000.
+    # Every real model has capacity >= 50 → limit >= 50,000.
+    # Asserting > 1000 is sufficient to detect the fallback without hard-coding model capacity.
+    [[ "${limit}" -gt 1000 ]] || {
+        echo "x-ratelimit-limit-tokens is ${limit} — looks like the 1000 TPM fallback is active." >&2
+        echo "deploymentName variable in APIM policy may still be including tenant prefix for /v1/ paths." >&2
+        return 1
+    }
+}
+
+@test "V1-RateLimit: /deployments/ format token limit is not the 1000 TPM fallback" {
+    skip_if_no_key "wlrs-water-form-assistant"
+
+    local path="/openai/deployments/gpt-4.1-mini/chat/completions?api-version=${OPENAI_API_VERSION}"
+    local body='{"messages":[{"role":"user","content":"Say hello"}],"max_tokens":5}'
+
+    local raw_response
+    raw_response=$(apim_request_with_headers "POST" "wlrs-water-form-assistant" "${path}" "${body}")
+    parse_response_with_headers "${raw_response}"
+
+    echo "# /deployments/ status: ${RESPONSE_STATUS}" >&3
+    assert_status "200" "${RESPONSE_STATUS}"
+
+    local limit
+    limit=$(get_response_header "x-ratelimit-limit-tokens")
+    echo "# /deployments/ x-ratelimit-limit-tokens: ${limit}" >&3
+
+    [[ -n "${limit}" ]] || { echo "x-ratelimit-limit-tokens header is missing" >&2; return 1; }
+    [[ "${limit}" -gt 1000 ]] || {
+        echo "x-ratelimit-limit-tokens is ${limit} — fallback active on /deployments/ path." >&2
+        return 1
+    }
+}
+
+@test "V1-RateLimit: /v1/ and /deployments/ formats report identical token limit for same model" {
+    # Both paths must resolve deploymentName to the bare model name and hit the same
+    # <when> block in the APIM policy → identical llm-token-limit counter and capacity.
+    # A mismatch means one path is hitting the fallback while the other is not.
+    skip_if_no_key "wlrs-water-form-assistant"
+
+    local v1_path="/openai/v1/chat/completions"
+    local v1_body='{"model":"gpt-4.1-mini","messages":[{"role":"user","content":"Say hello"}],"max_tokens":5}'
+
+    local dep_path="/openai/deployments/gpt-4.1-mini/chat/completions?api-version=${OPENAI_API_VERSION}"
+    local dep_body='{"messages":[{"role":"user","content":"Say hello"}],"max_tokens":5}'
+
+    local v1_raw dep_raw
+    v1_raw=$(apim_request_with_headers "POST" "wlrs-water-form-assistant" "${v1_path}" "${v1_body}")
+    parse_response_with_headers "${v1_raw}"
+    local v1_limit
+    v1_limit=$(get_response_header "x-ratelimit-limit-tokens")
+    echo "# /v1/ x-ratelimit-limit-tokens:          ${v1_limit}" >&3
+
+    # Brief pause to avoid token counter spillover between the two requests
+    sleep 2
+
+    dep_raw=$(apim_request_with_headers "POST" "wlrs-water-form-assistant" "${dep_path}" "${dep_body}")
+    parse_response_with_headers "${dep_raw}"
+    local dep_limit
+    dep_limit=$(get_response_header "x-ratelimit-limit-tokens")
+    echo "# /deployments/ x-ratelimit-limit-tokens: ${dep_limit}" >&3
+
+    [[ -n "${v1_limit}" ]]  || { echo "/v1/ x-ratelimit-limit-tokens header missing" >&2; return 1; }
+    [[ -n "${dep_limit}" ]] || { echo "/deployments/ x-ratelimit-limit-tokens header missing" >&2; return 1; }
+
+    [[ "${v1_limit}" == "${dep_limit}" ]] || {
+        echo "/v1/ limit (${v1_limit}) != /deployments/ limit (${dep_limit})" >&2
+        echo "One path is hitting the fallback rate-limit block — check deploymentName construction in api_policy.xml.tftpl" >&2
+        return 1
+    }
+}
+
+# =============================================================================
 # Cross-tenant Isolation
 # =============================================================================
 

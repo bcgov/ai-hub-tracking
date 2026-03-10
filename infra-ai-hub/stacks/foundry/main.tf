@@ -43,7 +43,11 @@ module "foundry_project" {
       rai_policy_name        = lookup(deployment, "rai_policy_name", null)
       version_upgrade_option = lookup(deployment, "version_upgrade_option", "OnceNewDefaultVersionAvailable")
       model = {
-        format  = lookup(deployment, "model_format", "OpenAI")
+        format = coalesce(
+          # Look up the model name's prefix against the vendor format map in locals.
+          one([for prefix, fmt in local.model_format_prefixes : fmt if startswith(lower(deployment.model_name), prefix)]),
+          local.default_model_format
+        )
         name    = deployment.model_name
         version = deployment.model_version
       }
@@ -51,6 +55,12 @@ module "foundry_project" {
         type     = lookup(deployment, "scale_type", "Standard")
         capacity = lookup(deployment, "capacity", 10)
       }
+      # content_filter: set to null to use Microsoft.DefaultV2 (Azure default).
+      # Set to a custom object in the tenant's model_deployments entry to create
+      # a tenant-scoped RAI policy for that specific deployment.
+      # NOTE: ALL deployments across ALL tenants must have this key (null or object)
+      # because Terraform's map(any) requires uniform element shapes.
+      content_filter = lookup(deployment, "content_filter", { base_policy_name = "Microsoft.DefaultV2", filters = [] })
     }
   }
 
