@@ -3,7 +3,9 @@ import { expect, test } from '@playwright/test';
 test.describe.configure({ mode: 'serial' });
 
 function uniqueTenantSuffix() {
-  return `${Date.now()}-${Math.floor(Math.random() * 10_000)}`;
+  // Keep suffix ≤ 12 chars so the full "playwright-tenant-<suffix>" name stays
+  // within the 30-character project_name limit validated by the backend.
+  return `${Date.now().toString().slice(-8)}-${Math.floor(Math.random() * 100)}`;
 }
 
 test('mock auth auto-bootstraps an admin session', async ({ page }) => {
