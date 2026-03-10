@@ -103,7 +103,7 @@ jobs:
           TF_VAR_sku_name: "P0v4"
           TF_VAR_enable_always_on: "true"
           TF_VAR_app_name_override: "ai-hub-onboarding"
-          TF_VAR_enable_deployment_slot: "true"
+          TF_VAR_enable_deployment_slot: "false"  # Staging slot disabled - blocked by Deny-AppSlots-Public policy
           # Sensitive infra inputs
           # App settings pushed into App Service environment
           TF_VAR_oidc_discovery_url: https://loginproxy.gov.bc.ca/auth/realms/standard/.well-known/openid-configuration
