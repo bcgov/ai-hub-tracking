@@ -695,13 +695,11 @@ load_apply_outputs() {
     APPLY_APP_HOSTNAME="$(terraform_output_raw app_service_default_hostname)"
     APPLY_STAGING_HOSTNAME="$(terraform_output_raw staging_slot_hostname)"
 
-    if [[ -z "$RESOURCE_GROUP" ]]; then
-        RESOURCE_GROUP="$APPLY_RESOURCE_GROUP"
-    fi
-
-    if [[ -z "$APP_NAME" ]]; then
-        APP_NAME="$APPLY_APP_NAME"
-    fi
+    # Always override with Terraform's authoritative outputs.
+    # TF_VAR_resource_group_name is the shared VNet/backend RG (used by data sources),
+    # not the app's resource group — it must not win here.
+    RESOURCE_GROUP="$APPLY_RESOURCE_GROUP"
+    APP_NAME="$APPLY_APP_NAME"
 
     if [[ -z "$HOSTNAME" ]]; then
         HOSTNAME="$APPLY_APP_HOSTNAME"
