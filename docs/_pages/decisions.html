@@ -231,7 +231,13 @@ details.adr.pending[open] summary {
         <td><a href="#adr-016">ADR-016</a></td>
         <td>Backend Circuit Breaker Pattern</td>
         <td><span class="badge" style="background:#22c55e;color:white;">Resilience</span></td>
-        <td><span class="badge badge-blue">Accepted</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
+    </tr>
+    <tr>
+        <td><a href="#adr-017">ADR-017</a></td>
+        <td>Custom Tenant Onboarding Portal Inside AI Hub</td>
+        <td><span class="badge" style="background:#22c55e;color:white;">Choice</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
     </tr>
 </table>
 
@@ -571,6 +577,7 @@ details.adr.pending[open] summary {
 
 </div>
 </details>
+
 
 <!-- ADR-002 -->
 <details class="adr" id="adr-002">
@@ -2970,7 +2977,7 @@ module "storage" {
 <summary>
     <span class="adr-title">ADR-016: Backend Circuit Breaker Pattern</span>
     <span class="badge" style="background:#22c55e;color:white;">Resilience</span>
-    <span class="badge badge-blue">Accepted</span>
+    <span class="badge badge-gold">Accepted</span>
 </summary>
 <div class="adr-content" style="padding: 1.5rem;">
 
@@ -3073,6 +3080,122 @@ module "storage" {
 </details>
 
 
+<!-- ADR-017 -->
+<details class="adr" id="adr-017">
+<summary>
+    <span class="adr-title">ADR-017: Custom Tenant Onboarding Portal Inside AI Hub</span>
+    <span class="adr-status"><span class="badge badge-gold">Accepted</span></span>
+</summary>
+<div class="adr-content">
+
+<div class="grid grid-4" style="margin-bottom: 1rem;">
+    <div><strong>Status:</strong> Accepted</div>
+    <div><strong>Date:</strong> 2026-03</div>
+    <div><strong>Driver:</strong> <span class="badge" style="background:#22c55e;color:white;">Choice</span></div>
+    <div><strong>Category:</strong> Platform</div>
+</div>
+
+<h3>Context</h3>
+
+<p>The AI Hub needed a tenant onboarding experience that does more than collect a request. The onboarding flow must support structured tenant metadata, governed admin review, future automation from submission through approval, and environment-aware downstream actions such as generating Terraform inputs and preparing non-prod and prod deployment workflows.</p>
+
+<p>We considered using an existing platform instead of building a portal inside the Hub workspace. The main alternatives were the BC Government Platform Product Registry, CHEFS, and the Azure API Management Developer Portal. All three reduce initial build effort, but none matches the lifecycle and control-plane requirements of Hub onboarding.</p>
+
+<h3>Options Considered</h3>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: #22c55e;">
+        <h4 style="margin-top: 0;">Custom portal inside AI Hub (selected)</h4>
+        <ul style="margin-bottom: 0;">
+            <li>Owns the end-to-end onboarding workflow</li>
+            <li>Supports structured validation and Hub-specific data models</li>
+            <li>Can drive future automation after approval</li>
+        </ul>
+    </div>
+    <div class="card">
+        <h4 style="margin-top: 0;">BC Government Platform Product Registry</h4>
+        <ul style="margin-bottom: 0;">
+            <li>Designed to manage existing products on Private Cloud OpenShift and Public Cloud Landing Zones</li>
+            <li>Solves a different problem than Hub onboarding</li>
+            <li>Supports product metadata and resource change requests for higher level platforms which may not be a need at all for the AI Hub</li>
+        </ul>
+    </div>
+    <div class="card">
+        <h4 style="margin-top: 0;">CHEFS</h4>
+        <ul style="margin-bottom: 0;">
+            <li>Strong for hosted form submission</li>
+            <li>Submission lifecycle is oriented around form intake, not long-running onboarding state</li>
+            <li>Not a fit for secure post-approval actions or controlled reveal flows</li>
+        </ul>
+    </div>
+    <div class="card">
+        <h4 style="margin-top: 0;">APIM Developer Portal</h4>
+        <ul style="margin-bottom: 0;">
+            <li>Can be deployed as part of the Hub infrastructure (APIM)</li>
+            <li>Offers self-service API subscription and developer onboarding UX out of the box</li>
+            <li>Customisable via delegation and custom HTML/JS widgets, but tightly coupled to APIM concepts (products, subscriptions)</li>
+            <li>Not designed for multi-step approval workflows, structured Terraform config generation, or environment-aware provisioning actions</li>
+        </ul>
+    </div>
+</div>
+
+<h3>Decision</h3>
+
+<p><strong>We will use a custom tenant onboarding portal inside the AI Hub repository and deployment boundary instead of the BC Government Platform Product Registry, CHEFS, or the APIM Developer Portal.</strong></p>
+
+<h3>Rationale</h3>
+
+<ul>
+    <li><strong>Governed approval workflow:</strong> Hub onboarding requires an admin review and approval process, not just a one-time request capture. The custom portal can model request states, reviewer actions, and follow-up steps directly.</li>
+    <li><strong>Structured Hub-specific configuration:</strong> The workflow needs to collect and validate data that maps cleanly into tenant-specific Terraform inputs and other structured configuration artifacts. A generic registry or hosted form would require extra translation layers and still would not own the lifecycle.</li>
+    <li><strong>Tight integration with Hub logic and storage:</strong> The onboarding flow must stay close to Hub-specific validation rules, tenant state, and downstream provisioning behavior. Keeping the portal in the same codebase reduces impedance between intake, approval, generated config, and deployment automation.</li>
+    <li><strong>Authenticated post-submission lifecycle:</strong> The process does not end at submission. The platform needs room for authenticated follow-up actions, operator review, state transitions, and future self-service interactions that go beyond a write-once form.</li>
+    <li><strong>CHEFS is too immutable for this lifecycle:</strong> CHEFS is well suited to hosted intake, but its submission model is intentionally form-centric and immutable. It supports status and notes, but it is not designed to mutate form data, drive secure post-approval reveal flows, or act as the system of record for ongoing onboarding operations.</li>
+    <li><strong>The Platform Product Registry solves a different problem:</strong> The registry is built for teams that need to create or manage a product on Private Cloud OpenShift or the Public Cloud Landing Zone, which may not be a need for AI Hub. AI Hub tenant onboarding can be irrespective of the platform the tenants use, captures Hub-specific configuration, and needs a purpose-built approval and provisioning workflow rather than generic platform registry product change process, similar to what Keycloak and Kong App Gateway have their own portals.</li>
+    <li><strong>Secure post-approval actions:</strong> The team needs room for actions after approval, including controlled credential-related workflows and other sensitive follow-up behavior. Those concerns should live in a dedicated application boundary rather than in generic form metadata or a public-facing registry experience.</li>
+    <li><strong>Future automation path:</strong> The chosen design supports evolving from request intake to approval and then to automated promotion and deployment workflows across non-prod and prod environments without replacing the front door later.</li>
+    <li><strong>APIM Developer Portal is the wrong abstraction:</strong> The APIM Developer Portal is built around API products and subscriptions, not tenant provisioning workflows. Customising it far enough to support multi-step approval, structured config generation, and environment-aware provisioning actions would require extensive delegation and external backend work — effectively rebuilding the same application on a more constrained foundation.</li>
+</ul>
+
+<h3>Consequences</h3>
+
+<h4>Positive</h4>
+<ul>
+    <li><strong>Single ownership boundary:</strong> Intake, review, generated config, and deployment hooks can evolve together in the Hub codebase</li>
+    <li><strong>Better security posture for follow-up actions:</strong> Sensitive post-approval behavior stays in a purpose-built application instead of being forced into form notes or registry constructs</li>
+    <li><strong>Clearer evolution path:</strong> The portal can add richer workflow, audit, and automation capabilities without re-platforming</li>
+    <li><strong>Operational consistency:</strong> The same repo, CI/CD patterns, and Azure deployment model can be reused for the portal and Hub-adjacent automation</li>
+</ul>
+
+<h4>Negative</h4>
+<ul>
+    <li><strong>Custom application to build and maintain:</strong> We own the frontend, backend, tests, deployment, and documentation</li>
+    <li><strong>Higher initial delivery cost:</strong> Building a tailored workflow is slower than standing up a generic form or pointing users at an existing portal</li>
+    <li><strong>More platform decisions to maintain:</strong> Auth, storage, review workflow, and automation semantics become our responsibility</li>
+</ul>
+
+<h4>Mitigations</h4>
+<ul>
+    <li><strong>Keep the portal thin and focused:</strong> Implement only onboarding workflow concerns that are specific to AI Hub</li>
+    <li><strong>Automate validation and delivery:</strong> Maintain build, unit, E2E, and deployment workflows so sustainment cost stays controlled</li>
+    <li><strong>Document the why:</strong> This ADR exists so future teams do not revisit CHEFS or the Platform Product Registry without understanding the lifecycle mismatch</li>
+</ul>
+
+<h3>References</h3>
+<ul>
+    <li><a href="https://registry.developer.gov.bc.ca/home">BC Government Platform Product Registry</a></li>
+    <li><a href="https://submit.digital.gov.bc.ca/app/api/v1/api-spec.yaml">CHEFS OpenAPI</a></li>
+    <li><a href="https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-developer-portal">APIM Developer Portal Overview</a></li>
+    <li><a href="https://learn.microsoft.com/en-us/azure/api-management/api-management-howto-developer-portal-customize">Customising the APIM Developer Portal</a></li>
+    <li><a href="workflows.html">GitHub Actions Workflows</a></li>
+</ul>
+
+<div style="margin-top: 1rem;">
+    <a href="#decision-index" class="back-to-top-link">&#8593; Back to Decision Index</a>
+</div>
+
+</div>
+</details>
 <h2>ADR Template</h2>
 
 <p>Use this template when adding new ADRs:</p>

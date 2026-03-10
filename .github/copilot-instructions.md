@@ -61,6 +61,13 @@ Use when creating, modifying, or debugging integration tests.
 - Test helpers, config loading, and assertion patterns
 - Retry logic, skip guards, and async polling
 
+### [Tenant Onboarding Portal](./skills/tenant-onboarding-portal/SKILL.md)
+Use when modifying the tenant onboarding portal application.
+- NestJS backend under `tenant-onboarding-portal/backend/src/`
+- React/Vite frontend under `tenant-onboarding-portal/frontend/src/`
+- Mock auth, Keycloak integration, Azure Table Storage, and Playwright E2E tests
+- Local tooling, portal deployment workflow, and portal-specific docs
+
 ### [Network](./skills/network/SKILL.md)
 Use when adding or modifying subnets, CIDR allocation, NSG rules, or delegation in the network module.
 - Explicit `subnet_allocation` model (`map(map(string))`) in `infra-ai-hub/modules/network/locals.tf`

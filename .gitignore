@@ -84,3 +84,4 @@ tfplan
 .tenant-workdir-*
 .terraform-tenant-*
 docs/assets/search-index.json
+**/.tmp/**

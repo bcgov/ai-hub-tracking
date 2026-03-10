@@ -131,6 +131,12 @@ ai-hub-tracking/
 │   └── apim-key-rotation/             # APIM subscription key rotation (Python, custom container)
 │       └── Dockerfile                 # Multi-stage build (uv + python:3.13-slim)
 │
+├── tenant-onboarding-portal/          # Tenant intake application workspace
+│   ├── infra/                         # Terraform for the portal App Service and related Azure resources
+│   ├── backend/                       # NestJS API, tests, deployment tooling, and portal docs
+│   ├── frontend/                      # React/Vite single-page application
+│   └── README.md                      # Portal architecture, local dev, and deployment notes
+│
 ├── tests/                              # Integration test suite
 │   └── integration/                    # BATS-based integration tests
 │       ├── chat-completions.bats       # OpenAI chat API tests
@@ -256,6 +262,9 @@ BATS-based integration test suite for validating deployed infrastructure. Tests 
 
 ### `jobs/`
 Container App Jobs source code. Contains the APIM key rotation job (`apim-key-rotation/`), a Python-based cron job that automatically rotates APIM subscription keys using an alternating primary/secondary pattern. Deployed as a custom container from GHCR via `.builds.yml`, with the Terraform module at `infra-ai-hub/modules/key-rotation-function/` and stack at `infra-ai-hub/stacks/key-rotation/`.
+
+### `tenant-onboarding-portal/`
+Tenant onboarding application workspace. The root now stays intentionally thin: `backend/` contains the NestJS API, Playwright and unit tests, Terraform, and deployment helpers; `frontend/` contains the React/Vite SPA; `README.md` explains local development and deployment behavior.
 
 ### `.github/`
 GitHub Actions automation, contribution guidelines, and Copilot skill profiles.

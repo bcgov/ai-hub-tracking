@@ -1,0 +1,15 @@
+$primary: #003366;
+$secondary: #fcba19;
+$body-bg: #f3f4f6;
+$body-color: #1f2933;
+$font-family-sans-serif: 'BCSans', 'Noto Sans', sans-serif;
+$border-radius: 1rem;
+$border-radius-lg: 1.5rem;
+
+@import '~bootstrap/scss/bootstrap';
+
+body {
+  background:
+    radial-gradient(circle at top left, rgba(252, 186, 25, 0.16), transparent 24%),
+    linear-gradient(180deg, #ffffff 0, #f3f4f6 220px, #f3f4f6 100%);
+}

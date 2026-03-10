@@ -46,6 +46,22 @@ variable "resource_group_name" {
   type        = string
 }
 
+variable "vnet_name" {
+  description = "Name of the existing virtual network used for App Service regional VNet integration."
+  type        = string
+}
+
+variable "vnet_resource_group_name" {
+  description = "Name of the resource group containing the target virtual network."
+  type        = string
+}
+
+variable "app_service_subnet_name" {
+  description = "Name of the delegated subnet used for App Service regional VNet integration."
+  type        = string
+  default     = "app-service-subnet"
+}
+
 variable "common_tags" {
   description = "Tags applied to every resource. Policy may add additional tags; lifecycle ignores drift."
   type        = map(string)
@@ -64,24 +80,16 @@ variable "enable_always_on" {
   default     = true
 }
 
-variable "python_version" {
-  description = "Python runtime version for the App Service application stack."
+variable "node_version" {
+  description = "Optional Node.js runtime version override for the App Service application stack. Leave blank to derive it from tenant-onboarding-portal/.node-version using the Azure App Service '<major>-lts' format."
   type        = string
-  default     = "3.13"
+  default     = ""
 }
 
 variable "startup_command" {
-  description = "Gunicorn startup command. Matches the FastAPI ASGI app entry-point."
+  description = "Startup command for the NestJS runtime. Defaults to the compiled Node entrypoint."
   type        = string
-  default     = "gunicorn -w 2 -k uvicorn.workers.UvicornWorker src.main:app"
-}
-
-# --- Secrets ---
-
-variable "secret_key" {
-  description = "Session encryption key for Starlette SessionMiddleware. Must be ≥ 32 random bytes."
-  type        = string
-  sensitive   = true
+  default     = "node dist/main.js"
 }
 
 # --- OIDC / Keycloak ---
@@ -119,27 +127,27 @@ variable "oidc_admin_role" {
 
 # --- Azure Table Storage ---
 
-variable "table_storage_account_url" {
-  description = "Azure Table Storage account URL (https://<account>.table.core.windows.net). Used by the app for password-less auth via managed identity."
+variable "storage_account_name_override" {
+  description = "Override the computed Storage Account name. Leave blank to use the generated 'st<env>portal<suffix>' pattern."
   type        = string
   default     = ""
+}
+
+variable "storage_account_replication_type" {
+  description = "Replication type for the portal Storage Account. Defaults to LRS to keep dev/test costs down."
+  type        = string
+  default     = "LRS"
+
+  validation {
+    condition     = contains(["LRS", "GRS", "RAGRS", "ZRS", "GZRS", "RAGZRS"], var.storage_account_replication_type)
+    error_message = "storage_account_replication_type must be one of: LRS, GRS, RAGRS, ZRS, GZRS, RAGZRS."
+  }
 }
 
 variable "enable_table_rbac" {
-  description = "Assign Storage Table Data Contributor to the App Service managed identity. Requires table_storage_account_id to be set."
+  description = "Assign Storage Table Data Contributor to the App Service managed identity for the portal Storage Account."
   type        = bool
-  default     = false
-}
-
-variable "table_storage_account_id" {
-  description = "Azure Storage Account resource ID. Required when enable_table_rbac = true."
-  type        = string
-  default     = ""
-
-  validation {
-    condition     = !var.enable_table_rbac || var.table_storage_account_id != ""
-    error_message = "table_storage_account_id must be provided when enable_table_rbac = true."
-  }
+  default     = true
 }
 
 # --- Admin allow-list ---

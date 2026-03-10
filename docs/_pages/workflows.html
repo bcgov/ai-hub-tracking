@@ -69,6 +69,37 @@
     </tbody>
 </table>
 
+<h2>Tenant Onboarding Portal Workflows</h2>
+
+<p>The tenant onboarding portal now keeps Terraform in <code>tenant-onboarding-portal/infra</code> while the application code lives under <code>tenant-onboarding-portal/backend</code> and <code>tenant-onboarding-portal/frontend</code>. GitHub Actions provisions App Service from the root <code>infra/</code> folder, builds the frontend separately, copies the SPA into the backend deployment bundle, and deploys the backend package to App Service via zip deployment.</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Workflow</th>
+            <th>Portal-specific behavior</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>pr-open.yml</strong></td>
+            <td>Detects changes anywhere under <code>tenant-onboarding-portal/</code>, provisions a preview App Service in tools, builds <code>frontend/</code> and <code>backend/</code>, then deploys the backend zip for PR validation.</td>
+        </tr>
+        <tr>
+            <td><strong>pr-close.yml</strong></td>
+            <td>Destroys the preview portal environment created for the PR after the pull request is closed.</td>
+        </tr>
+        <tr>
+            <td><strong>merge-main.yml</strong></td>
+            <td>On merges to <code>main</code>, detects portal changes, provisions the shared tools App Service if needed, builds the frontend and backend, deploys to the staging slot, health-checks it, then swaps staging into production.</td>
+        </tr>
+        <tr>
+            <td><strong>portal-deploy.yml</strong></td>
+            <td>Manual tools redeploy for the same backend/frontend bundle, following the same provision, staging deploy, health check, and slot-swap path as the automated main deployment.</td>
+        </tr>
+    </tbody>
+</table>
+
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
 <h2>Developer SDLC Flow (Branch → PR → TEST → PROD)</h2>

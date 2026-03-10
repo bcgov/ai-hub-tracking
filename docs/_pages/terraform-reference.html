@@ -3143,6 +3143,7 @@
 <li><code>azapi_resource (connection_storage)</code></li>
 <li><code>azapi_resource (connection_ai_search)</code></li>
 <li><code>azapi_resource (connection_cosmos)</code></li>
+<li><code>azapi_resource (rai_policy)</code></li>
 <li><code>azapi_resource (ai_model_deployment)</code></li>
 <li><code>azapi_resource (connection_docint)</code></li>
 </ul>
@@ -3509,6 +3510,86 @@
 <li><code>azapi_resource (aca_subnet)</code></li>
 </ul>
 </div>
+<h3 id="hub-tenant-user-management">tenant-user-management</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>=============================================================================</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/tenant-user-management/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (6)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>data.tf</code></li>
+<li><code>locals.tf</code></li>
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>tenant_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Unique identifier for the tenant (used in group/role names)</td>
+</tr>
+<tr>
+<td><code>display_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Human-readable display name for the tenant</td>
+</tr>
+<tr>
+<td><code>app_env</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Application environment (dev, test, prod) — included in group/role names to prevent cross-environment conflicts</td>
+</tr>
+<tr>
+<td><code>resource_group_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Resource group ID for tenant scope role assignments</td>
+</tr>
+<tr>
+<td><code>user_management</code></td>
+<td><code>object({</code></td>
+<td><code>{}</code></td>
+<td>Tenant user management configuration (Entra groups + custom roles)</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>group_object_ids</code></td>
+<td>Object IDs for tenant role groups (empty when create_groups = false)</td>
+</tr>
+<tr>
+<td><code>role_definition_ids</code></td>
+<td>Role definition IDs for tenant custom roles</td>
+</tr>
+<tr>
+<td><code>mode</code></td>
+<td>Assignment mode: 'group' when create_groups=true, 'direct_user' otherwise</td>
+</tr>
+<tr>
+<td><code>direct_user_assignments</code></td>
+<td>Map of direct user role assignments (empty when create_groups = true)</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azuread_group (tenant)</code></li>
+<li><code>azuread_group_member (seed_members)</code></li>
+<li><code>azurerm_role_definition (tenant_admin)</code></li>
+<li><code>azurerm_role_definition (tenant_write)</code></li>
+<li><code>azurerm_role_definition (tenant_read)</code></li>
+<li><code>azurerm_role_assignment (tenant_groups)</code></li>
+<li><code>azurerm_role_assignment (direct_users)</code></li>
+</ul>
+</div>
 <h3 id="hub-tenant">tenant</h3>
 <div class="card" style="border-left-color: #22c55e;">
 <p>Tenant Module - Main Configuration</p>
@@ -3805,86 +3886,6 @@
 <li><code>null_resource (wait_for_dns_speech_services)</code></li>
 </ul>
 </div>
-<h3 id="hub-tenant-user-management">tenant-user-management</h3>
-<div class="card" style="border-left-color: #22c55e;">
-<p>=============================================================================</p>
-<p><strong>Location:</strong> <code>infra-ai-hub/modules/tenant-user-management/</code></p>
-<details>
-<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (6)</summary>
-<ul style="margin-top: 0.5rem;">
-<li><code>data.tf</code></li>
-<li><code>locals.tf</code></li>
-<li><code>main.tf</code></li>
-<li><code>outputs.tf</code></li>
-<li><code>variables.tf</code></li>
-<li><code>versions.tf</code></li>
-</ul>
-</details>
-<h4>Variables</h4>
-<table>
-<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
-<tr>
-<td><code>tenant_name</code></td>
-<td><code>string</code></td>
-<td><code>required</code></td>
-<td>Unique identifier for the tenant (used in group/role names)</td>
-</tr>
-<tr>
-<td><code>display_name</code></td>
-<td><code>string</code></td>
-<td><code>required</code></td>
-<td>Human-readable display name for the tenant</td>
-</tr>
-<tr>
-<td><code>app_env</code></td>
-<td><code>string</code></td>
-<td><code>required</code></td>
-<td>Application environment (dev, test, prod) — included in group/role names to prevent cross-environment conflicts</td>
-</tr>
-<tr>
-<td><code>resource_group_id</code></td>
-<td><code>string</code></td>
-<td><code>required</code></td>
-<td>Resource group ID for tenant scope role assignments</td>
-</tr>
-<tr>
-<td><code>user_management</code></td>
-<td><code>object({</code></td>
-<td><code>{}</code></td>
-<td>Tenant user management configuration (Entra groups + custom roles)</td>
-</tr>
-</table>
-<h4>Outputs</h4>
-<table>
-<tr><th>Name</th><th>Description</th></tr>
-<tr>
-<td><code>group_object_ids</code></td>
-<td>Object IDs for tenant role groups (empty when create_groups = false)</td>
-</tr>
-<tr>
-<td><code>role_definition_ids</code></td>
-<td>Role definition IDs for tenant custom roles</td>
-</tr>
-<tr>
-<td><code>mode</code></td>
-<td>Assignment mode: 'group' when create_groups=true, 'direct_user' otherwise</td>
-</tr>
-<tr>
-<td><code>direct_user_assignments</code></td>
-<td>Map of direct user role assignments (empty when create_groups = true)</td>
-</tr>
-</table>
-<h4>Resources Created</h4>
-<ul>
-<li><code>azuread_group (tenant)</code></li>
-<li><code>azuread_group_member (seed_members)</code></li>
-<li><code>azurerm_role_definition (tenant_admin)</code></li>
-<li><code>azurerm_role_definition (tenant_write)</code></li>
-<li><code>azurerm_role_definition (tenant_read)</code></li>
-<li><code>azurerm_role_assignment (tenant_groups)</code></li>
-<li><code>azurerm_role_assignment (direct_users)</code></li>
-</ul>
-</div>
 <h3 id="hub-waf-policy">waf-policy</h3>
 <div class="card" style="border-left-color: #22c55e;">
 <p>WAF Policy Module</p>
@@ -3975,7 +3976,7 @@
 </tr>
 <tr>
 <td><code>custom_rules</code></td>
-<td><code>list(object(...))</code></td>
+<td><code>"RateLimitRule")</code></td>
 <td><code>[]</code></td>
 <td>Custom WAF rules (MatchRule or RateLimitRule)</td>
 </tr>
