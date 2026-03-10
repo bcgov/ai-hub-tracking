@@ -9,7 +9,7 @@ output "app_service_name" {
 
 output "resource_group_name" {
   description = "The resource group containing the deployed App Service."
-  value       = data.azurerm_resource_group.portal.name
+  value       = azurerm_resource_group.portal.name
 }
 
 output "app_service_default_hostname" {

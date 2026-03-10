@@ -168,6 +168,9 @@ jobs:
     needs: detect-portal-changes
     if: needs.detect-portal-changes.outputs.changed == 'true'
     runs-on: ubuntu-24.04
+    concurrency:
+      group: portal-tests-${{ github.event.number || 'latest' }}
+      cancel-in-progress: true
     timeout-minutes: 20
     steps:
       - name: Checkout repository
@@ -208,8 +211,11 @@ jobs:
 
   deploy-portal-preview:
     name: Deploy pr${{ github.event.number }}-ai-hub-onboarding
-    needs: [detect-portal-changes, test-portal-pr]
-    if: needs.detect-portal-changes.outputs.changed == 'true' && needs.test-portal-pr.result == 'success'
+    needs: [detect-portal-changes]
+    if: needs.detect-portal-changes.outputs.changed == 'true'
+    concurrency:
+      group: portal-preview-${{ github.event.number || 'latest' }}
+      cancel-in-progress: false # avoid terraform state cnflicts
     runs-on: ubuntu-24.04
     environment: tools
     env:
@@ -346,10 +352,10 @@ jobs:
           done
           echo "============================"
 
-          # PR-Description and portal preview are non-blocking (cosmetic / convenience)
+          # PR-Description failures are not critical (often due to missing plan comment artifact) — only fail if other jobs failed
           critical_failures=()
           for f in "${failed[@]}"; do
-            if [[ "$f" != "PR-Description" && "$f" != "Portal-Preview" ]]; then
+            if [[ "$f" != "PR-Description" ]]; then
               critical_failures+=("$f")
             fi
           done
