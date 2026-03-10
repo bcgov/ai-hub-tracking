@@ -77,6 +77,12 @@ BACKEND_DIR="${PORTAL_ROOT}/backend"
 FRONTEND_DIR="${PORTAL_ROOT}/frontend"
 DEFAULT_DEPLOY_ZIP="${PORTAL_ROOT}/portal-deploy.zip"
 NODE_VERSION_FILE="${PORTAL_NODE_VERSION_FILE:-${PORTAL_ROOT}/.node-version}"
+# Resolve relative path to absolute (relative to workspace root = PORTAL_ROOT's parent)
+# Required because the GHA env var is set as a repo-root-relative path but the script may
+# run from a sub-directory (e.g., tenant-onboarding-portal/infra).
+if [[ ! "$NODE_VERSION_FILE" = /* ]]; then
+    NODE_VERSION_FILE="$(cd "${PORTAL_ROOT}/.." && pwd)/${NODE_VERSION_FILE}"
+fi
 
 VALID_ENVIRONMENTS=("dev" "test" "prod" "tools")
 
