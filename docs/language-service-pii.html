@@ -1141,7 +1141,7 @@
     <li>The fragment:
         <ul>
             <li>Obtains an AAD token via <code>&lt;authentication-managed-identity&gt;</code> for <code>https://cognitiveservices.azure.com</code>.</li>
-            <li>Calls Language Service <code>/language/:analyze-text?api-version=2025-11-15-preview</code> with request kind <code>PiiEntityRecognition</code>.</li>
+            <li>Calls Language Service <code>/language/:analyze-text?api-version=2024-11-01</code> with request kind <code>PiiEntityRecognition</code>.</li>
             <li>Uses a CharacterMask redaction policy (mask character <code>#</code>).</li>
             <li>Extracts <code>results.documents[0].redactedText</code> into <code>piiAnonymizedContent</code>.</li>
             <li>Emits diagnostics including status code, entity count, entity types, and whether content changed.</li>

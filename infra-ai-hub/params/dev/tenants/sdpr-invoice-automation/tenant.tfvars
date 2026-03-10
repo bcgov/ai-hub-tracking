@@ -240,7 +240,7 @@ tenant = {
       tokens_per_minute = 1000
     }
     pii_redaction = {
-      enabled     = true
+      enabled     = false
       fail_closed = true # Block requests if PII service fails (not applicable when disabled)
     }
     usage_logging = {

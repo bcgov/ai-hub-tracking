@@ -392,11 +392,11 @@ Detect and mask PII in text content using Language Service PII entity recognitio
 - Deletes any `api-key` header
 
 **API Call:**
-- Endpoint: `{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview`
+- Endpoint: `{{piiServiceUrl}}/language/:analyze-text?api-version=2024-11-01`
 - Method: `POST`
 - Timeout: `20` seconds
 - `ignore-error="true"` (errors are handled with fallback behavior)
-- API version `2025-11-15-preview` is documented at [Microsoft Learn: PII Detection](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/overview)
+- API version `2024-11-01` is documented at [Microsoft Learn: PII Detection](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/overview)
 
 **Request Body (high level):**
 - `kind`: `PiiEntityRecognition`
