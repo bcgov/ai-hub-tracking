@@ -1,0 +1,70 @@
+# =============================================================================
+# PR Close – Destroy Portal Preview
+# =============================================================================
+# Tears down the pr<N>-ai-hub-onboarding App Service created by pr-open.yml.
+# Runs on every PR close regardless of whether it was merged or abandoned.
+# Idempotent: exits 0 when no Terraform state exists (PR was never deployed).
+#
+# Uses the 'tools' GitHub Environment — same OIDC credentials and backend
+# secrets as the deploy jobs in pr-open.yml. No extra secrets required.
+# =============================================================================
+
+name: PR Close – Destroy Portal Preview
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  TF_VERSION: 1.12.2
+  TF_WORKING_DIR: tenant-onboarding-portal/infra
+
+jobs:
+  destroy-portal-preview:
+    name: Destroy pr${{ github.event.number }}-ai-hub-onboarding
+    runs-on: ubuntu-24.04
+    environment: tools
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+      
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform destroy
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          CI: "true"
+          ARM_USE_OIDC: "true"
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+          PORTAL_STATE_KEY: portal/pr${{ github.event.number }}/terraform.tfstate
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_location: "Canada Central"
+          TF_VAR_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
+          TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          TF_VAR_app_name_override: "pr${{ github.event.number }}-ai-hub-onboarding"
+          TF_VAR_sku_name: "B1"
+          TF_VAR_enable_always_on: "true"
+          TF_VAR_enable_table_rbac: "false"
+        run: bash ./deploy-terraform.sh destroy tools --auto-approve --no-var-file

@@ -25,9 +25,12 @@ jobs:
         uses: actions/checkout@v6
         with:
           fetch-depth: 0
-
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: 24
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_version: 1.12.2
 
@@ -38,6 +41,11 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.13"
+
+      - name: Install portal dependencies
+        run: |
+          npm ci --prefix tenant-onboarding-portal/frontend
+          npm ci --prefix tenant-onboarding-portal/backend
 
       - name: Install pre-commit
         run: python -m pip install --upgrade pre-commit

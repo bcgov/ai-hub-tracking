@@ -8,3 +8,17 @@ repos:
         entry: python .github/scripts/terraform_lint.py
         language: system
         files: ^(initial-setup/infra|infra-ai-hub)/.*\.tf$
+
+      - id: portal-frontend-lint
+        name: Portal Frontend ESLint + Prettier check
+        entry: bash -c 'cd tenant-onboarding-portal/frontend && npm run lint && npm run format:check'
+        language: system
+        files: ^tenant-onboarding-portal/frontend/.*\.(ts|tsx)$
+        pass_filenames: false
+
+      - id: portal-backend-lint
+        name: Portal Backend ESLint + Prettier check
+        entry: bash -c 'cd tenant-onboarding-portal/backend && npm run lint && npm run format:check'
+        language: system
+        files: ^tenant-onboarding-portal/backend/.*\.ts$
+        pass_filenames: false

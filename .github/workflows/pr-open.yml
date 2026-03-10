@@ -1,6 +1,7 @@
 name: PR # Build Containers on PR Open
 on:
   pull_request:
+    types: [opened, synchronize, reopened]
 
   workflow_dispatch:
 
@@ -9,6 +10,9 @@ permissions:
   contents: write # This is required for actions/checkout
   packages: write
   pull-requests: write
+
+env:
+  PORTAL_NODE_VERSION_FILE: tenant-onboarding-portal/.node-version
 
 jobs:
   lint:
@@ -125,10 +129,200 @@ jobs:
 
             await github.rest.pulls.update({ owner, repo, pull_number, body: newBody });
 
+  # ---------------------------------------------------------------------------
+  # Portal Preview: detect changes → test → apply/deploy → update PR comment.
+  # Only runs on actual pull_request events (not workflow_dispatch).
+  # Uses the 'tools' GitHub Environment for Azure OIDC credentials and secrets.
+  # Each PR gets its own B1 App Service Plan + App Service (destroyed on close).
+  # Secrets required in the 'tools' environment:
+  # Variables required in the 'tools' environment:
+  #   PORTAL_RESOURCE_GROUP – resource group to deploy preview App Services into
+  #   PORTAL_LOCATION       – Azure region (e.g. canadacentral)
+  # ---------------------------------------------------------------------------
+  detect-portal-changes:
+    name: Detect portal changes
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'pull_request'
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+    steps:
+      - name: Checkout (with full history for diff)
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Check for changes in tenant-onboarding-portal
+        id: diff
+        run: |
+          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
+            -- tenant-onboarding-portal/ | wc -l | tr -d ' ')
+          echo "Portal files changed: ${CHANGED}"
+          if [[ "${CHANGED}" -gt 0 ]]; then
+            echo "changed=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  test-portal-pr:
+    name: Test portal (backend + frontend + Playwright)
+    needs: detect-portal-changes
+    if: needs.detect-portal-changes.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    concurrency:
+      group: portal-tests-${{ github.event.number || 'latest' }}
+      cancel-in-progress: true
+    timeout-minutes: 20
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ${{ env.PORTAL_NODE_VERSION_FILE }}
+          cache: npm
+          cache-dependency-path: |
+            tenant-onboarding-portal/backend/package-lock.json
+            tenant-onboarding-portal/frontend/package-lock.json
+
+      - name: Install backend dependencies
+        working-directory: tenant-onboarding-portal/backend
+        run: npm ci
+
+      - name: Install frontend dependencies
+        working-directory: tenant-onboarding-portal/frontend
+        run: npm ci
+
+      - name: Run backend unit tests
+        working-directory: tenant-onboarding-portal/backend
+        run: npm test
+
+      - name: Run frontend unit tests
+        working-directory: tenant-onboarding-portal/frontend
+        run: npm test
+
+      - name: Install Playwright browsers
+        working-directory: tenant-onboarding-portal/backend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E against dev servers
+        working-directory: tenant-onboarding-portal/backend
+        run: npm run e2e:dev
+
+  deploy-portal-preview:
+    name: Deploy pr${{ github.event.number }}-ai-hub-onboarding
+    needs: [detect-portal-changes]
+    if: needs.detect-portal-changes.outputs.changed == 'true'
+    concurrency:
+      group: portal-preview-${{ github.event.number || 'latest' }}
+      cancel-in-progress: false # avoid terraform state cnflicts
+    runs-on: ubuntu-24.04
+    environment: tools
+    env:
+      TF_VERSION: 1.12.2
+      TF_WORKING_DIR: tenant-onboarding-portal/infra
+    outputs:
+      app_service_name: ${{ steps.apply.outputs.app_service_name }}
+      app_hostname: ${{ steps.apply.outputs.app_hostname }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: ${{ env.PORTAL_NODE_VERSION_FILE }}
+          cache: npm
+          cache-dependency-path: |
+            tenant-onboarding-portal/backend/package-lock.json
+            tenant-onboarding-portal/frontend/package-lock.json
+
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform apply
+        id: apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          CI: "true"
+          ARM_USE_OIDC: "true"
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+          PORTAL_STATE_KEY: portal/pr${{ github.event.number }}/terraform.tfstate
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_location: "Canada Central"
+          TF_VAR_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
+          TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          TF_VAR_app_name_override: "pr${{ github.event.number }}-ai-hub-onboarding"
+          TF_VAR_sku_name: "B1"
+          TF_VAR_enable_always_on: "true"
+          TF_VAR_oidc_discovery_url: "https://dev.loginproxy.gov.bc.ca/auth/realms/standard/.well-known/openid-configuration"
+          TF_VAR_oidc_client_id: "ai-hub-admin-portal-6366"
+          TF_VAR_oidc_client_secret: ${{ secrets.PORTAL_NONPROD_OIDC_CLIENT_SECRET }}
+          TF_VAR_enable_table_rbac: "false"
+          PORTAL_NODE_VERSION_FILE: ${{ env.PORTAL_NODE_VERSION_FILE }}
+        run: bash ./deploy-terraform.sh apply tools --auto-approve --no-var-file --timeout=600 --timeout=600
+
+      - name: Update PR comment with preview URL
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const hostname   = "${{ steps.apply.outputs.app_hostname }}";
+            const appName    = "${{ steps.apply.outputs.app_service_name }}";
+            const previewUrl = `https://${hostname}`;
+            const marker     = '<!-- portal-preview-url -->';
+            const body = [
+              marker,
+              '## Portal Preview',
+              '',
+              '| | |',
+              '|---|---|',
+              `| Preview URL | ${previewUrl} |`,
+              `| App Service | \`${appName}\` |`,
+              '| Mode | Dev auto-login (no Keycloak) |',
+              '',
+              `_Deployed by run [#${context.runNumber}](${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}) — destroyed automatically on PR close._`,
+              marker,
+            ].join('\n');
+            const { owner, repo } = context.repo;
+            const prNum = context.payload.pull_request.number;
+            const { data: comments } = await github.rest.issues.listComments({ owner, repo, issue_number: prNum });
+            const existing = comments.find(c => c.body && c.body.includes(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number: prNum, body });
+            }
+
   result:
     name: Final Result
     if: always()
-    needs: [lint, builds, plan-against-test-environment, update-pr-description]
+    needs:
+      [
+        lint,
+        builds,
+        plan-against-test-environment,
+        update-pr-description,
+        test-portal-pr,
+        deploy-portal-preview,
+      ]
     runs-on: ubuntu-24.04
     steps:
       - name: Report Status
@@ -141,11 +335,13 @@ jobs:
             [Builds]="${{ needs.builds.result }}"
             [Plan]="${{ needs.plan-against-test-environment.result }}"
             [PR-Description]="${{ needs.update-pr-description.result }}"
+            [Portal-Tests]="${{ needs.test-portal-pr.result }}"
+            [Portal-Preview]="${{ needs.deploy-portal-preview.result }}"
           )
 
           echo "===== PR Check Results ====="
           failed=()
-          for job in Lint Builds Plan PR-Description; do
+          for job in Lint Builds Plan PR-Description Portal-Tests Portal-Preview; do
             status="${results[$job]}"
             if [[ "$status" == "success" || "$status" == "skipped" ]]; then
               echo "  ✅ ${job}: ${status}"
@@ -156,7 +352,7 @@ jobs:
           done
           echo "============================"
 
-          # PR-Description is non-blocking (only cosmetic)
+          # PR-Description failures are not critical (often due to missing plan comment artifact) — only fail if other jobs failed
           critical_failures=()
           for f in "${failed[@]}"; do
             if [[ "$f" != "PR-Description" ]]; then
