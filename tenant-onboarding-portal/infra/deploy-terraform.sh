@@ -220,6 +220,14 @@ has_command() {
     command -v "$1" &> /dev/null
 }
 
+is_windows_environment() {
+    # True in WSL (wslpath available) or Git Bash (pwd -W works).
+    # pwsh alone is NOT sufficient — it is also present on GHA Linux runners.
+    has_command wslpath && return 0
+    (cd "$PORTAL_ROOT" && pwd -W >/dev/null 2>&1) && return 0
+    return 1
+}
+
 package_temp_parent() {
     local temp_root
 
@@ -248,7 +256,7 @@ to_windows_path() {
         return 0
     fi
 
-    log_error "Unable to convert path to Windows format: ${target_path}"
+    log_error "to_windows_path called outside a Windows/WSL environment; call is_windows_environment() before invoking this function"
     exit 1
 }
 
@@ -649,17 +657,17 @@ validate_deployment_zip() {
     local windows_zip_path=""
     local validation_script=""
 
+    # Windows-style path validation is only meaningful in WSL/Git Bash environments.
+    # On native Linux (GHA runners, CI), zip always produces POSIX paths — no validation needed.
+    if ! is_windows_environment(); then
+        return 0
+    fi
+
     if has_command powershell.exe; then
         shell_bin="powershell.exe"
     elif has_command pwsh; then
         shell_bin="pwsh"
     else
-        return 0
-    fi
-
-    # The Windows-style path validation is only relevant when PowerShell created the zip.
-    # Native Linux zip always produces forward-slash paths, so skip validation there.
-    if has_command zip; then
         return 0
     fi
 
@@ -757,7 +765,11 @@ deploy_portal_app() {
         exit 1
     fi
 
-    deploy_zip_path="$(to_windows_path "$ZIP_PATH")"
+    if is_windows_environment; then
+        deploy_zip_path="$(to_windows_path "$ZIP_PATH")"
+    else
+        deploy_zip_path="$ZIP_PATH"
+    fi
 
     log_info "Disabling SCM build during deployment for self-contained package..."
     local -a delete_appsettings_args=(
