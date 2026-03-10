@@ -193,7 +193,7 @@ jobs:
           TF_VAR_oidc_discovery_url: https://loginproxy.gov.bc.ca/auth/realms/standard/.well-known/openid-configuration
           TF_VAR_oidc_client_id: ai-hub-admin-portal-6366
           TF_VAR_oidc_client_secret: ${{ secrets.PORTAL_PROD_OIDC_CLIENT_SECRET }}
-          # Enable staging slot for zero-downtime slot-swap on the P0v4 ASP.
-          TF_VAR_enable_deployment_slot: "true"
+          # Staging slot disabled - blocked by Deny-AppSlots-Public policy (public network access).
+          TF_VAR_enable_deployment_slot: "false"
           PORTAL_NODE_VERSION_FILE: ${{ env.PORTAL_NODE_VERSION_FILE }}
         run: bash ./deploy-terraform.sh apply tools --auto-approve --no-var-file
