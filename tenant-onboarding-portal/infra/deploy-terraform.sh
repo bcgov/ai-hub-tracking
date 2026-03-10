@@ -38,7 +38,7 @@
 #   --health-path=<path>       Health endpoint path (default: /healthz)
 #   --health-retries=<count>   Number of health check attempts (default: 12)
 #   --health-interval=<secs>   Delay between health checks (default: 10)
-#   --timeout=<secs>           Azure deploy timeout in seconds (default: 300)
+#   --timeout=<secs>           Azure deploy timeout in seconds (default: 600)
 #   --infra-only               Skip app package/deploy after terraform apply
 #
 # Environment Variables:
@@ -112,7 +112,7 @@ HOSTNAME="${PORTAL_APP_HOSTNAME:-}"
 HEALTH_PATH="/healthz"
 HEALTH_RETRIES=12
 HEALTH_INTERVAL=10
-DEPLOY_TIMEOUT=300
+DEPLOY_TIMEOUT=600
 SKIP_APP_DEPLOY=false
 APPLY_RESOURCE_GROUP=""
 APPLY_APP_NAME=""
@@ -174,7 +174,7 @@ Options:
     --health-path=<path>       Health endpoint path (default: /healthz)
     --health-retries=<count>   Number of health check attempts (default: 12)
     --health-interval=<secs>   Delay between health checks (default: 10)
-    --timeout=<secs>           Azure deploy timeout in seconds (default: 300)
+    --timeout=<secs>           Azure deploy timeout in seconds (default: 600)
     --infra-only               Skip app package/deploy after terraform apply
 
 Examples:

@@ -277,7 +277,7 @@ jobs:
           TF_VAR_oidc_client_secret: ${{ secrets.PORTAL_NONPROD_OIDC_CLIENT_SECRET }}
           TF_VAR_enable_table_rbac: "false"
           PORTAL_NODE_VERSION_FILE: ${{ env.PORTAL_NODE_VERSION_FILE }}
-        run: bash ./deploy-terraform.sh apply tools --auto-approve --no-var-file
+        run: bash ./deploy-terraform.sh apply tools --auto-approve --no-var-file --timeout=600 --timeout=600
 
       - name: Update PR comment with preview URL
         if: github.event_name == 'pull_request'
