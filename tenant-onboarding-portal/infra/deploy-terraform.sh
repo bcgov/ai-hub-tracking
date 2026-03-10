@@ -659,7 +659,7 @@ validate_deployment_zip() {
 
     # Windows-style path validation is only meaningful in WSL/Git Bash environments.
     # On native Linux (GHA runners, CI), zip always produces POSIX paths — no validation needed.
-    if ! is_windows_environment(); then
+    if ! is_windows_environment; then
         return 0
     fi
 
