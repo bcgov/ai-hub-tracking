@@ -105,6 +105,7 @@ tenant = {
         model_version = "2025-04-14"
         scale_type    = "GlobalStandard"
         capacity      = 300 # 1% of 30,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
         name          = "gpt-4.1-mini"
@@ -112,6 +113,7 @@ tenant = {
         model_version = "2025-04-14"
         scale_type    = "GlobalStandard"
         capacity      = 1500 # 1% of 150,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
         name          = "gpt-4.1-nano"
@@ -119,6 +121,7 @@ tenant = {
         model_version = "2025-04-14"
         scale_type    = "GlobalStandard"
         capacity      = 1500 # 1% of 150,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # GPT-4o Series
       {
@@ -127,6 +130,7 @@ tenant = {
         model_version = "2024-11-20"
         scale_type    = "GlobalStandard"
         capacity      = 300 # 1% of 30,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
         name          = "gpt-4o-mini"
@@ -134,6 +138,7 @@ tenant = {
         model_version = "2024-07-18"
         scale_type    = "GlobalStandard"
         capacity      = 1500 # 1% of 150,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # GPT-5 Series
       {
@@ -142,6 +147,7 @@ tenant = {
         model_version = "2025-08-07"
         scale_type    = "GlobalStandard"
         capacity      = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
         name          = "gpt-5-nano"
@@ -149,6 +155,7 @@ tenant = {
         model_version = "2025-08-07"
         scale_type    = "GlobalStandard"
         capacity      = 1500 # 1% of 150,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # GPT-5.1 Series
       {
@@ -157,6 +164,7 @@ tenant = {
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
         capacity      = 50 # 1% of 5,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
         name          = "gpt-5.1-codex-mini"
@@ -164,6 +172,7 @@ tenant = {
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
         capacity      = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # Reasoning Models
       {
@@ -172,6 +181,7 @@ tenant = {
         model_version = "2024-12-17"
         scale_type    = "GlobalStandard"
         capacity      = 50 # 1% of 5,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
         name          = "o3-mini"
@@ -179,6 +189,7 @@ tenant = {
         model_version = "2025-01-31"
         scale_type    = "GlobalStandard"
         capacity      = 50 # 1% of 5,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
         name          = "o4-mini"
@@ -186,6 +197,7 @@ tenant = {
         model_version = "2025-04-16"
         scale_type    = "GlobalStandard"
         capacity      = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # Embeddings
       {
@@ -194,6 +206,7 @@ tenant = {
         model_version = "2"
         scale_type    = "GlobalStandard"
         capacity      = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
         name          = "text-embedding-3-large"
@@ -201,6 +214,7 @@ tenant = {
         model_version = "1"
         scale_type    = "GlobalStandard"
         capacity      = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
         name          = "text-embedding-3-small"
@@ -208,6 +222,7 @@ tenant = {
         model_version = "1"
         scale_type    = "GlobalStandard"
         capacity      = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
     ]
   }
