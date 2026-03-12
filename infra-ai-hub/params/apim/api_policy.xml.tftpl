@@ -399,6 +399,34 @@
                 <set-header name="api-key" exists-action="delete" />
             </when>
 %{ endif ~}
+%{ if openai_enabled ~}
+            <!-- Mistral AI requests: /providers/mistral/* -->
+            <!-- Routes to the shared AI Foundry Hub — same backend as OpenAI. -->
+            <!-- The model name in the request body is prefixed with the tenant name -->
+            <!-- (e.g., "mistral-document-ai-2512" → "${tenant_name}-mistral-document-ai-2512"). -->
+            <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;providers/mistral&quot;))">
+                <set-backend-service backend-id="${tenant_name}-openai" />
+                <!-- Prefix model name in request body with tenant name -->
+                <set-body>@{
+                    try {
+                        var body = context.Request.Body.As<JObject>(preserveContent: true);
+                        var model = body?["model"]?.ToString();
+                        if (model != null && !model.StartsWith("${tenant_name}-"))
+                        {
+                            body["model"] = "${tenant_name}-" + model;
+                        }
+                        return body?.ToString() ?? context.Request.Body.As<string>(preserveContent: true);
+                    } catch {
+                        return context.Request.Body.As<string>(preserveContent: true);
+                    }
+                }</set-body>
+                <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
+                <set-header name="Authorization" exists-action="override">
+                    <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
+                </set-header>
+                <set-header name="api-key" exists-action="delete" />
+            </when>
+%{ endif ~}
 %{ if speech_services_enabled ~}
             <!-- Speech STT requests: speech/recognition -->
             <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;speech/recognition&quot;) || context.Request.Url.Path.ToLower().Contains(&quot;/stt/&quot;))">

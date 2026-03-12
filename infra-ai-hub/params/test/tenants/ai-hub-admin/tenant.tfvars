@@ -294,8 +294,8 @@ tenant = {
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
 
-      # Mistral Models (format auto-detected as "MistralAI" via model_format_prefixes in foundry stack)
-      # MaaS serverless (pay-per-token) — quota is not tracked; capacity = 10 → 10k TPM APIM rate limit.
+      # Mistral Models (format auto-detected as "Mistral AI" via model_format_prefixes in foundry stack)
+      # MaaS serverless (pay-per-token) — capacity must be 1 (Azure enforces max=1 for MaaS deployments).
 
       # Chat / Multimodal
       {
@@ -303,7 +303,7 @@ tenant = {
         model_name     = "Mistral-Large-3"
         model_version  = "1"
         scale_type     = "GlobalStandard"
-        capacity       = 10 # quota not tracked
+        capacity       = 1 # MaaS: must be 1
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
@@ -311,7 +311,7 @@ tenant = {
         model_name     = "mistral-medium-2505"
         model_version  = "1"
         scale_type     = "GlobalStandard"
-        capacity       = 10 # quota not tracked
+        capacity       = 1 # MaaS: must be 1
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
@@ -319,7 +319,7 @@ tenant = {
         model_name     = "mistral-small-2503"
         model_version  = "1"
         scale_type     = "GlobalStandard"
-        capacity       = 10 # quota not tracked
+        capacity       = 1 # MaaS: must be 1
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
 
@@ -329,7 +329,7 @@ tenant = {
         model_name     = "Codestral-2501"
         model_version  = "2"
         scale_type     = "GlobalStandard"
-        capacity       = 10 # quota not tracked
+        capacity       = 1 # MaaS: must be 1
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
 
@@ -339,7 +339,7 @@ tenant = {
         model_name     = "mistral-ocr-2503"
         model_version  = "1"
         scale_type     = "GlobalStandard"
-        capacity       = 10 # quota not tracked
+        capacity       = 1 # MaaS: must be 1
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
@@ -347,7 +347,7 @@ tenant = {
         model_name     = "mistral-document-ai-2505"
         model_version  = "1"
         scale_type     = "GlobalStandard"
-        capacity       = 10 # quota not tracked
+        capacity       = 1 # MaaS: must be 1
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
@@ -355,7 +355,7 @@ tenant = {
         model_name     = "mistral-document-ai-2512"
         model_version  = "1"
         scale_type     = "GlobalStandard"
-        capacity       = 10 # quota not tracked
+        capacity       = 1 # MaaS: must be 1
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
     ]

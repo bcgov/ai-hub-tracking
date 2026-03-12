@@ -100,13 +100,13 @@ All 7 Mistral models are serverless MaaS (pay-per-token). Quota is not tracked; 
 
 | Model | Kind | Quota Limit | ai-hub-admin |
 |-------|------|------------:|-------------:|
-| Mistral-Large-3 | Chat / Vision | not tracked | 10 |
-| mistral-medium-2505 | Chat / Vision | not tracked | 10 |
-| mistral-small-2503 | Chat | not tracked | 10 |
-| Codestral-2501 | Code Completion | not tracked | 10 |
-| mistral-ocr-2503 | OCR | not tracked | 10 |
-| mistral-document-ai-2505 | Document AI | not tracked | 10 |
-| mistral-document-ai-2512 | Document AI | not tracked | 10 |
+| Mistral-Large-3 | Chat / Vision | not tracked | 1 |
+| mistral-medium-2505 | Chat / Vision | not tracked | 1 |
+| mistral-small-2503 | Chat | not tracked | 1 |
+| Codestral-2501 | Code Completion | not tracked | 1 |
+| mistral-ocr-2503 | OCR | not tracked | 1 |
+| mistral-document-ai-2505 | Document AI | not tracked | 1 |
+| mistral-document-ai-2512 | Document AI | not tracked | 1 |
 
 > ¹ `ai-hub-admin / gpt-5.1-chat` uses a custom content filter policy (`ai-hub-admin-gpt-5.1-chat-filter`). See [Content Filters](#content-filters-rai-policies) below.
 
