@@ -296,6 +296,9 @@ tenant = {
 
       # Mistral Models (format auto-detected as "Mistral AI" via model_format_prefixes in foundry stack)
       # MaaS serverless (pay-per-token) — capacity must be 1 (Azure enforces max=1 for MaaS deployments).
+      # Excluded models:
+      #   mistral-medium-2505, mistral-small-2503, Codestral-2501 — not in BC Gov Private Marketplace (UserError)
+      #   mistral-ocr-2503                                         — DeploymentModelNotSupported in Canada East
 
       # Chat / Multimodal
       {
@@ -306,42 +309,7 @@ tenant = {
         capacity       = 1 # MaaS: must be 1
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
-      {
-        name           = "mistral-medium-2505"
-        model_name     = "mistral-medium-2505"
-        model_version  = "1"
-        scale_type     = "GlobalStandard"
-        capacity       = 1 # MaaS: must be 1
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
-      {
-        name           = "mistral-small-2503"
-        model_name     = "mistral-small-2503"
-        model_version  = "1"
-        scale_type     = "GlobalStandard"
-        capacity       = 1 # MaaS: must be 1
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
-
-      # Code
-      {
-        name           = "Codestral-2501"
-        model_name     = "Codestral-2501"
-        model_version  = "2"
-        scale_type     = "GlobalStandard"
-        capacity       = 1 # MaaS: must be 1
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
-
       # OCR / Document AI
-      {
-        name           = "mistral-ocr-2503"
-        model_name     = "mistral-ocr-2503"
-        model_version  = "1"
-        scale_type     = "GlobalStandard"
-        capacity       = 1 # MaaS: must be 1
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
       {
         name           = "mistral-document-ai-2505"
         model_name     = "mistral-document-ai-2505"

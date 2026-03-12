@@ -51,10 +51,6 @@ Mistral models are serverless MaaS (pay-per-token). Quota is not tracked per reg
 | Model | Kind | Quota Limit |
 |-------|------|------------:|
 | Mistral-Large-3 | Chat / Vision | not tracked |
-| mistral-medium-2505 | Chat / Vision | not tracked |
-| mistral-small-2503 | Chat | not tracked |
-| Codestral-2501 | Code Completion | not tracked |
-| mistral-ocr-2503 | OCR | not tracked |
 | mistral-document-ai-2505 | Document AI | not tracked |
 | mistral-document-ai-2512 | Document AI | not tracked |
 
@@ -96,15 +92,15 @@ The following 6 models were tested and excluded:
 
 ### Mistral Models (ai-hub-admin only)
 
-All 7 Mistral models are serverless MaaS (pay-per-token). Quota is not tracked; `capacity = 1` is a placeholder allocation.
+The following 4 models were tested and excluded:
+- `mistral-medium-2505`, `mistral-small-2503`, `Codestral-2501` — **not in BC Gov Private Marketplace** (`Error`)
+- `mistral-ocr-2503` — **not supported** (`DeploymentModelNotSupported`)
+
+3 Mistral models are serverless MaaS (pay-per-token). Quota is not tracked; `capacity = 1` is a placeholder allocation.
 
 | Model | Kind | Quota Limit | ai-hub-admin |
 |-------|------|------------:|-------------:|
 | Mistral-Large-3 | Chat / Vision | not tracked | 1 |
-| mistral-medium-2505 | Chat / Vision | not tracked | 1 |
-| mistral-small-2503 | Chat | not tracked | 1 |
-| Codestral-2501 | Code Completion | not tracked | 1 |
-| mistral-ocr-2503 | OCR | not tracked | 1 |
 | mistral-document-ai-2505 | Document AI | not tracked | 1 |
 | mistral-document-ai-2512 | Document AI | not tracked | 1 |
 
