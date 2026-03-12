@@ -1,5 +1,6 @@
 import {
   Body,
+  ConflictException,
   Controller,
   ForbiddenException,
   Get,
@@ -11,6 +12,7 @@ import {
   Query,
   Req,
   Res,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 
@@ -18,9 +20,20 @@ import { AuthSessionService } from './auth/session.service';
 import { TokenValidatorService } from './auth/token-validator.service';
 import { FORM_SCHEMA } from './models/form-schema';
 import { parseTenantForm } from './models/tenant-form';
+import { HubKeyVaultService } from './services/hub-keyvault.service';
 import { generateAllEnvTfvars } from './services/tfvars-generator';
 import { TenantStoreService } from './storage/tenant-store.service';
-import type { PortalUser } from './types';
+import { getSettings } from './config/settings';
+import type {
+  ApimTenantInfoModel,
+  ApimTenantInfoResponse,
+  HubEnv,
+  PortalUser,
+  RawApimTenantInfoModel,
+  RawApimTenantInfoResponse,
+  TenantFormData,
+  TenantRecord,
+} from './types';
 
 @Controller()
 export class AppController {
@@ -30,6 +43,7 @@ export class AppController {
    * @param authSession - Manages session creation, refresh, and teardown.
    * @param tokenValidator - Validates and decodes bearer tokens.
    * @param tenantStore - Provides read and write access to tenant records.
+   * @param hubKeyVault - Retrieves APIM credentials from Azure Key Vault per hub environment.
    */
   constructor(
     @Inject(AuthSessionService)
@@ -38,6 +52,8 @@ export class AppController {
     private readonly tokenValidator: TokenValidatorService,
     @Inject(TenantStoreService)
     private readonly tenantStore: TenantStoreService,
+    @Inject(HubKeyVaultService)
+    private readonly hubKeyVault: HubKeyVaultService,
   ) {}
 
   /**
@@ -164,7 +180,7 @@ export class AppController {
   @Get('api/tenants')
   async listTenants(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
     const user = await this.requireLogin(request, response);
-    return { items: await this.tenantStore.listByUser(user.email) };
+    return { items: await this.tenantStore.listAccessibleByUser(user.email) };
   }
 
   /**
@@ -220,7 +236,11 @@ export class AppController {
     if (!tenant) {
       throw new NotFoundException('Tenant not found');
     }
-    if (tenant.SubmittedBy !== user.email && !this.tokenValidator.userHasAdminAccess(user)) {
+    if (
+      tenant.SubmittedBy !== user.email &&
+      !this.tokenValidator.userHasAdminAccess(user) &&
+      !this.userIsTenantAdmin(user.email, tenant)
+    ) {
       throw new ForbiddenException('Access denied');
     }
 
@@ -373,6 +393,168 @@ export class AppController {
       payload?.review_notes ?? '',
     );
     return { status: 'rejected' };
+  }
+
+  /**
+   * Returns the APIM primary/secondary keys and rotation metadata for an approved tenant.
+   *
+   * @param tenantName - Route parameter identifying the tenant.
+   * @param env - Query parameter specifying the hub environment (`dev`, `test`, or `prod`).
+   * @param request - The incoming HTTP request used to authenticate the caller.
+   * @param response - The outgoing HTTP response used to set cache-control headers.
+   * @returns The {@link ApimEnvCredentials} for the requested environment.
+   */
+  @Get('api/tenants/:tenantName/credentials')
+  async getTenantCredentials(
+    @Param('tenantName') tenantName: string,
+    @Query('env') env: string,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const user = await this.requireLogin(request, response);
+    const tenant = await this.tenantStore.getCurrent(tenantName);
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    const isAdmin = this.tokenValidator.userHasAdminAccess(user);
+    if (
+      !isAdmin &&
+      tenant.SubmittedBy !== user.email &&
+      !this.userIsTenantAdmin(user.email, tenant)
+    ) {
+      throw new ForbiddenException('Access denied');
+    }
+    if (tenant.Status !== 'approved') throw new ConflictException('Tenant is not approved');
+    const hubEnv = env as HubEnv;
+    const credentials = await this.hubKeyVault.getTenantApimKeys(tenantName, hubEnv);
+    if (!credentials)
+      throw new ServiceUnavailableException('Credentials not available for this environment');
+    (response as Response).setHeader('Cache-Control', 'no-store');
+    return credentials;
+  }
+
+  /**
+   * Proxies a tenant-info request to the APIM internal endpoint for the given environment.
+   *
+   * @param tenantName - Route parameter identifying the tenant.
+   * @param env - Query parameter specifying the hub environment (`dev`, `test`, or `prod`).
+   * @param request - The incoming HTTP request used to authenticate the caller.
+   * @param response - The outgoing HTTP response used to forward the upstream status code.
+   * @returns A normalized tenant-info payload used by the portal frontend.
+   */
+  @Get('api/tenants/:tenantName/tenant-info')
+  async getTenantInfo(
+    @Param('tenantName') tenantName: string,
+    @Query('env') env: string,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const user = await this.requireLogin(request, response);
+    const tenant = await this.tenantStore.getCurrent(tenantName);
+    if (!tenant) throw new NotFoundException('Tenant not found');
+    const isAdmin = this.tokenValidator.userHasAdminAccess(user);
+    if (
+      !isAdmin &&
+      tenant.SubmittedBy !== user.email &&
+      !this.userIsTenantAdmin(user.email, tenant)
+    ) {
+      throw new ForbiddenException('Access denied');
+    }
+    if (tenant.Status !== 'approved') throw new ConflictException('Tenant is not approved');
+    const hubEnv = env as HubEnv;
+    const credentials = await this.hubKeyVault.getTenantApimKeys(tenantName, hubEnv);
+    if (!credentials)
+      throw new ServiceUnavailableException('APIM not configured for this environment');
+    const settings = getSettings();
+    const apimUrl = {
+      dev: settings.apimGatewayUrlDev,
+      test: settings.apimGatewayUrlTest,
+      prod: settings.apimGatewayUrlProd,
+    }[hubEnv];
+    if (!apimUrl)
+      throw new ServiceUnavailableException('APIM URL not configured for this environment');
+    const infoUrl = `${apimUrl}/${tenantName}/internal/tenant-info`;
+    const apimResp = await fetch(infoUrl, { headers: { 'api-key': credentials.primary_key } });
+    (response as Response).status(apimResp.status);
+    const payload = (await apimResp.json()) as RawApimTenantInfoResponse;
+    return this.normalizeTenantInfoResponse(payload);
+  }
+
+  /**
+   * Normalizes the raw APIM tenant-info payload into the stable portal DTO.
+   *
+   * @param payload - Raw JSON returned by the upstream APIM tenant-info endpoint.
+   * @returns A sanitized tenant-info response for the frontend.
+   */
+  private normalizeTenantInfoResponse(payload: RawApimTenantInfoResponse): ApimTenantInfoResponse {
+    const models = Array.isArray(payload.models)
+      ? payload.models.map((model) => this.normalizeTenantInfoModel(model))
+      : [];
+
+    const services = Object.fromEntries(
+      Object.entries(payload.services ?? {}).map(([serviceName, service]) => [
+        serviceName,
+        { enabled: Boolean(service?.enabled) },
+      ]),
+    );
+
+    return {
+      tenant: payload.tenant ?? '',
+      base_url: payload.base_url ?? '',
+      models,
+      services,
+    };
+  }
+
+  /**
+   * Normalizes a raw APIM model entry for portal display.
+   *
+   * @param model - Raw model payload returned by the upstream APIM tenant-info endpoint.
+   * @returns A simplified model object with stable display fields.
+   */
+  private normalizeTenantInfoModel(model: RawApimTenantInfoModel): ApimTenantInfoModel {
+    const deployment =
+      model.deployment ?? model.name ?? model.endpoints?.openai_compatible?.model ?? 'Unknown';
+
+    return {
+      name: model.model_name ?? model.name ?? deployment,
+      deployment,
+      capacity: this.formatTenantInfoCapacity(model),
+      scale_type: model.scale_type ?? 'Not available',
+      model_version: model.model_version ?? 'Not available',
+    };
+  }
+
+  /**
+   * Formats APIM capacity fields into a stable user-facing string.
+   *
+   * @param model - Raw model payload returned by the upstream APIM tenant-info endpoint.
+   * @returns Formatted capacity string.
+   */
+  private formatTenantInfoCapacity(model: RawApimTenantInfoModel): string {
+    if (typeof model.capacity_k_tpm === 'number') {
+      return `${model.capacity_k_tpm}k TPM`;
+    }
+
+    if (typeof model.tokens_per_minute === 'number') {
+      return `${new Intl.NumberFormat('en-CA').format(model.tokens_per_minute)} TPM`;
+    }
+
+    if (typeof model.capacity === 'number') {
+      return new Intl.NumberFormat('en-CA').format(model.capacity);
+    }
+
+    return 'Not available';
+  }
+
+  /**
+   * Checks whether the given user e-mail address appears in the tenant's admin_users list.
+   *
+   * @param userEmail - The e-mail address of the authenticated user.
+   * @param tenant - The tenant record whose form data is inspected.
+   * @returns `true` if the user is listed as a tenant admin, `false` otherwise.
+   */
+  private userIsTenantAdmin(userEmail: string, tenant: TenantRecord): boolean {
+    const adminUsers = (tenant.FormData as TenantFormData | undefined)?.admin_users ?? [];
+    return adminUsers.map((e: string) => e.toLowerCase()).includes(userEmail.toLowerCase());
   }
 
   /**

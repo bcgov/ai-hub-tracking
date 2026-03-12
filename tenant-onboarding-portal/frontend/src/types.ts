@@ -146,3 +146,32 @@ export type TenantFormPayload = {
   read_users: string[];
   form_version?: string;
 };
+
+export type HubEnv = 'dev' | 'test' | 'prod';
+
+export interface TenantCredentialsResponse {
+  tenant_name: string;
+  env: HubEnv;
+  primary_key: string;
+  secondary_key: string;
+  rotation: Record<string, unknown> | null;
+}
+
+export interface ApimTenantInfoModel {
+  name: string;
+  deployment: string;
+  capacity: string;
+  scale_type: string;
+  model_version: string;
+}
+
+export interface ApimTenantInfoService {
+  enabled: boolean;
+}
+
+export interface ApimTenantInfoResponse {
+  tenant: string;
+  base_url: string;
+  models: ApimTenantInfoModel[];
+  services: Record<string, ApimTenantInfoService>;
+}

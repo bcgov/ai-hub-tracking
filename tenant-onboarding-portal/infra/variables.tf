@@ -178,4 +178,64 @@ variable "app_name_override" {
   default     = ""
 }
 
+# --- Hub Key Vault URLs (per environment) ---
+
+variable "hub_keyvault_url_dev" {
+  description = "Hub Key Vault URL for the dev environment."
+  type        = string
+  default     = ""
+}
+
+variable "hub_keyvault_url_test" {
+  description = "Hub Key Vault URL for the test environment."
+  type        = string
+  default     = ""
+}
+
+variable "hub_keyvault_url_prod" {
+  description = "Hub Key Vault URL for the prod environment."
+  type        = string
+  default     = ""
+}
+
+# --- Hub Key Vault resource IDs (per environment) ---
+
+variable "hub_keyvault_id_dev" {
+  description = "Hub Key Vault resource ID for the dev environment."
+  type        = string
+  default     = ""
+}
+
+variable "hub_keyvault_id_test" {
+  description = "Hub Key Vault resource ID for the test environment."
+  type        = string
+  default     = ""
+}
+
+variable "hub_keyvault_id_prod" {
+  description = "Hub Key Vault resource ID for the prod environment."
+  type        = string
+  default     = ""
+}
+
+# --- APIM / App Gateway URLs (per environment) ---
+
+variable "apim_gateway_url_dev" {
+  description = "APIM or App Gateway public URL for the dev environment."
+  type        = string
+  default     = ""
+}
+
+variable "apim_gateway_url_test" {
+  description = "APIM or App Gateway public URL for the test environment."
+  type        = string
+  default     = ""
+}
+
+variable "apim_gateway_url_prod" {
+  description = "APIM or App Gateway public URL for the prod environment."
+  type        = string
+  default     = ""
+}
+
 

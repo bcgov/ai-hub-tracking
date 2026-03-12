@@ -106,6 +106,12 @@ export function getSettings(): PortalSettings {
     mockUser: getMockUser(oidcAdminRole),
     tableStorageConnectionString: process.env.PORTAL_TABLE_STORAGE_CONNECTION_STRING ?? '',
     tableStorageAccountUrl: process.env.PORTAL_TABLE_STORAGE_ACCOUNT_URL ?? '',
+    hubKeyVaultUrlDev: process.env.PORTAL_HUB_KEYVAULT_URL_DEV ?? '',
+    hubKeyVaultUrlTest: process.env.PORTAL_HUB_KEYVAULT_URL_TEST ?? '',
+    hubKeyVaultUrlProd: process.env.PORTAL_HUB_KEYVAULT_URL_PROD ?? '',
+    apimGatewayUrlDev: process.env.PORTAL_APIM_GATEWAY_URL_DEV ?? '',
+    apimGatewayUrlTest: process.env.PORTAL_APIM_GATEWAY_URL_TEST ?? '',
+    apimGatewayUrlProd: process.env.PORTAL_APIM_GATEWAY_URL_PROD ?? '',
   };
   return cachedSettings;
 }

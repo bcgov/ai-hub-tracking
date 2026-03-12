@@ -140,6 +140,55 @@ Running `npm run lint` will report any missing JSDoc blocks.
 - `no-explicit-any` is a lint warning — always type API responses and component props.
 - React Hooks plugin enforces rules of hooks — do not call hooks conditionally.
 
+## CSS Styling Checks
+
+The frontend uses a single global stylesheet at `frontend/src/styles.css` with BEM-style class names. There are no CSS modules or CSS-in-JS — every class referenced in JSX must have a matching rule in this file.
+
+### When adding or modifying components
+
+1. **Audit every `className` in the JSX** — search `styles.css` for each class. If no rule exists, the element renders unstyled (browser defaults only).
+2. **Check variant classes** — compound classes like `.button--secondary`, `.button--sm`, `.tab-button--active` are easy to miss. The base class may exist but the variant may not.
+3. **Check child element classes** — a parent layout class (`.credential-row`) may be defined but its children (`.credential-label`, `.credential-value`) may be absent.
+4. **Verify responsive breakpoints** — if the component appears in mobile/tablet views, confirm the class is handled inside the existing `@media` blocks or add appropriate overrides.
+
+### Quick verification command
+
+From `frontend/src/`, grep for all `className` values in the component, then confirm each exists in `styles.css`:
+
+```bash
+# Extract class names from a component
+grep -oP 'className="[^"]*"' components/ui.tsx | sort -u
+# Cross-check against styles.css
+grep -c '.tab-bar' styles.css   # should be ≥ 1
+```
+
+### Common gaps to watch for
+
+- **Tab / pill / toggle groups**: `.tab-bar`, `.tab-button`, `.tab-button--active`
+- **Button size/color variants**: `.button--secondary`, `.button--sm`, `.button--danger`
+- **Credential / secret display rows**: `.credential-row`, `.credential-label`, `.credential-value`, `.credential-value--masked`
+- **Collapsible metadata**: `.rotation-metadata` (uses `<details>/<summary>`)
+
+When reviewing PR diffs that touch frontend components, **always check that new `className` values have corresponding CSS rules**.
+
+## Post-Implementation Hook
+
+After **every** code change in this skill — whether backend, frontend, or both — run the following checks before considering the task complete:
+
+```bash
+# Backend (if backend files were modified)
+cd tenant-onboarding-portal/backend
+npm run format       # auto-format with Prettier
+npm run lint         # must exit 0
+
+# Frontend (if frontend files were modified)
+cd tenant-onboarding-portal/frontend
+npm run format       # auto-format with Prettier
+npm run lint         # must exit 0
+```
+
+Both `npm run format` and `npm run lint` **must pass with exit code 0** before the task is done. If lint reports errors, fix them and re-run until clean. Do not hand back to the user while lint errors remain.
+
 ## Implementation Rules
 
 1. Preserve the `/api/...` contract used by the React SPA unless the task explicitly requires coordinated frontend and backend changes.

@@ -1673,6 +1673,34 @@ fi</pre>
         <li><strong>Internal Endpoint Security</strong>: The <code>/internal/apim-keys</code> endpoint requires a valid subscription key. Only authenticated tenants can read their own keys.</li>
     </ul>
 </div>
+
+<h2 id="portal-credential-access">Portal Credential Access</h2>
+
+<div class="card">
+    <p>Tenant administrators can view their APIM subscription keys directly in the <a href="index.html">Tenant Onboarding Portal</a> without contacting the platform team.</p>
+
+    <h3 id="who-can-access">Who Can Access</h3>
+    <p>Only users listed in a tenant's <code>admin_users</code> field (set during onboarding) can view credentials. The tenant must also have <strong>approved</strong> status. Portal logins are gated by Azure AD authentication and the tenant-admin check is enforced server-side.</p>
+
+    <h3 id="what-is-shown">What Is Shown</h3>
+    <ul>
+        <li><strong>Primary and Secondary APIM subscription keys</strong> &mdash; displayed masked (<code>&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;</code>) with a copy button. Values are never rendered in the page DOM.</li>
+        <li><strong>Rotation metadata</strong> &mdash; last rotation timestamp, next scheduled rotation, current safe slot, and rotation number (when rotation is enabled for the tenant).</li>
+        <li><strong>Tenant info</strong> &mdash; base URL, enabled services, and deployed model list (collapsible panel, lazy-loaded from APIM).</li>
+        <li><strong>Three environment tabs</strong> &mdash; dev, test, and prod credentials are shown in separate tabs and loaded on demand.</li>
+    </ul>
+
+    <h3 id="how-it-works-1">How It Works</h3>
+    <p>The portal's system-assigned Managed Identity is granted <strong>Key Vault Secrets User</strong> on each hub Key Vault (one RBAC assignment per environment, provisioned by <code>tenant-onboarding-portal/infra/main.tf</code>). The backend reads secrets directly from the hub KV using <code>DefaultAzureCredential</code> &mdash; no connection strings or stored credentials required.</p>
+    <p>The secrets read are: <code>{tenant}-apim-primary-key</code>, <code>{tenant}-apim-secondary-key</code>, and <code>{tenant}-apim-rotation-metadata</code>.</p>
+
+    <h3 id="security-properties">Security Properties</h3>
+    <ul>
+        <li>Key values are returned from the backend only to authenticated, authorised sessions &mdash; the response is never cached client-side.</li>
+        <li>The frontend copies keys to the clipboard via <code>navigator.clipboard.writeText</code> directly from the API response value; the key is never placed in React state or rendered as text in the DOM.</li>
+        <li>If the portal Managed Identity is not granted access to a given environment's Key Vault, the endpoint returns HTTP 503 and the UI displays a &ldquo;not configured&rdquo; message rather than an error.</li>
+    </ul>
+</div>
     </main>
     <footer class="site-footer">
         <div class="footer-content">

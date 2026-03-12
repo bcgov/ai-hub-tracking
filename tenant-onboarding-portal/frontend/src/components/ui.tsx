@@ -1,7 +1,9 @@
-import { useRef } from 'react';
+import { startTransition, useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 
 import type { FormSchema } from '../types';
+import type { HubEnv, TenantCredentialsResponse, ApimTenantInfoResponse } from '../types';
+import { api } from '../api';
 import { getInputClassName } from '../utils/formatters';
 
 type FieldInfo = FormSchema['field_info'][keyof FormSchema['field_info']];
@@ -281,5 +283,254 @@ export function TagList({ items }: { items: string[] }) {
         </span>
       ))}
     </div>
+  );
+}
+
+const HUB_ENVS: HubEnv[] = ['dev', 'test', 'prod'];
+
+interface EnvCredState {
+  data: TenantCredentialsResponse | null;
+  loading: boolean;
+  error: string | null;
+}
+
+interface EnvInfoState {
+  data: ApimTenantInfoResponse | null;
+  loading: boolean;
+  error: string | null;
+  expanded: boolean;
+}
+
+/**
+ * Renders a credentials panel for an approved tenant, showing APIM primary/secondary
+ * keys per environment with copy-to-clipboard support, rotation metadata, and tenant-info.
+ * @param root0 - Component props.
+ * @param root0.tenantName - The tenant partition key used to fetch credentials and tenant info.
+ * @returns JSX element containing the credentials panel.
+ */
+export function CredentialsPanel({ tenantName }: { tenantName: string }) {
+  const [activeEnv, setActiveEnv] = useState<HubEnv>('dev');
+  const [credState, setCredState] = useState<Record<HubEnv, EnvCredState>>({
+    dev: { data: null, loading: false, error: null },
+    test: { data: null, loading: false, error: null },
+    prod: { data: null, loading: false, error: null },
+  });
+  const [infoState, setInfoState] = useState<Record<HubEnv, EnvInfoState>>({
+    dev: { data: null, loading: false, error: null, expanded: false },
+    test: { data: null, loading: false, error: null, expanded: false },
+    prod: { data: null, loading: false, error: null, expanded: false },
+  });
+  const [copied, setCopied] = useState<Record<string, boolean>>({});
+  const fetchedEnvs = useRef<Set<HubEnv>>(new Set());
+
+  const fetchCreds = useCallback(
+    async (env: HubEnv) => {
+      if (fetchedEnvs.current.has(env)) return;
+      fetchedEnvs.current.add(env);
+      startTransition(() => {
+        setCredState((prev) => ({ ...prev, [env]: { data: null, loading: true, error: null } }));
+      });
+      try {
+        const data = await api.getCredentials(tenantName, env);
+        startTransition(() => {
+          setCredState((prev) => ({ ...prev, [env]: { data, loading: false, error: null } }));
+        });
+      } catch (err: unknown) {
+        const status = (err as { status?: number }).status;
+        let msg = 'Failed to load credentials';
+        if (status === 403) msg = 'You do not have permission to view credentials for this tenant';
+        else if (status === 503)
+          msg = 'Credentials not available for this environment (not configured)';
+        else if (status === 409) msg = 'Tenant is not yet approved';
+        startTransition(() => {
+          setCredState((prev) => ({ ...prev, [env]: { data: null, loading: false, error: msg } }));
+        });
+        // Remove from fetched so user can retry
+        fetchedEnvs.current.delete(env);
+      }
+    },
+    [tenantName],
+  );
+
+  useEffect(() => {
+    void fetchCreds(activeEnv);
+  }, [activeEnv, fetchCreds]);
+
+  const handleCopy = useCallback((key: string, keyId: string) => {
+    void navigator.clipboard.writeText(key).then(() => {
+      setCopied((prev) => ({ ...prev, [keyId]: true }));
+      setTimeout(() => {
+        setCopied((prev) => ({ ...prev, [keyId]: false }));
+      }, 2000);
+    });
+  }, []);
+
+  const toggleInfo = useCallback(
+    async (env: HubEnv) => {
+      const current = infoState[env];
+      if (!current.expanded && !current.data && !current.loading) {
+        setInfoState((prev) => ({
+          ...prev,
+          [env]: { ...prev[env], expanded: true, loading: true, error: null },
+        }));
+        try {
+          const data = await api.getApimTenantInfo(tenantName, env);
+          setInfoState((prev) => ({
+            ...prev,
+            [env]: { data, loading: false, error: null, expanded: true },
+          }));
+        } catch (err: unknown) {
+          const status = (err as { status?: number }).status;
+          let msg = 'Failed to load tenant info from APIM';
+          if (status === 503) msg = 'APIM not configured for this environment';
+          setInfoState((prev) => ({
+            ...prev,
+            [env]: { ...prev[env], loading: false, error: msg, expanded: true },
+          }));
+        }
+      } else {
+        setInfoState((prev) => ({
+          ...prev,
+          [env]: { ...prev[env], expanded: !current.expanded },
+        }));
+      }
+    },
+    [infoState, tenantName],
+  );
+
+  const cred = credState[activeEnv];
+  const info = infoState[activeEnv];
+
+  return (
+    <section className="panel stack-md">
+      <h3>API Credentials</h3>
+      <div className="tab-bar" role="tablist">
+        {HUB_ENVS.map((env) => (
+          <button
+            className={`tab-button${activeEnv === env ? ' tab-button--active' : ''}`}
+            key={env}
+            onClick={() => {
+              setActiveEnv(env);
+            }}
+            role="tab"
+            aria-selected={activeEnv === env}
+            type="button"
+          >
+            {env.charAt(0).toUpperCase() + env.slice(1)}
+          </button>
+        ))}
+      </div>
+
+      <div role="tabpanel">
+        {cred.loading && <p className="muted">Loading credentials&hellip;</p>}
+        {cred.error && <p className="inline-message inline-message--error">{cred.error}</p>}
+        {cred.data && (
+          <div className="stack-md">
+            <div className="credential-row">
+              <span className="credential-label">Primary Key</span>
+              <span className="credential-value credential-value--masked">••••••••••••••••</span>
+              <button
+                className="button button--secondary button--sm"
+                type="button"
+                onClick={() => {
+                  handleCopy(cred.data!.primary_key, `${activeEnv}-primary`);
+                }}
+              >
+                {copied[`${activeEnv}-primary`] ? '✓ Copied' : 'Copy'}
+              </button>
+            </div>
+            <div className="credential-row">
+              <span className="credential-label">Secondary Key</span>
+              <span className="credential-value credential-value--masked">••••••••••••••••</span>
+              <button
+                className="button button--secondary button--sm"
+                type="button"
+                onClick={() => {
+                  handleCopy(cred.data!.secondary_key, `${activeEnv}-secondary`);
+                }}
+              >
+                {copied[`${activeEnv}-secondary`] ? '✓ Copied' : 'Copy'}
+              </button>
+            </div>
+
+            {cred.data.rotation && (
+              <details className="rotation-metadata">
+                <summary>Rotation metadata</summary>
+                <pre>{JSON.stringify(cred.data.rotation, null, 2)}</pre>
+              </details>
+            )}
+
+            <div className="tenant-info-toggle">
+              <button
+                className="button button--secondary button--sm"
+                type="button"
+                onClick={() => {
+                  void toggleInfo(activeEnv);
+                }}
+              >
+                {info.expanded ? 'Hide tenant info' : 'Show tenant info'}
+              </button>
+            </div>
+
+            {info.expanded && (
+              <div className="tenant-info-panel stack-md">
+                {info.loading && <p className="muted">Loading tenant info&hellip;</p>}
+                {info.error && <p className="inline-message inline-message--error">{info.error}</p>}
+                {info.data && (
+                  <>
+                    <p>
+                      <strong>Base URL:</strong> {info.data.base_url}
+                    </p>
+                    <h4>Services</h4>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Service</th>
+                          <th>Enabled</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(info.data.services).map(([svc, service]) => (
+                          <tr key={svc}>
+                            <td>{svc}</td>
+                            <td>{service.enabled ? 'Yes' : 'No'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <h4>Models</h4>
+                    <table className="data-table">
+                      <thead>
+                        <tr>
+                          <th>Model</th>
+                          <th>Deployment ID</th>
+                          <th>Capacity</th>
+                          <th>Scale</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {info.data.models.map((m) => (
+                          <tr key={m.name}>
+                            <td>
+                              <div className="table-cell-stack">
+                                <span>{m.name}</span>
+                                <span className="table-cell-meta">Version {m.model_version}</span>
+                              </div>
+                            </td>
+                            <td>{m.deployment}</td>
+                            <td>{m.capacity}</td>
+                            <td>{m.scale_type}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }

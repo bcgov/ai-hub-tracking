@@ -44,6 +44,62 @@ env:
 
 jobs:
   # ---------------------------------------------------------------------------
+  # Collect AI hub Terraform outputs (dev / test / prod)
+  # Downloads the shared and APIM remote state blobs for each hub environment
+  # and emits Key Vault IDs, Key Vault URIs, and APIM gateway URLs as job
+  # outputs for use by the portal deploy job. No if: condition — if skipped,
+  # GHA resolves outputs as empty strings, silently zeroing all TF_VAR_* vals.
+  # ---------------------------------------------------------------------------
+  collect-hub-outputs:
+    name: Collect hub Terraform outputs (${{ matrix.env }})
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        env: [dev, test, prod]
+    environment: ${{ matrix.env }}
+    outputs:
+      hub_kv_dev_id: ${{ steps.collect.outputs.hub_kv_dev_id }}
+      hub_kv_test_id: ${{ steps.collect.outputs.hub_kv_test_id }}
+      hub_kv_prod_id: ${{ steps.collect.outputs.hub_kv_prod_id }}
+      hub_kv_dev_url: ${{ steps.collect.outputs.hub_kv_dev_url }}
+      hub_kv_test_url: ${{ steps.collect.outputs.hub_kv_test_url }}
+      hub_kv_prod_url: ${{ steps.collect.outputs.hub_kv_prod_url }}
+      apim_url_dev: ${{ steps.collect.outputs.apim_url_dev }}
+      apim_url_test: ${{ steps.collect.outputs.apim_url_test }}
+      apim_url_prod: ${{ steps.collect.outputs.apim_url_prod }}
+    steps:
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      - name: Collect hub outputs
+        id: collect
+        env:
+          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+          BACKEND_CONTAINER: tfstate
+          HUB_ENV: ${{ matrix.env }}
+        run: |
+          set -euo pipefail
+          az storage blob download \
+            --account-name "$BACKEND_STORAGE_ACCOUNT" \
+            --container-name "$BACKEND_CONTAINER" \
+            --name "ai-services-hub/${HUB_ENV}/shared.tfstate" \
+            --auth-mode login --file /tmp/shared.tfstate --output none
+          az storage blob download \
+            --account-name "$BACKEND_STORAGE_ACCOUNT" \
+            --container-name "$BACKEND_CONTAINER" \
+            --name "ai-services-hub/${HUB_ENV}/apim.tfstate" \
+            --auth-mode login --file /tmp/apim.tfstate --output none
+          {
+            echo "hub_kv_${HUB_ENV}_id=$(jq -r '.outputs.hub_key_vault_id.value'  /tmp/shared.tfstate)"
+            echo "hub_kv_${HUB_ENV}_url=$(jq -r '.outputs.hub_key_vault_uri.value' /tmp/shared.tfstate)"
+            echo "apim_url_${HUB_ENV}=$(jq -r '.outputs.apim_gateway_url.value'    /tmp/apim.tfstate)"
+          } >> "$GITHUB_OUTPUT"
+          rm -f /tmp/shared.tfstate /tmp/apim.tfstate
+
+  # ---------------------------------------------------------------------------
   # Single portal deploy job
   # Runs terraform apply, then packages and deploys the portal app through the
   # staging slot before swapping to production. The wrapper step also emits the
@@ -54,6 +110,7 @@ jobs:
     runs-on: ubuntu-24.04
     environment: tools
     timeout-minutes: 20
+    needs: [collect-hub-outputs]
 
     steps:
       - name: Checkout repository
@@ -103,11 +160,20 @@ jobs:
           TF_VAR_sku_name: "P0v4"
           TF_VAR_enable_always_on: "true"
           TF_VAR_app_name_override: "ai-hub-onboarding"
-          TF_VAR_enable_deployment_slot: "false"  # Staging slot disabled - blocked by Deny-AppSlots-Public policy
+          TF_VAR_enable_deployment_slot: "false" # Staging slot disabled - blocked by Deny-AppSlots-Public policy
           # Sensitive infra inputs
           # App settings pushed into App Service environment
           TF_VAR_oidc_discovery_url: https://loginproxy.gov.bc.ca/auth/realms/standard/.well-known/openid-configuration
           TF_VAR_oidc_client_id: ai-hub-admin-portal-6366
           TF_VAR_oidc_client_secret: ${{ secrets.PORTAL_PROD_OIDC_CLIENT_SECRET }}
+          TF_VAR_hub_keyvault_id_dev: ${{ needs.collect-hub-outputs.outputs.hub_kv_dev_id }}
+          TF_VAR_hub_keyvault_id_test: ${{ needs.collect-hub-outputs.outputs.hub_kv_test_id }}
+          TF_VAR_hub_keyvault_id_prod: ${{ needs.collect-hub-outputs.outputs.hub_kv_prod_id }}
+          TF_VAR_hub_keyvault_url_dev: ${{ needs.collect-hub-outputs.outputs.hub_kv_dev_url }}
+          TF_VAR_hub_keyvault_url_test: ${{ needs.collect-hub-outputs.outputs.hub_kv_test_url }}
+          TF_VAR_hub_keyvault_url_prod: ${{ needs.collect-hub-outputs.outputs.hub_kv_prod_url }}
+          TF_VAR_apim_gateway_url_dev: ${{ needs.collect-hub-outputs.outputs.apim_url_dev }}
+          TF_VAR_apim_gateway_url_test: ${{ needs.collect-hub-outputs.outputs.apim_url_test }}
+          TF_VAR_apim_gateway_url_prod: ${{ needs.collect-hub-outputs.outputs.apim_url_prod }}
           PORTAL_NODE_VERSION_FILE: ${{ env.PORTAL_NODE_VERSION_FILE }}
         run: bash ./deploy-terraform.sh apply tools --auto-approve --no-var-file

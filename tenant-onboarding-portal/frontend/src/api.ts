@@ -3,8 +3,11 @@ import axios from 'axios';
 import type {
   AdminDashboardResponse,
   AdminReviewResponse,
+  ApimTenantInfoResponse,
   FormSchema,
+  HubEnv,
   SessionResponse,
+  TenantCredentialsResponse,
   TenantDetailResponse,
   TenantFormPayload,
   TenantListResponse,
@@ -82,5 +85,13 @@ export const api = {
       client.post(`/admin/reject/${tenantName}/${version}`, {
         review_notes: reviewNotes,
       }),
+    ),
+  getCredentials: (tenantName: string, env: HubEnv) =>
+    requestJson<TenantCredentialsResponse>(
+      client.get(`/tenants/${tenantName}/credentials`, { params: { env } }),
+    ),
+  getApimTenantInfo: (tenantName: string, env: HubEnv) =>
+    requestJson<ApimTenantInfoResponse>(
+      client.get(`/tenants/${tenantName}/tenant-info`, { params: { env } }),
     ),
 };
