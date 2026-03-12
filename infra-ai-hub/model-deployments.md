@@ -44,6 +44,20 @@ All models listed are available via GlobalStandard SKU without explicit access a
 | Cohere-rerank-v4.0-pro | Rerank | 3,000 |
 | Cohere-rerank-v4.0-fast | Rerank | 3,000 |
 
+### Mistral Models (Canada East)
+
+Mistral models are serverless MaaS (pay-per-token). Quota is not tracked per region.
+
+| Model | Kind | Quota Limit |
+|-------|------|------------:|
+| Mistral-Large-3 | Chat / Vision | not tracked |
+| mistral-medium-2505 | Chat / Vision | not tracked |
+| mistral-small-2503 | Chat | not tracked |
+| Codestral-2501 | Code Completion | not tracked |
+| mistral-ocr-2503 | OCR | not tracked |
+| mistral-document-ai-2505 | Document AI | not tracked |
+| mistral-document-ai-2512 | Document AI | not tracked |
+
 ---
 
 ## TEST Environment
@@ -79,6 +93,20 @@ The following 6 models were tested and excluded:
 | cohere-command-a | 1,000 | 10 |
 | Cohere-rerank-v4.0-pro | 3,000 | 30 |
 | Cohere-rerank-v4.0-fast | 3,000 | 30 |
+
+### Mistral Models (ai-hub-admin only)
+
+All 7 Mistral models are serverless MaaS (pay-per-token). Quota is not tracked; `capacity = 1` is a placeholder allocation.
+
+| Model | Kind | Quota Limit | ai-hub-admin |
+|-------|------|------------:|-------------:|
+| Mistral-Large-3 | Chat / Vision | not tracked | 10 |
+| mistral-medium-2505 | Chat / Vision | not tracked | 10 |
+| mistral-small-2503 | Chat | not tracked | 10 |
+| Codestral-2501 | Code Completion | not tracked | 10 |
+| mistral-ocr-2503 | OCR | not tracked | 10 |
+| mistral-document-ai-2505 | Document AI | not tracked | 10 |
+| mistral-document-ai-2512 | Document AI | not tracked | 10 |
 
 > ¹ `ai-hub-admin / gpt-5.1-chat` uses a custom content filter policy (`ai-hub-admin-gpt-5.1-chat-filter`). See [Content Filters](#content-filters-rai-policies) below.
 

@@ -293,6 +293,71 @@ tenant = {
         capacity       = 30 # 1% of 3,000
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
+
+      # Mistral Models (format auto-detected as "MistralAI" via model_format_prefixes in foundry stack)
+      # MaaS serverless (pay-per-token) — quota is not tracked; capacity = 10 → 10k TPM APIM rate limit.
+
+      # Chat / Multimodal
+      {
+        name           = "Mistral-Large-3"
+        model_name     = "Mistral-Large-3"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 10 # quota not tracked
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+      {
+        name           = "mistral-medium-2505"
+        model_name     = "mistral-medium-2505"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 10 # quota not tracked
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+      {
+        name           = "mistral-small-2503"
+        model_name     = "mistral-small-2503"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 10 # quota not tracked
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+
+      # Code
+      {
+        name           = "Codestral-2501"
+        model_name     = "Codestral-2501"
+        model_version  = "2"
+        scale_type     = "GlobalStandard"
+        capacity       = 10 # quota not tracked
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+
+      # OCR / Document AI
+      {
+        name           = "mistral-ocr-2503"
+        model_name     = "mistral-ocr-2503"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 10 # quota not tracked
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+      {
+        name           = "mistral-document-ai-2505"
+        model_name     = "mistral-document-ai-2505"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 10 # quota not tracked
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+      {
+        name           = "mistral-document-ai-2512"
+        model_name     = "mistral-document-ai-2512"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 10 # quota not tracked
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
     ]
   }
 
