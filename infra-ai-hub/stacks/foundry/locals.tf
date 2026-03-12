@@ -11,8 +11,8 @@ locals {
   # Add new entries here when onboarding models from additional providers.
   model_format_prefixes = {
     "cohere"    = "Cohere"
-    "mistral"   = "MistralAI"
-    "codestral" = "MistralAI"
+    "mistral"   = "Mistral AI"
+    "codestral" = "Mistral AI"
   }
 
   # Derives default format = "OpenAI" unless the lowercased model name starts
