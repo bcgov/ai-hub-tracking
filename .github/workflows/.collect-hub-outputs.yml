@@ -1,0 +1,118 @@
+name: Collect Hub Outputs
+
+on:
+  workflow_call:
+    outputs:
+      hub_kv_dev_id:
+        description: "Hub Key Vault resource ID for dev"
+        value: ${{ jobs.collect-dev.outputs.hub_kv_id || '' }}
+      hub_kv_test_id:
+        description: "Hub Key Vault resource ID for test"
+        value: ${{ jobs.collect-test.outputs.hub_kv_id || '' }}
+      hub_kv_prod_id:
+        description: "Hub Key Vault resource ID for prod"
+        value: ${{ jobs.collect-prod.outputs.hub_kv_id || '' }}
+      hub_kv_dev_url:
+        description: "Hub Key Vault URI for dev"
+        value: ${{ jobs.collect-dev.outputs.hub_kv_url || '' }}
+      hub_kv_test_url:
+        description: "Hub Key Vault URI for test"
+        value: ${{ jobs.collect-test.outputs.hub_kv_url || '' }}
+      hub_kv_prod_url:
+        description: "Hub Key Vault URI for prod"
+        value: ${{ jobs.collect-prod.outputs.hub_kv_url || '' }}
+      apim_url_dev:
+        description: "APIM gateway URL for dev"
+        value: ${{ jobs.collect-dev.outputs.apim_url || '' }}
+      apim_url_test:
+        description: "APIM gateway URL for test"
+        value: ${{ jobs.collect-test.outputs.apim_url || '' }}
+      apim_url_prod:
+        description: "APIM gateway URL for prod"
+        value: ${{ jobs.collect-prod.outputs.apim_url || '' }}
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  collect-dev:
+    name: Collect hub Terraform outputs (dev)
+    runs-on: ubuntu-24.04
+    environment: dev
+    outputs:
+      hub_kv_id: ${{ steps.collect.outputs.hub_kv_id }}
+      hub_kv_url: ${{ steps.collect.outputs.hub_kv_url }}
+      apim_url: ${{ steps.collect.outputs.apim_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Collect hub outputs
+        id: collect
+        env:
+          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+          BACKEND_CONTAINER: tfstate
+          HUB_ENV: dev
+        run: bash ./.github/scripts/collect-hub-outputs.sh
+
+  collect-test:
+    name: Collect hub Terraform outputs (test)
+    runs-on: ubuntu-24.04
+    environment: test
+    outputs:
+      hub_kv_id: ${{ steps.collect.outputs.hub_kv_id }}
+      hub_kv_url: ${{ steps.collect.outputs.hub_kv_url }}
+      apim_url: ${{ steps.collect.outputs.apim_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Collect hub outputs
+        id: collect
+        env:
+          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+          BACKEND_CONTAINER: tfstate
+          HUB_ENV: test
+        run: bash ./.github/scripts/collect-hub-outputs.sh
+
+  collect-prod:
+    name: Collect hub Terraform outputs (prod)
+    runs-on: ubuntu-24.04
+    environment: prod
+    outputs:
+      hub_kv_id: ${{ steps.collect.outputs.hub_kv_id }}
+      hub_kv_url: ${{ steps.collect.outputs.hub_kv_url }}
+      apim_url: ${{ steps.collect.outputs.apim_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Login to Azure (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Collect hub outputs
+        id: collect
+        env:
+          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+          BACKEND_CONTAINER: tfstate
+          HUB_ENV: prod
+        run: bash ./.github/scripts/collect-hub-outputs.sh

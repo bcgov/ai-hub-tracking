@@ -140,53 +140,9 @@ jobs:
   # nine TF_VAR_* hub values and removing RBAC assignments on the next deploy.
   # ---------------------------------------------------------------------------
   collect-hub-outputs:
-    name: Collect hub Terraform outputs (${{ matrix.env }})
-    runs-on: ubuntu-24.04
-    strategy:
-      matrix:
-        env: [dev, test, prod]
-    environment: ${{ matrix.env }}
-    outputs:
-      hub_kv_dev_id: ${{ steps.collect.outputs.hub_kv_dev_id }}
-      hub_kv_test_id: ${{ steps.collect.outputs.hub_kv_test_id }}
-      hub_kv_prod_id: ${{ steps.collect.outputs.hub_kv_prod_id }}
-      hub_kv_dev_url: ${{ steps.collect.outputs.hub_kv_dev_url }}
-      hub_kv_test_url: ${{ steps.collect.outputs.hub_kv_test_url }}
-      hub_kv_prod_url: ${{ steps.collect.outputs.hub_kv_prod_url }}
-      apim_url_dev: ${{ steps.collect.outputs.apim_url_dev }}
-      apim_url_test: ${{ steps.collect.outputs.apim_url_test }}
-      apim_url_prod: ${{ steps.collect.outputs.apim_url_prod }}
-    steps:
-      - name: Login to Azure (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-      - name: Collect hub outputs
-        id: collect
-        env:
-          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
-          BACKEND_CONTAINER: tfstate
-          HUB_ENV: ${{ matrix.env }}
-        run: |
-          set -euo pipefail
-          az storage blob download \
-            --account-name "$BACKEND_STORAGE_ACCOUNT" \
-            --container-name "$BACKEND_CONTAINER" \
-            --name "ai-services-hub/${HUB_ENV}/shared.tfstate" \
-            --auth-mode login --file /tmp/shared.tfstate --output none
-          az storage blob download \
-            --account-name "$BACKEND_STORAGE_ACCOUNT" \
-            --container-name "$BACKEND_CONTAINER" \
-            --name "ai-services-hub/${HUB_ENV}/apim.tfstate" \
-            --auth-mode login --file /tmp/apim.tfstate --output none
-          {
-            echo "hub_kv_${HUB_ENV}_id=$(jq -r '.outputs.hub_key_vault_id.value'  /tmp/shared.tfstate)"
-            echo "hub_kv_${HUB_ENV}_url=$(jq -r '.outputs.hub_key_vault_uri.value' /tmp/shared.tfstate)"
-            echo "apim_url_${HUB_ENV}=$(jq -r '.outputs.apim_gateway_url.value'    /tmp/apim.tfstate)"
-          } >> "$GITHUB_OUTPUT"
-          rm -f /tmp/shared.tfstate /tmp/apim.tfstate
+    name: Collect hub Terraform outputs
+    uses: ./.github/workflows/.collect-hub-outputs.yml
+    secrets: inherit
 
   deploy-portal-tools:
     name: Deploy ai-hub-onboarding (tools)
