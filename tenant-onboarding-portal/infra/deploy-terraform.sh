@@ -798,11 +798,11 @@ deploy_portal_app() {
     az "${appsettings_args[@]}" >/dev/null
 
     local -a deploy_args=(
-        webapp deployment source config-zip
+        webapp deploy
         --resource-group "$RESOURCE_GROUP"
         --name "$APP_NAME"
-        --src "$deploy_zip_path"
-        --track-status true
+        --src-path "$deploy_zip_path"
+        --type zip
         --timeout "$DEPLOY_TIMEOUT"
     )
 
@@ -810,9 +810,21 @@ deploy_portal_app() {
         deploy_args+=(--slot "$SLOT")
     fi
 
+    local max_retries=3
+    local attempt
     log_info "Deploying ${deploy_zip_path} to ${APP_NAME}${SLOT:+ slot ${SLOT}}..."
-    az "${deploy_args[@]}"
-    log_success "App deployment complete"
+    for attempt in $(seq 1 "$max_retries"); do
+        if az "${deploy_args[@]}"; then
+            log_success "App deployment complete"
+            return 0
+        fi
+        if [[ $attempt -lt $max_retries ]]; then
+            log_warning "Deployment attempt ${attempt}/${max_retries} failed (possible timeout); retrying in 30s..."
+            sleep 30
+        fi
+    done
+    log_error "Deployment failed after ${max_retries} attempts"
+    exit 1
 }
 
 swap_portal_slot() {

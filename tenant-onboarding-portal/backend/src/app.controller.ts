@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   ConflictException,
   Controller,
@@ -471,6 +472,9 @@ export class AppController {
     }[hubEnv];
     if (!apimUrl)
       throw new ServiceUnavailableException('APIM URL not configured for this environment');
+    if (!/^[a-z0-9][a-z0-9-]{0,62}[a-z0-9]$/.test(tenantName)) {
+      throw new BadRequestException('Invalid tenant name');
+    }
     const infoUrl = `${apimUrl}/${tenantName}/internal/tenant-info`;
     const apimResp = await fetch(infoUrl, { headers: { 'api-key': credentials.primary_key } });
     (response as Response).status(apimResp.status);
