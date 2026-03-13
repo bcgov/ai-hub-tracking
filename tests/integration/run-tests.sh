@@ -70,11 +70,12 @@ load_config() {
     log_info "Test environment: ${TEST_ENV}"
     
     # Check if config is already provided via environment
-    if [[ -n "${APIM_GATEWAY_URL:-}" ]] && ( [[ -n "${WLRS_SUBSCRIPTION_KEY:-}" ]] || [[ -n "${SDPR_SUBSCRIPTION_KEY:-}" ]] ); then
+    if [[ -n "${APIM_GATEWAY_URL:-}" ]] && ( [[ -n "${WLRS_SUBSCRIPTION_KEY:-}" ]] || [[ -n "${SDPR_SUBSCRIPTION_KEY:-}" ]] || [[ -n "${AI_HUB_ADMIN_SUBSCRIPTION_KEY:-}" ]] ); then
         log_success "Configuration loaded from environment variables"
         log_success "APIM Gateway URL: ${APIM_GATEWAY_URL}"
         log_success "WLRS subscription key loaded"
         [[ -n "${SDPR_SUBSCRIPTION_KEY:-}" ]] && log_success "SDPR subscription key loaded"
+        [[ -n "${AI_HUB_ADMIN_SUBSCRIPTION_KEY:-}" ]] && log_success "AI Hub Admin subscription key loaded"
         [[ -n "${APIM_KEYS_TENANT_1:-}" ]] && log_success "APIM Keys Tenant-1: ${APIM_KEYS_TENANT_1}"
         [[ -n "${APIM_KEYS_TENANT_2:-}" ]] && log_success "APIM Keys Tenant-2: ${APIM_KEYS_TENANT_2}"
         return 0
@@ -164,6 +165,7 @@ load_config() {
     if [[ -n "${subscriptions}" ]]; then
         export WLRS_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["wlrs-water-form-assistant"].primary_key // empty')
         export SDPR_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["sdpr-invoice-automation"].primary_key // empty')
+        export AI_HUB_ADMIN_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["ai-hub-admin"].primary_key // empty')
         export NRDAP_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["nr-dap-fish-wildlife"].primary_key // empty')
 
         export APIM_KEYS_TENANT_1="${APIM_KEYS_TENANT_1:-wlrs-water-form-assistant}"
@@ -179,6 +181,12 @@ load_config() {
             log_success "SDPR subscription key loaded"
         else
             log_warn "SDPR subscription key not found"
+        fi
+
+        if [[ -n "${AI_HUB_ADMIN_SUBSCRIPTION_KEY}" ]]; then
+            log_success "AI Hub Admin subscription key loaded"
+        else
+            log_warn "AI Hub Admin subscription key not found"
         fi
 
         if [[ -n "${NRDAP_SUBSCRIPTION_KEY}" ]]; then

@@ -72,6 +72,12 @@ All routes live inside a single `<choose>` block in the inbound section. Routes 
 | Storage | path contains `storage` | `storage_enabled` |
 | Default | all other paths | always present — returns **404 JSON** |
 
+### Mistral Routing Rule
+- Mistral chat models must be exposed only on the OpenAI-compatible path: `/openai/v1/chat/completions`.
+- Do not allow or reintroduce chat aliases under `/providers/mistral/models/{model}/chat/completions`.
+- `/providers/mistral/*` is reserved for Mistral OCR/document endpoints such as `/providers/mistral/azure/ocr`.
+- This preserves OpenAI-only token metrics and token rate limiting, which are scoped to `openai` paths in both the global and API policies.
+
 ## Authentication & Headers
 MSI target varies by backend type — do not assume `cognitiveservices.azure.com` universally:
 
@@ -106,6 +112,7 @@ Always:
 - Add new backends to the **shared template** `params/apim/api_policy.xml.tftpl` behind a feature flag; expose the flag as a `templatefile()` variable in `stacks/apim/locals.tf`.
 - Update the `X-Tenant-Id` header when copying policies for a new tenant.
 - Verify routing conditions align to desired backend paths.
+- For Mistral changes, keep chat traffic on `/openai/*` paths and reserve `/providers/mistral/*` for OCR/document endpoints only.
 - Keep `set-backend-service` IDs aligned with APIM backend resources.
 - **Use static `backend-id` strings** in all `<set-backend-service>` elements (never dynamic expressions).
 - Use the correct MSI resource URL for each backend type (see Authentication table above).

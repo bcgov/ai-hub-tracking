@@ -45,6 +45,20 @@ The `deploymentName` variable is set once in inbound and reused in outbound logg
 ### Body Model Rewrite Ordering
 The `/v1/` body model tenant-prefix rewrite (`set-body`) is placed **after** PII redaction `set-body` to avoid being overwritten. It uses a `StartsWith` guard to prevent double-prefixing.
 
+## Mistral Endpoint Rules
+
+Mistral routing is intentionally split by API surface:
+
+- `Mistral-Large-3` chat traffic must use `/openai/v1/chat/completions`.
+- Mistral document/OCR traffic must use `/providers/mistral/azure/ocr`.
+- The legacy alias `/providers/mistral/models/{model}/chat/completions` is allowed only as a compatibility path for document models that APIM rewrites to `/providers/mistral/azure/ocr`.
+- APIM must reject chat models on that alias with a client error instead of silently rewriting them.
+
+Reasoning:
+- Global token metrics (`azure-openai-emit-token-metric`) are scoped to `openai` paths only.
+- Per-model token limiting (`llm-token-limit`) is also scoped to `openai` paths only.
+- Allowing Mistral chat on a non-OpenAI alias creates inconsistent observability and quota enforcement.
+
 ## Outbound Policies
 
 - **Document Intelligence** (`document_intelligence_enabled`): rewrites the `Operation-Location` response header to replace the backend `cognitiveservices.azure.com` URL with the App Gateway URL. This is required for async (202) polling to work through the gateway.
@@ -173,6 +187,8 @@ Use this table for every APIM change review/runbook:
 |---|---|---|---|---|
 | `/openai/deployments/{model}/...` | `openai_enabled` | `${tenant_name}-openai` | MSI (`cognitiveservices`) | 2xx/4xx from backend, not APIM 404 |
 | `/openai/v1/chat/completions` | `openai_enabled` | `${tenant_name}-openai` | MSI (`cognitiveservices`) | 2xx/4xx; model field tenant-prefixed in body |
+| `/providers/mistral/models/Mistral-Large-3/chat/completions` | `openai_enabled` | none | n/a | 400 `InvalidMistralRoute`; instruct client to use `/openai/v1/chat/completions` |
+| `/providers/mistral/azure/ocr` | `openai_enabled` | `${tenant_name}-openai` | MSI (`cognitiveservices`) | 2xx/4xx from Mistral OCR backend |
 | `/documentintelligence/...` | `document_intelligence_enabled` | `${tenant_name}-document-intelligence` | MSI (`cognitiveservices`) | 2xx/202 with rewritten `Operation-Location` |
 | `/speech/recognition...` | `speech_services_enabled` | `${tenant_name}-speech-stt` | backend credential | 2xx/4xx from speech backend |
 | `/cognitiveservices/voices...` | `speech_services_enabled` | `${tenant_name}-speech-tts` | backend credential | 2xx/4xx from speech backend |

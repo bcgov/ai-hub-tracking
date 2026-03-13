@@ -1096,13 +1096,13 @@
 <h2 id="quick-navigation">Quick Navigation</h2>
 
 <div class="grid grid-3">
-    <a href="#openai-models" class="card-link">
+    <a href="#model-providers" class="card-link">
         <div class="card" style="border-left-color: #0078d4; text-align: center;">
             <div class="feature-icon blue" style="margin: 0 auto 0.5rem;">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>
             </div>
-            <strong>OpenAI Models</strong>
-            <p style="font-size: 0.85rem; margin: 0.5rem 0 0; color: var(--text-secondary);">GPT-4.1, GPT-5, o-series, embeddings</p>
+            <strong>Model Providers</strong>
+            <p style="font-size: 0.85rem; margin: 0.5rem 0 0; color: var(--text-secondary);">OpenAI baseline plus tenant-specific Cohere and Mistral</p>
         </div>
     </a>
     <a href="#cognitive-services" class="card-link">
@@ -1125,9 +1125,11 @@
     </a>
 </div>
 
-<h2 id="openai-models">OpenAI Models</h2>
+<h2 id="model-providers">Model Providers</h2>
 
-<p>Each tenant accesses OpenAI models through their dedicated <strong>AI Foundry Project</strong> endpoint, routed via APIM. All models run in the <strong>Canada East</strong> region using the <strong>GlobalStandard</strong> SKU — no access approval required.</p>
+<p>Each tenant accesses model deployments through its dedicated <strong>AI Foundry Project</strong> endpoint, routed via APIM. OpenAI is the baseline model family for tenants across environments. Additional provider families such as Cohere and Mistral are enabled only when they are explicitly deployed for a tenant.</p>
+
+<h3 id="openai-baseline-models">OpenAI Baseline Models</h3>
 
 <h3 id="chat-reasoning-models">Chat &amp; Reasoning Models</h3>
 
@@ -1254,13 +1256,42 @@
 <div class="alert alert-info" style="margin-top: 1rem;">
     <div class="alert-icon">💡</div>
     <div>
-        TPM = Tokens Per Minute. These are <strong>subscription-wide limits</strong>; each tenant is allocated a share. Current allocation is <strong>1% per tenant</strong> for test/dev environments. Contact the platform team to discuss production quota increases. See <a href="infra-ai-hub/model-deployments.md">model-deployments.md</a> for exact per-tenant allocation.
+        TPM = Tokens Per Minute. OpenAI quotas shown above are <strong>subscription-wide limits</strong>; each tenant is allocated a share. Current test/dev allocation is typically <strong>1% per tenant</strong>, but provider-specific deployments can use different quotas. See <a href="infra-ai-hub/model-deployments.md">model-deployments.md</a> for the current allocation source of truth.
     </div>
 </div>
 
+<h3 id="tenant-specific-provider-additions">Tenant-Specific Provider Additions</h3>
+
+<p>The current test deployment for <strong>ai-hub-admin</strong> includes additional non-OpenAI provider families. These are not currently universal tenant defaults and should be treated as explicitly assigned deployments.</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Provider</th>
+            <th>Currently Documented Deployments</th>
+            <th>Current Scope</th>
+            <th>Notes</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>Cohere</strong></td>
+            <td><code>cohere-command-a</code>, <code>Cohere-rerank-v4.0-pro</code>, <code>Cohere-rerank-v4.0-fast</code></td>
+            <td><span class="badge" style="background:#92400e;color:white;">ai-hub-admin only</span> <span class="badge" style="background:#1d4ed8;color:white;">test</span></td>
+            <td>Configured in tenant IaC and deployed through the Foundry stack. Several other Cohere catalog models were evaluated but are not currently available in BC Gov Private Marketplace.</td>
+        </tr>
+        <tr>
+            <td><strong>Mistral AI</strong></td>
+            <td><code>Mistral-Large-3</code>, <code>mistral-document-ai-2505</code>, <code>mistral-document-ai-2512</code></td>
+            <td><span class="badge" style="background:#92400e;color:white;">ai-hub-admin only</span> <span class="badge" style="background:#1d4ed8;color:white;">test</span></td>
+            <td>Chat traffic uses the OpenAI-compatible route <code>/openai/v1/chat/completions</code>. Document AI uses <code>/providers/mistral/azure/ocr</code>. The legacy non-OpenAI Mistral chat route is intentionally rejected by APIM.</td>
+        </tr>
+    </tbody>
+</table>
+
 <h2 id="cognitive-services">Cognitive Services</h2>
 
-<p>Beyond OpenAI models, each tenant can access the following Azure AI capabilities through the hub.</p>
+<p>Beyond the model providers listed above, each tenant can access the following Azure AI capabilities through the hub.</p>
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #7c3aed;">
@@ -1319,7 +1350,7 @@
         <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">Provisioned exclusively for your team. Cost is directly attributed to you.</p>
         <ul style="margin-bottom: 0;">
             <li><strong>AI Foundry Project</strong> — your own API endpoint &amp; prompt flows</li>
-            <li><strong>OpenAI Deployments</strong> — quota allocated to your project</li>
+            <li><strong>Model Deployments</strong> — OpenAI baseline plus any tenant-specific Cohere or Mistral deployments assigned to your project</li>
             <li><strong>Document Intelligence</strong> — your own instance &amp; models</li>
             <li><strong>AI Search</strong> — your own indexes for RAG</li>
             <li><strong>Speech Services</strong> — your own instance</li>
