@@ -46,13 +46,13 @@ All models listed are available via GlobalStandard SKU without explicit access a
 
 ### Mistral Models (Canada East)
 
-Mistral models are serverless MaaS (pay-per-token). Quota is not tracked per region.
+Mistral models are serverless MaaS (pay-per-token). The Foundry deployment UI reports a 10M TPM total quota for `Mistral-Large-3`; the document AI models do not yet have an agreed shared allocation target in this repo.
 
 | Model | Kind | Quota Limit |
 |-------|------|------------:|
-| Mistral-Large-3 | Chat / Vision | not tracked |
-| mistral-document-ai-2505 | Document AI | not tracked |
-| mistral-document-ai-2512 | Document AI | not tracked |
+| Mistral-Large-3 | Chat / Vision | 10,000 |
+| mistral-document-ai-2505 | Document AI | not documented |
+| mistral-document-ai-2512 | Document AI | not documented |
 
 ---
 
@@ -96,13 +96,13 @@ The following 4 models were tested and excluded:
 - `mistral-medium-2505`, `mistral-small-2503`, `Codestral-2501` — **not in BC Gov Private Marketplace** (`Error`)
 - `mistral-ocr-2503` — **not supported** (`DeploymentModelNotSupported`)
 
-3 Mistral models are serverless MaaS (pay-per-token). Quota is not tracked; `capacity = 1` is a placeholder allocation.
+3 Mistral models are serverless MaaS (pay-per-token). Based on the Foundry deployment settings, `Mistral-Large-3` has a 10M TPM total quota and `ai-hub-admin` now reserves 1% of that total. The document AI models remain at the minimal allocation until a separate quota target is defined.
 
 | Model | Kind | Quota Limit | ai-hub-admin |
 |-------|------|------------:|-------------:|
-| Mistral-Large-3 | Chat / Vision | not tracked | 1 |
-| mistral-document-ai-2505 | Document AI | not tracked | 1 |
-| mistral-document-ai-2512 | Document AI | not tracked | 1 |
+| Mistral-Large-3 | Chat / Vision | 10,000 | 100 |
+| mistral-document-ai-2505 | Document AI | not documented | 1 |
+| mistral-document-ai-2512 | Document AI | not documented | 1 |
 
 > ¹ `ai-hub-admin / gpt-5.1-chat` uses a custom content filter policy (`ai-hub-admin-gpt-5.1-chat-filter`). See [Content Filters](#content-filters-rai-policies) below.
 
