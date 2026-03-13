@@ -37,7 +37,9 @@ test('admin can create, revise, and approve a tenant request', async ({ page }) 
 
   await expect(page).toHaveURL(new RegExp(`/tenants/${tenantName}$`));
   await expect(page.getByRole('heading', { name: displayName })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Generated tfvars' })).toBeVisible();
+  const generatedTfvarsDisclosure = page.locator('summary', { hasText: 'Generated tfvars' });
+  await expect(generatedTfvarsDisclosure).toBeVisible();
+  await generatedTfvarsDisclosure.click();
   await expect(page.getByText('dev.tfvars')).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Version history' })).toBeVisible();
   await expect(page.getByText('v1')).toBeVisible();

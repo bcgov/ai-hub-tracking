@@ -87,6 +87,15 @@ module "portal_storage" {
     tenant_registry = {
       name = "TenantRegistry"
     }
+    tenant_user_index = {
+      name = "TenantUserIndex"
+    }
+    tenant_status_index = {
+      name = "TenantStatusIndex"
+    }
+    tenant_access_index = {
+      name = "TenantAccessIndex"
+    }
     portal_sessions = {
       name = "TenantPortalSessions"
     }
@@ -138,6 +147,12 @@ module "portal" {
       "PORTAL_ADMIN_EMAILS"                    = var.admin_emails
       "SCM_DO_BUILD_DURING_DEPLOYMENT"         = "false"
       "WEBSITES_ENABLE_APP_SERVICE_STORAGE"    = "true"
+      "PORTAL_HUB_KEYVAULT_URL_DEV"            = var.hub_keyvault_url_dev
+      "PORTAL_HUB_KEYVAULT_URL_TEST"           = var.hub_keyvault_url_test
+      "PORTAL_HUB_KEYVAULT_URL_PROD"           = var.hub_keyvault_url_prod
+      "PORTAL_APIM_GATEWAY_URL_DEV"            = var.apim_gateway_url_dev
+      "PORTAL_APIM_GATEWAY_URL_TEST"           = var.apim_gateway_url_test
+      "PORTAL_APIM_GATEWAY_URL_PROD"           = var.apim_gateway_url_prod
     },
     var.extra_app_settings,
   )
@@ -160,6 +175,12 @@ module "portal" {
           "PORTAL_ADMIN_EMAILS"                    = var.admin_emails
           "SCM_DO_BUILD_DURING_DEPLOYMENT"         = "false"
           "WEBSITES_ENABLE_APP_SERVICE_STORAGE"    = "true"
+          "PORTAL_HUB_KEYVAULT_URL_DEV"            = var.hub_keyvault_url_dev
+          "PORTAL_HUB_KEYVAULT_URL_TEST"           = var.hub_keyvault_url_test
+          "PORTAL_HUB_KEYVAULT_URL_PROD"           = var.hub_keyvault_url_prod
+          "PORTAL_APIM_GATEWAY_URL_DEV"            = var.apim_gateway_url_dev
+          "PORTAL_APIM_GATEWAY_URL_TEST"           = var.apim_gateway_url_test
+          "PORTAL_APIM_GATEWAY_URL_PROD"           = var.apim_gateway_url_prod
         },
         var.extra_app_settings,
       )
@@ -199,10 +220,43 @@ resource "azurerm_role_assignment" "portal_table_contributor_tables" {
   for_each = var.enable_table_rbac ? toset([
     "TenantRequests",
     "TenantRegistry",
+    "TenantUserIndex",
+    "TenantStatusIndex",
+    "TenantAccessIndex",
     "TenantPortalSessions",
   ]) : toset([])
 
   scope                = "${module.portal_storage.resource_id}/tableServices/default/tables/${each.value}"
   role_definition_name = "Storage Table Data Contributor"
+  principal_id         = module.portal.system_assigned_mi_principal_id
+}
+
+# ---------------------------------------------------------------------------
+# RBAC: portal managed identity → Key Vault Secrets User (hub KV per env)
+# Enables the portal backend to read APIM primary/secondary keys from each
+# hub environment's Key Vault. Gated on the KV ID being supplied so that
+# tools/PR-preview deployments (which don't set these variables) plan cleanly.
+# ---------------------------------------------------------------------------
+resource "azurerm_role_assignment" "portal_mi_hub_kv_secrets_user_dev" {
+  count = var.hub_keyvault_id_dev != "" ? 1 : 0
+
+  scope                = var.hub_keyvault_id_dev
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.portal.system_assigned_mi_principal_id
+}
+
+resource "azurerm_role_assignment" "portal_mi_hub_kv_secrets_user_test" {
+  count = var.hub_keyvault_id_test != "" ? 1 : 0
+
+  scope                = var.hub_keyvault_id_test
+  role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.portal.system_assigned_mi_principal_id
+}
+
+resource "azurerm_role_assignment" "portal_mi_hub_kv_secrets_user_prod" {
+  count = var.hub_keyvault_id_prod != "" ? 1 : 0
+
+  scope                = var.hub_keyvault_id_prod
+  role_definition_name = "Key Vault Secrets User"
   principal_id         = module.portal.system_assigned_mi_principal_id
 }

@@ -5,10 +5,17 @@ import { TokenValidatorService } from './auth/token-validator.service';
 import { AppController } from './app.controller';
 import { SessionStoreService } from './storage/session-store.service';
 import { TenantStoreService } from './storage/tenant-store.service';
+import { HubKeyVaultService } from './services/hub-keyvault.service';
 import { HTTPLoggerMiddleware } from './middleware/req.res.logger';
 @Module({
   controllers: [AppController],
-  providers: [AuthSessionService, SessionStoreService, TokenValidatorService, TenantStoreService],
+  providers: [
+    AuthSessionService,
+    SessionStoreService,
+    TokenValidatorService,
+    TenantStoreService,
+    HubKeyVaultService,
+  ],
 })
 export class AppModule {
   /**

@@ -131,9 +131,22 @@ jobs:
           echo "Portal files changed: ${CHANGED}"
           echo "changed=$([[ ${CHANGED} -gt 0 ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
+  # ---------------------------------------------------------------------------
+  # Collect AI hub Terraform outputs (dev / test / prod)
+  # Downloads the shared and APIM remote state blobs for each hub environment
+  # and emits Key Vault IDs, Key Vault URIs, and APIM gateway URLs as job
+  # outputs for the portal deploy job. Must stay unconditional — if gated and
+  # skipped, GHA resolves all outputs as empty strings, silently zeroing the
+  # nine TF_VAR_* hub values and removing RBAC assignments on the next deploy.
+  # ---------------------------------------------------------------------------
+  collect-hub-outputs:
+    name: Collect hub Terraform outputs
+    uses: ./.github/workflows/.collect-hub-outputs.yml
+    secrets: inherit
+
   deploy-portal-tools:
     name: Deploy ai-hub-onboarding (tools)
-    needs: detect-portal-changes
+    needs: [detect-portal-changes, collect-hub-outputs]
     if: needs.detect-portal-changes.outputs.changed == 'true'
     runs-on: ubuntu-24.04
     environment: tools
@@ -195,5 +208,14 @@ jobs:
           TF_VAR_oidc_client_secret: ${{ secrets.PORTAL_PROD_OIDC_CLIENT_SECRET }}
           # Staging slot disabled - blocked by Deny-AppSlots-Public policy (public network access).
           TF_VAR_enable_deployment_slot: "false"
+          TF_VAR_hub_keyvault_id_dev: ${{ needs.collect-hub-outputs.outputs.hub_kv_dev_id }}
+          TF_VAR_hub_keyvault_id_test: ${{ needs.collect-hub-outputs.outputs.hub_kv_test_id }}
+          TF_VAR_hub_keyvault_id_prod: ${{ needs.collect-hub-outputs.outputs.hub_kv_prod_id }}
+          TF_VAR_hub_keyvault_url_dev: ${{ needs.collect-hub-outputs.outputs.hub_kv_dev_url }}
+          TF_VAR_hub_keyvault_url_test: ${{ needs.collect-hub-outputs.outputs.hub_kv_test_url }}
+          TF_VAR_hub_keyvault_url_prod: ${{ needs.collect-hub-outputs.outputs.hub_kv_prod_url }}
+          TF_VAR_apim_gateway_url_dev: ${{ needs.collect-hub-outputs.outputs.apim_url_dev }}
+          TF_VAR_apim_gateway_url_test: ${{ needs.collect-hub-outputs.outputs.apim_url_test }}
+          TF_VAR_apim_gateway_url_prod: ${{ needs.collect-hub-outputs.outputs.apim_url_prod }}
           PORTAL_NODE_VERSION_FILE: ${{ env.PORTAL_NODE_VERSION_FILE }}
         run: bash ./deploy-terraform.sh apply tools --auto-approve --no-var-file

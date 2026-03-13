@@ -1372,6 +1372,30 @@
     </div>
 </div>
 
+<h2 id="credentials-panel">Accessing Your API Credentials</h2>
+
+<p>Approved tenant administrators can view and copy their APIM subscription keys for each environment directly from the portal &mdash; no platform team involvement required.</p>
+
+<div class="card">
+    <h3 id="credentials-panel-1" style="margin-top: 0;">Credentials Panel</h3>
+    <p>Navigate to your tenant's detail page in the <a href="index.html">Tenant Onboarding Portal</a>. If your account is listed as a tenant admin and the tenant is approved, a <strong>Credentials</strong> panel appears below the configuration summary.</p>
+
+    <h3 id="what-you-can-see">What You Can See</h3>
+    <ul>
+        <li><strong>Three environment tabs</strong> (dev / test / prod) &mdash; credentials load on demand when you select a tab.</li>
+        <li><strong>Primary and Secondary subscription keys</strong> &mdash; values are always masked. Use the copy button to place a key on your clipboard.</li>
+        <li><strong>Rotation metadata</strong> (when rotation is enabled) &mdash; shows last rotation date, next scheduled rotation, and which slot is currently safe to use.</li>
+        <li><strong>Tenant info panel</strong> (expandable) &mdash; lists your base APIM URL, enabled services, and deployed model names and capacities.</li>
+    </ul>
+
+    <h3 id="security-notes">Security Notes</h3>
+    <ul>
+        <li>Key values are <strong>never displayed as text</strong> in the page. Only copy-to-clipboard is supported.</li>
+        <li>Access is restricted to users listed in your tenant's <code>admin_users</code> configuration.</li>
+        <li>Each environment's credentials are fetched independently from the hub Key Vault using the portal's Managed Identity.</li>
+    </ul>
+</div>
+
 <h2 id="related-resources">Related Resources</h2>
 
 <div class="grid grid-3">

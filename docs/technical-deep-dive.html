@@ -1555,6 +1555,33 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
     <li>✗ Self-hosted runners ($100/mo) - not needed for solo work</li>
 </ul>
 
+<h2 id="portal-hub-kv">6. Portal &rarr; Hub Key Vault Integration</h2>
+
+<p>The Tenant Onboarding Portal reads APIM subscription keys from the hub Key Vault at request time, rather than storing them in its own data store. This section describes the end-to-end flow and access model.</p>
+
+<h3 id="access-flow">Access Flow</h3>
+<ol>
+    <li>An authenticated tenant-admin user requests credentials in the portal UI (env tab selected).</li>
+    <li>The portal backend (<code>AppController.getCredentials</code>) verifies the session and confirms the user is in the tenant's <code>admin_users</code> list.</li>
+    <li><code>HubKeyVaultService</code> selects the <code>SecretClient</code> for the requested environment and calls <code>getSecret</code> for <code>{tenant}-apim-primary-key</code>, <code>{tenant}-apim-secondary-key</code>, and <code>{tenant}-apim-rotation-metadata</code>.</li>
+    <li>The portal's system-assigned <strong>Managed Identity</strong> authenticates to the hub Key Vault via <code>DefaultAzureCredential</code>. No connection strings or stored credentials are used.</li>
+    <li>The response is returned over the authenticated session &mdash; keys are immediately written to the clipboard client-side and never stored in React state or rendered as DOM text.</li>
+</ol>
+
+<h3 id="rbac-model">RBAC Model</h3>
+<p>The portal MI is granted <strong>Key Vault Secrets User</strong> on each hub Key Vault (one <code>azurerm_role_assignment</code> per environment in <code>tenant-onboarding-portal/infra/main.tf</code>, gated on <code>var.hub_keyvault_id_{env} != &quot;&quot;</code>). This is a read-only RBAC role &mdash; the portal can retrieve secret values but cannot create, update, or delete secrets.</p>
+
+<h3 id="apim-tenant-info">APIM Tenant Info</h3>
+<p>The <code>GET /tenants/:name/tenant-info</code> endpoint proxies the APIM <code>/{tenant}/internal/tenant-info</code> policy (which already existed &mdash; no APIM changes were required). The portal uses the per-env <code>apimGatewayUrl</code> setting and the tenant's primary key to authenticate the internal call.</p>
+
+<h3 id="configuration">Configuration</h3>
+<p>Six environment variables wire the hub Key Vault URIs and APIM gateway URLs into the portal backend:</p>
+<ul>
+    <li><code>PORTAL_HUB_KEYVAULT_URL_{DEV,TEST,PROD}</code> &mdash; hub Key Vault URI per environment</li>
+    <li><code>PORTAL_APIM_GATEWAY_URL_{DEV,TEST,PROD}</code> &mdash; APIM (or App Gateway) public URL per environment</li>
+</ul>
+<p>These are populated by the CI/CD pipeline from hub Terraform remote state (via the <code>collect-hub-outputs</code> matrix job &mdash; see <a href="decisions.html">ADR on hub output collection</a>).</p>
+
 <h2 id="summary">Summary</h2>
 
 <h3 id="why-we-need-key-vault-access">Why We Need Key Vault Access</h3>

@@ -80,6 +80,9 @@ tfplan
 **/secrets/**
 **/credentials/**
 **/terraform
+
+# GitHub Copilot hook runtime logs
+.github/hooks/logs/
 .tenant-*.auto.tfvars
 .tenant-workdir-*
 .terraform-tenant-*

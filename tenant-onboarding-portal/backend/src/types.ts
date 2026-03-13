@@ -68,6 +68,12 @@ export type PortalSettings = {
   mockUser: MockPortalUser;
   tableStorageConnectionString: string;
   tableStorageAccountUrl: string;
+  hubKeyVaultUrlDev: string;
+  hubKeyVaultUrlTest: string;
+  hubKeyVaultUrlProd: string;
+  apimGatewayUrlDev: string;
+  apimGatewayUrlTest: string;
+  apimGatewayUrlProd: string;
 };
 
 export type TenantRecord = {
@@ -108,3 +114,67 @@ export type TenantFormData = {
   read_users: string[];
   form_version?: string;
 };
+
+export type HubEnv = 'dev' | 'test' | 'prod';
+
+export interface ApimEnvCredentials {
+  tenant_name: string;
+  env: HubEnv;
+  primary_key: string;
+  secondary_key: string;
+  rotation: Record<string, unknown> | null;
+}
+
+export interface RawApimTenantInfoModel {
+  name: string;
+  model_name?: string;
+  model_version?: string;
+  scale_type?: string;
+  deployment?: string;
+  capacity?: number;
+  capacity_k_tpm?: number;
+  tokens_per_minute?: number;
+  endpoints?: {
+    azure_openai?: {
+      api_version?: string;
+      endpoint?: string;
+      url?: string;
+    };
+    openai_compatible?: {
+      base_url?: string;
+      model?: string;
+      url?: string;
+    };
+  };
+}
+
+export interface RawApimTenantInfoService {
+  enabled: boolean;
+  [key: string]: unknown;
+}
+
+export interface RawApimTenantInfoResponse {
+  tenant: string;
+  base_url: string;
+  models: RawApimTenantInfoModel[];
+  services: Record<string, RawApimTenantInfoService>;
+}
+
+export interface ApimTenantInfoModel {
+  name: string;
+  deployment: string;
+  capacity: string;
+  scale_type: string;
+  model_version: string;
+}
+
+export interface ApimTenantInfoService {
+  enabled: boolean;
+}
+
+export interface ApimTenantInfoResponse {
+  tenant: string;
+  base_url: string;
+  models: ApimTenantInfoModel[];
+  services: Record<string, ApimTenantInfoService>;
+}
