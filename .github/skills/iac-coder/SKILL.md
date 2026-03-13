@@ -29,6 +29,7 @@ Required context before making changes:
 Every change should deliver:
 - Minimal IaC/code edits scoped to the requested behavior
 - Updated variables/outputs/documentation for new interfaces
+- Updated service documentation when tenant-visible model or service availability changes. If Terraform, tenant tfvars, or Foundry wiring changes what tenants can access, update `docs/_pages/services.html` and the published docs page in the same change.
 - Safe dependency wiring (`depends_on`, module inputs/outputs) where needed
 - Validation evidence (fmt/validate/plan-level checks) or explicit blocker notes
 
@@ -93,6 +94,7 @@ Run these gates before handoff:
 3. Script sanity: `bash -n` for modified Bash scripts
 4. Workflow sanity: ensure OIDC, secret handling, and workflow-call contracts remain valid
 5. Behavior sanity: confirm feature flags and counts do not create unintended resources
+6. Documentation sanity: if the change affects tenant-facing service availability, confirm `docs/_pages/services.html`, the published docs page, and `infra-ai-hub/model-deployments.md` still match the deployed configuration
 
 If a gate cannot be run locally, state exactly what was not run and why.
 
