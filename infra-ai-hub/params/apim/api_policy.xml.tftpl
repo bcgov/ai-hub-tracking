@@ -399,6 +399,177 @@
                 <set-header name="api-key" exists-action="delete" />
             </when>
 %{ endif ~}
+%{ if openai_enabled ~}
+            <!-- Mistral AI requests -->
+            <!-- Chat models are only supported on the OpenAI-compatible /openai/v1/chat/completions surface. -->
+            <!-- Document AI models use the Mistral OCR /providers/mistral/azure/ocr surface. -->
+            <!-- The legacy /providers/mistral/models/{model}/chat/completions alias is reserved for -->
+            <!-- document models only and is rejected for chat models to preserve OpenAI-only token -->
+            <!-- metrics, rate limiting, and a single stable client contract. -->
+            <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;providers/mistral&quot;))">
+                <set-backend-service backend-id="${tenant_name}-openai" />
+                <set-variable name="mistralPathModel" value="@{
+                    var match = System.Text.RegularExpressions.Regex.Match(context.Request.Url.Path, @&quot;/?providers/mistral/models/([^/]+)/&quot;);
+                    return match.Success ? match.Groups[1].Value : string.Empty;
+                }" />
+                <choose>
+                    <when condition="@{
+                        var path = context.Request.Url.Path;
+                        var pathModel = context.Variables.GetValueOrDefault<string>(&quot;mistralPathModel&quot;, string.Empty);
+                        var isModelAlias = System.Text.RegularExpressions.Regex.IsMatch(path, @&quot;/?providers/mistral/models/[^/]+/chat/completions/?$&quot;, System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+                        var isDocumentModel = !string.IsNullOrEmpty(pathModel) &amp;&amp; pathModel.ToLowerInvariant().StartsWith(&quot;mistral-document-ai-&quot;);
+                        return isModelAlias &amp;&amp; !isDocumentModel;
+                    }">
+                        <return-response>
+                            <set-status code="400" reason="Bad Request" />
+                            <set-header name="Content-Type" exists-action="override">
+                                <value>application/json</value>
+                            </set-header>
+                            <set-body>{"error":{"code":"InvalidMistralRoute","message":"Mistral chat models must be called via /openai/v1/chat/completions. The /providers/mistral/models/{model}/chat/completions route is reserved for document models only."}}</set-body>
+                        </return-response>
+                    </when>
+                </choose>
+                <set-variable name="rewrittenMistralPath" value="@{
+                    var path = context.Request.Url.Path;
+                    var pathLower = path.ToLowerInvariant();
+                    var modelRouteMatch = System.Text.RegularExpressions.Regex.Match(path, @&quot;/?providers/mistral/models/([^/]+)/chat/completions/?$&quot;);
+
+                    if (modelRouteMatch.Success)
+                    {
+                        var modelName = modelRouteMatch.Groups[1].Value;
+                        if (modelName.ToLowerInvariant().StartsWith(&quot;mistral-document-ai-&quot;))
+                        {
+                            return &quot;/providers/mistral/azure/ocr&quot;;
+                        }
+
+                        return &quot;/openai/v1/chat/completions&quot;;
+                    }
+
+                    var providersIndex = pathLower.IndexOf(&quot;providers/mistral/&quot;);
+                    if (providersIndex &gt;= 0)
+                    {
+                        var providerPath = path.Substring(providersIndex);
+                        return providerPath.StartsWith(&quot;/&quot;) ? providerPath : &quot;/&quot; + providerPath;
+                    }
+
+                    return path.StartsWith(&quot;/&quot;) ? path : &quot;/&quot; + path;
+                }" />
+                <rewrite-uri template="@((string)context.Variables[&quot;rewrittenMistralPath&quot;])" copy-unmatched-params="true" />
+                <set-body>@{
+                    try {
+                        var body = context.Request.Body.As<JObject>(preserveContent: true) ?? new JObject();
+                        var pathModel = context.Variables.GetValueOrDefault<string>("mistralPathModel", string.Empty);
+                        var rewrittenPath = context.Variables.GetValueOrDefault<string>("rewrittenMistralPath", string.Empty);
+                        var requestModel = !string.IsNullOrEmpty(pathModel)
+                            ? pathModel
+                            : (body["model"]?.ToString() ?? string.Empty);
+
+                        if (!string.IsNullOrEmpty(requestModel))
+                        {
+                            var tenantScopedModel = requestModel.StartsWith("${tenant_name}-")
+                                ? requestModel
+                                : "${tenant_name}-" + requestModel;
+
+                            if (rewrittenPath == "/providers/mistral/azure/ocr")
+                            {
+                                body["model"] = tenantScopedModel;
+
+                                if (body["document"] == null)
+                                {
+                                    JObject documentItem = null;
+                                    var messages = body["messages"] as JArray;
+
+                                    if (messages != null)
+                                    {
+                                        for (int i = 0; i &lt; messages.Count; i++)
+                                        {
+                                            var message = messages[i] as JObject;
+                                            if (message == null)
+                                            {
+                                                continue;
+                                            }
+
+                                            var role = (message["role"]?.ToString() ?? string.Empty).ToLowerInvariant();
+                                            if (role != &quot;user&quot;)
+                                            {
+                                                continue;
+                                            }
+
+                                            var contentItems = message["content"] as JArray;
+                                            if (contentItems == null)
+                                            {
+                                                continue;
+                                            }
+
+                                            for (int contentIndex = 0; contentIndex &lt; contentItems.Count; contentIndex++)
+                                            {
+                                                var contentItem = contentItems[contentIndex] as JObject;
+                                                if (contentItem == null)
+                                                {
+                                                    continue;
+                                                }
+
+                                                var contentType = (contentItem["type"]?.ToString() ?? string.Empty).ToLowerInvariant();
+                                                if (contentType == &quot;document_url&quot; || contentType == &quot;image_url&quot;)
+                                                {
+                                                    documentItem = contentItem;
+                                                    break;
+                                                }
+                                            }
+
+                                            if (documentItem != null)
+                                            {
+                                                break;
+                                            }
+                                        }
+                                    }
+
+                                    if (documentItem != null)
+                                    {
+                                        var documentType = (documentItem["type"]?.ToString() ?? string.Empty).ToLowerInvariant();
+                                        var document = new JObject();
+                                        document["type"] = documentType;
+
+                                        if (documentType == &quot;document_url&quot; && documentItem["document_url"] != null)
+                                        {
+                                            document["document_url"] = documentItem["document_url"];
+                                        }
+                                        else if (documentType == &quot;image_url&quot; && documentItem["image_url"] != null)
+                                        {
+                                            document["image_url"] = documentItem["image_url"];
+                                        }
+
+                                        var ocrBody = new JObject();
+                                        ocrBody["model"] = tenantScopedModel;
+                                        ocrBody["document"] = document;
+
+                                        if (body["include_image_base64"] != null)
+                                        {
+                                            ocrBody["include_image_base64"] = body["include_image_base64"];
+                                        }
+
+                                        return ocrBody.ToString();
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                body["model"] = tenantScopedModel;
+                            }
+                        }
+
+                        return body.ToString();
+                    } catch {
+                        return context.Request.Body.As<string>(preserveContent: true);
+                    }
+                }</set-body>
+                <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
+                <set-header name="Authorization" exists-action="override">
+                    <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
+                </set-header>
+                <set-header name="api-key" exists-action="delete" />
+            </when>
+%{ endif ~}
 %{ if speech_services_enabled ~}
             <!-- Speech STT requests: speech/recognition -->
             <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;speech/recognition&quot;) || context.Request.Url.Path.ToLower().Contains(&quot;/stt/&quot;))">

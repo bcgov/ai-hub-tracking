@@ -251,7 +251,7 @@ resource "azapi_resource" "ai_model_deployment" {
   # Prefix with tenant name to ensure uniqueness on shared Hub
   name      = "${var.tenant_name}-${each.value.name}"
   parent_id = var.ai_foundry_hub_id
-  type      = "Microsoft.CognitiveServices/accounts/deployments@2025-04-01-preview"
+  type      = "Microsoft.CognitiveServices/accounts/deployments@2025-10-01-preview"
 
   body = {
     properties = {

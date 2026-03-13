@@ -126,11 +126,12 @@ load_terraform_config() {
     if [[ -n "${subscriptions}" ]]; then
         WLRS_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["wlrs-water-form-assistant"].primary_key // empty')
         SDPR_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["sdpr-invoice-automation"].primary_key // empty')
+        AI_HUB_ADMIN_SUBSCRIPTION_KEY=$(echo "${subscriptions}" | jq -r '.["ai-hub-admin"].primary_key // empty')
 
         APIM_KEYS_TENANT_1="${APIM_KEYS_TENANT_1:-wlrs-water-form-assistant}"
         APIM_KEYS_TENANT_2="${APIM_KEYS_TENANT_2:-sdpr-invoice-automation}"
 
-        export WLRS_SUBSCRIPTION_KEY SDPR_SUBSCRIPTION_KEY APIM_KEYS_TENANT_1 APIM_KEYS_TENANT_2
+        export WLRS_SUBSCRIPTION_KEY SDPR_SUBSCRIPTION_KEY AI_HUB_ADMIN_SUBSCRIPTION_KEY APIM_KEYS_TENANT_1 APIM_KEYS_TENANT_2
     fi
     
     echo "Configuration loaded successfully:" >&2
@@ -158,6 +159,9 @@ get_subscription_key_var_name() {
             ;;
         sdpr-invoice-automation)
             echo "SDPR_SUBSCRIPTION_KEY"
+            ;;
+        ai-hub-admin)
+            echo "AI_HUB_ADMIN_SUBSCRIPTION_KEY"
             ;;
         nr-dap-fish-wildlife)
             echo "NRDAP_SUBSCRIPTION_KEY"
@@ -194,6 +198,9 @@ get_subscription_key() {
         sdpr-invoice-automation)
             echo "${SDPR_SUBSCRIPTION_KEY:-}"
             ;;
+        ai-hub-admin)
+            echo "${AI_HUB_ADMIN_SUBSCRIPTION_KEY:-}"
+            ;;
         nr-dap-fish-wildlife)
             echo "${NRDAP_SUBSCRIPTION_KEY:-}"
             ;;
@@ -207,7 +214,7 @@ get_subscription_key() {
 # Function to check if config is loaded (at least one tenant key available)
 config_loaded() {
     [[ -n "${APIM_GATEWAY_URL:-}" ]] && \
-    ( [[ -n "${WLRS_SUBSCRIPTION_KEY:-}" ]] || [[ -n "${SDPR_SUBSCRIPTION_KEY:-}" ]] )
+    ( [[ -n "${WLRS_SUBSCRIPTION_KEY:-}" ]] || [[ -n "${SDPR_SUBSCRIPTION_KEY:-}" ]] || [[ -n "${AI_HUB_ADMIN_SUBSCRIPTION_KEY:-}" ]] )
 }
 
 # True when App Gateway is actually deployed for the current test env
@@ -255,6 +262,10 @@ export APPGW_HOSTNAME
 : "${HUB_KEYVAULT_NAME:=}"
 export HUB_KEYVAULT_NAME
 
+# Optional tenant-specific keys loaded from environment or terraform outputs
+: "${AI_HUB_ADMIN_SUBSCRIPTION_KEY:=}"
+export AI_HUB_ADMIN_SUBSCRIPTION_KEY
+
 # Canonical tenants for /internal/apim-keys tests
 : "${APIM_KEYS_TENANT_1:=wlrs-water-form-assistant}"
 : "${APIM_KEYS_TENANT_2:=sdpr-invoice-automation}"
@@ -269,7 +280,7 @@ export OPENAI_API_VERSION="2024-10-21"
 export DOCINT_API_VERSION="2024-11-30"
 
 # Tenants
-export TENANTS=("wlrs-water-form-assistant" "sdpr-invoice-automation" "nr-dap-fish-wildlife")
+export TENANTS=("wlrs-water-form-assistant" "sdpr-invoice-automation" "ai-hub-admin" "nr-dap-fish-wildlife")
 
 # Models available (default fallback)
 export DEFAULT_MODEL="gpt-4.1-mini"

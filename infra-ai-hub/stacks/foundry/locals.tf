@@ -10,8 +10,9 @@ locals {
   # would break Terraform's map(any) type unification across tenants).
   # Add new entries here when onboarding models from additional providers.
   model_format_prefixes = {
-    "cohere" = "Cohere"
-    # "mistral" = "MistralAI"  # example for future providers
+    "cohere"    = "Cohere"
+    "mistral"   = "Mistral AI"
+    "codestral" = "Mistral AI"
   }
 
   # Derives default format = "OpenAI" unless the lowercased model name starts
