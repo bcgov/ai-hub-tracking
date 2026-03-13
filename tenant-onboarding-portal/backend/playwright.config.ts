@@ -9,13 +9,13 @@ export default defineConfig({
   fullyParallel: false,
   reporter: [['list'], ['html', { open: 'never' }]],
   use: {
-    baseURL: 'http://127.0.0.1:4300',
+    baseURL: 'http://localhost:4300',
     headless: true,
     trace: 'on-first-retry',
   },
   webServer: {
     command: 'npm run e2e:serve',
-    url: 'http://127.0.0.1:4300/healthz',
+    url: 'http://localhost:4300/healthz',
     timeout: 120_000,
     reuseExistingServer: false,
   },
