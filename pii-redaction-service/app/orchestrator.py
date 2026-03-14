@@ -4,9 +4,10 @@ Orchestration logic for PII redaction of chat completion payloads.
 Design:
   1. Manifest phase  — walk messages, chunk content at word boundaries, record
                        every (messageIndex, chunkIndex, text) triple.
-  2. Batch phase     — group chunks into batches of MAX_DOCS_PER_CALL, call the
-                       Language API sequentially (not concurrently) to stay within
-                       the APIM timeout budget.  Reject if > MAX_SEQUENTIAL_BATCHES.
+  2. Batch phase     — group chunks into batches of MAX_DOCS_PER_CALL, submit all
+                       batches concurrently (Semaphore-bounded to MAX_BATCH_CONCURRENCY
+                       in-flight) within the APIM timeout budget.  Reject if >
+                       MAX_CONCURRENT_BATCHES.
   3. Reassemble phase — apply redacted text from each chunk result back onto the
                         original messages; verify full coverage.
   4. Return          — RedactionSuccess or RedactionFailure depending on coverage
@@ -161,6 +162,22 @@ async def _run_batch(
     return redacted
 
 
+async def _run_batch_with_semaphore(
+    sem: asyncio.Semaphore,
+    client: LanguageClient,
+    batch: list[ChunkEntry],
+    language: str,
+    excluded_categories: list[str],
+    per_batch_timeout: float,
+) -> dict[str, str]:
+    """Acquire semaphore slot, then run one batch with a per-call timeout."""
+    async with sem:
+        return await asyncio.wait_for(
+            _run_batch(client, batch, language, excluded_categories),
+            timeout=per_batch_timeout,
+        )
+
+
 # ---------------------------------------------------------------------------
 # Reassembly
 # ---------------------------------------------------------------------------
@@ -231,17 +248,17 @@ async def orchestrate_redaction(
     batches = manifest.batches(settings.max_docs_per_call)
     total_batches = len(batches)
 
-    if total_batches > settings.max_sequential_batches:
+    if total_batches > settings.max_concurrent_batches:
         elapsed = (time.monotonic() - start) * 1000
         msg = (
             f"Payload requires {total_batches} batches which exceeds the maximum "
-            f"of {settings.max_sequential_batches}. Rejecting."
+            f"of {settings.max_concurrent_batches}. Rejecting."
         )
         logger.warning(
             msg,
             extra={
                 "total_batches": total_batches,
-                "max_batches": settings.max_sequential_batches,
+                "max_batches": settings.max_concurrent_batches,
                 "correlation_id": config.correlation_id,
             },
         )
@@ -251,67 +268,60 @@ async def orchestrate_redaction(
             diagnostics=Diagnostics(total_docs=total_docs, total_batches=total_batches, elapsed_ms=elapsed),
         )
 
-    # 2. Execute batches sequentially — honouring total timeout
+    # 2. Execute batches concurrently (semaphore-bounded) — honouring total timeout
     deadline = start + settings.total_processing_timeout_seconds
-    for batch_num, batch in enumerate(batches, start=1):
-        remaining = deadline - time.monotonic()
-        if remaining <= 0:
-            elapsed = (time.monotonic() - start) * 1000
-            return RedactionFailure(
-                error=f"Total processing timeout exceeded before batch {batch_num}/{total_batches}",
-                diagnostics=Diagnostics(
-                    total_docs=total_docs,
-                    total_batches=total_batches,
-                    elapsed_ms=elapsed,
-                ),
-            )
+    sem = asyncio.Semaphore(settings.max_batch_concurrency)
+    remaining = deadline - time.monotonic()
 
-        try:
-            redacted_map = await asyncio.wait_for(
-                _run_batch(
-                    client=client,
-                    batch=batch,
-                    language=config.detection_language,
-                    excluded_categories=config.excluded_categories,
-                ),
-                timeout=min(settings.per_batch_timeout_seconds, remaining),
-            )
-        except TimeoutError:
+    try:
+        batch_results: list[dict[str, str] | BaseException] = await asyncio.wait_for(
+            asyncio.gather(
+                *[
+                    _run_batch_with_semaphore(
+                        sem,
+                        client,
+                        batch,
+                        config.detection_language,
+                        config.excluded_categories,
+                        settings.per_batch_timeout_seconds,
+                    )
+                    for batch in batches
+                ],
+                return_exceptions=True,
+            ),
+            timeout=remaining,
+        )
+    except TimeoutError:
+        elapsed = (time.monotonic() - start) * 1000
+        return RedactionFailure(
+            error="Total processing timeout exceeded",
+            diagnostics=Diagnostics(total_docs=total_docs, total_batches=total_batches, elapsed_ms=elapsed),
+        )
+
+    for batch_num, (batch, result) in enumerate(zip(batches, batch_results), start=1):
+        if isinstance(result, BaseException):
             elapsed = (time.monotonic() - start) * 1000
-            return RedactionFailure(
-                error=f"Batch {batch_num}/{total_batches} timed out",
-                diagnostics=Diagnostics(
-                    total_docs=total_docs,
-                    total_batches=total_batches,
-                    elapsed_ms=elapsed,
-                ),
+            error_msg = (
+                f"Batch {batch_num}/{total_batches} timed out"
+                if isinstance(result, TimeoutError)
+                else f"Language API error in batch {batch_num}/{total_batches}: {result}"
             )
-        except Exception as exc:  # noqa: BLE001
-            elapsed = (time.monotonic() - start) * 1000
-            logger.exception(
-                "Language API error in batch %d",
-                batch_num,
+            logger.error(
+                error_msg,
                 extra={"correlation_id": config.correlation_id},
             )
             return RedactionFailure(
-                error=f"Language API error in batch {batch_num}: {exc}",
-                diagnostics=Diagnostics(
-                    total_docs=total_docs,
-                    total_batches=total_batches,
-                    elapsed_ms=elapsed,
-                ),
+                error=error_msg,
+                diagnostics=Diagnostics(total_docs=total_docs, total_batches=total_batches, elapsed_ms=elapsed),
             )
-
-        # Apply results to manifest
         for entry in batch:
-            entry.redacted_text = redacted_map.get(entry.doc_id)
+            entry.redacted_text = result.get(entry.doc_id)
 
-        logger.debug(
-            "Batch %d/%d complete",
-            batch_num,
-            total_batches,
-            extra={"correlation_id": config.correlation_id},
-        )
+    logger.debug(
+        "All %d batches complete",
+        total_batches,
+        extra={"correlation_id": config.correlation_id},
+    )
 
     # 3. Verify coverage
     elapsed = (time.monotonic() - start) * 1000

@@ -51,12 +51,19 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     settings: Settings = get_settings()
     configure_logging(settings.log_level)
 
+    is_local = settings.environment.lower() == "local"
+    if is_local and not settings.language_api_key:
+        raise RuntimeError("PII_LANGUAGE_API_KEY is required when ENVIRONMENT=local")
+
     logger.info(
         "PII Redaction Service starting",
         extra={
+            "environment": settings.environment,
+            "auth_mode": "api_key" if is_local else "managed_identity",
             "language_endpoint": settings.language_endpoint,
             "max_docs_per_call": settings.max_docs_per_call,
-            "max_sequential_batches": settings.max_sequential_batches,
+            "max_concurrent_batches": settings.max_concurrent_batches,
+            "max_batch_concurrency": settings.max_batch_concurrency,
         },
     )
 
@@ -64,6 +71,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         endpoint=settings.language_endpoint,
         api_version=settings.language_api_version,
         per_batch_timeout=settings.per_batch_timeout_seconds,
+        api_key=settings.language_api_key if is_local else None,
     )
     async with _language_client:
         logger.info("Language client initialised — service ready")

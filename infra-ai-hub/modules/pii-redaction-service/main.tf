@@ -57,9 +57,13 @@ resource "azurerm_container_app" "service" {
   }
 
   template {
-    min_replicas = var.min_replicas
-    max_replicas = var.max_replicas
-
+    min_replicas               = var.min_replicas
+    max_replicas               = var.max_replicas
+    cooldown_period_in_seconds = 60
+    http_scale_rule {
+      name                = "http-scaling"
+      concurrent_requests = "20"
+    }
     container {
       name   = "pii-redaction-service"
       image  = "${var.container_registry_url}/${var.container_image_name}:${var.container_image_tag}"
@@ -84,8 +88,12 @@ resource "azurerm_container_app" "service" {
         value = tostring(var.total_processing_timeout_seconds)
       }
       env {
-        name  = "PII_MAX_SEQUENTIAL_BATCHES"
-        value = tostring(var.max_sequential_batches)
+        name  = "PII_MAX_CONCURRENT_BATCHES"
+        value = tostring(var.max_concurrent_batches)
+      }
+      env {
+        name  = "PII_MAX_BATCH_CONCURRENCY"
+        value = tostring(var.max_batch_concurrency)
       }
       env {
         name  = "PII_MAX_DOC_CHARS"

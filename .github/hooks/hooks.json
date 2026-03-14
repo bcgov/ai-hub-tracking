@@ -25,7 +25,7 @@
       {
         "type": "command",
         "bash": "bash .github/hooks/scripts/post-tool-use.sh",
-        "powershell": ".github/hooks/scripts/post-tool-use.ps1",
+        "powershell": "powershell -ExecutionPolicy Bypass -File .github/hooks/scripts/post-tool-use.ps1",
         "cwd": ".",
         "timeoutSec": 240,
         "comment": "Final quality gate sweep at session end — catches any edits that slipped past postToolUse"

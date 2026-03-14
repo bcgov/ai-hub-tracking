@@ -33,13 +33,13 @@ variable "container_image_tag" {
 variable "cpu" {
   description = "vCPU allocation per replica."
   type        = number
-  default     = 0.5
+  default     = 0.25
 }
 
 variable "memory" {
   description = "Memory allocation per replica (e.g. '1Gi')."
   type        = string
-  default     = "1Gi"
+  default     = "512Mi"
 }
 
 variable "min_replicas" {
@@ -90,10 +90,16 @@ variable "total_processing_timeout_seconds" {
   default     = 55
 }
 
-variable "max_sequential_batches" {
-  description = "Maximum number of sequential Language API calls. Requests requiring more batches receive HTTP 413."
+variable "max_concurrent_batches" {
+  description = "Maximum number of concurrent Language API batches. Requests requiring more batches receive HTTP 413."
   type        = number
-  default     = 10
+  default     = 15
+}
+
+variable "max_batch_concurrency" {
+  description = "Number of Language API batches allowed in flight simultaneously (semaphore bound)."
+  type        = number
+  default     = 3
 }
 
 variable "max_doc_chars" {

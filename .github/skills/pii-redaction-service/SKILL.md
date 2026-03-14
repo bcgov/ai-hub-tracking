@@ -65,7 +65,7 @@ APIM → POST /redact  (Container App internal ingress, VNet only)
        └── orchestrate_redaction(request, settings)
             ├── Guard: empty documents?
             ├── Split into batches  (max_docs_per_call=5, max_doc_chars=5000)
-            └── For each batch  (sequential, up to max_sequential_batches):
+            └── For each batch  (concurrent, semaphore-bounded, up to max_concurrent_batches):
                  ├── LanguageClient.recognize_pii()  with per_batch_timeout
                  ├── Accumulate redacted text
                  └── Check rolling timeout  (total_processing_timeout_seconds)
@@ -78,7 +78,7 @@ APIM → POST /redact  (Container App internal ingress, VNet only)
 - **Stateless**: No shared state between requests; each `POST /redact` is fully independent
 - **Timeout budget**: `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` (55s default) is always less than APIM's backend timeout (60s) to ensure clean error propagation before APIM times out
 - **Batching limits**: Language Service enforces 5 documents per call and 5000 characters per document; the orchestrator enforces these limits before making any API calls
-- **Sequential batching**: Batches are processed in sequence (not concurrently) to honour the rolling timeout and avoid overwhelming the Language Service
+- **Concurrent batching**: Batches are processed with bounded concurrency (`max_batch_concurrency` semaphore, default 3) to maximise throughput while respecting the Language Service rate limits and rolling timeout budget
 - **Fail-closed**: Timeouts and Language Service errors return `RedactionFailure` — the service never passes unredacted text through on error
 - **Image refresh**: `terraform_data.image_refresh` in the Terraform module forces a re-pull when the `:latest` tag is used, because Terraform cannot detect mutable tag changes
 
@@ -92,7 +92,8 @@ All variables use the `PII_` prefix (e.g., `PII_LANGUAGE_ENDPOINT`).
 | `PII_LANGUAGE_API_VERSION` | No | `2025-11-15-preview` | Language Service API version for PII recognition |
 | `PII_PER_BATCH_TIMEOUT_SECONDS` | No | `10` | Timeout for each individual Language Service call (seconds) |
 | `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` | No | `55` | Rolling total timeout across all batches — must be < APIM backend timeout |
-| `PII_MAX_SEQUENTIAL_BATCHES` | No | `10` | Maximum number of sequential batches per request |
+| `PII_MAX_CONCURRENT_BATCHES` | No | `15` | Maximum number of batches allowed per request (413 if exceeded) |
+| `PII_MAX_BATCH_CONCURRENCY` | No | `3` | Number of Language API calls allowed in flight simultaneously |
 | `PII_MAX_DOC_CHARS` | No | `5000` | Maximum characters per document (Language Service hard limit) |
 | `PII_MAX_DOCS_PER_CALL` | No | `5` | Maximum documents per Language API call (Language Service hard limit) |
 | `PII_LOG_LEVEL` | No | `INFO` | Python logging level |

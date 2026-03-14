@@ -1,6 +1,7 @@
 """
 Azure Language Service client — wraps the PII recognition REST API using
-DefaultAzureCredential (Managed Identity in production, CLI/env in dev).
+DefaultAzureCredential (Managed Identity / CLI) in Azure, or API key auth
+when running locally.
 
 We call the REST API directly via httpx rather than the SDK to avoid the
 per-document wrapper overhead and to control chunking ourselves.
@@ -26,6 +27,10 @@ class LanguageClient:
 
     One instance is created at startup and shared for the lifetime of the process.
     httpx.AsyncClient is used for connection pooling and timeout control.
+
+    When ``api_key`` is provided the client sends it as the
+    ``Ocp-Apim-Subscription-Key`` header instead of acquiring a bearer token
+    via DefaultAzureCredential (local development mode).
     """
 
     def __init__(
@@ -33,11 +38,13 @@ class LanguageClient:
         endpoint: str,
         api_version: str = "2025-11-15-preview",
         per_batch_timeout: int = 10,
+        api_key: str | None = None,
     ) -> None:
         self._endpoint = endpoint.rstrip("/")
         self._api_version = api_version
         self._timeout = per_batch_timeout
-        self._credential = DefaultAzureCredential()
+        self._api_key = api_key
+        self._credential = DefaultAzureCredential() if api_key is None else None
         self._http: httpx.AsyncClient | None = None
 
     async def __aenter__(self) -> LanguageClient:
@@ -52,9 +59,12 @@ class LanguageClient:
         if self._http:
             await self._http.aclose()
 
-    async def _get_token(self) -> str:
+    async def _get_auth_headers(self) -> dict[str, str]:
+        if self._api_key is not None:
+            return {"Ocp-Apim-Subscription-Key": self._api_key}
+        assert self._credential is not None
         token = await asyncio.to_thread(self._credential.get_token, _SCOPE)
-        return token.token
+        return {"Authorization": f"Bearer {token.token}"}
 
     async def analyze_pii(
         self,
@@ -70,7 +80,7 @@ class LanguageClient:
         """
         assert self._http is not None, "Client must be used as async context manager"
 
-        token = await self._get_token()
+        auth_headers = await self._get_auth_headers()
         payload: dict[str, Any] = {
             "kind": "PiiEntityRecognition",
             "analysisInput": {
@@ -87,7 +97,7 @@ class LanguageClient:
         response = await self._http.post(
             url,
             json=payload,
-            headers={"Authorization": f"Bearer {token}"},
+            headers=auth_headers,
         )
         response.raise_for_status()
         return response.json()

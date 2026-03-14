@@ -33,21 +33,58 @@ Client → App Gateway → APIM
 
 ## Local development
 
+### Prerequisites
+
 ```bash
-# Install uv (https://github.com/astral-sh/uv)
+# Install uv if not already installed
 pip install uv
 
 # Create virtualenv and install dependencies
 uv sync
+```
 
-# Copy and fill environment variables
+### Environment setup
+
+Copy `.env` and fill in your values:
+
+```bash
 cp .env.example .env
-# Edit .env — set PII_LANGUAGE_ENDPOINT to your Language Service URL
+```
 
-# Run the service
-uv run uvicorn app.main:app --reload --port 8000
+For local runs, set the following in `.env`:
 
-# Run tests
+```dotenv
+PII_LANGUAGE_ENDPOINT=https://<your-language-service>.cognitiveservices.azure.com/
+PII_ENVIRONMENT=local
+PII_LANGUAGE_API_KEY=<your-api-key>
+```
+
+With `PII_ENVIRONMENT=local` the service skips `DefaultAzureCredential` and sends the key as `Ocp-Apim-Subscription-Key` directly to the Language API.
+
+### Running the service
+
+```powershell
+# Basic — loads .env automatically
+uv run --env-file .env uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+If you are behind a corporate HTTP proxy (e.g. Privoxy/Chisel on port 8118), set the proxy before running:
+
+```powershell
+$env:HTTPS_PROXY = "http://localhost:8118"
+$env:HTTP_PROXY  = "http://localhost:8118"
+$env:NO_PROXY    = "localhost,127.0.0.1"
+uv run --env-file .env uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+`httpx` (used internally) picks up `HTTPS_PROXY`/`HTTP_PROXY` natively — no code changes needed.
+
+### Testing
+
+Use the `pii-test.http` file with the VS Code REST Client extension to hit the local endpoint. It includes health, basic PII, multi-turn, large-payload, and limit-breach scenarios.
+
+```bash
+# Unit / integration tests
 uv run pytest
 ```
 
@@ -66,10 +103,13 @@ docker run --rm -e PII_LANGUAGE_ENDPOINT=https://... -p 8000:8000 pii-redaction-
 | Variable | Required | Default | Description |
 |---|---|---|---|
 | `PII_LANGUAGE_ENDPOINT` | ✅ | — | Azure Language Service endpoint URL |
+| `PII_ENVIRONMENT` | | `Azure` | `Azure` uses Managed Identity; `local` uses API key auth |
+| `PII_LANGUAGE_API_KEY` | ✅ when `local` | — | Language Service API key (local only) |
 | `PII_LANGUAGE_API_VERSION` | | `2025-11-15-preview` | Language API version |
 | `PII_PER_BATCH_TIMEOUT_SECONDS` | | `10` | Timeout per Language API batch call |
 | `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` | | `55` | Overall deadline for all batches |
-| `PII_MAX_SEQUENTIAL_BATCHES` | | `10` | Reject payloads requiring more than this many batches |
+| `PII_MAX_CONCURRENT_BATCHES` | | `15` | Reject payloads requiring more than this many batches |
+| `PII_MAX_BATCH_CONCURRENCY` | | `3` | Number of Language API batches processed concurrently |
 | `PII_MAX_DOC_CHARS` | | `5000` | Max characters per Language API document |
 | `PII_MAX_DOCS_PER_CALL` | | `5` | Max documents per Language API call |
 | `PII_LOG_LEVEL` | | `INFO` | Log level (DEBUG/INFO/WARNING/ERROR) |
@@ -116,7 +156,7 @@ Redacts PII from chat messages and returns the modified body.
 }
 ```
 
-**Payload too large (413):** More batches required than `max_sequential_batches`.
+**Payload too large (413):** More batches required than `max_concurrent_batches`.
 
 **Service unavailable (503):** Language API error or timeout.
 
