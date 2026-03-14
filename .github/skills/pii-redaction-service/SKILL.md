@@ -47,11 +47,11 @@ Every change should deliver:
 | Entry point | `pii-redaction-service/app/main.py` | FastAPI app, lifespan (LanguageClient init), `/health` + `/redact` routes |
 | Settings | `pii-redaction-service/app/config.py` | Pydantic Settings — all env vars (`PII_` prefix) |
 | Models | `pii-redaction-service/app/models.py` | `RedactionRequest`, `RedactionSuccess`, `RedactionFailure` |
-| Language client | `pii-redaction-service/app/language_client.py` | Azure Language Service SDK wrapper (MI auth via `DefaultAzureCredential`) |
-| Orchestrator | `pii-redaction-service/app/orchestrator.py` | Batching, sequential dispatch, rolling timeout budget enforcement |
+| Language client | `pii-redaction-service/app/language_client.py` | Azure Language Service REST client (httpx, MI auth via `DefaultAzureCredential`) |
+| Orchestrator | `pii-redaction-service/app/orchestrator.py` | Batching, concurrent dispatch (semaphore-bounded), rolling timeout budget enforcement |
 | Logging config | `pii-redaction-service/app/logging_config.py` | Structured logging setup |
 | Dockerfile | `pii-redaction-service/Dockerfile` | Multi-stage: uv builder → Python slim runtime |
-| Dependencies | `pii-redaction-service/pyproject.toml` | uv-managed deps (azure-ai-textanalytics, fastapi, pydantic-settings) |
+| Dependencies | `pii-redaction-service/pyproject.toml` | uv-managed deps (fastapi, httpx, azure-identity, pydantic-settings) |
 | Unit tests | `pii-redaction-service/tests/` | pytest suite for API routes and orchestrator logic |
 | GHA workflow | `.github/workflows/.builds.yml` | Reusable workflow → GHCR image via `bcgov/action-builder-ghcr` (matrix entry) |
 | Terraform module | `infra-ai-hub/modules/pii-redaction-service/` | Container App definition, RBAC (Cognitive Services User on Language Service) |
@@ -106,6 +106,7 @@ All variables use the `PII_` prefix (e.g., `PII_LANGUAGE_ENDPOINT`).
 5. **Terraform** — `terraform fmt -recursive` and `terraform validate` if module or stack changed
 6. **Timeout budget** — verify `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` < APIM backend timeout if either value changes
 7. **Settings schema** — new env vars added to both `config.py` Settings class and `.env.example`
+8. **Integration tests** — any change to `app/orchestrator.py`, `app/language_client.py`, `app/models.py`, `app/main.py`, or `infra-ai-hub/params/apim/fragments/pii-anonymization.xml` **must** be followed by reviewing and running the integration test suites: `tests/integration/pii-redaction.bats`, `pii-coverage.bats`, `pii-chunking.bats`, and `pii-failure.bats`. Update the tests if error contracts, field names, or behavior changed.
 
 ## Validation Gates (Required)
 1. **Ruff clean**: No lint errors (`ruff check .`)
@@ -114,3 +115,4 @@ All variables use the `PII_` prefix (e.g., `PII_LANGUAGE_ENDPOINT`).
 4. **Settings schema**: All new env vars present in `config.py` + `.env.example`
 5. **Feature flag**: Stack gated behind `local.cae_config.enabled && try(local.pii_redaction_config.enabled, true)` in `stacks/pii-redaction/main.tf`
 6. **Timeout invariant**: `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` ≤ (APIM backend timeout − 5s)
+7. **Integration tests reviewed**: If service logic or the `pii-anonymization.xml` fragment changed, `tests/integration/pii-redaction.bats`, `pii-coverage.bats`, `pii-chunking.bats`, and `pii-failure.bats` have been reviewed and remain consistent with the new behavior. Run them (with `PII_FAILURE_TEST_ENABLED=true` for `pii-failure.bats`) before merging.

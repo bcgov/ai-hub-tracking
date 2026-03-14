@@ -101,7 +101,7 @@ app = FastAPI(
 
 @app.get("/health", include_in_schema=False)
 async def health() -> JSONResponse:
-    return JSONResponse({"status": "ok"})
+    return JSONResponse({"status": "healthy"})
 
 
 @app.post(
@@ -173,7 +173,5 @@ async def redact(redaction_request: RedactionRequest) -> JSONResponse:
 @app.exception_handler(Exception)
 async def _unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     logger.exception("Unhandled exception", extra={"path": str(request.url)})
-    return JSONResponse(
-        content={"status": "error", "full_coverage": False, "error": "Internal server error"},
-        status_code=503,
-    )
+    failure = RedactionFailure(error="Internal server error")
+    return JSONResponse(content=failure.model_dump(), status_code=503)

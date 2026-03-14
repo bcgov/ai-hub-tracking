@@ -56,6 +56,7 @@ class ChunkEntry:
 @dataclass
 class ChunkManifest:
     entries: list[ChunkEntry] = field(default_factory=list)
+    skipped_roles: set[str] = field(default_factory=set)
 
     def total_docs(self) -> int:
         return len(self.entries)
@@ -119,7 +120,11 @@ def build_manifest(
     for msg_idx, message in enumerate(messages):
         role = message.get("role", "")
         content = message.get("content", "")
-        if role not in scan_roles or not isinstance(content, str) or not content:
+        if role not in scan_roles:
+            if role:
+                manifest.skipped_roles.add(role)
+            continue
+        if not isinstance(content, str) or not content:
             continue
         chunks = _chunk_at_word_boundary(content, max_doc_chars)
         for chunk_idx, chunk_text in enumerate(chunks):
@@ -144,7 +149,7 @@ async def _run_batch(
     batch: list[ChunkEntry],
     language: str,
     excluded_categories: list[str],
-) -> dict[str, str]:
+) -> tuple[dict[str, str], int]:
     """
     Send one batch to the Language API and return a map of doc_id → redacted text.
     """
@@ -156,10 +161,12 @@ async def _run_batch(
     )
 
     redacted: dict[str, str] = {}
+    entity_count = 0
     for doc in response.get("results", {}).get("documents", []):
         redacted[doc["id"]] = doc.get("redactedText", "")
+        entity_count += len(doc.get("entities", []))
 
-    return redacted
+    return redacted, entity_count
 
 
 async def _run_batch_with_semaphore(
@@ -169,7 +176,7 @@ async def _run_batch_with_semaphore(
     language: str,
     excluded_categories: list[str],
     per_batch_timeout: float,
-) -> dict[str, str]:
+) -> tuple[dict[str, str], int]:
     """Acquire semaphore slot, then run one batch with a per-call timeout."""
     async with sem:
         return await asyncio.wait_for(
@@ -203,7 +210,7 @@ def _reassemble_messages(
             continue
         chunks = sorted(grouped[idx], key=lambda e: e.chunk_index)
         redacted_parts = [c.redacted_text or c.original_text for c in chunks]
-        reassembled.append({**message, "content": " ".join(redacted_parts)})
+        reassembled.append({**message, "content": "".join(redacted_parts)})
 
     return reassembled
 
@@ -233,6 +240,7 @@ async def orchestrate_redaction(
     )
 
     total_docs = manifest.total_docs()
+    skipped = sorted(manifest.skipped_roles)
     if total_docs == 0:
         # Nothing to redact — return body unchanged
         elapsed = (time.monotonic() - start) * 1000
@@ -242,7 +250,12 @@ async def orchestrate_redaction(
                 "messages": messages_raw,
                 **request.body.model_extra_dict(),
             },
-            diagnostics=Diagnostics(total_docs=0, total_batches=0, elapsed_ms=elapsed),
+            diagnostics=Diagnostics(
+                total_docs=0,
+                total_batches=0,
+                elapsed_ms=elapsed,
+                skipped_roles=skipped,
+            ),
         )
 
     batches = manifest.batches(settings.max_docs_per_call)
@@ -265,7 +278,12 @@ async def orchestrate_redaction(
         return RedactionFailure(
             status="payload-too-large",
             error=msg,
-            diagnostics=Diagnostics(total_docs=total_docs, total_batches=total_batches, elapsed_ms=elapsed),
+            diagnostics=Diagnostics(
+                total_docs=total_docs,
+                total_batches=total_batches,
+                elapsed_ms=elapsed,
+                skipped_roles=skipped,
+            ),
         )
 
     # 2. Execute batches concurrently (semaphore-bounded) — honouring total timeout
@@ -274,7 +292,7 @@ async def orchestrate_redaction(
     remaining = deadline - time.monotonic()
 
     try:
-        batch_results: list[dict[str, str] | BaseException] = await asyncio.wait_for(
+        batch_results: list[tuple[dict[str, str], int] | BaseException] = await asyncio.wait_for(
             asyncio.gather(
                 *[
                     _run_batch_with_semaphore(
@@ -295,9 +313,15 @@ async def orchestrate_redaction(
         elapsed = (time.monotonic() - start) * 1000
         return RedactionFailure(
             error="Total processing timeout exceeded",
-            diagnostics=Diagnostics(total_docs=total_docs, total_batches=total_batches, elapsed_ms=elapsed),
+            diagnostics=Diagnostics(
+                total_docs=total_docs,
+                total_batches=total_batches,
+                elapsed_ms=elapsed,
+                skipped_roles=skipped,
+            ),
         )
 
+    total_entity_count = 0
     for batch_num, (batch, result) in enumerate(zip(batches, batch_results), start=1):
         if isinstance(result, BaseException):
             elapsed = (time.monotonic() - start) * 1000
@@ -312,10 +336,18 @@ async def orchestrate_redaction(
             )
             return RedactionFailure(
                 error=error_msg,
-                diagnostics=Diagnostics(total_docs=total_docs, total_batches=total_batches, elapsed_ms=elapsed),
+                diagnostics=Diagnostics(
+                    total_docs=total_docs,
+                    total_batches=total_batches,
+                    elapsed_ms=elapsed,
+                    entity_count=total_entity_count,
+                    skipped_roles=skipped,
+                ),
             )
+        redacted_map, batch_entity_count = result
+        total_entity_count += batch_entity_count
         for entry in batch:
-            entry.redacted_text = result.get(entry.doc_id)
+            entry.redacted_text = redacted_map.get(entry.doc_id)
 
     logger.debug(
         "All %d batches complete",
@@ -335,7 +367,13 @@ async def orchestrate_redaction(
         )
         return RedactionFailure(
             error=f"Incomplete coverage: missing redacted text for {len(missing)} chunk(s)",
-            diagnostics=Diagnostics(total_docs=total_docs, total_batches=total_batches, elapsed_ms=elapsed),
+            diagnostics=Diagnostics(
+                total_docs=total_docs,
+                total_batches=total_batches,
+                elapsed_ms=elapsed,
+                entity_count=total_entity_count,
+                skipped_roles=skipped,
+            ),
         )
 
     # 4. Reassemble
@@ -346,5 +384,11 @@ async def orchestrate_redaction(
             "messages": redacted_messages,
             **request.body.model_extra_dict(),
         },
-        diagnostics=Diagnostics(total_docs=total_docs, total_batches=total_batches, elapsed_ms=elapsed),
+        diagnostics=Diagnostics(
+            total_docs=total_docs,
+            total_batches=total_batches,
+            elapsed_ms=elapsed,
+            entity_count=total_entity_count,
+            skipped_roles=skipped,
+        ),
     )

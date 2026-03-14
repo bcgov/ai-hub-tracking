@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 class Message(BaseModel):
     role: str
-    content: str
+    content: str | None = None
 
 
 class RequestBody(BaseModel):
@@ -53,6 +53,8 @@ class Diagnostics(BaseModel):
     total_docs: int
     total_batches: int
     elapsed_ms: float
+    entity_count: int = 0
+    skipped_roles: list[str] = Field(default_factory=list)
 
 
 class RedactionSuccess(BaseModel):

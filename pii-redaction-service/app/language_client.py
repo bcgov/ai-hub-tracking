@@ -88,10 +88,11 @@ class LanguageClient:
             },
             "parameters": {
                 "domain": "none",
+                "redactionPolicy": {"policyKind": "CharacterMask"},
             },
         }
         if excluded_categories:
-            payload["parameters"]["piiCategories"] = excluded_categories
+            payload["parameters"]["excludePiiCategories"] = excluded_categories
 
         url = f"/language/:analyze-text?api-version={self._api_version}"
         response = await self._http.post(

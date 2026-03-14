@@ -366,132 +366,63 @@ APIM is integrated with Language Service using:
 
 **Named Value: `piiServiceUrl`**
 - Value is the Language Service endpoint without a trailing slash
-- The PII fragment expects the base endpoint in this format
+- The external PII redaction service uses this endpoint internally
 
 **RBAC:**
-- APIM's managed identity is assigned the `Cognitive Services User` role on the shared Language Service resource
+- The pii-redaction Container App's managed identity is assigned the `Cognitive Services User` role on the shared Language Service resource (APIM no longer calls Language Service directly)
 
 ### Policy Fragment Deep Dive: `fragments/pii-anonymization.xml`
 
 **Purpose:**
-Detect and mask PII in text content using Language Service PII entity recognition.
+Route PII-enabled requests to the external pii-redaction Container App for redaction. APIM acts as a policy enforcement point only — all Language Service calls, chunking, batching, and fail-closed safety are handled by the external service.
 
-**Prerequisites / Inputs (variables must be set by the caller policy):**
-- `piiInputContent`: the input text to analyze (typically the request body)
-- `piiAnonymizationEnabled`: `"true"` or `"false"`
+**Input Variables (set by the caller policy before `<include-fragment>`):**
+- `piiInputContent`: Request body as JSON string (messages object)
+- `piiAnonymizationEnabled`: `"true"` to enable; any other value = pass-through
+- `piiExcludedCategories`: JSON array of PII category strings to exclude
+- `piiDetectionLanguage`: Language code for detection (default `"en"`)
+- `piiFailClosed`: `"true"` = block on failure (503); `"false"`/absent = pass original body
+- `piiScanRoles`: JSON array of message roles to scan (default `["user", "assistant", "tool"]`)
+- `piiExternalRedactionUrl`: Base URL of the pii-redaction Container App
 
-**Required APIM Named Value:**
-- `piiServiceUrl`: Language Service base endpoint URL
+**Output Variable:**
+- `piiAnonymizedContent`: Redacted body JSON string, or original on fail-open / PII disabled
 
-**Output:**
-- `piiAnonymizedContent`: anonymized/redacted text output
-
-**Auth:**
-- Uses `authentication-managed-identity` to obtain an AAD token for `https://cognitiveservices.azure.com`
-- Sets `Authorization: Bearer <token>`
-- Deletes any `api-key` header
-
-**API Call:**
-- Endpoint: `{{piiServiceUrl}}/language/:analyze-text?api-version=2025-11-15-preview`
+**Request to External Service:**
+- Endpoint: `{piiExternalRedactionUrl}/redact`
 - Method: `POST`
-- Timeout: `20` seconds
-- `ignore-error="true"` (errors are handled with fallback behavior)
-- API version `2025-11-15-preview` is documented at [Microsoft Learn: PII Detection](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/overview)
+- Timeout: `60` seconds
+- `ignore-error="true"` (errors handled by APIM fail-closed/open logic)
+- Body: `{ "body": <parsed piiInputContent>, "config": { "fail_closed": bool, "excluded_categories": [...], "detection_language": "en", "scan_roles": [...], "correlation_id": "<request-id>" } }`
 
-**Request Body (high level):**
-- `kind`: `PiiEntityRecognition`
-- `parameters`:
-  - `modelVersion`: `latest`
-  - `redactionPolicy`:
-    - `policyKind`: `CharacterMask`
-    - `redactionCharacter`: `#`
-- `analysisInput.documents[]`:
-  - Each chat message with content becomes a separate document
-  - Messages >5000 chars are chunked at word boundaries into sub-documents
-  - Compound IDs: message index `i`, chunk `j` → id `"i_j"` (e.g., `"1_0"`, `"1_1"`)
-  - Non-chunked messages use simple IDs (e.g., `"0"`, `"1"`)
-  - Maximum 5 documents per synchronous request (Language Service API limit)
+**Success Criteria:**
+APIM considers the redaction successful when the external service returns:
+- HTTP 200
+- `status == "ok"`
+- `full_coverage == true`
+- `redacted_body` is present
 
-**Response Handling:**
-- Extracts `results.documents[].redactedText` for each document
-- Builds a redactedMap (id → redactedText) for reassembly
-- For non-chunked messages: direct replacement from simple key
-- For chunked messages: concatenates compound keys in order (`i_0`, `i_1`, ...)
-- **Partial-chunking safety**: If reassembled text is shorter than original (missing chunks), keeps original content instead of silently truncating
-- Captures diagnostics:
-  - `piiDetectionStatusCode`
-  - `piiEntityCount` (from `results.documents[].entities`)
-  - `piiEntityTypes` (unique entity categories from `entities[*].category`)
-  - `piiContentChanged` (compares input vs anonymized)
-  - `piiRedactionCoverage` (per-message coverage: msgsWithContent, msgsRedacted, msgsPartial, msgsUnscanned, fullCoverage)
+On success, `piiAnonymizedContent` is set to the `redacted_body` from the response.
 
 **Diagnostics & Logging:**
-The fragment emits a `trace` event (source `pii-anonymization`) to Application Insights with detailed metadata:
-- `request-id`: Correlation ID from the APIM context for distributed tracing
-- `tenant-id`: Tenant identifier for per-tenant analytics
-- `pii-status-code`: HTTP status code from the Language Service API response
-- `pii-entity-count`: Number of PII entities detected in the request
-- `pii-entity-types`: Comma-separated list of unique entity categories (e.g., "Email,SSN,CreditCard")
-- `pii-content-changed`: Boolean flag indicating whether any redaction occurred (true if input differs from output)
-- `pii-coverage-full`: Whether all messages with content were fully redacted (`True`/`False`)
-- `pii-msgs-with-content`: Total messages that had non-empty content
-- `pii-msgs-unscanned`: Messages completely skipped (e.g., 5-doc limit exceeded)
-- `pii-msgs-partial`: Messages with partial chunk coverage (truncated by doc limit)
-
-These diagnostics enable monitoring of PII detection effectiveness, Language Service API health, coverage completeness, and understanding which entity types are most commonly detected across tenants.
+The fragment emits `trace` events (source `pii-anonymization`) to Application Insights:
+- `request-id`: Correlation ID for distributed tracing
+- `subscription-id`: APIM subscription for per-tenant analytics
+- `pii-status-code`: HTTP status code from the external service
+- `pii-duration-ms`: Round-trip time in milliseconds
+- `pii-redaction-succeeded`: `true` or `false`
+- `pii-content-changed`: Whether input differs from output
+- `pii-fail-closed`: Current fail-closed mode
+- `pii-coverage-full`: Whether full coverage was achieved
+- `pii-entity-count`: Number of PII entities detected (from `diagnostics.entity_count`)
+- `pii-document-count`: Number of documents processed (from `diagnostics.total_docs`)
 
 **Fail-Closed Mode:**
-The fragment supports configurable failure handling via the `piiFailClosed` variable:
+- **Fail-Closed (`piiFailClosed = "true"`)**: APIM blocks the request with HTTP 503 when the external service is unavailable, returns non-200, or reports incomplete coverage (`status != "ok"` or `full_coverage != true`). Response body includes a `failure_reason` derived from the service status code (`no-response`, `payload-too-large`, `http-{code}`) or the service `error` field (`service-error: ...`).
+- **Fail-Open (`piiFailClosed = "false"`, default)**: If the external service call fails or coverage is incomplete, the fragment passes through the original `piiInputContent` unchanged. Coverage metrics are always logged regardless of mode.
 
-- **Fail-Closed (`piiFailClosed = "true"`)**: APIM blocks the request with HTTP 503 when:
-  - The Language Service is unavailable (non-200 status, network error, MSI token failure)
-  - **Redaction coverage is incomplete** — not all messages were scanned (e.g., 5-document limit exceeded, partial chunking, or Language Service document errors)
-  - Response Body includes `failure_reason` for diagnostics:
-    - `"msi-token-failed"` / `"msi-token-empty"` — MSI authentication issue
-    - `"network-or-dns-error"` — Language Service unreachable
-    - `"http-error-{status}"` — Non-200 API response
-    - `"partial-redaction-N-msgs-unscanned"` — N messages completely skipped (doc limit)
-    - `"partial-redaction-N-msgs-truncated"` — N messages partially chunked (truncated)
-  - Response Body also includes `coverage` object with `msgsWithContent`, `msgsRedacted`, `msgsPartial`, `msgsUnscanned`, `fullCoverage`
-  - Custom Header: `X-Request-Id: <correlation-id>`
-
-- **Fail-Open (`piiFailClosed = "false"`, default)**: If the Language Service call fails, the response can't be parsed, or coverage is incomplete, the fragment passes through original content for affected messages. No silent truncation — messages with partial chunk coverage keep their original content. Coverage metrics are always logged to App Insights regardless of mode.
-
-**Fallback Behavior:**
-- If PII anonymization is disabled (`piiAnonymizationEnabled = "false"`), the fragment passes through the original `piiInputContent` unchanged, regardless of `piiFailClosed` setting
-- When fail-open mode is active and Language Service fails, original content is passed through unredacted
-
-**Advanced PII Options:**
-
-The fragment supports additional configuration variables set by the tenant policy template based on `apim_policies.pii_redaction` settings:
-
-1. **`piiExcludedCategories`** (string, comma-separated list)
-   - Maps to Language Service `excludePiiCategories` parameter
-   - When non-empty, excludes specific PII categories from detection
-   - Example categories: `"PhoneNumber,Address,Email"`
-   - See [Microsoft Learn: PII Entity Categories](https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/concepts/entity-categories)
-   - If empty or not set, all categories are detected
-
-2. **`piiDetectionLanguage`** (string, default `"en"`)
-   - Controls the `documents[0].language` field in the Language Service request
-   - Affects detection accuracy for language-specific PII entities
-   - Examples: `"en"`, `"fr"`, `"es"`
-
-3. **`piiPreserveJsonStructure`** (boolean, default `true`)
-   - Enables post-processing restoration of structural JSON values after redaction
-   - Prevents Language Service from masking common structural strings (e.g., OpenAI message roles like `"user"`, `"system"`, `"assistant"`)
-   - Works by pattern-matching masked values (e.g., `"####"` → `"user"`) against a whitelist
-
-4. **`piiStructuralWhitelist`** (string, comma-separated list)
-   - Additional quoted string values to preserve beyond the default whitelist
-   - Used in conjunction with `piiPreserveJsonStructure`
-   - Example: `"customRole,metadata,specialField"`
-   - Values are restored if they match the length of masked `#####` patterns
-
-**Request Structure Changes:**
-- When `piiExcludedCategories` is non-empty, the fragment conditionally includes the `excludePiiCategories` parameter in the Language Service API request body
-- The `documents[0].language` field is set from `piiDetectionLanguage`
-- Post-processing (if `piiPreserveJsonStructure` is true) restores whitelisted values after Language Service returns the redacted text
+**Pass-Through:**
+If `piiAnonymizationEnabled != "true"`, the fragment sets `piiAnonymizedContent` to the original `piiInputContent` unchanged.
 
 ### Template Generation Mechanics: `api_policy.xml.tftpl`
 
@@ -505,9 +436,9 @@ When PII redaction is enabled (`apim_policies.pii_redaction.enabled` is true AND
 2. Sets PII configuration variables from tenant settings:
    - `piiExcludedCategories` (from `apim_policies.pii_redaction.excluded_categories`)
    - `piiDetectionLanguage` (from `apim_policies.pii_redaction.detection_language`, default `"en"`)
-   - `piiPreserveJsonStructure` (from `apim_policies.pii_redaction.preserve_json_structure`, default `true`)
-   - `piiStructuralWhitelist` (from `apim_policies.pii_redaction.structural_whitelist`)
-3. Includes the `pii-anonymization` fragment, which uses these variables to call Language Service and sets `piiAnonymizedContent`
+   - `piiScanRoles` (from `apim_policies.pii_redaction.scan_roles`)
+   - `piiExternalRedactionUrl` (from shared config — Container App internal URL)
+3. Includes the `pii-anonymization` fragment, which routes to the external PII redaction service and sets `piiAnonymizedContent`
 4. Explicitly applies the anonymized content back to the request body using `<set-body>` with `@((string)context.Variables["piiAnonymizedContent"])`
 5. Forwards the modified request to the OpenAI backend
 
@@ -534,19 +465,20 @@ Additionally, global policy loading changed:
 
 ### Performance Considerations
 
-PII anonymization adds an extra network call from APIM to Language Service for requests where it is enabled. The Language Service call uses a fixed timeout of 20 seconds; failures fall back to passing through the original content.
+PII anonymization adds an extra network call from APIM to the external PII redaction Container App for requests where it is enabled. The external service handles all Language Service calls internally with a rolling timeout budget. The APIM `send-request` uses a 60-second timeout.
 
 ### Troubleshooting
 
+**External Service Connectivity:**
+- The pii-redaction Container App must be reachable from APIM via its internal URL (`piiExternalRedactionUrl`)
+- Check Container App health endpoint and logs if APIM receives no response or timeouts
+
 **DNS / Private Endpoint Readiness:**
-- Terraform includes a DNS wait step for the Language Service private endpoint; ensure private DNS zone group integration is complete
+- The external service calls Language Service via private endpoint; ensure DNS resolution and private DNS zone group integration are complete
 
 **Auth / RBAC:**
-- Ensure APIM managed identity has `Cognitive Services User` on the shared Language Service resource (initial deployment may see transient failures during role assignment propagation)
-
-**Incorrect `piiServiceUrl`:**
-- The fragment expects the base endpoint without a trailing slash (APIM named value uses `trimsuffix(..., "/")`)
-
+- The external service authenticates to Language Service via Managed Identity (`DefaultAzureCredential`)
+- Ensure the Container App's managed identity has `Cognitive Services User` on the shared Language Service resource
 ## Backend Configuration
 
 APIM backends are created per tenant in Terraform:

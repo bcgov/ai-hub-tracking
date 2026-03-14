@@ -322,7 +322,7 @@ MAX_RETRY_DELAY="${MAX_RETRY_DELAY:-60}"
 # Make a request with retry logic for transient failures, 429 rate limiting, and 503 service errors
 # Uses exponential backoff: delay doubles each retry (capped at MAX_RETRY_DELAY)
 # Retries on: 000 (transport), 429 (rate limit), 503 (transient service error)
-# Does NOT retry 503 with failure_reason "partial-redaction" (intentional block)
+# Does NOT retry 503 with error.code "PiiRedactionFailed" (intentional block from PII policy)
 # Usage: apim_request_with_retry <method> <tenant> <path> [body]
 apim_request_with_retry() {
     local method="${1}"
@@ -352,13 +352,15 @@ apim_request_with_retry() {
             current_delay=$(( current_delay * BACKOFF_MULTIPLIER > MAX_RETRY_DELAY ? MAX_RETRY_DELAY : current_delay * BACKOFF_MULTIPLIER ))
         elif [[ "${RESPONSE_STATUS}" == "503" ]]; then
             # Only retry transient 503s (network/dns errors), not intentional blocks
-            local failure_reason
-            failure_reason=$(echo "${RESPONSE_BODY}" | jq -r '.error.failure_reason // ""' 2>/dev/null || echo "")
-            if [[ "${failure_reason}" == *"partial-redaction"* ]]; then
-                # Intentional 503 from PII coverage check — do not retry
+            local error_code
+            error_code=$(echo "${RESPONSE_BODY}" | jq -r '.error.code // ""' 2>/dev/null || echo "")
+            if [[ "${error_code}" == "PiiRedactionFailed" ]]; then
+                # Intentional 503 from APIM PII redaction policy — do not retry
                 echo "${response}"
                 return 0
             fi
+            local failure_reason
+            failure_reason=$(echo "${RESPONSE_BODY}" | jq -r '.error.failure_reason // ""' 2>/dev/null || echo "")
             retries=$((retries + 1))
             echo "Service unavailable (503, reason: ${failure_reason:-unknown}), retry ${retries}/${MAX_RETRIES} after ${current_delay}s..." >&2
             sleep "${current_delay}"
@@ -402,12 +404,15 @@ apim_request_with_retry_ocp() {
             sleep "${retry_after}"
             current_delay=$(( current_delay * BACKOFF_MULTIPLIER > MAX_RETRY_DELAY ? MAX_RETRY_DELAY : current_delay * BACKOFF_MULTIPLIER ))
         elif [[ "${RESPONSE_STATUS}" == "503" ]]; then
-            local failure_reason
-            failure_reason=$(echo "${RESPONSE_BODY}" | jq -r '.error.failure_reason // ""' 2>/dev/null || echo "")
-            if [[ "${failure_reason}" == *"partial-redaction"* ]]; then
+            local error_code
+            error_code=$(echo "${RESPONSE_BODY}" | jq -r '.error.code // ""' 2>/dev/null || echo "")
+            if [[ "${error_code}" == "PiiRedactionFailed" ]]; then
+                # Intentional 503 from APIM PII redaction policy — do not retry
                 echo "${response}"
                 return 0
             fi
+            local failure_reason
+            failure_reason=$(echo "${RESPONSE_BODY}" | jq -r '.error.failure_reason // ""' 2>/dev/null || echo "")
             retries=$((retries + 1))
             echo "Service unavailable (503, reason: ${failure_reason:-unknown}), retry ${retries}/${MAX_RETRIES} after ${current_delay}s..." >&2
             sleep "${current_delay}"

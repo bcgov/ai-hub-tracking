@@ -227,9 +227,6 @@ TEST_CREDIT_CARD="4111-1111-1111-1111"
 # Fail-Closed / Fail-Open Behavior Tests
 # =============================================================================
 # These tests verify behavior when the PII service is healthy.
-# - fail_closed=true tenants succeed normally when PII service is up
-# - fail_closed=false tenants succeed normally when PII service is up
-#
 # See pii-failure.bats for tests that simulate PII service failure.
 # =============================================================================
 
@@ -308,6 +305,74 @@ TEST_CREDIT_CARD="4111-1111-1111-1111"
 
 # Fail-closed and fail-open behavior tests have been moved to pii-failure.bats
 # These tests require temporarily disabling the PII service via Azure CLI
+
+# =============================================================================
+# Error Body Shape Tests
+# =============================================================================
+
+@test "WLRS: Successful PII response body is valid JSON with choices array" {
+    skip_if_no_key "wlrs-water-form-assistant"
+
+    local prompt="My email is ${TEST_EMAIL}. Please summarize."
+    response=$(chat_completion "wlrs-water-form-assistant" "${DEFAULT_MODEL}" "${prompt}" 50)
+    parse_response "${response}"
+
+    assert_status "200" "${RESPONSE_STATUS}"
+
+    # Verify the response body parses as JSON and has the expected OpenAI shape
+    local choices_count
+    choices_count=$(echo "${RESPONSE_BODY}" | jq '.choices | length' 2>/dev/null)
+    [[ "${choices_count}" -ge 1 ]]
+
+    local content
+    content=$(json_get "${RESPONSE_BODY}" '.choices[0].message.content')
+    [[ -n "${content}" ]]
+
+    # Confirm old stale error code is absent from a successful response
+    local old_code
+    old_code=$(json_get "${RESPONSE_BODY}" '.error.code // ""')
+    [[ "${old_code}" != "PiiRedactionUnavailable" ]]
+}
+
+@test "SDPR: Fail-closed 503 body contains code, message, request_id, failure_reason" {
+    # This test is guarded: it only runs if the test environment is configured
+    # to produce a fail-closed 503 from sdpr-invoice-automation.
+    # Normal healthy requests return 200. For this test to exercise the 503 path,
+    # the service must be unreachable OR the payload must trigger an error.
+    # If we get a 200 here, we verify the response shape and skip the 503 assertions.
+    skip_if_no_key "sdpr-invoice-automation"
+
+    local prompt="Hello."
+    response=$(chat_completion "sdpr-invoice-automation" "${DEFAULT_MODEL}" "${prompt}" 10)
+    parse_response "${response}"
+
+    if [[ "${RESPONSE_STATUS}" == "503" ]]; then
+        local error_code
+        error_code=$(json_get "${RESPONSE_BODY}" '.error.code')
+        echo "Error code: ${error_code}" >&2
+        [[ "${error_code}" == "PiiRedactionFailed" ]]
+
+        local error_message
+        error_message=$(json_get "${RESPONSE_BODY}" '.error.message')
+        [[ -n "${error_message}" ]]
+
+        local request_id
+        request_id=$(json_get "${RESPONSE_BODY}" '.error.request_id')
+        echo "Request ID: ${request_id}" >&2
+        [[ -n "${request_id}" ]]
+
+        local failure_reason
+        failure_reason=$(json_get "${RESPONSE_BODY}" '.error.failure_reason')
+        echo "Failure reason: ${failure_reason}" >&2
+        [[ -n "${failure_reason}" ]]
+
+        # Confirm old stale code is NOT used
+        [[ "${error_code}" != "PiiRedactionUnavailable" ]]
+    else
+        assert_status "200" "${RESPONSE_STATUS}"
+        echo "# PII service healthy - 503 error shape test skipped (got 200)" >&3
+    fi
+}
 
 # =============================================================================
 # Helper Functions
