@@ -143,7 +143,7 @@
                             return string.IsNullOrEmpty(svcErr) ? &quot;incomplete-coverage&quot; : (&quot;service-error: &quot; + svcErr);
                         } catch { return &quot;incomplete-coverage&quot;; }
                     }" />
-                    <trace source="pii-anonymization" severity="warning">
+                    <trace source="pii-anonymization" severity="error">
                         <message>PII redaction failed</message>
                         <metadata name="event-type" value="pii-anonymization" />
                         <metadata name="request-id" value="@(context.RequestId.ToString())" />

@@ -10,7 +10,7 @@
 # ---------------------------------------------------------------------------
 FROM ghcr.io/astral-sh/uv:0.6-python3.13-bookworm-slim AS builder
 
-WORKDIR /build
+WORKDIR /app
 
 # Install dependencies first (layer-cached until lockfile changes)
 COPY pyproject.toml uv.lock ./
@@ -33,10 +33,10 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 # Copy the populated virtualenv from the builder stage
-COPY --from=builder /build/.venv /app/.venv
+COPY --from=builder /app/.venv /app/.venv
 
 # Copy application source
-COPY --from=builder /build/app ./app
+COPY --from=builder /app/app ./app
 
 # Create non-root user and switch to it
 RUN groupadd --gid 1001 appgroup && \
