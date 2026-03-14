@@ -367,6 +367,10 @@
                 <set-variable name="piiDetectionLanguage" value="${pii_detection_language}" />
                 <!-- PII Fail-closed: block request if redaction fails (default: false = fail-open) -->
                 <set-variable name="piiFailClosed" value="${pii_fail_closed}" />
+                <!-- PII Scan Roles: message roles to include in redaction scanning (JSON array) -->
+                <set-variable name="piiScanRoles" value='${pii_scan_roles}' />
+                <!-- PII External Redaction: base URL of internal redaction Container App (empty = sync-only) -->
+                <set-variable name="piiExternalRedactionUrl" value="${pii_external_redaction_url}" />
                 <include-fragment fragment-id="pii-anonymization" />
                 <!-- Apply the anonymized content back to the request body -->
                 <set-body>@((string)context.Variables["piiAnonymizedContent"])</set-body>

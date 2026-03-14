@@ -4,8 +4,8 @@
     "preToolUse": [
       {
         "type": "command",
-        "bash": "bash .github/hooks/scripts/guard-destructive.sh",
-        "powershell": ".github/hooks/scripts/guard-destructive.ps1",
+        "bash": "bash .github/hooks/scripts/pre-tool-use.sh",
+        "powershell": ".github/hooks/scripts/pre-tool-use.ps1",
         "cwd": ".",
         "timeoutSec": 10,
         "comment": "Block dangerous bash commands (force-push, hard-reset, rm -rf on infra dirs)"
@@ -14,11 +14,21 @@
     "postToolUse": [
       {
         "type": "command",
-        "bash": "bash .github/hooks/scripts/portal-lint-check.sh",
-        "powershell": ".github/hooks/scripts/portal-lint-check.ps1",
+        "bash": "bash .github/hooks/scripts/post-tool-use.sh",
+        "powershell": ".github/hooks/scripts/post-tool-use.ps1",
         "cwd": ".",
         "timeoutSec": 240,
-        "comment": "Mirror .pre-commit-config.yaml portal hooks: lint + format:check for backend and frontend after every TypeScript file edit or create"
+        "comment": "Mirror .pre-commit-config.yaml hooks: lint + format:check + tests + docs check after every file edit or create"
+      }
+    ],
+    "sessionEnd": [
+      {
+        "type": "command",
+        "bash": "bash .github/hooks/scripts/post-tool-use.sh",
+        "powershell": ".github/hooks/scripts/post-tool-use.ps1",
+        "cwd": ".",
+        "timeoutSec": 240,
+        "comment": "Final quality gate sweep at session end — catches any edits that slipped past postToolUse"
       }
     ]
   }

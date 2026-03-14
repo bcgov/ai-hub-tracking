@@ -22,3 +22,45 @@ repos:
         language: system
         files: ^tenant-onboarding-portal/backend/.*\.ts$
         pass_filenames: false
+
+      - id: key-rotation-lint
+        name: Key Rotation — ruff lint + format check
+        entry: bash -c 'cd jobs/apim-key-rotation && uv run ruff check . && uv run ruff format --check .'
+        language: system
+        files: ^jobs/apim-key-rotation/.*\.py$
+        pass_filenames: false
+
+      - id: key-rotation-tests
+        name: Key Rotation — pytest
+        entry: bash -c 'cd jobs/apim-key-rotation && uv run pytest'
+        language: system
+        files: ^jobs/apim-key-rotation/.*\.py$
+        pass_filenames: false
+
+      - id: key-rotation-docs
+        name: Key Rotation — docs build check
+        entry: bash docs/build.sh
+        language: system
+        files: ^(jobs/apim-key-rotation/.*\.py|docs/_pages/apim-key-rotation\.html)$
+        pass_filenames: false
+
+      - id: pii-redaction-lint
+        name: PII Redaction Service — ruff lint + format check
+        entry: bash -c 'cd pii-redaction-service && uv run ruff check . && uv run ruff format --check .'
+        language: system
+        files: ^pii-redaction-service/.*\.py$
+        pass_filenames: false
+
+      - id: pii-redaction-tests
+        name: PII Redaction Service — pytest
+        entry: bash -c 'cd pii-redaction-service && uv run pytest'
+        language: system
+        files: ^pii-redaction-service/.*\.py$
+        pass_filenames: false
+
+      - id: pii-redaction-docs
+        name: PII Redaction Service — docs build check
+        entry: bash docs/build.sh
+        language: system
+        files: ^(pii-redaction-service/.*\.py|docs/_pages/language-service-pii\.html)$
+        pass_filenames: false

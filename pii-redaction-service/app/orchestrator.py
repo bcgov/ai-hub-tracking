@@ -1,0 +1,340 @@
+"""
+Orchestration logic for PII redaction of chat completion payloads.
+
+Design:
+  1. Manifest phase  — walk messages, chunk content at word boundaries, record
+                       every (messageIndex, chunkIndex, text) triple.
+  2. Batch phase     — group chunks into batches of MAX_DOCS_PER_CALL, call the
+                       Language API sequentially (not concurrently) to stay within
+                       the APIM timeout budget.  Reject if > MAX_SEQUENTIAL_BATCHES.
+  3. Reassemble phase — apply redacted text from each chunk result back onto the
+                        original messages; verify full coverage.
+  4. Return          — RedactionSuccess or RedactionFailure depending on coverage
+                       disposition and fail_closed flag.
+
+Chunk IDs follow the same convention as the existing APIM fragment:
+  "<messageIndex>_<chunkIndex>"
+"""
+
+from __future__ import annotations
+
+import asyncio
+import logging
+import time
+from collections import defaultdict
+from dataclasses import dataclass, field
+from typing import Any
+
+from .config import Settings
+from .language_client import LanguageClient
+from .models import (
+    Diagnostics,
+    RedactionConfig,
+    RedactionFailure,
+    RedactionRequest,
+    RedactionSuccess,
+)
+
+logger = logging.getLogger(__name__)
+
+
+# ---------------------------------------------------------------------------
+# Chunk manifest data structures
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class ChunkEntry:
+    doc_id: str  # "<messageIndex>_<chunkIndex>"
+    message_index: int
+    chunk_index: int
+    original_text: str
+    redacted_text: str | None = None
+
+
+@dataclass
+class ChunkManifest:
+    entries: list[ChunkEntry] = field(default_factory=list)
+
+    def total_docs(self) -> int:
+        return len(self.entries)
+
+    def batches(self, batch_size: int) -> list[list[ChunkEntry]]:
+        return [self.entries[i : i + batch_size] for i in range(0, len(self.entries), batch_size)]
+
+    def coverage_complete(self) -> bool:
+        return all(e.redacted_text is not None for e in self.entries)
+
+
+# ---------------------------------------------------------------------------
+# Chunking
+# ---------------------------------------------------------------------------
+
+
+def _chunk_at_word_boundary(text: str, max_chars: int) -> list[str]:
+    """
+    Split *text* into chunks that never exceed *max_chars* characters,
+    breaking only on whitespace boundaries.
+
+    If a single word exceeds *max_chars* (e.g. base64 blob) it is emitted as
+    its own chunk to avoid infinite loops.
+    """
+    if len(text) <= max_chars:
+        return [text]
+
+    chunks: list[str] = []
+    words = text.split(" ")
+    current = ""
+
+    for word in words:
+        candidate = (current + " " + word).lstrip() if current else word
+        if len(candidate) > max_chars:
+            if current:
+                chunks.append(current)
+            # Handle words longer than max_chars
+            while len(word) > max_chars:
+                chunks.append(word[:max_chars])
+                word = word[max_chars:]
+            current = word
+        else:
+            current = candidate
+
+    if current:
+        chunks.append(current)
+
+    return chunks
+
+
+def build_manifest(
+    messages: list[dict[str, Any]],
+    scan_roles: list[str],
+    max_doc_chars: int,
+) -> ChunkManifest:
+    """
+    Walk messages, skip roles not in *scan_roles*, chunk content, and
+    return a populated ChunkManifest.
+    """
+    manifest = ChunkManifest()
+    for msg_idx, message in enumerate(messages):
+        role = message.get("role", "")
+        content = message.get("content", "")
+        if role not in scan_roles or not isinstance(content, str) or not content:
+            continue
+        chunks = _chunk_at_word_boundary(content, max_doc_chars)
+        for chunk_idx, chunk_text in enumerate(chunks):
+            manifest.entries.append(
+                ChunkEntry(
+                    doc_id=f"{msg_idx}_{chunk_idx}",
+                    message_index=msg_idx,
+                    chunk_index=chunk_idx,
+                    original_text=chunk_text,
+                )
+            )
+    return manifest
+
+
+# ---------------------------------------------------------------------------
+# Batch execution
+# ---------------------------------------------------------------------------
+
+
+async def _run_batch(
+    client: LanguageClient,
+    batch: list[ChunkEntry],
+    language: str,
+    excluded_categories: list[str],
+) -> dict[str, str]:
+    """
+    Send one batch to the Language API and return a map of doc_id → redacted text.
+    """
+    documents = [{"id": e.doc_id, "text": e.original_text} for e in batch]
+    response = await client.analyze_pii(
+        documents=documents,
+        language=language,
+        excluded_categories=excluded_categories or None,
+    )
+
+    redacted: dict[str, str] = {}
+    for doc in response.get("results", {}).get("documents", []):
+        redacted[doc["id"]] = doc.get("redactedText", "")
+
+    return redacted
+
+
+# ---------------------------------------------------------------------------
+# Reassembly
+# ---------------------------------------------------------------------------
+
+
+def _reassemble_messages(
+    original_messages: list[dict[str, Any]],
+    manifest: ChunkManifest,
+) -> list[dict[str, Any]]:
+    """
+    Merge redacted chunk text back into the original messages list.
+    Chunks for the same message are concatenated with a single space separator.
+    """
+    # Group chunks by message index (preserving insertion order)
+    grouped: dict[int, list[ChunkEntry]] = defaultdict(list)
+    for entry in manifest.entries:
+        grouped[entry.message_index].append(entry)
+
+    reassembled = []
+    for idx, message in enumerate(original_messages):
+        if idx not in grouped:
+            reassembled.append(message)
+            continue
+        chunks = sorted(grouped[idx], key=lambda e: e.chunk_index)
+        redacted_parts = [c.redacted_text or c.original_text for c in chunks]
+        reassembled.append({**message, "content": " ".join(redacted_parts)})
+
+    return reassembled
+
+
+# ---------------------------------------------------------------------------
+# Main orchestrator entry point
+# ---------------------------------------------------------------------------
+
+
+async def orchestrate_redaction(
+    request: RedactionRequest,
+    client: LanguageClient,
+    settings: Settings,
+) -> RedactionSuccess | RedactionFailure:
+    """
+    Full redaction pipeline: manifest → batch → reassemble → verify coverage.
+    """
+    start = time.monotonic()
+    config: RedactionConfig = request.config
+    messages_raw = [m.model_dump() for m in request.body.messages]
+
+    # 1. Build chunk manifest
+    manifest = build_manifest(
+        messages=messages_raw,
+        scan_roles=config.scan_roles,
+        max_doc_chars=settings.max_doc_chars,
+    )
+
+    total_docs = manifest.total_docs()
+    if total_docs == 0:
+        # Nothing to redact — return body unchanged
+        elapsed = (time.monotonic() - start) * 1000
+        return RedactionSuccess(
+            full_coverage=True,
+            redacted_body={
+                "messages": messages_raw,
+                **request.body.model_extra_dict(),
+            },
+            diagnostics=Diagnostics(total_docs=0, total_batches=0, elapsed_ms=elapsed),
+        )
+
+    batches = manifest.batches(settings.max_docs_per_call)
+    total_batches = len(batches)
+
+    if total_batches > settings.max_sequential_batches:
+        elapsed = (time.monotonic() - start) * 1000
+        msg = (
+            f"Payload requires {total_batches} batches which exceeds the maximum "
+            f"of {settings.max_sequential_batches}. Rejecting."
+        )
+        logger.warning(
+            msg,
+            extra={
+                "total_batches": total_batches,
+                "max_batches": settings.max_sequential_batches,
+                "correlation_id": config.correlation_id,
+            },
+        )
+        return RedactionFailure(
+            status="payload-too-large",
+            error=msg,
+            diagnostics=Diagnostics(total_docs=total_docs, total_batches=total_batches, elapsed_ms=elapsed),
+        )
+
+    # 2. Execute batches sequentially — honouring total timeout
+    deadline = start + settings.total_processing_timeout_seconds
+    for batch_num, batch in enumerate(batches, start=1):
+        remaining = deadline - time.monotonic()
+        if remaining <= 0:
+            elapsed = (time.monotonic() - start) * 1000
+            return RedactionFailure(
+                error=f"Total processing timeout exceeded before batch {batch_num}/{total_batches}",
+                diagnostics=Diagnostics(
+                    total_docs=total_docs,
+                    total_batches=total_batches,
+                    elapsed_ms=elapsed,
+                ),
+            )
+
+        try:
+            redacted_map = await asyncio.wait_for(
+                _run_batch(
+                    client=client,
+                    batch=batch,
+                    language=config.detection_language,
+                    excluded_categories=config.excluded_categories,
+                ),
+                timeout=min(settings.per_batch_timeout_seconds, remaining),
+            )
+        except TimeoutError:
+            elapsed = (time.monotonic() - start) * 1000
+            return RedactionFailure(
+                error=f"Batch {batch_num}/{total_batches} timed out",
+                diagnostics=Diagnostics(
+                    total_docs=total_docs,
+                    total_batches=total_batches,
+                    elapsed_ms=elapsed,
+                ),
+            )
+        except Exception as exc:  # noqa: BLE001
+            elapsed = (time.monotonic() - start) * 1000
+            logger.exception(
+                "Language API error in batch %d",
+                batch_num,
+                extra={"correlation_id": config.correlation_id},
+            )
+            return RedactionFailure(
+                error=f"Language API error in batch {batch_num}: {exc}",
+                diagnostics=Diagnostics(
+                    total_docs=total_docs,
+                    total_batches=total_batches,
+                    elapsed_ms=elapsed,
+                ),
+            )
+
+        # Apply results to manifest
+        for entry in batch:
+            entry.redacted_text = redacted_map.get(entry.doc_id)
+
+        logger.debug(
+            "Batch %d/%d complete",
+            batch_num,
+            total_batches,
+            extra={"correlation_id": config.correlation_id},
+        )
+
+    # 3. Verify coverage
+    elapsed = (time.monotonic() - start) * 1000
+
+    if not manifest.coverage_complete():
+        missing = [e.doc_id for e in manifest.entries if e.redacted_text is None]
+        logger.warning(
+            "Incomplete PII coverage: %d chunk(s) missing redacted text",
+            len(missing),
+            extra={"missing_ids": missing, "correlation_id": config.correlation_id},
+        )
+        return RedactionFailure(
+            error=f"Incomplete coverage: missing redacted text for {len(missing)} chunk(s)",
+            diagnostics=Diagnostics(total_docs=total_docs, total_batches=total_batches, elapsed_ms=elapsed),
+        )
+
+    # 4. Reassemble
+    redacted_messages = _reassemble_messages(messages_raw, manifest)
+    return RedactionSuccess(
+        full_coverage=True,
+        redacted_body={
+            "messages": redacted_messages,
+            **request.body.model_extra_dict(),
+        },
+        diagnostics=Diagnostics(total_docs=total_docs, total_batches=total_batches, elapsed_ms=elapsed),
+    )

@@ -11,6 +11,11 @@ output "apim_name" {
   value = local.apim_config.enabled ? module.apim[0].name : null
 }
 
+output "apim_principal_id" {
+  description = "Principal ID of the APIM system-assigned managed identity"
+  value       = local.apim_config.enabled ? module.apim[0].principal_id : null
+}
+
 output "apim_key_rotation_summary" {
   value = {
     globally_enabled       = local.key_rotation_config.rotation_enabled

@@ -6,6 +6,26 @@ After completing tasks:
 - ✅ DO: Provide brief confirmation in chat (1-2 sentences)
 - ❌ DON'T: Create summary markdown files
 
+---
+
+## Quality Gate Enforcement (Non-Negotiable)
+
+After **every** file edit or creation in a quality-gated directory, run the corresponding check **immediately** — do not wait until the end of the task:
+
+| Directory | Command (run from that directory) |
+|---|---|
+| `pii-redaction-service/` | `uv run ruff check . && uv run ruff format --check .` |
+| `jobs/apim-key-rotation/` | `uv run ruff check . && uv run ruff format --check .` |
+| `tenant-onboarding-portal/backend/` | `npm run lint` |
+| `tenant-onboarding-portal/frontend/` | `npm run lint` |
+| `infra-ai-hub/` (any `.tf`) | `terraform fmt -check -recursive && tflint --recursive` |
+
+**When adding a new quality gate** (pre-commit hook, postToolUse script, CI step): run the corresponding check against ALL existing files in scope first, fix any errors, then commit the gate. Never introduce a gate against code you haven't already validated.
+
+**Before yielding back to the user** after any task that touched a quality-gated directory: run the check for that directory and show the output in the response. Do not assume the postToolUse hook ran — always run it explicitly.
+
+---
+
 ## Brief Status Format
 
 Use this format for task completion:

@@ -138,6 +138,169 @@
           plus coverage metrics (msgsWithContent, msgsRedacted, msgsPartial, msgsUnscanned)
         - piiContentChanged: "true" if content was modified by PII redaction
     -->
+    <!-- ====== PREFLIGHT: Classify PII processing path by document count ====== -->
+    <!-- Counts total Language API documents needed (accounting for scan roles  -->
+    <!-- and message chunking). > 5 docs → external Container App; else sync.   -->
+    <choose>
+        <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnonymizationEnabled&quot;, &quot;false&quot;) == &quot;true&quot;)">
+            <set-variable name="piiPathClassification" value="@{
+                var maxDocChars = 5000;
+                var maxDocs = 5;
+                var inputText = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
+                var scanRolesJson = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiScanRoles&quot;, &quot;[\&quot;user\&quot;,\&quot;assistant\&quot;,\&quot;tool\&quot;]&quot;);
+                var scanRoleSet = new System.Collections.Generic.HashSet&lt;string&gt;();
+                try {
+                    foreach (var r in JArray.Parse(scanRolesJson)) { scanRoleSet.Add(r.ToString().ToLower()); }
+                } catch {
+                    scanRoleSet = new System.Collections.Generic.HashSet&lt;string&gt; { &quot;user&quot;, &quot;assistant&quot;, &quot;tool&quot; };
+                }
+                try {
+                    var bodyObj = JObject.Parse(inputText);
+                    var messages = bodyObj[&quot;messages&quot;] as JArray;
+                    int totalDocs = 0;
+                    if (messages != null) {
+                        for (int i = 0; i &lt; messages.Count; i++) {
+                            var role = messages[i]?[&quot;role&quot;]?.ToString()?.ToLower() ?? &quot;&quot;;
+                            if (!scanRoleSet.Contains(role)) { continue; }
+                            var content = messages[i]?[&quot;content&quot;]?.ToString();
+                            if (string.IsNullOrWhiteSpace(content)) { continue; }
+                            int chunks = (int)Math.Ceiling((double)content.Length / maxDocChars);
+                            totalDocs += Math.Max(1, chunks);
+                        }
+                    }
+                    return totalDocs &gt; maxDocs ? &quot;external-redaction-required&quot; : &quot;sync-safe&quot;;
+                } catch {
+                    return &quot;sync-safe&quot;;
+                }
+            }" />
+        </when>
+        <otherwise>
+            <set-variable name="piiPathClassification" value="pii-disabled" />
+        </otherwise>
+    </choose>
+    <!-- ====== EXTERNAL PATH: Route large payloads to PII Redaction Container App ====== -->
+    <!-- Fires when piiPathClassification == "external-redaction-required"               -->
+    <!-- and piiExternalRedactionUrl is configured (non-empty).                          -->
+    <choose>
+        <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiPathClassification&quot;, &quot;&quot;) == &quot;external-redaction-required&quot; &amp;&amp; !string.IsNullOrEmpty(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExternalRedactionUrl&quot;, &quot;&quot;)))">
+            <send-request mode="new" response-variable-name="piiExternalResponse" timeout="60" ignore-error="true">
+                <set-url>@(context.Variables.GetValueOrDefault&lt;string&gt;("piiExternalRedactionUrl", "") + "/redact")</set-url>
+                <set-method>POST</set-method>
+                <set-header name="Content-Type" exists-action="override">
+                    <value>application/json</value>
+                </set-header>
+                <set-body>@{
+                    var inputText = context.Variables.GetValueOrDefault&lt;string&gt;("piiInputContent", "");
+                    var excludedCats = context.Variables.GetValueOrDefault&lt;string&gt;("piiExcludedCategories", "[]");
+                    var language = context.Variables.GetValueOrDefault&lt;string&gt;("piiDetectionLanguage", "en");
+                    var failClosed = context.Variables.GetValueOrDefault&lt;string&gt;("piiFailClosed", "false").ToLower() == "true";
+                    var scanRolesVal = context.Variables.GetValueOrDefault&lt;string&gt;("piiScanRoles", "[\"user\",\"assistant\",\"tool\"]");
+                    JArray excludedArr;
+                    try { excludedArr = JArray.Parse(excludedCats); } catch { excludedArr = new JArray(); }
+                    JArray scanRolesArr;
+                    try { scanRolesArr = JArray.Parse(scanRolesVal); } catch { scanRolesArr = new JArray(new[] {"user","assistant","tool"}); }
+                    return new JObject {
+                        {"body", inputText},
+                        {"config", new JObject {
+                            {"fail_closed", failClosed},
+                            {"excluded_categories", excludedArr},
+                            {"detection_language", language},
+                            {"scan_roles", scanRolesArr},
+                            {"correlation_id", context.RequestId.ToString()}
+                        }}
+                    }.ToString();
+                }</set-body>
+            </send-request>
+            <set-variable name="piiExternalStatusCode" value="@{
+                try {
+                    var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiExternalResponse&quot;);
+                    return r != null ? ((int)r.StatusCode).ToString() : &quot;no-response&quot;;
+                } catch { return &quot;error&quot;; }
+            }" />
+            <set-variable name="piiExternalBodyStr" value="@{
+                try {
+                    var code = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExternalStatusCode&quot;, &quot;0&quot;);
+                    if (code != &quot;200&quot;) { return &quot;&quot;; }
+                    var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiExternalResponse&quot;);
+                    return r?.Body.As&lt;string&gt;(preserveContent: true) ?? &quot;&quot;;
+                } catch { return &quot;&quot;; }
+            }" />
+            <!-- Success: overwrite piiInputContent with redacted body; disable sync block.  -->
+            <!-- The sync <otherwise> then sets piiAnonymizedContent = piiInputContent (=redacted). -->
+            <choose>
+                <when condition="@{
+                    try {
+                        var code = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExternalStatusCode&quot;, &quot;0&quot;);
+                        if (code != &quot;200&quot;) { return false; }
+                        var body = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExternalBodyStr&quot;, &quot;&quot;);
+                        if (string.IsNullOrEmpty(body)) { return false; }
+                        var obj = JObject.Parse(body);
+                        return obj[&quot;status&quot;]?.ToString() == &quot;success&quot; &amp;&amp; obj[&quot;body&quot;] != null;
+                    } catch { return false; }
+                }">
+                    <set-variable name="piiInputContent" value="@{
+                        var body = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExternalBodyStr&quot;, &quot;&quot;);
+                        return JObject.Parse(body)[&quot;body&quot;].ToString();
+                    }" />
+                    <set-variable name="piiAnonymizationEnabled" value="false" />
+                    <trace source="pii-anonymization-external" severity="information">
+                        <message>PII External Redaction Succeeded</message>
+                        <metadata name="event-type" value="pii-external-redaction-success" />
+                        <metadata name="request-id" value="@(context.RequestId.ToString())" />
+                        <metadata name="tenant-id" value="@(context.Request.Headers.GetValueOrDefault(&quot;X-Tenant-Id&quot;, &quot;unknown&quot;))" />
+                        <metadata name="pii-external-status" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExternalStatusCode&quot;, &quot;unknown&quot;))" />
+                    </trace>
+                </when>
+                <!-- Failure: fail-closed → 503; fail-open → pass original content through unredacted -->
+                <otherwise>
+                    <choose>
+                        <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiFailClosed&quot;, &quot;false&quot;).ToLower() == &quot;true&quot;)">
+                            <return-response>
+                                <set-status code="503" reason="PII Redaction Unavailable" />
+                                <set-header name="Content-Type" exists-action="override">
+                                    <value>application/json</value>
+                                </set-header>
+                                <set-header name="X-Request-Id" exists-action="override">
+                                    <value>@(context.RequestId.ToString())</value>
+                                </set-header>
+                                <set-body>@{
+                                    var extCode = context.Variables.GetValueOrDefault&lt;string&gt;("piiExternalStatusCode", "unknown");
+                                    string failureReason;
+                                    if (extCode == "no-response") { failureReason = "external-network-or-timeout"; }
+                                    else if (extCode == "413") { failureReason = "external-payload-too-large"; }
+                                    else if (extCode != "200") { failureReason = "external-http-error-" + extCode; }
+                                    else {
+                                        try {
+                                            var b = JObject.Parse(context.Variables.GetValueOrDefault&lt;string&gt;("piiExternalBodyStr", "{}"));
+                                            failureReason = "external-service-failure-" + (b["failure_reason"]?.ToString() ?? "unknown");
+                                        } catch { failureReason = "external-service-failure-parse-error"; }
+                                    }
+                                    return new JObject {
+                                        {"error", new JObject {
+                                            {"code", "PiiRedactionUnavailable"},
+                                            {"message", "PII redaction service is unavailable. Request blocked for data protection."},
+                                            {"request_id", context.RequestId.ToString()},
+                                            {"failure_reason", failureReason}
+                                        }}
+                                    }.ToString();
+                                }</set-body>
+                            </return-response>
+                        </when>
+                        <otherwise>
+                            <set-variable name="piiAnonymizationEnabled" value="false" />
+                            <trace source="pii-anonymization-external" severity="warning">
+                                <message>PII External Redaction Failed (fail-open: passing through unredacted)</message>
+                                <metadata name="event-type" value="pii-external-redaction-failure-open" />
+                                <metadata name="request-id" value="@(context.RequestId.ToString())" />
+                                <metadata name="pii-external-status" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExternalStatusCode&quot;, &quot;unknown&quot;))" />
+                            </trace>
+                        </otherwise>
+                    </choose>
+                </otherwise>
+            </choose>
+        </when>
+    </choose>
+    <!-- ====== SYNC PATH: Small payloads (≤ 5 docs) via direct Language Service call ====== -->
     <choose>
         <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnonymizationEnabled&quot;, &quot;false&quot;) == &quot;true&quot;)">
             <!-- Get MSI token for Cognitive Services -->
@@ -191,11 +354,19 @@
                     var documents = new JArray();
                     var maxDocChars = 5000; // Safe for all Language Service tiers (F0 limit is 5120)
                     var maxDocs = 5; // Azure Language Service synchronous PII limit: 5 docs/request
+                    // Role filter: only scan messages with roles in piiScanRoles
+                    var docScanRolesJson = context.Variables.GetValueOrDefault&lt;string&gt;("piiScanRoles", "[\"user\",\"assistant\",\"tool\"]");
+                    JArray docScanRolesArr;
+                    try { docScanRolesArr = JArray.Parse(docScanRolesJson); } catch { docScanRolesArr = new JArray(new[] {"user","assistant","tool"}); }
+                    var docScanRoleSet = new System.Collections.Generic.HashSet&lt;string&gt;();
+                    foreach (var r in docScanRolesArr) { docScanRoleSet.Add(r.ToString().ToLower()); }
                     try {
                         var bodyObj = JObject.Parse(inputText);
                         var messages = bodyObj["messages"] as JArray;
                         if (messages != null) {
                             for (int i = 0; i &lt; messages.Count &amp;&amp; documents.Count &lt; maxDocs; i++) {
+                                var msgRole = messages[i]?["role"]?.ToString()?.ToLower() ?? "";
+                                if (!docScanRoleSet.Contains(msgRole)) { continue; }
                                 var content = messages[i]?["content"]?.ToString();
                                 if (!string.IsNullOrWhiteSpace(content)) {
                                     if (content.Length &lt;= maxDocChars) {
@@ -340,8 +511,18 @@
                     int msgsRedacted = 0;
                     int msgsPartial = 0;
                     int msgsUnscanned = 0;
+                    // Role filter: skip messages with roles not in piiScanRoles
+                    var covScanRolesJson = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiScanRoles&quot;, &quot;[\&quot;user\&quot;,\&quot;assistant\&quot;,\&quot;tool\&quot;]&quot;);
+                    var covScanRoleSet = new System.Collections.Generic.HashSet&lt;string&gt;();
+                    try {
+                        foreach (var r in JArray.Parse(covScanRolesJson)) { covScanRoleSet.Add(r.ToString().ToLower()); }
+                    } catch {
+                        covScanRoleSet = new System.Collections.Generic.HashSet&lt;string&gt; { &quot;user&quot;, &quot;assistant&quot;, &quot;tool&quot; };
+                    }
                     if (messages != null) {
                         for (int i = 0; i &lt; messages.Count; i++) {
+                            var covMsgRole = messages[i]?[&quot;role&quot;]?.ToString()?.ToLower() ?? &quot;&quot;;
+                            if (!covScanRoleSet.Contains(covMsgRole)) { continue; }
                             var content = messages[i]?[&quot;content&quot;]?.ToString();
                             if (string.IsNullOrWhiteSpace(content)) { continue; }
                             msgsWithContent++;
