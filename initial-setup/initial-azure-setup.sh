@@ -1037,29 +1037,76 @@ create_terraform_storage() {
 }
 
 # ================================================================================
-# Note about storage-specific permissions for Terraform state access
-# Storage permissions are typically handled through the main security group membership
+# Assign Storage Blob Data Reader to the managed identity on the Terraform state storage account.
+#
+# This role is required so the OIDC service principal can read tfstate blobs with
+# --auth-mode login (used by collect-hub-outputs.sh and terraform init).
+# Idempotent: does nothing if the assignment already exists.
 # ================================================================================
 assign_storage_roles() {
     if [[ "$CREATE_STORAGE" != "true" ]]; then
         return 0
     fi
-    
-    log_info "Storage access permissions..."
-    log_info "Storage permissions are managed through security group membership"
-    log_info "Ensure the security group has appropriate storage permissions:"
-    log_info "  - Storage Blob Data Contributor"
-    log_info "  - Storage Account Contributor"
-    
-    # Get storage account resource ID for reference
-    if [[ "$DRY_RUN" == "false" ]]; then
-        STORAGE_ACCOUNT_ID=$(az storage account show --name "$STORAGE_ACCOUNT" --resource-group "$RESOURCE_GROUP" --query "id" --output tsv)
-        log_info "Storage Account ID: $STORAGE_ACCOUNT_ID"
-    else
-        log_info "[DRY-RUN] Would note storage account permissions requirements"
+
+    local role_name="Storage Blob Data Reader"
+    log_info "Ensuring managed identity has '$role_name' role on storage account '$STORAGE_ACCOUNT'..."
+
+    if [[ "$DRY_RUN" == "true" ]]; then
+        log_info "[DRY-RUN] Would ensure role '$role_name' is assigned to principal '$PRINCIPAL_ID' on storage account '$STORAGE_ACCOUNT'"
+        return 0
     fi
-    
-    log_success "Storage permissions documentation completed"
+
+    local storage_account_id
+    storage_account_id=$(az storage account show \
+        --name "$STORAGE_ACCOUNT" \
+        --resource-group "$RESOURCE_GROUP" \
+        --query "id" \
+        --output tsv)
+
+    # Check if role assignment already exists (idempotent)
+    local existing_assignment_id=""
+    set +e
+    existing_assignment_id=$(az role assignment list \
+        --assignee-object-id "$PRINCIPAL_ID" \
+        --scope "$storage_account_id" \
+        --role "$role_name" \
+        --query "[0].id" \
+        --output tsv 2>/dev/null)
+    local list_rc=$?
+    set -e
+
+    if [[ $list_rc -ne 0 ]]; then
+        log_warning "Unable to query existing role assignments. Skipping storage role assignment."
+        log_warning "If collect-hub-outputs fails with a permissions error, manually assign '$role_name' to '$IDENTITY_NAME' on storage account '$STORAGE_ACCOUNT'."
+        return 0
+    fi
+
+    if [[ -n "$existing_assignment_id" ]]; then
+        log_success "Role '$role_name' is already assigned on storage account '$STORAGE_ACCOUNT'"
+        return 0
+    fi
+
+    log_info "Creating role assignment '$role_name' for principal '$PRINCIPAL_ID' on storage account '$STORAGE_ACCOUNT'..."
+    local create_output=""
+    set +e
+    create_output=$(az role assignment create \
+        --assignee-object-id "$PRINCIPAL_ID" \
+        --assignee-principal-type ServicePrincipal \
+        --role "$role_name" \
+        --scope "$storage_account_id" 2>&1)
+    local create_rc=$?
+    set -e
+
+    if [[ $create_rc -eq 0 ]] || echo "$create_output" | grep -qi "RoleAssignmentExists"; then
+        log_success "Assigned '$role_name' to managed identity '$IDENTITY_NAME' on storage account '$STORAGE_ACCOUNT'"
+        return 0
+    fi
+
+    log_warning "Failed to create role assignment '$role_name'."
+    log_warning "This typically requires Owner or User Access Administrator on the scope."
+    log_warning "Azure CLI output: $create_output"
+    log_warning "Manual action: assign '$role_name' to '$IDENTITY_NAME' (principal: $PRINCIPAL_ID) on storage account '$STORAGE_ACCOUNT'."
+    return 0
 }
 
 # =============================================================================

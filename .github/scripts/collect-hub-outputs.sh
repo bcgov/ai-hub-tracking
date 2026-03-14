@@ -63,12 +63,22 @@ az storage blob download \
   --name "$apim_blob_name" \
   --auth-mode login --file /tmp/apim.tfstate --output none
 
-hub_kv_id="$(jq -er '.outputs.hub_key_vault_id.value' /tmp/shared.tfstate)"
-hub_kv_url="$(jq -er '.outputs.hub_key_vault_uri.value' /tmp/shared.tfstate)"
-apim_url="$(jq -er '.outputs.apim_gateway_url.value' /tmp/apim.tfstate)"
+hub_kv_id="$(jq -r '.outputs.hub_key_vault_id.value // empty' /tmp/shared.tfstate)"
+hub_kv_url="$(jq -r '.outputs.hub_key_vault_uri.value // empty' /tmp/shared.tfstate)"
+apim_url="$(jq -r '.outputs.apim_gateway_url.value // empty' /tmp/apim.tfstate)"
+
+if [[ -z "$hub_kv_id" ]]; then
+  echo "::warning::hub_key_vault_id could not be found in shared tfstate for environment '$HUB_ENV'" >&2
+fi
+if [[ -z "$hub_kv_url" ]]; then
+  echo "::warning::hub_key_vault_uri could not be found in shared tfstate for environment '$HUB_ENV'" >&2
+fi
+if [[ -z "$apim_url" ]]; then
+  echo "::warning::apim_gateway_url could not be found in apim tfstate for environment '$HUB_ENV'" >&2
+fi
 
 if [[ -z "$hub_kv_id" || -z "$hub_kv_url" || -z "$apim_url" ]]; then
-  echo "Required Terraform outputs are missing or empty for environment '$HUB_ENV'." >&2
+  echo "Required Terraform outputs are missing or empty for environment '$HUB_ENV', skipping output." >&2
   exit 0
 fi
 
