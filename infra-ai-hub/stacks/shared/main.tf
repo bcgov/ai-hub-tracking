@@ -390,8 +390,9 @@ module "container_app_environment" {
 
   log_analytics_workspace_id = module.ai_foundry_hub.log_analytics_workspace_id
   enable_diagnostics         = true
-
-  tags = var.common_tags
+  private_endpoint_subnet_id = module.network.private_endpoint_subnet_id
+  scripts_dir                = "../../scripts"
+  tags                       = var.common_tags
 
   depends_on = [module.network]
 }

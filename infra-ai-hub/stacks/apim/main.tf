@@ -29,6 +29,23 @@ data "terraform_remote_state" "tenant" {
   }
 }
 
+# NOTE: Unconditional — requires that the pii-redaction stack has been
+# initialised (even with an empty state) before this stack is planned.
+# The deploy script (deploy-scaled.sh) ensures this ordering.
+data "terraform_remote_state" "pii_redaction" {
+  backend = "azurerm"
+  config = {
+    resource_group_name  = var.backend_resource_group
+    storage_account_name = var.backend_storage_account
+    container_name       = var.backend_container_name
+    key                  = "ai-services-hub/${var.app_env}/pii-redaction.tfstate"
+    subscription_id      = var.subscription_id
+    tenant_id            = var.tenant_id
+    client_id            = var.client_id
+    use_oidc             = var.use_oidc
+  }
+}
+
 module "apim" {
   source = "../../modules/apim"
   count  = local.apim_config.enabled ? 1 : 0
@@ -717,6 +734,22 @@ resource "azurerm_role_assignment" "apim_keyvault_secrets_user" {
 
   scope                = data.terraform_remote_state.shared.outputs.hub_key_vault_id
   role_definition_name = "Key Vault Secrets User"
+  principal_id         = module.apim[0].principal_id
+}
+
+# ---------------------------------------------------------------------------
+# RBAC: APIM MSI → Reader on pii-redaction Container App
+# Establishes the identity binding between APIM and the internal PII service.
+# Network access is VNet-internal; this grants the formal IAM relationship.
+# ---------------------------------------------------------------------------
+resource "azurerm_role_assignment" "apim_pii_svc_reader" {
+  count = (
+    local.apim_config.enabled &&
+    try(data.terraform_remote_state.pii_redaction.outputs.pii_redaction_service, null) != null
+  ) ? 1 : 0
+
+  scope                = data.terraform_remote_state.pii_redaction.outputs.pii_redaction_service.container_app_id
+  role_definition_name = "Reader"
   principal_id         = module.apim[0].principal_id
 }
 

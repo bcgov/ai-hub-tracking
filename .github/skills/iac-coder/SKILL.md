@@ -42,6 +42,20 @@ Every change should deliver:
 - GitHub Actions with OIDC
 - Bash scripts used for Terraform operations
 
+## Stack Deploy Ordering
+
+Stacks are deployed in dependency order by `scripts/deploy-scaled.sh`. When adding or moving a stack, update **both** `deploy-scaled.sh` **and** this skill profile file.
+
+| Phase | Stack(s) | Run Mode | Notes |
+|---|---|---|---|
+| 1 | `shared` | Serial | Shared infra: network, CAE, KV, DNS, App Gateway |
+| 2 | `tenant` (× N) | Parallel | Per-tenant Foundry project + KV, runs once per tenant |
+| 3 | `foundry`, `tenant-user-mgmt`, `pii-redaction` | Parallel | Independent services with no cross-stack deps at deploy time |
+| 3b | `apim` | Serial (after Phase 3) | Reads pii-redaction FQDN via remote state — must run after `pii-redaction` |
+| 4 | `key-rotation` | Serial (after Phase 3b) | Reads APIM principal ID via remote state — must run after `apim` |
+
+> **Skill maintenance**: When changing the deploy sequence (adding phases, reordering stacks, or adding new serial/parallel constraints), update both `scripts/deploy-scaled.sh` **and** this skill profile.
+
 ## Authoritative References (Azure Landing Zone) - CRITICAL
 Follow BC Gov Azure Landing Zone guidance for networking and DNS behavior. This is critical and must be followed:
 - https://raw.githubusercontent.com/bcgov/public-cloud-techdocs/refs/heads/main/docs/azure/design-build-deploy/networking.md
