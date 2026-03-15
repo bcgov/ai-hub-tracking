@@ -369,7 +369,7 @@ APIM is integrated with Language Service using:
 - The external PII redaction service uses this endpoint internally
 
 **RBAC:**
-- The pii-redaction Container App's managed identity is assigned the `Cognitive Services User` role on the shared Language Service resource (APIM no longer calls Language Service directly)
+- The pii-redaction Container App's managed identity is assigned the `Cognitive Services User` role on the shared Language Service resource
 
 ### Policy Fragment Deep Dive: `fragments/pii-anonymization.xml`
 

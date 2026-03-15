@@ -1,24 +1,23 @@
 # PII Redaction Service
 
-A FastAPI microservice that externalises large-payload PII redaction from APIM into a dedicated Python container. APIM routes requests here when a chat payload requires more than 5 Language API documents (multi-message or chunked large messages).
+A FastAPI microservice that handles PII redaction for all APIM-proxied chat requests. When PII redaction is enabled for a tenant, APIM routes every request to this service via `POST /redact`. The service manages all Language Service API interactions — APIM acts as a policy enforcement point only.
 
 ## Why it exists
 
-Azure Language Service accepts a maximum of 5 documents per synchronous `/language/:analyze-text` call. The existing APIM JINT inline-redaction path covers small payloads (≤ 5 docs) efficiently. When a payload has many messages or very long messages that chunk into more documents, APIM cannot call the Language API multiple times natively. This service handles sequential batching, rolling timeouts, and full-coverage verification transparently.
+Azure Language Service accepts a maximum of 5 documents and 5 000 characters per document in a single synchronous `/language/:analyze-text` call. Chat payloads routinely exceed these limits. This service handles word-boundary chunking, sequential batching (up to 10 batches of 5 documents each), rolling timeouts, and full-coverage verification transparently — keeping the APIM policy fragment thin and testable.
 
 ## Architecture
 
 ```
 Client → App Gateway → APIM
                          │
-                         ├── ≤5 docs  → inline Language API call (existing APIM path)
-                         │
-                         └── >5 docs  → POST /redact (this service)
-                                              │
-                                              ├── sequential batches (max 10)
-                                              ├── asyncio deadline enforcement
-                                              ├── word-boundary chunking (5 000 chars)
-                                              └── full-coverage check
+                         └── POST /redact (this service)
+                                  │
+                                  ├── word-boundary chunking (5 000 chars)
+                                  ├── sequential batches (max 5 docs × max 10 batches)
+                                  ├── asyncio deadline enforcement (55 s)
+                                  ├── full-coverage check
+                                  └── reassembled redacted body → APIM
 ```
 
 ## Limits

@@ -1081,7 +1081,7 @@
 
 <h1 id="language-service-pii-detection">Language Service PII Detection</h1>
 
-<p>This system supports tenant-controlled PII anonymization by calling Azure AI Language Service (Text Analytics) from Azure API Management (APIM) policies. The goal is to mask sensitive data before it is forwarded to downstream backends such as OpenAI.</p>
+<p>This system supports tenant-controlled PII anonymization by routing requests through a dedicated PII Redaction Service (Container App) that calls Azure AI Language Service for entity recognition. APIM acts as the policy enforcement point, while all Language Service interaction is handled by the external service. The goal is to mask sensitive data before it is forwarded to downstream backends such as OpenAI.</p>
 
 <div class="alert alert-info">
     <div class="alert-icon">
@@ -1109,17 +1109,17 @@
 
 <h2 id="architecture">Architecture</h2>
 
-<p>Requests enter APIM, tenant API policies decide whether to apply PII anonymization, and when enabled, APIM calls the shared Language Service endpoint using managed identity. The Language Service endpoint is provided to APIM policies via an APIM Named Value: <code>piiServiceUrl</code>.</p>
+<p>Requests enter APIM, and tenant API policies decide whether to apply PII anonymization. When enabled, the <code>pii-anonymization</code> policy fragment forwards the full request body to the external PII Redaction Service (a Container App on the shared internal CAE). The external service handles all Language Service API calls — including document chunking, sequential batching, and coverage verification — and returns the fully redacted body to APIM. The external service URL is provided via the APIM Named Value: <code>piiExternalRedactionUrl</code>.</p>
 
 <div class="card">
     <h3 id="request-flow" style="margin-top: 0;">Request Flow</h3>
     <ol>
         <li>Client request arrives at APIM with sensitive content</li>
-        <li>Tenant API policy extracts request body content</li>
-        <li>PII anonymization fragment calls Language Service via managed identity</li>
-        <li>Language Service analyzes and redacts PII entities</li>
-        <li>APIM replaces request body with redacted content</li>
-        <li>Request forwards to backend (OpenAI, Document Intelligence, etc.)</li>
+        <li>Tenant API policy sets PII configuration variables from the tenant's settings</li>
+        <li>The <code>pii-anonymization</code> fragment sends the request body + config to the PII Redaction Service (<code>POST /redact</code>)</li>
+        <li>The PII Redaction Service chunks messages into documents, calls Language Service in sequential batches (max 5 docs per call), and reassembles the result</li>
+        <li>The service returns the redacted body with coverage status and diagnostics</li>
+        <li>APIM replaces the request body with the redacted content and forwards to the backend</li>
     </ol>
 </div>
 
@@ -1128,26 +1128,27 @@
 <ol>
     <li>A tenant request arrives at APIM.</li>
     <li>The tenant API policy (generated from <code>api_policy.xml.tftpl</code>) routes the request to the correct backend based on path (for example <code>openai</code>, <code>documentintelligence</code>, <code>ai-search</code>, <code>storage</code>).</li>
-    <li>For OpenAI requests, when PII redaction is enabled, the policy extracts the request body as text and sets it to <code>piiInputContent</code>.</li>
-    <li>The tenant policy sets configuration variables from the tenant's <code>apim_policies.pii_redaction</code> settings:
+    <li>For OpenAI requests, when PII redaction is enabled, the tenant policy sets configuration variables from the tenant's <code>apim_policies.pii_redaction</code> settings:
         <ul>
             <li><code>piiExcludedCategories</code> - Categories to exclude from detection</li>
             <li><code>piiDetectionLanguage</code> - Language code for detection accuracy</li>
-            <li><code>piiPreserveJsonStructure</code> - Whether to restore structural JSON values</li>
-            <li><code>piiStructuralWhitelist</code> - Additional values to preserve</li>
+            <li><code>piiFailClosed</code> - Whether to block requests on failure (fail-closed) or pass through (fail-open)</li>
+            <li><code>piiScanRoles</code> - JSON array of message roles to scan (default: user, assistant, tool)</li>
+            <li><code>piiExternalRedactionUrl</code> - Base URL of the PII Redaction Container App</li>
         </ul>
     </li>
-    <li>The policy includes the <code>pii-anonymization</code> policy fragment, which uses these configuration variables.</li>
-    <li>The fragment:
+    <li>The policy includes the <code>pii-anonymization</code> policy fragment.</li>
+    <li>The fragment constructs a JSON payload containing the original request body and configuration, then sends it to the external PII Redaction Service via <code>&lt;send-request&gt;</code> (<code>POST /redact</code>, 60 s timeout).</li>
+    <li>The PII Redaction Service:
         <ul>
-            <li>Obtains an AAD token via <code>&lt;authentication-managed-identity&gt;</code> for <code>https://cognitiveservices.azure.com</code>.</li>
-            <li>Calls Language Service <code>/language/:analyze-text?api-version=2025-11-15-preview</code> with request kind <code>PiiEntityRecognition</code>.</li>
-            <li>Uses a CharacterMask redaction policy (mask character <code>#</code>).</li>
-            <li>Extracts <code>results.documents[0].redactedText</code> into <code>piiAnonymizedContent</code>.</li>
-            <li>Emits diagnostics including status code, entity count, entity types, and whether content changed.</li>
+            <li>Extracts chat messages and chunks long messages into documents (max 5 000 chars each, word-boundary split).</li>
+            <li>Calls <code>/language/:analyze-text</code> in sequential batches of up to 5 documents (max 10 batches).</li>
+            <li>Enforces a per-batch timeout (10 s) and a total processing deadline (55 s).</li>
+            <li>Reassembles the redacted text back into the original message structure.</li>
+            <li>Returns a JSON response with <code>status</code>, <code>full_coverage</code>, <code>redacted_body</code>, and <code>diagnostics</code>.</li>
         </ul>
     </li>
-    <li>The tenant policy explicitly applies the anonymized content back to the request body using <code>&lt;set-body&gt;</code> and forwards the request.</li>
+    <li>APIM validates the response (HTTP 200, <code>status == "ok"</code>, <code>full_coverage == true</code>), sets <code>piiAnonymizedContent</code> to the redacted body, and the tenant policy applies it via <code>&lt;set-body&gt;</code>.</li>
 </ol>
 
 <div class="alert alert-warning">
@@ -1165,7 +1166,7 @@
 
 <h3 id="shared-configuration-all-environments">Shared Configuration (All Environments)</h3>
 
-<p>PII detection depends on the shared Language Service being enabled via <code>shared_config.language_service.enabled</code> and integrated into APIM via <code>piiServiceUrl</code>. Language Service is configured for private access (no public network access) and is connected through a private endpoint.</p>
+<p>PII detection depends on the shared Language Service being enabled via <code>shared_config.language_service.enabled</code> and the PII Redaction Service Container App being deployed. The external service URL is provided to APIM via the <code>piiExternalRedactionUrl</code> Named Value. Language Service is configured for private access (no public network access) and is connected through a private endpoint; the PII Redaction Service calls it over the VNet.</p>
 
 <h3 id="per-tenant-configuration">Per-Tenant Configuration</h3>
 
@@ -1187,11 +1188,8 @@ apim_policies {
     # Optional: Language for detection (default: "en")
     detection_language      = "en"
 
-    # Optional: Preserve JSON structure (default: true)
-    preserve_json_structure = true
-
-    # Optional: Additional values to preserve (whitelist)
-    structural_whitelist    = ["customRole", "metadata"]
+    # Optional: Message roles to scan (default: ["user", "assistant", "tool"])
+    scan_roles              = ["user", "assistant", "tool"]
   }
   rate_limiting {
     enabled = true
@@ -1246,16 +1244,10 @@ apim_policies {
             <td>Language code for PII detection. Controls detection accuracy for language-specific entities.</td>
         </tr>
         <tr>
-            <td><code>preserve_json_structure</code></td>
-            <td>boolean</td>
-            <td>true</td>
-            <td>Restore structural JSON values after redaction to prevent breaking JSON structure (e.g., "user", "system", "assistant" roles in OpenAI messages)</td>
-        </tr>
-        <tr>
-            <td><code>structural_whitelist</code></td>
+            <td><code>scan_roles</code></td>
             <td>list(string)</td>
-            <td>[]</td>
-            <td>Additional quoted string values to preserve beyond default whitelist (OpenAI roles). Use for custom structural fields that shouldn't be redacted.</td>
+            <td>["user", "assistant", "tool"]</td>
+            <td>Message roles to scan for PII. Only messages with these roles are sent through the PII Redaction Service. Other roles (e.g., "system") pass through unredacted.</td>
         </tr>
     </tbody>
 </table>
@@ -1270,32 +1262,36 @@ apim_policies {
 <div class="grid grid-2">
     <div class="card">
         <h3 id="managed-identity-authentication" style="margin-top: 0;">Managed Identity Authentication</h3>
-        <p>Language Service uses managed identity only (<code>local_auth_enabled = false</code>) rather than API keys. This eliminates the need for credential rotation and follows Azure security best practices.</p>
+        <p>Language Service uses managed identity only (<code>local_auth_enabled = false</code>) rather than API keys. The PII Redaction Service Container App authenticates to Language Service via its own managed identity with the <code>Cognitive Services User</code> role.</p>
     </div>
     <div class="card">
         <h3 id="private-network-access" style="margin-top: 0;">Private Network Access</h3>
-        <p>Language Service network ACLs default to deny and it is accessed via a private endpoint. APIM is granted access via RBAC (<code>Cognitive Services User</code> role).</p>
+        <p>Language Service network ACLs default to deny and it is accessed via a private endpoint. The PII Redaction Service runs on the shared internal Container App Environment and reaches Language Service over the VNet.</p>
     </div>
 </div>
 
-<p>APIM policy calls use AAD tokens (Authorization Bearer) and remove any <code>api-key</code> header before calling Cognitive Services APIs.</p>
+<p>APIM routes requests to the PII Redaction Service over VNet-internal ingress. The external service handles all Language Service authentication via its own Managed Identity.</p>
 
 <h2 id="observability">Observability</h2>
 
 <h3 id="pii-detection-diagnostics">PII Detection Diagnostics</h3>
 
-<p>The <code>pii-anonymization</code> fragment emits rich diagnostic traces to Application Insights, including:</p>
+<p>The <code>pii-anonymization</code> fragment emits rich diagnostic traces to Application Insights at multiple stages of the request lifecycle:</p>
 
 <ul>
-    <li><strong>pii-status-code:</strong> HTTP response status from Language Service API call</li>
-    <li><strong>pii-entity-count:</strong> Number of PII entities detected in the request</li>
-    <li><strong>pii-entity-types:</strong> Comma-separated list of entity categories found (e.g., "Email,SSN,CreditCard")</li>
-    <li><strong>pii-content-changed:</strong> Boolean flag indicating whether any redaction occurred</li>
-    <li><strong>request-id:</strong> Correlation ID for tracing the request across services</li>
-    <li><strong>tenant-id:</strong> Tenant identifier for per-tenant analytics</li>
+    <li><strong>pii-outbound</strong> (verbose): Logged before sending to the PII Redaction Service. Includes the outbound body, service URL, request ID, and subscription ID.</li>
+    <li><strong>pii-inbound</strong> (verbose): Logged when the PII Redaction Service responds. Includes HTTP status code, response duration (<code>pii-duration-ms</code>), and response size (<code>pii-response-bytes</code>).</li>
+    <li><strong>pii-anonymization</strong> (information/error): Logged after processing the response.
+        <ul>
+            <li>On success: <code>pii-redaction-succeeded=true</code>, <code>pii-content-changed</code>, <code>pii-coverage-full</code>, <code>pii-entity-count</code>, <code>pii-document-count</code></li>
+            <li>On failure: <code>pii-redaction-succeeded=false</code>, <code>pii-failure-reason</code> (e.g., <code>no-response</code>, <code>payload-too-large</code>, <code>http-500</code>, <code>incomplete-coverage</code>, <code>service-error: ...</code>)</li>
+        </ul>
+    </li>
+    <li><strong>request-id:</strong> Correlation ID for tracing the request across APIM and the PII Redaction Service</li>
+    <li><strong>subscription-id:</strong> Tenant identifier for per-tenant analytics</li>
 </ul>
 
-<p>These diagnostics enable monitoring of PII detection effectiveness, understanding which entity types are most commonly detected, and tracking Language Service API health.</p>
+<p>These diagnostics enable monitoring of PII detection effectiveness, tracking service health and latency, and understanding failure modes across the APIM → PII Redaction Service → Language Service chain.</p>
 
 <h3 id="openai-usage-logging">OpenAI Usage Logging</h3>
 
@@ -1396,7 +1392,7 @@ apim_policies {
 <details>
     <summary><strong>What is the performance impact?</strong></summary>
     <div class="accordion-content">
-        <p>PII anonymization adds an extra network call from APIM to Language Service for requests where it is enabled. The Language Service call uses a fixed timeout of 20 seconds. For most requests, the latency impact is minimal (typically under 500ms).</p>
+        <p>PII anonymization routes each request to the PII Redaction Service Container App, which sequentially batches Language Service API calls. For typical payloads (a few short messages), the total round-trip adds roughly 1–3 seconds. Larger payloads with many messages may take longer due to multiple sequential batches (up to 10 batches, each with a 10 s timeout). The total processing deadline is 55 seconds, fitting within the APIM 60 s <code>send-request</code> timeout.</p>
     </div>
 </details>
 
@@ -1413,18 +1409,16 @@ apim_policies {
 </details>
 
 <details>
-    <summary><strong>How does "preserve JSON structure" work?</strong></summary>
+    <summary><strong>How does the PII Redaction Service handle large payloads?</strong></summary>
     <div class="accordion-content">
-        <p>The <code>preserve_json_structure</code> feature (enabled by default) uses a heuristic post-processing step to restore certain quoted string values that were masked by Language Service but are actually structural JSON fields rather than PII.</p>
-        <p><strong>How it works:</strong></p>
+        <p>The PII Redaction Service handles the Language API's per-call limits transparently:</p>
         <ul>
-            <li>After Language Service redacts the content (replacing PII with <code>#####</code> patterns), the fragment identifies masked values that match known structural patterns</li>
-            <li>Default whitelist includes OpenAI message roles: <code>"user"</code>, <code>"system"</code>, <code>"assistant"</code>, <code>"function"</code>, <code>"tool"</code></li>
-            <li>Custom values can be added via <code>structural_whitelist</code> configuration</li>
-            <li>Restoration matches based on the length of the <code>####</code> pattern (e.g., <code>"####"</code> could restore to <code>"user"</code>)</li>
+            <li>Messages are chunked into documents of up to 5 000 characters using word-boundary splitting</li>
+            <li>Documents are sent to Language Service in sequential batches of up to 5 per API call (max 10 batches = 50 documents)</li>
+            <li>Payloads exceeding 50 documents are rejected with HTTP 413</li>
+            <li>A rolling per-batch timeout (10 s) and total deadline (55 s) prevent runaway processing</li>
+            <li>Full-coverage verification ensures every document was successfully redacted before returning</li>
         </ul>
-        <p><strong>Example:</strong> If Language Service masks <code>"role": "user"</code> as <code>"role": "####"</code>, the post-processing step restores it to <code>"role": "user"</code> because <code>"user"</code> is in the default whitelist.</p>
-        <p><strong>Caution:</strong> This is a heuristic approach based on pattern matching. It reduces false positives on structural fields but could theoretically restore a value that happens to match both the pattern length and whitelist entry. For strict PII protection requirements, consider setting <code>preserve_json_structure = false</code>.</p>
     </div>
 </details>
 
@@ -1440,9 +1434,14 @@ apim_policies {
     </thead>
     <tbody>
         <tr>
-            <td>401/403 calling Language Service</td>
-            <td>Missing or incorrect RBAC permissions</td>
-            <td>Verify APIM managed identity has the <code>Cognitive Services User</code> role assignment on the Language Service resource</td>
+            <td>503 PiiRedactionFailed (fail-closed)</td>
+            <td>PII Redaction Service returned non-200, incomplete coverage, or was unreachable</td>
+            <td>Check PII Redaction Service Container App logs and health endpoint (<code>/health</code>). Verify the service is running and Language Service is reachable from the CAE subnet.</td>
+        </tr>
+        <tr>
+            <td>413 from PII Redaction Service</td>
+            <td>Payload exceeds 50-document limit (10 batches × 5 docs)</td>
+            <td>The request payload is too large for PII processing. Reduce message count or length.</td>
         </tr>
         <tr>
             <td>DNS / private endpoint not ready</td>
@@ -1452,12 +1451,12 @@ apim_policies {
         <tr>
             <td>Transient failures after deploy</td>
             <td>Role assignment propagation delay</td>
-            <td>Role assignment propagation can cause temporary failures until RBAC takes effect (typically 5-10 minutes)</td>
+            <td>The PII Redaction Service managed identity needs <code>Cognitive Services User</code> on Language Service. Propagation can take 5–10 minutes.</td>
         </tr>
         <tr>
             <td>No redaction occurring</td>
             <td>PII detection not enabled</td>
-            <td>Confirm tenant <code>apim_policies.pii_redaction.enabled</code> is true and shared <code>language_service.enabled</code> is true</td>
+            <td>Confirm tenant <code>apim_policies.pii_redaction.enabled</code> is true, shared <code>language_service.enabled</code> is true, and <code>piiExternalRedactionUrl</code> is set.</td>
         </tr>
     </tbody>
 </table>

@@ -122,8 +122,6 @@ locals {
         tracking_dimensions_enabled    = try(config.apim_policies.tracking_dimensions.enabled, true)
         backend_timeout_seconds        = try(config.apim_policies.backend_timeout_seconds, 300)
         pii_excluded_categories        = try(config.apim_policies.pii_redaction.excluded_categories, [])
-        pii_preserve_json_structure    = try(config.apim_policies.pii_redaction.preserve_json_structure, true)
-        pii_structural_whitelist       = try(config.apim_policies.pii_redaction.structural_whitelist, [])
         pii_detection_language         = try(config.apim_policies.pii_redaction.detection_language, "en")
         pii_fail_closed                = try(config.apim_policies.pii_redaction.fail_closed, false)
         pii_scan_roles                 = jsonencode(try(config.apim_policies.pii_redaction.scan_roles, ["user", "assistant", "tool"]))

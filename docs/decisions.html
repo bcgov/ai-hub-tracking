@@ -1319,7 +1319,7 @@ details.adr.pending[open] summary {
     </tr>
     <tr>
         <td><a href="#adr-018">ADR-018</a></td>
-        <td>External PII Redaction Service for Large Payloads</td>
+        <td>External PII Redaction Service</td>
         <td><span class="badge" style="background:#22c55e;color:white;">Choice</span></td>
         <td><span class="badge badge-gold">Accepted</span></td>
     </tr>
@@ -4265,7 +4265,7 @@ module "storage" {
 </details>
 <details class="adr" id="adr-018">
 <summary>
-    <span class="adr-title">ADR-018: External PII Redaction Service for Large Payloads</span>
+    <span class="adr-title">ADR-018: External PII Redaction Service</span>
     <span class="adr-status"><span class="badge badge-gold">Accepted</span></span>
 </summary>
 <div class="adr-content">
@@ -4279,9 +4279,9 @@ module "storage" {
 
 <h3 id="context-17">Context</h3>
 
-<p>The AI Hub uses Azure Language Service PII recognition to redact personally identifiable information from chat completion payloads before they reach upstream LLM backends. The existing implementation runs entirely inside an APIM policy fragment (<code>pii-anonymization.xml</code>) using inline JINT and a single synchronous <code>send-request</code> to the Language API.</p>
+<p>The AI Hub uses Azure Language Service PII recognition to redact personally identifiable information from chat completion payloads before they reach upstream LLM backends. APIM delegates all PII processing to a dedicated external service rather than calling the Language API inline, because APIM policies have no loop construct and the Language API imposes strict per-call limits.</p>
 
-<p>The Azure Language Service <code>/language/:analyze-text</code> endpoint accepts a <strong>maximum of 5 documents per call</strong>, and each document is limited to 5 120 characters. For small payloads (few short messages) the inline APIM path works well. However, real-world chat completion requests can contain many messages or very long messages that chunk into more than 5 documents. APIM policies have no native loop or sequential-call construct, so the inline path cannot issue multiple Language API calls to cover a large payload.</p>
+<p>The Azure Language Service <code>/language/:analyze-text</code> endpoint accepts a <strong>maximum of 5 documents per call</strong>, and each document is limited to 5 120 characters. Real-world chat completion requests can contain many messages or very long messages that chunk into more than 5 documents. Covering the full payload requires sequential batched calls with deadline enforcement — logic that belongs in a real programming language, not APIM XML.</p>
 
 <div class="alert alert-warning">
     <div class="alert-icon">
@@ -4299,9 +4299,9 @@ module "storage" {
         <h4 style="margin-top: 0;">External PII Redaction Container App (selected)</h4>
         <ul style="margin-bottom: 0;">
             <li>Dedicated FastAPI service deployed as a Container App on the shared internal CAE</li>
-            <li>APIM classifies payloads at the policy layer and routes large ones externally</li>
+            <li>APIM routes all PII-enabled requests to the external service</li>
             <li>Service handles sequential batching, deadline enforcement, and coverage verification</li>
-            <li>Inline APIM path remains for small payloads (zero extra latency)</li>
+            <li>Single code path keeps the APIM policy simple</li>
         </ul>
     </div>
     <div class="card">
@@ -4334,18 +4334,18 @@ module "storage" {
 
 <h3 id="decision-14">Decision</h3>
 
-<p><strong>We will deploy a dedicated PII redaction microservice as a Container App on the shared internal Container App Environment, reachable only from APIM via VNet-internal ingress. APIM will classify payloads at the policy layer: payloads that fit within 5 Language API documents continue through the existing inline path, while larger payloads are routed to the external service.</strong></p>
+<p><strong>We will deploy a dedicated PII redaction microservice as a Container App on the shared internal Container App Environment, reachable only from APIM via VNet-internal ingress. APIM routes all PII-enabled requests to this service.</strong></p>
 
 <h3 id="rationale-10">Rationale</h3>
 
 <ul>
     <li><strong>Language API batching limit:</strong> The <code>/language/:analyze-text</code> endpoint accepts at most 5 documents per call (each up to 5 120 chars). Payloads with many or long messages exceed this and need sequential batch calls that APIM policies cannot express.</li>
     <li><strong>APIM cannot loop:</strong> Policy XML has no iteration construct. Hard-coding multiple <code>send-request</code> blocks is brittle, hard to test, and caps out quickly. A real programming language (Python + asyncio) handles batching, timeouts, and error recovery naturally.</li>
-    <li><strong>Preserve fast path for small payloads:</strong> The dual-path classification (preflight doc count check) means small requests add zero extra network hops. Only large payloads pay the cost of the external call.</li>
+    <li><strong>Single routing path:</strong> A single route from APIM to the external service keeps the policy fragment simple. The service handles all payloads with the same batching logic regardless of size.</li>
     <li><strong>Reuse existing infrastructure:</strong> The shared Container App Environment, Managed Identity RBAC, GHCR image builds, and Terraform module patterns are already in place. Adding one more Container App is incremental.</li>
     <li><strong>Timeout budget alignment:</strong> The service enforces a 55 s total processing deadline that fits within the 60 s APIM <code>send-request</code> timeout, with per-batch timeouts (10 s) providing granular failure isolation.</li>
-    <li><strong>Fail-open / fail-closed flexibility:</strong> The service returns a structured response with coverage status. APIM decides whether to block (503) or pass through based on the tenant's <code>fail_closed</code> configuration — the same pattern used by the inline path.</li>
-    <li><strong>Testability:</strong> Python unit tests cover chunking, batching, reassembly, and API error handling. The inline APIM path is effectively untestable outside of integration tests.</li>
+    <li><strong>Fail-open / fail-closed flexibility:</strong> The service returns a structured response with coverage status. APIM decides whether to block (503) or pass through based on the tenant's <code>fail_closed</code> configuration.</li>
+    <li><strong>Testability:</strong> Python unit tests cover chunking, batching, reassembly, and API error handling — far easier to maintain than equivalent logic embedded in APIM XML.</li>
 </ul>
 
 <h3 id="architecture">Architecture</h3>
@@ -4353,26 +4353,25 @@ module "storage" {
 <div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
 <pre style="background: var(--bc-blue-dark); margin: 0; padding: 1rem; overflow-x: auto;">
 ┌──────────────────────────────────────────────────────────────────────┐
-│                     REQUEST CLASSIFICATION                           │
+│                 ALL-EXTERNAL PII REDACTION                           │
 ├──────────────────────────────────────────────────────────────────────┤
 │                                                                      │
 │   Client → App Gateway → APIM                                        │
 │                            │                                         │
-│                  ┌─────────┴─────────┐                               │
-│                  │  Preflight check   │                               │
-│                  │  (count documents) │                               │
-│                  └─────────┬─────────┘                               │
-│                     ┌──────┴──────┐                                  │
-│                     │             │                                   │
-│                ≤5 docs        >5 docs                                │
-│                     │             │                                   │
-│              ┌──────┴──────┐ ┌───┴────────────────┐                  │
-│              │ Inline APIM │ │ POST /redact        │                  │
-│              │ send-request│ │ (Container App)     │                  │
-│              │ (1 call)    │ │ sequential batches  │                  │
-│              └─────────────┘ │ deadline enforcement│                  │
-│                              │ coverage check      │                  │
-│                              └────────────────────┘                  │
+│                  ┌─────────┴────────────────────────┐                │
+│                  │  POST /redact                     │                │
+│                  │  (PII Redaction Service)          │                │
+│                  └─────────┬────────────────────────┘                │
+│                            │                                         │
+│                  ┌─────────┴────────────────────────┐                │
+│                  │  Sequential batches               │                │
+│                  │  (max 5 docs × 10 batches)       │                │
+│                  │  Word-boundary chunking            │                │
+│                  │  Deadline enforcement (55s)        │                │
+│                  │  Full-coverage check               │                │
+│                  └─────────┬────────────────────────┘                │
+│                            │                                         │
+│                  Redacted body → APIM → Backend                      │
 │                                                                      │
 └──────────────────────────────────────────────────────────────────────┘
 </pre>
@@ -4422,8 +4421,8 @@ module "storage" {
 
 <h4>Positive</h4>
 <ul>
-    <li><strong>Transparent large-payload support:</strong> Tenants do not need to know about the 5-document limit; APIM handles classification and routing automatically</li>
-    <li><strong>No regression for small payloads:</strong> The inline path is unchanged; latency for small requests is unaffected</li>
+    <li><strong>Transparent payload handling:</strong> Tenants do not need to know about Language API limits; APIM routes all PII-enabled requests to the external service automatically</li>
+    <li><strong>Single code path:</strong> All PII redaction flows through the Container App, keeping behaviour consistent across all payload sizes</li>
     <li><strong>Testable orchestration logic:</strong> Chunking, batching, reassembly, and error handling are covered by Python unit tests rather than being embedded in untestable APIM XML</li>
     <li><strong>Incremental infrastructure cost:</strong> Runs on the existing shared CAE with Managed Identity RBAC — no new networking or identity infrastructure</li>
     <li><strong>Structured observability:</strong> JSON-formatted logs with correlation IDs, batch counts, and elapsed-time diagnostics</li>
@@ -4432,20 +4431,19 @@ module "storage" {
 <h4>Negative</h4>
 <ul>
     <li><strong>Additional component to deploy and maintain:</strong> One more Container App, Dockerfile, Terraform module, and deployment phase</li>
-    <li><strong>Extra network hop for large payloads:</strong> Requests that exceed 5 documents pay the cost of APIM → Container App → Language API instead of APIM → Language API directly</li>
-    <li><strong>Dual-path complexity:</strong> Two redaction paths (inline and external) increase the surface area for APIM policy logic and require the preflight classification to be correct</li>
+    <li><strong>Extra network hop for all PII requests:</strong> Every PII-enabled request pays the cost of APIM → Container App → Language API instead of APIM → Language API directly</li>
 </ul>
 
 <h4>Mitigations</h4>
 <ul>
     <li><strong>Reuse proven patterns:</strong> The Container App module, GHCR build workflow, and deploy ordering follow the same conventions as the key-rotation job</li>
-    <li><strong>Integration tests:</strong> The APIM integration test suite covers both the inline and external paths end-to-end</li>
+    <li><strong>Integration tests:</strong> The APIM integration test suite covers PII redaction end-to-end through the external service</li>
     <li><strong>Conservative thresholds:</strong> The 50-document cap and 55 s deadline ensure the service stays within APIM timeout bounds even under adverse conditions</li>
 </ul>
 
 <h3 id="references-15">References</h3>
 <ul>
-    <li><a href="language-service-pii.html">Language Service PII Redaction</a> — operational documentation for both inline and external paths</li>
+    <li><a href="language-service-pii.html">Language Service PII Redaction</a> — operational documentation for PII redaction via the external service</li>
     <li><a href="services.html">Services Overview</a> — Container App deployment topology</li>
     <li><a href="https://learn.microsoft.com/en-us/rest/api/language/text-analysis-runtime/analyze-text">Azure Language Service — Analyze Text API</a></li>
     <li><a href="https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/overview">Azure AI Language — PII Detection Overview</a></li>

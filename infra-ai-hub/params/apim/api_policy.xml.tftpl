@@ -385,10 +385,8 @@
 %{ if pii_redaction_enabled ~}
                 <!-- PII Anonymization via Azure Language Service -->
                 <set-variable name="piiAnonymizationEnabled" value="true" />
-                <!-- PII Configuration: excluded categories and structural preservation -->
+                <!-- PII Configuration: excluded categories and detection settings -->
                 <set-variable name="piiExcludedCategories" value="${jsonencode(pii_excluded_categories)}" />
-                <set-variable name="piiPreserveJsonStructure" value="${pii_preserve_json_structure}" />
-                <set-variable name="piiStructuralWhitelist" value="${jsonencode(pii_structural_whitelist)}" />
                 <set-variable name="piiDetectionLanguage" value="${pii_detection_language}" />
                 <!-- PII Fail-closed: block request if redaction fails (default: false = fail-open) -->
                 <set-variable name="piiFailClosed" value="${pii_fail_closed}" />
