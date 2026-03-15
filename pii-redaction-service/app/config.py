@@ -21,8 +21,8 @@ class Settings(BaseSettings):
     # API key for the Language Service — required when environment=local
     language_api_key: str | None = None
 
-    # Language API version to target
-    language_api_version: str = "2024-11-01"  # Stable GA version
+    # Language API version to target (required)
+    language_api_version: str
 
     # Per-batch HTTP timeout in seconds (APIM per-call budget)
     per_batch_timeout_seconds: int = 10
