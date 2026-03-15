@@ -18,6 +18,7 @@ from fastapi.testclient import TestClient
 
 MOCK_SETTINGS_ENV = {
     "PII_LANGUAGE_ENDPOINT": "https://mock.cognitiveservices.azure.com",
+    "PII_LANGUAGE_API_VERSION": "2024-11-01",
 }
 
 
