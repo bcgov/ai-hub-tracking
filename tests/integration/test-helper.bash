@@ -112,8 +112,11 @@ apim_request() {
         --max-time 60                               # 60 second timeout
     )
     
+    local body_tmp=""
     if [[ -n "${body}" ]]; then
-        curl_opts+=(-d "${body}")
+        body_tmp=$(mktemp /tmp/apim-req-XXXXXX)
+        printf '%s' "${body}" > "${body_tmp}"
+        curl_opts+=(-d "@${body_tmp}")
     fi
     
     local response
@@ -133,12 +136,13 @@ apim_request() {
             -H "Accept: application/json"
             --max-time 60
         )
-        if [[ -n "${body}" ]]; then
-            curl_opts+=(-d "${body}")
+        if [[ -n "${body_tmp}" ]]; then
+            curl_opts+=(-d "@${body_tmp}")
         fi
         response=$(curl -X "${method}" "${curl_opts[@]}" "${url}")
     fi
 
+    [[ -n "${body_tmp}" ]] && rm -f "${body_tmp}"
     echo "${response}"
 }
 
@@ -169,8 +173,11 @@ apim_request_ocp() {
         --max-time 60                               # 60 second timeout
     )
 
+    local body_tmp=""
     if [[ -n "${body}" ]]; then
-        curl_opts+=(-d "${body}")
+        body_tmp=$(mktemp /tmp/apim-req-XXXXXX)
+        printf '%s' "${body}" > "${body_tmp}"
+        curl_opts+=(-d "@${body_tmp}")
     fi
 
     local response
@@ -190,12 +197,13 @@ apim_request_ocp() {
             -H "Accept: application/json"
             --max-time 60
         )
-        if [[ -n "${body}" ]]; then
-            curl_opts+=(-d "${body}")
+        if [[ -n "${body_tmp}" ]]; then
+            curl_opts+=(-d "@${body_tmp}")
         fi
         response=$(curl -X "${method}" "${curl_opts[@]}" "${url}")
     fi
 
+    [[ -n "${body_tmp}" ]] && rm -f "${body_tmp}"
     echo "${response}"
 }
 
@@ -281,8 +289,11 @@ apim_request_with_headers() {
         --max-time 60
     )
 
+    local body_tmp=""
     if [[ -n "${body}" ]]; then
-        curl_opts+=(-d "${body}")
+        body_tmp=$(mktemp /tmp/apim-req-XXXXXX)
+        printf '%s' "${body}" > "${body_tmp}"
+        curl_opts+=(-d "@${body_tmp}")
     fi
 
     local response
@@ -303,12 +314,13 @@ apim_request_with_headers() {
             -H "Accept: application/json"
             --max-time 60
         )
-        if [[ -n "${body}" ]]; then
-            curl_opts+=(-d "${body}")
+        if [[ -n "${body_tmp}" ]]; then
+            curl_opts+=(-d "@${body_tmp}")
         fi
         response=$(curl -X "${method}" "${curl_opts[@]}" "${url}")
     fi
 
+    [[ -n "${body_tmp}" ]] && rm -f "${body_tmp}"
     echo "${response}"
 }
 
@@ -548,8 +560,11 @@ apim_request_bearer() {
         --max-time 60                               # 60 second timeout
     )
 
+    local body_tmp=""
     if [[ -n "${body}" ]]; then
-        curl_opts+=(-d "${body}")
+        body_tmp=$(mktemp /tmp/apim-req-XXXXXX)
+        printf '%s' "${body}" > "${body_tmp}"
+        curl_opts+=(-d "@${body_tmp}")
     fi
 
     local response
@@ -569,12 +584,13 @@ apim_request_bearer() {
             -H "Accept: application/json"
             --max-time 60
         )
-        if [[ -n "${body}" ]]; then
-            curl_opts+=(-d "${body}")
+        if [[ -n "${body_tmp}" ]]; then
+            curl_opts+=(-d "@${body_tmp}")
         fi
         response=$(curl -X "${method}" "${curl_opts[@]}" "${url}")
     fi
 
+    [[ -n "${body_tmp}" ]] && rm -f "${body_tmp}"
     echo "${response}"
 }
 

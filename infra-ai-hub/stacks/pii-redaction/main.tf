@@ -27,8 +27,8 @@ module "pii_redaction_service" {
   container_image_name   = lookup(local.pii_redaction_config, "container_image_name", "bcgov/ai-hub-tracking/pii-redaction-service")
   container_image_tag    = var.container_image_tag_svc_pii_redaction != "" ? var.container_image_tag_svc_pii_redaction : lookup(local.pii_redaction_config, "container_image_tag", "latest")
 
-  cpu          = lookup(local.pii_redaction_config, "cpu", 0.5)
-  memory       = lookup(local.pii_redaction_config, "memory", "1Gi")
+  cpu          = lookup(local.pii_redaction_config, "cpu", 0.25)
+  memory       = lookup(local.pii_redaction_config, "memory", "512Mi")
   min_replicas = lookup(local.pii_redaction_config, "min_replicas", 1)
   max_replicas = lookup(local.pii_redaction_config, "max_replicas", 5)
   log_level    = lookup(local.pii_redaction_config, "log_level", "INFO")

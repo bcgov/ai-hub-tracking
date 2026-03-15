@@ -347,24 +347,28 @@ class TestReassembly:
 
 
 class TestBodyValidation:
-    """Verify request body validation rejects malformed payloads."""
+    """Verify request body validation rejects malformed payloads.
 
-    def test_missing_body_returns_422(self, client):
+    Validation errors are converted to 503 by the RequestValidationError handler
+    so that APIM treats them as service failures rather than client errors.
+    """
+
+    def test_missing_body_returns_503(self, client):
         c, _ = client
         resp = c.post("/redact", json={"config": {}})
-        assert resp.status_code == 422
+        assert resp.status_code == 503
 
-    def test_missing_messages_returns_422(self, client):
+    def test_missing_messages_returns_503(self, client):
         c, _ = client
         resp = c.post("/redact", json={"body": {"model": "gpt-4o"}})
-        assert resp.status_code == 422
+        assert resp.status_code == 503
 
-    def test_messages_not_a_list_returns_422(self, client):
+    def test_messages_not_a_list_returns_503(self, client):
         c, _ = client
         resp = c.post("/redact", json={"body": {"messages": "not a list"}})
-        assert resp.status_code == 422
+        assert resp.status_code == 503
 
-    def test_message_missing_role_returns_422(self, client):
+    def test_message_missing_role_returns_503(self, client):
         c, _ = client
         resp = c.post(
             "/redact",
@@ -372,26 +376,26 @@ class TestBodyValidation:
                 "body": {"messages": [{"content": "missing role field"}]},
             },
         )
-        assert resp.status_code == 422
+        assert resp.status_code == 503
 
-    def test_messages_is_null_returns_422(self, client):
+    def test_messages_is_null_returns_503(self, client):
         c, _ = client
         resp = c.post("/redact", json={"body": {"messages": None}})
-        assert resp.status_code == 422
+        assert resp.status_code == 503
 
-    def test_body_is_null_returns_422(self, client):
+    def test_body_is_null_returns_503(self, client):
         c, _ = client
         resp = c.post("/redact", json={"body": None})
-        assert resp.status_code == 422
+        assert resp.status_code == 503
 
-    def test_invalid_json_returns_422(self, client):
+    def test_invalid_json_returns_503(self, client):
         c, _ = client
         resp = c.post(
             "/redact",
             content=b"not valid json",
             headers={"content-type": "application/json"},
         )
-        assert resp.status_code == 422
+        assert resp.status_code == 503
 
     def test_config_defaults_when_omitted(self, client):
         """Config field defaults are applied when config is not provided."""

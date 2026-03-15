@@ -64,3 +64,22 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "private_endpoint_subnet_id" {
+  description = "Subnet ID for APIM private endpoint (stv2). Required when enable_private_endpoint is true."
+  type        = string
+  nullable    = false
+}
+variable "scripts_dir" {
+  description = "Path to shared scripts directory for DNS wait operations"
+  type        = string
+  nullable    = false
+}
+variable "private_endpoint_dns_wait" {
+  description = "Configuration for waiting on policy-managed DNS zone groups"
+  type = object({
+    timeout       = optional(string, "15m")
+    poll_interval = optional(string, "30s")
+  })
+  default = {}
+}

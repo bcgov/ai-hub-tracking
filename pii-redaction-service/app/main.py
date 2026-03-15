@@ -16,6 +16,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from .config import Settings, get_settings
@@ -168,6 +169,21 @@ async def redact(redaction_request: RedactionRequest) -> JSONResponse:
 # ---------------------------------------------------------------------------
 # Exception handler — surface unexpected errors as 503
 # ---------------------------------------------------------------------------
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
+    errors = exc.errors()
+    logger.warning(
+        "Request validation failed (422)",
+        extra={
+            "path": str(request.url),
+            "errors": [{"loc": ".".join(str(p) for p in e["loc"]), "msg": e["msg"], "type": e["type"]} for e in errors],
+        },
+    )
+    first_msg = errors[0]["msg"] if errors else "invalid request"
+    failure = RedactionFailure(error=f"Request validation error: {first_msg}")
+    return JSONResponse(content=failure.model_dump(), status_code=503)
 
 
 @app.exception_handler(Exception)
