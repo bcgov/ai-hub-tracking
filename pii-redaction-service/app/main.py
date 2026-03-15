@@ -18,6 +18,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from starlette.types import Message
 
 from .config import Settings, get_settings
 from .language_client import LanguageClient
@@ -32,6 +33,10 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 
 _language_client: LanguageClient | None = None
+
+
+def _decode_raw_body(raw_body: bytes) -> str:
+    return raw_body.decode("utf-8", errors="replace")
 
 
 def _get_client() -> LanguageClient:
@@ -93,6 +98,21 @@ app = FastAPI(
     docs_url=None,  # Disable Swagger UI in production
     redoc_url=None,
 )
+
+
+@app.middleware("http")
+async def _capture_redact_request_body(request: Request, call_next):
+    if request.method == "POST" and request.url.path == "/redact":
+        raw_body = await request.body()
+        request.state.raw_body = _decode_raw_body(raw_body)
+        request.state.raw_body_bytes = len(raw_body)
+
+        async def receive() -> Message:
+            return {"type": "http.request", "body": raw_body, "more_body": False}
+
+        request._receive = receive
+
+    return await call_next(request)
 
 
 # ---------------------------------------------------------------------------
@@ -174,10 +194,20 @@ async def redact(redaction_request: RedactionRequest) -> JSONResponse:
 @app.exception_handler(RequestValidationError)
 async def _validation_exception_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     errors = exc.errors()
+    raw_body = getattr(request.state, "raw_body", None)
+    if raw_body is None:
+        raw_body_bytes = await request.body()
+        raw_body = _decode_raw_body(raw_body_bytes)
+        raw_body_size = len(raw_body_bytes)
+    else:
+        raw_body_size = getattr(request.state, "raw_body_bytes", len(raw_body.encode("utf-8", errors="replace")))
+
     logger.warning(
         "Request validation failed (422)",
         extra={
             "path": str(request.url),
+            "raw_body_bytes": raw_body_size,
+            "raw_body": raw_body,
             "errors": [{"loc": ".".join(str(p) for p in e["loc"]), "msg": e["msg"], "type": e["type"]} for e in errors],
         },
     )
