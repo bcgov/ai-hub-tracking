@@ -207,7 +207,6 @@ async def _validation_exception_handler(request: Request, exc: RequestValidation
         extra={
             "path": str(request.url),
             "raw_body_bytes": raw_body_size,
-            "raw_body": raw_body,
             "errors": [{"loc": ".".join(str(p) for p in e["loc"]), "msg": e["msg"], "type": e["type"]} for e in errors],
         },
     )

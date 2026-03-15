@@ -30,7 +30,8 @@ class Settings(BaseSettings):
     # Total processing timeout budget in seconds (must be < APIM 60s timeout)
     total_processing_timeout_seconds: int = 55
 
-    # Max concurrent Language API batches — ceiling = floor(total_budget / per_batch) × concurrency
+    # Max Language API batches per request — reject with HTTP 413 if exceeded.
+    # Ceiling formula: ceil(N / max_batch_concurrency) × per_batch ≤ total_budget
     # With concurrency=3 and per_batch=10s, budget=55s: ceil(N/3)×10 ≤ 55 → N ≤ 15
     max_concurrent_batches: int = 15
 

@@ -117,7 +117,7 @@ docker run --rm -e PII_LANGUAGE_ENDPOINT=https://... -p 8000:8000 pii-redaction-
 
 ### `GET /health`
 
-Returns `{"status": "ok"}` when the service is ready.
+Returns `{"status": "healthy"}` when the service is ready.
 
 ### `POST /redact`
 

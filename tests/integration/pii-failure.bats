@@ -140,7 +140,7 @@ skip_unless_fail_open_key() {
     echo "Request ID: ${request_id}" >&2
     [[ -n "${request_id}" ]]
     # request_id must be a UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx)
-    [[ "${request_id}" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]
+    [[ "${request_id}" =~ ^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$ ]]
 }
 
 @test "PII-FAILURE: fail-closed → 503 body has non-empty failure_reason" {

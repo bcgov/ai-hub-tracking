@@ -78,8 +78,14 @@ def _chunk_at_word_boundary(text: str, max_chars: int) -> list[str]:
     Split *text* into chunks that never exceed *max_chars* characters,
     breaking only on whitespace boundaries.
 
-    If a single word exceeds *max_chars* (e.g. base64 blob) it is emitted as
-    its own chunk to avoid infinite loops.
+    If a single word exceeds *max_chars* (e.g. base64 blob) it is split into
+    multiple *max_chars*-sized chunks to avoid infinite loops.
+
+        Notes:
+            - We split specifically on the literal space character because chat
+                payloads are plain text and the downstream reassembly logic restores
+                inter-chunk spacing with a single-space join.
+            - Oversized words are the only case where we break within a token.
     """
     if len(text) <= max_chars:
         return [text]
@@ -115,6 +121,10 @@ def build_manifest(
     """
     Walk messages, skip roles not in *scan_roles*, chunk content, and
     return a populated ChunkManifest.
+
+    Each chunk receives a deterministic ``<messageIndex>_<chunkIndex>`` id so
+    batch responses can be mapped back to the original message content without
+    relying on list position.
     """
     manifest = ChunkManifest()
     for msg_idx, message in enumerate(messages):
@@ -177,7 +187,33 @@ async def _run_batch_with_semaphore(
     excluded_categories: list[str],
     per_batch_timeout: float,
 ) -> tuple[dict[str, str], int]:
-    """Acquire semaphore slot, then run one batch with a per-call timeout."""
+    """
+    Acquire a semaphore slot, then execute one Language API batch.
+
+        Why the semaphore exists:
+            - A single request may expand into many Language API batches.
+            - We do not want all of those HTTP calls to start at once because that
+                would create an unbounded fan-out against the Language API.
+            - ``sem`` limits how many batch calls from this request are allowed to be
+                in flight simultaneously.
+
+        How to read the two limits involved here:
+            - ``max_concurrent_batches`` is a request-size guard. It caps how many
+                batches a request is allowed to require at all.
+            - ``max_batch_concurrency`` is the worker-pool size. It controls how many
+                of those allowed batches can actively execute at the same time.
+
+    The per-batch timeout applies only to the outbound API call after a worker
+    slot is acquired. Waiting on the semaphore is governed by the outer,
+    end-to-end request deadline in ``orchestrate_redaction``.
+
+        Example with ``max_batch_concurrency = 3``:
+            - If a request produces 8 batches, batches 1-3 start immediately.
+            - Batches 4-8 wait for one of those three slots to free up.
+            - Each running batch gets its own per-batch timeout.
+            - The whole request, including time spent waiting for a slot, must still
+                finish before the outer request deadline expires.
+    """
     async with sem:
         return await asyncio.wait_for(
             _run_batch(client, batch, language, excluded_categories),
@@ -196,7 +232,11 @@ def _reassemble_messages(
 ) -> list[dict[str, Any]]:
     """
     Merge redacted chunk text back into the original messages list.
-    Chunks for the same message are concatenated with a single space separator.
+    Chunks for the same message are concatenated with a single-space separator
+    (matching the whitespace consumed by ``text.split(" ")`` in chunking).
+
+    Messages that were skipped during manifest construction are returned
+    unchanged.
     """
     # Group chunks by message index (preserving insertion order)
     grouped: dict[int, list[ChunkEntry]] = defaultdict(list)
@@ -210,7 +250,7 @@ def _reassemble_messages(
             continue
         chunks = sorted(grouped[idx], key=lambda e: e.chunk_index)
         redacted_parts = [c.redacted_text or c.original_text for c in chunks]
-        reassembled.append({**message, "content": "".join(redacted_parts)})
+        reassembled.append({**message, "content": " ".join(redacted_parts)})
 
     return reassembled
 
@@ -288,10 +328,16 @@ async def orchestrate_redaction(
 
     # 2. Execute batches concurrently (semaphore-bounded) — honouring total timeout
     deadline = start + settings.total_processing_timeout_seconds
+
+    # This semaphore acts like a small per-request worker pool. It prevents one
+    # large payload from launching every Language API call at once, while still
+    # allowing limited parallelism to keep total latency acceptable.
     sem = asyncio.Semaphore(settings.max_batch_concurrency)
     remaining = deadline - time.monotonic()
 
     try:
+        # The outer wait_for enforces the full request budget across both
+        # queued and in-flight batch tasks.
         batch_results: list[tuple[dict[str, str], int] | BaseException] = await asyncio.wait_for(
             asyncio.gather(
                 *[
@@ -346,6 +392,8 @@ async def orchestrate_redaction(
             )
         redacted_map, batch_entity_count = result
         total_entity_count += batch_entity_count
+        # Copy redacted text back onto the manifest entries so coverage and
+        # reassembly both operate on the same source of truth.
         for entry in batch:
             entry.redacted_text = redacted_map.get(entry.doc_id)
 

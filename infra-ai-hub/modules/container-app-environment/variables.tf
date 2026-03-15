@@ -66,7 +66,7 @@ variable "tags" {
 }
 
 variable "private_endpoint_subnet_id" {
-  description = "Subnet ID for APIM private endpoint (stv2). Required when enable_private_endpoint is true."
+  description = "Subnet ID for Container App Environment private endpoint. Required when enable_private_endpoint is true."
   type        = string
   nullable    = false
 }

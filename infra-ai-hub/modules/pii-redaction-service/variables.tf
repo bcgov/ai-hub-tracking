@@ -91,7 +91,7 @@ variable "total_processing_timeout_seconds" {
 }
 
 variable "max_concurrent_batches" {
-  description = "Maximum number of concurrent Language API batches. Requests requiring more batches receive HTTP 413."
+  description = "Maximum Language API batches per request. Requests requiring more batches are rejected with HTTP 413."
   type        = number
   default     = 15
 }

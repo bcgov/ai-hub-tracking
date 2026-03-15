@@ -29,6 +29,9 @@ data "terraform_remote_state" "tenant" {
   }
 }
 
+# NOTE: Unconditional — requires that the pii-redaction stack has been
+# initialised (even with an empty state) before this stack is planned.
+# The deploy script (deploy-scaled.sh) ensures this ordering.
 data "terraform_remote_state" "pii_redaction" {
   backend = "azurerm"
   config = {
