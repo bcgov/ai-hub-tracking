@@ -1,26 +1,26 @@
-<!-- TITLE: Language Service PII Detection -->
+<!-- TITLE: Sensitive Personal Information Detection -->
 <!-- NAV: language-service-pii -->
 
-<h1>Language Service PII Detection</h1>
+<h1>Sensitive Personal Information Detection</h1>
 
-<p>This system supports tenant-controlled PII anonymization by routing requests through a dedicated PII Redaction Service (Container App) that calls Azure AI Language Service for entity recognition. APIM acts as the policy enforcement point, while all Language Service interaction is handled by the external service. The goal is to mask sensitive data before it is forwarded to downstream backends such as OpenAI.</p>
+<p>This system lets each tenant decide whether sensitive personal information should be detected and masked before a request is sent to a downstream service. The platform gateway sends qualifying requests to a dedicated redaction service, and that service calls the Azure language service to detect sensitive entities such as names, addresses, financial details, and medical information.</p>
 
 <div class="alert alert-info">
     <div class="alert-icon">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
     </div>
     <div>
-        <strong>Enterprise-grade PII Protection</strong><br>
-        Azure AI Language Service provides ML-based entity recognition that enables accurate detection and redaction of sensitive information including names, addresses, financial data, and medical terms.
+        <strong>Broad Sensitive Data Detection</strong><br>
+        The Azure language service uses machine learning to detect and mask many types of sensitive information, including names, addresses, financial details, and medical terms.
     </div>
 </div>
 
 <h2>Overview</h2>
 
-<p>The system uses Azure AI Language Service PII entity recognition to identify and redact sensitive information in requests. This ML-based approach provides broad entity coverage, context-aware detection, and machine learning accuracy for enterprise-grade PII protection.</p>
+<p>The system uses the Azure language service to identify and redact sensitive information in requests. This machine-learning approach gives broader coverage than a simple list of regular expressions because it can use context, not just text patterns, to decide what should be masked.</p>
 
 <h3>Supported Entity Types</h3>
-<p>Azure AI Language Service can detect and redact a wide range of PII entity types:</p>
+<p>The Azure language service can detect and redact a wide range of sensitive personal information types:</p>
 <ul>
     <li><strong>Personal Identifiers:</strong> Names, email addresses, phone numbers</li>
     <li><strong>Financial Data:</strong> Credit card numbers, bank account numbers</li>
@@ -31,26 +31,26 @@
 
 <h2>Architecture</h2>
 
-<p>Requests enter APIM, and tenant API policies decide whether to apply PII anonymization. When enabled, the <code>pii-anonymization</code> policy fragment forwards the full request body to the external PII Redaction Service (a Container App on the shared internal CAE). The external service handles all Language Service API calls — including document chunking, sequential batching, and coverage verification — and returns the fully redacted body to APIM. The external service URL is provided via the APIM Named Value: <code>piiExternalRedactionUrl</code>.</p>
+<p>Requests first enter the shared API Management gateway, often shortened to APIM in the implementation. Tenant-specific gateway policies then decide whether sensitive-data redaction should run. When redaction is enabled, the <code>pii-anonymization</code> policy fragment sends the full request body to the external PII Redaction Service, which runs as a container app inside the shared internal container app environment. That service makes the Azure language service calls, breaks large content into manageable pieces, checks that every part was processed, and returns the fully redacted body to the gateway. The service address is stored in the API Management named value <code>piiExternalRedactionUrl</code>.</p>
 
 <div class="card">
     <h3 style="margin-top: 0;">Request Flow</h3>
     <ol>
-        <li>Client request arrives at APIM with sensitive content</li>
-        <li>Tenant API policy sets PII configuration variables from the tenant's settings</li>
-        <li>The <code>pii-anonymization</code> fragment sends the request body + config to the PII Redaction Service (<code>POST /redact</code>)</li>
-        <li>The PII Redaction Service chunks messages into documents, calls Language Service in sequential batches (max 5 docs per call), and reassembles the result</li>
-        <li>The service returns the redacted body with coverage status and diagnostics</li>
-        <li>APIM replaces the request body with the redacted content and forwards to the backend</li>
+        <li>A client request reaches the API Management gateway and includes content that may contain sensitive information.</li>
+        <li>The tenant's gateway policy reads that tenant's redaction settings.</li>
+        <li>The <code>pii-anonymization</code> fragment sends the request body and redaction settings to the PII Redaction Service by calling <code>POST /redact</code>.</li>
+        <li>The redaction service breaks large messages into smaller documents, sends them to the language service in small batches, and then reassembles the response.</li>
+        <li>The service returns the redacted body together with coverage status and diagnostic details.</li>
+        <li>The API Management gateway replaces the original request body with the redacted content and forwards the request to the backend service.</li>
     </ol>
 </div>
 
 <h2>How It Works</h2>
 
 <ol>
-    <li>A tenant request arrives at APIM.</li>
-    <li>The tenant API policy (generated from <code>api_policy.xml.tftpl</code>) routes the request to the correct backend based on path (for example <code>openai</code>, <code>documentintelligence</code>, <code>ai-search</code>, <code>storage</code>).</li>
-    <li>For OpenAI requests, when PII redaction is enabled, the tenant policy sets configuration variables from the tenant's <code>apim_policies.pii_redaction</code> settings:
+    <li>A tenant request arrives at the API Management gateway.</li>
+    <li>The tenant gateway policy, generated from <code>api_policy.xml.tftpl</code>, routes the request to the correct backend based on the path. Examples include <code>openai</code>, <code>documentintelligence</code>, <code>ai-search</code>, and <code>storage</code>.</li>
+    <li>For OpenAI requests, when sensitive-data redaction is enabled, the tenant policy sets configuration variables from the tenant's <code>apim_policies.pii_redaction</code> settings:
         <ul>
             <li><code>piiExcludedCategories</code> - Categories to exclude from detection</li>
             <li><code>piiDetectionLanguage</code> - Language code for detection accuracy</li>
@@ -60,7 +60,7 @@
         </ul>
     </li>
     <li>The policy includes the <code>pii-anonymization</code> policy fragment.</li>
-    <li>The fragment constructs a JSON payload containing the original request body and configuration, then sends it to the external PII Redaction Service via <code>&lt;send-request&gt;</code> (<code>POST /redact</code>, 60 s timeout).</li>
+    <li>The fragment creates a JSON payload that contains the original request body and the redaction settings, then sends it to the external PII Redaction Service by using <code>&lt;send-request&gt;</code> with a <code>POST /redact</code> call and a 60-second timeout.</li>
     <li>The PII Redaction Service:
         <ul>
             <li>Extracts chat messages and chunks long messages into documents (max 5 000 chars each, word-boundary split).</li>
@@ -70,7 +70,7 @@
             <li>Returns a JSON response with <code>status</code>, <code>full_coverage</code>, <code>redacted_body</code>, and <code>diagnostics</code>.</li>
         </ul>
     </li>
-    <li>APIM validates the response (HTTP 200, <code>status == "ok"</code>, <code>full_coverage == true</code>), sets <code>piiAnonymizedContent</code> to the redacted body, and the tenant policy applies it via <code>&lt;set-body&gt;</code>.</li>
+    <li>The API Management gateway validates the response by checking for HTTP 200, <code>status == "ok"</code>, and <code>full_coverage == true</code>. It then stores the redacted body in <code>piiAnonymizedContent</code>, and the tenant policy replaces the original body by using <code>&lt;set-body&gt;</code>.</li>
 </ol>
 
 <div class="alert alert-warning">
@@ -88,11 +88,11 @@
 
 <h3>Shared Configuration (All Environments)</h3>
 
-<p>PII detection depends on the shared Language Service being enabled via <code>shared_config.language_service.enabled</code> and the PII Redaction Service Container App being deployed. The external service URL is provided to APIM via the <code>piiExternalRedactionUrl</code> Named Value. Language Service is configured for private access (no public network access) and is connected through a private endpoint; the PII Redaction Service calls it over the VNet.</p>
+<p>Sensitive-data detection depends on two shared platform components being available: the Azure language service must be enabled through <code>shared_config.language_service.enabled</code>, and the PII Redaction Service container app must be deployed. The redaction service address is passed into API Management through the named value <code>piiExternalRedactionUrl</code>. The language service does not allow public network access. Instead, it is reached through a private endpoint, and the redaction service calls it over the virtual network.</p>
 
 <h3>Per-Tenant Configuration</h3>
 
-<p>PII anonymization is controlled per tenant via APIM policy settings (<code>apim_policies.pii_redaction.enabled</code>). The tenant API policy generation includes PII only when tenant PII redaction is enabled and the shared Language Service is enabled.</p>
+<p>Sensitive-data redaction is controlled separately for each tenant through API Management policy settings at <code>apim_policies.pii_redaction.enabled</code>. The tenant gateway policy only includes the redaction logic when both conditions are true: the tenant has turned redaction on, and the shared language service is enabled for the platform.</p>
 
 <pre><code># Example tenant policy flags
 apim_policies {

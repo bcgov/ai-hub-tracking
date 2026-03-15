@@ -1081,15 +1081,15 @@
 
 <h1 id="document-intelligence-guide">Document Intelligence Guide</h1>
 
-<p>This guide covers integration patterns and SDK configuration for Azure Document Intelligence through the APIM gateway.</p>
+<p>This guide explains how to call Azure Document Intelligence through the platform gateway, including the one configuration change that usually surprises developers: the software development kit must send the subscription key in the header name expected by the platform gateway.</p>
 
 <div class="alert alert-warning">
     <div class="alert-icon">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
     </div>
     <div>
-        <strong>SDK Configuration Required</strong><br>
-        When using Azure Document Intelligence SDKs through APIM, you must configure the SDK to use <code>api-key</code> instead of the default <code>Ocp-Apim-Subscription-Key</code> header.
+        <strong>Software Development Kit Configuration Required</strong><br>
+        When you use Azure Document Intelligence client libraries through the platform gateway, configure them to send <code>api-key</code> instead of the default <code>Ocp-Apim-Subscription-Key</code> header.
     </div>
 </div>
 
@@ -1097,7 +1097,7 @@
 
 <h3 id="why-api-key">Why <code>api-key</code>?</h3>
 
-<p>APIM is used as a unified gateway for multiple Azure AI services (OpenAI, Document Intelligence, AI Search, Storage). Azure's API Management can only be configured with a single subscription key header name across all APIs.</p>
+<p>The platform uses a single Azure gateway service for application programming interfaces in front of several services, including language models, document processing, search, and storage. Because that gateway can only use one subscription key header name consistently, the documentation standardises on <code>api-key</code>.</p>
 
 <p>The platform uses <code>api-key</code> because:</p>
 <ul>

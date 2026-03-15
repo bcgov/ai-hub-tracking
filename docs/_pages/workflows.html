@@ -1,9 +1,9 @@
 <!-- TITLE: GitHub Workflows -->
 <!-- NAV: workflows -->
 
-<h1>GitHub Actions Workflows</h1>
+<h1>GitHub Actions Automation Workflows</h1>
 
-<p>This project uses GitHub Actions for automated infrastructure deployments with OIDC authentication to Azure.</p>
+<p>This page explains the GitHub Actions workflows used by the repository. These workflows build containers, validate infrastructure changes, and deploy platform resources by using passwordless sign-in to Azure through OpenID Connect.</p>
 
 <h2>Workflow Overview</h2>
 
@@ -303,16 +303,16 @@
 
 <div class="alert alert-info">
     <div>
-        <strong>How this platform solves the private-endpoint problem:</strong> All CI/CD in this repo runs on <strong>standard GitHub-hosted runners</strong> (<code>ubuntu-24.04</code>). To reach private endpoints, the Terraform deployer spins up a <strong>Chisel SOCKS tunnel + Privoxy</strong> inside Docker on the runner, routing data-plane traffic through a proxy deployed in the <code>tools</code> VNet. No self-hosted runners are needed for this repo's own pipelines.
+        <strong>How this platform solves the private-endpoint problem:</strong> All continuous integration and deployment work in this repository runs on standard GitHub-hosted runners using <code>ubuntu-24.04</code>. When a workflow needs to reach a private endpoint, the Terraform deployer starts a Chisel tunnel and Privoxy inside Docker on that runner. That temporary proxy sends data-access traffic through a proxy service deployed in the <code>tools</code> virtual network. Because of that setup, this repository does not need self-hosted runners for its own pipelines.
         <br><br>
-        The optional <strong><code>github_runners_aca</code></strong> module (deployable via <code>add-or-remove-module.yml</code>) can provision self-hosted runners inside the VNet. Use this when <em>other repos</em> or workloads need persistent VNet-internal compute — not for this repo's own CI/CD.
+        The optional <strong><code>github_runners_aca</code></strong> module, deployed through <code>add-or-remove-module.yml</code>, can create self-hosted runners inside the virtual network. Use that option when <em>other repositories</em> or workloads need long-lived compute that already lives inside the private network, not for this repository's own automation.
     </div>
 </div>
 
 <p>The table below describes the general pattern. Data-plane work that <em>can't</em> use the Chisel tunnel approach — for example, other repos without the proxy setup — would still need self-hosted runners.</p>
 
 <div class="alert alert-info">
-    <div><strong>Understanding the Difference:</strong> See <a href="decisions.html#adr-011">ADR-011: Control Plane vs Data Plane</a> for a detailed explanation of why OIDC works for some operations but not others.</div>
+    <div><strong>Understanding the Difference:</strong> See <a href="decisions.html#adr-011">ADR-011: Control Plane vs Data Plane</a> for the detailed explanation of why identity alone is enough for some operations, while private network access is also required for others.</div>
 </div>
 
 <table>
