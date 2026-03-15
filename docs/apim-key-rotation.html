@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>APIM Key Rotation | AI Services Hub</title>
+    <title>Gateway Key Rotation | AI Services Hub</title>
     <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
     <style>
         :root {
@@ -1079,17 +1079,17 @@
         <!-- Breadcrumb: injected by search.js when arriving from a search result -->
         <div id="search-breadcrumb" aria-label="Search breadcrumb"></div>
 
-<h1 id="apim-subscription-key-rotation">APIM Subscription Key Rotation</h1>
+<h1 id="gateway-subscription-key-rotation">Gateway Subscription Key Rotation</h1>
 
-<p>This guide explains how APIM subscription keys are automatically rotated for tenant teams, and how to update your application to use the new keys.</p>
+<p>This guide explains how subscription keys for the Azure gateway service for application programming interfaces are rotated automatically for tenant teams, and how an application should switch to the updated keys without interruption.</p>
 
 <div class="alert alert-info">
     <div class="alert-icon">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
     </div>
     <div>
-        <strong>Zero Downtime</strong><br>
-        Key rotation uses an alternating primary/secondary pattern. Only one key is rotated at a time &mdash; the other remains valid and untouched. Your service is never interrupted.
+        <strong>No Service Interruption</strong><br>
+        Key rotation uses an alternating primary and secondary pattern. Only one key is changed at a time, so the other key stays valid while your team updates its configuration.
     </div>
 </div>
 

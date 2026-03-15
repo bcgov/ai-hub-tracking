@@ -1,16 +1,16 @@
-<!-- TITLE: OIDC Setup Guide -->
+<!-- TITLE: Passwordless GitHub-to-Azure Sign-In Setup -->
 <!-- NAV: oidc -->
 
-<h1>OIDC Setup Guide</h1>
+<h1>Passwordless GitHub-to-Azure Sign-In Setup</h1>
 
-<p>This guide explains how to configure OpenID Connect (OIDC) authentication between GitHub Actions and Azure, enabling passwordless deployments.</p>
+<p>This guide explains how to set up passwordless sign-in between GitHub Actions and Azure by using OpenID Connect. In plain terms, this lets a workflow ask Azure for a short-lived token at runtime instead of storing a long-lived secret in the repository.</p>
 
 <div class="alert alert-success">
     <div class="alert-icon">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
     </div>
     <div>
-        <strong>Why OIDC?</strong> No secrets to rotate, no credentials stored in GitHub, and automatic token expiration for enhanced security.
+        <strong>Why use OpenID Connect?</strong> There are no stored deployment secrets to rotate, no long-lived credentials sitting in GitHub, and the tokens expire automatically.
     </div>
 </div>
 
@@ -37,7 +37,7 @@
 
 <h2>Setup Script: initial-azure-setup.sh</h2>
 
-<p>This script configures everything needed for OIDC authentication. Run it once per environment.</p>
+<p>This script configures everything needed for OpenID Connect authentication. Run it once per environment.</p>
 
 <h3>Usage</h3>
 

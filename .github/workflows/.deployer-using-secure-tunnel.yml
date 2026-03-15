@@ -180,7 +180,7 @@ jobs:
 
           # Container image tag override — prod uses semver tag, dev/test use latest
           TF_VAR_container_image_tag_job_key_rotation: ${{ inputs.tag != 'latest' && inputs.tag || '' }}
-
+          TF_VAR_container_image_tag_svc_pii_redaction: ${{ inputs.tag != 'latest' && inputs.tag || '' }}
           # Only used by infra-ai-hub, harmless if unset/unused
           TF_VAR_key_vault_name: ${{ format('{0}{1}{2}kv', 'aihub', inputs.environment_name, vars.SUBSCRIPTION_NAME) }}
 

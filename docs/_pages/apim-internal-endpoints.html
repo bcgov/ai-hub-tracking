@@ -1,9 +1,9 @@
-<!-- TITLE: APIM Internal Endpoints -->
+<!-- TITLE: Internal Gateway Endpoints -->
 <!-- NAV: apim-internal-endpoints -->
 
-<h1>APIM Internal Endpoints</h1>
+<h1>Internal Gateway Endpoints</h1>
 
-<p>Each tenant API exposes two internal endpoints that are available only to authenticated callers holding a valid APIM subscription key. Neither endpoint proxies traffic to an AI backend — both are implemented entirely in APIM policy and return responses directly.</p>
+<p>Each tenant exposes two internal gateway endpoints that are available only to authenticated callers holding a valid subscription key for the Azure gateway service for application programming interfaces. These endpoints do not forward traffic to an artificial intelligence backend. Instead, the gateway policy handles the request directly and returns the response itself.</p>
 
 <div class="alert alert-info">
     <div class="alert-icon">
@@ -11,7 +11,7 @@
     </div>
     <div>
         <strong>Authentication Required</strong><br>
-        All internal endpoints require a valid APIM subscription key in the <code>api-key</code> header. Unauthenticated requests receive <code>401 Unauthorized</code>. Only <code>GET</code> is accepted &mdash; any other method returns <code>405 Method Not Allowed</code>.
+        All internal endpoints require a valid subscription key for the gateway in the <code>api-key</code> header. Unauthenticated requests receive <code>401 Unauthorized</code>. Only <code>GET</code> is accepted, and any other method returns <code>405 Method Not Allowed</code>.
     </div>
 </div>
 

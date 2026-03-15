@@ -95,7 +95,7 @@ details.adr.pending[open] summary {
 
 <h1>Architecture Decision Records</h1>
 
-<p>This page documents key architectural decisions for the AI Services Hub infrastructure. Each ADR explains the context, decision, and consequences to help future maintainers understand why things are built the way they are.</p>
+<p>This page documents the key architecture decisions behind the AI Services Hub. Each architecture decision record explains the problem being solved, the choice that was made, and the trade-offs that came with that choice. If you are new to the project, this page is here to explain not just <em>what</em> was built, but <em>why</em> it was built that way.</p>
 
 <div class="alert alert-warning">
     <div class="alert-icon">
@@ -103,19 +103,19 @@ details.adr.pending[open] summary {
     </div>
     <div>
         <strong>BC Government Policy Context</strong><br>
-        Most decisions documented here are <strong>driven by BC Government security policies</strong>, not optional architectural choices. Key policy constraints include:
+        Many of the choices documented here were not optional design preferences. They were driven by British Columbia Government security and platform rules. Important constraints include:
         <ul style="margin: 0.5rem 0 0 0;">
             <li><strong>No public endpoints</strong> - All Azure services must use private endpoints only</li>
-            <li><strong>Private networking required</strong> - Resources must be isolated within VNets</li>
-            <li><strong>No long-lived secrets</strong> - Credential rotation policies favor OIDC/managed identities</li>
+            <li><strong>Private networking required</strong> - Resources must be isolated inside virtual networks</li>
+            <li><strong>No long-lived secrets</strong> - Identity and short-lived token patterns are preferred over stored passwords and keys</li>
             <li><strong>Bastion-only access</strong> - Direct SSH/RDP from internet is prohibited</li>
         </ul>
     </div>
 </div>
 
 <div class="card" style="border-left-color: #003366; background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);">
-    <h3 style="margin-top: 0; color: var(--bc-blue);">Start Here: ADR-001</h3>
-    <p style="margin-bottom: 0;"><strong>ADR-001 (Shared Landing Zone)</strong> is the foundation that explains <em>why</em> all the other infrastructure exists. Read it first to understand the architecture.</p>
+    <h3 style="margin-top: 0; color: var(--bc-blue);">Start Here: Architecture Decision Record 001</h3>
+    <p style="margin-bottom: 0;"><strong>Architecture Decision Record 001</strong> is the foundation that explains <em>why</em> the rest of the infrastructure exists. Read it first if you want the big-picture explanation before reviewing the more specific decisions.</p>
 </div>
 
 <div class="alert alert-info">
@@ -123,8 +123,8 @@ details.adr.pending[open] summary {
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
     </div>
     <div>
-        <strong>About ADRs</strong><br>
-        Architecture Decision Records capture decisions along with their context and consequences. They help prevent re-litigating settled discussions and provide onboarding context for new team members.
+        <strong>About Architecture Decision Records</strong><br>
+        Architecture decision records capture a decision together with its background and consequences. They help future maintainers avoid reopening the same debate without context, and they give new team members a faster way to understand the platform.
     </div>
 </div>
 
@@ -236,6 +236,12 @@ details.adr.pending[open] summary {
     <tr>
         <td><a href="#adr-017">ADR-017</a></td>
         <td>Custom Tenant Onboarding Portal Inside AI Hub</td>
+        <td><span class="badge" style="background:#22c55e;color:white;">Choice</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
+    </tr>
+    <tr>
+        <td><a href="#adr-018">ADR-018</a></td>
+        <td>External PII Redaction Service</td>
         <td><span class="badge" style="background:#22c55e;color:white;">Choice</span></td>
         <td><span class="badge badge-gold">Accepted</span></td>
     </tr>
@@ -3196,6 +3202,200 @@ module "storage" {
 
 </div>
 </details>
+<!-- ADR-018 -->
+<details class="adr" id="adr-018">
+<summary>
+    <span class="adr-title">ADR-018: External PII Redaction Service</span>
+    <span class="adr-status"><span class="badge badge-gold">Accepted</span></span>
+</summary>
+<div class="adr-content">
+
+<div class="grid grid-4" style="margin-bottom: 1rem;">
+    <div><strong>Status:</strong> Accepted</div>
+    <div><strong>Date:</strong> 2026-03</div>
+    <div><strong>Driver:</strong> <span class="badge" style="background:#22c55e;color:white;">Choice</span></div>
+    <div><strong>Category:</strong> Security / Data Processing</div>
+</div>
+
+<h3>Context</h3>
+
+<p>The AI Hub uses Azure Language Service PII recognition to redact personally identifiable information from chat completion payloads before they reach upstream LLM backends. APIM delegates all PII processing to a dedicated external service rather than calling the Language API inline, because APIM policies have no loop construct and the Language API imposes strict per-call limits.</p>
+
+<p>The Azure Language Service <code>/language/:analyze-text</code> endpoint accepts a <strong>maximum of 5 documents per call</strong>, and each document is limited to 5 120 characters. Real-world chat completion requests can contain many messages or very long messages that chunk into more than 5 documents. Covering the full payload requires sequential batched calls with deadline enforcement — logic that belongs in a real programming language, not APIM XML.</p>
+
+<div class="alert alert-warning">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <div>
+        <strong>The core constraint:</strong> APIM policies cannot loop. A single <code>send-request</code> covers at most 5 documents. Payloads exceeding that limit need an external orchestrator that can issue sequential batched calls within the APIM timeout budget.
+    </div>
+</div>
+
+<h3>Options Considered</h3>
+
+<div class="grid grid-2">
+    <div class="card" style="border-left-color: #22c55e;">
+        <h4 style="margin-top: 0;">External PII Redaction Container App (selected)</h4>
+        <ul style="margin-bottom: 0;">
+            <li>Dedicated FastAPI service deployed as a Container App on the shared internal CAE</li>
+            <li>APIM routes all PII-enabled requests to the external service</li>
+            <li>Service handles sequential batching, deadline enforcement, and coverage verification</li>
+            <li>Single code path keeps the APIM policy simple</li>
+        </ul>
+    </div>
+    <div class="card">
+        <h4 style="margin-top: 0;">Azure Functions (Consumption or Flex)</h4>
+        <ul style="margin-bottom: 0;">
+            <li>Serverless compute that scales to zero</li>
+            <li>Cold start latency (seconds) conflicts with the 60 s APIM timeout budget</li>
+            <li>Less control over runtime, networking, and concurrency model</li>
+            <li>Does not align with existing Container App Environment already in use</li>
+        </ul>
+    </div>
+    <div class="card">
+        <h4 style="margin-top: 0;">Expand APIM inline policy (no external service)</h4>
+        <ul style="margin-bottom: 0;">
+            <li>Keep everything in APIM XML policies</li>
+            <li>APIM policies have no loop construct; would require N hard-coded <code>send-request</code> blocks</li>
+            <li>Extremely fragile, hard to test, and impossible to maintain at scale</li>
+            <li>Policy execution time adds up and risks breaching the APIM timeout</li>
+        </ul>
+    </div>
+    <div class="card">
+        <h4 style="margin-top: 0;">Client-side redaction SDK</h4>
+        <ul style="margin-bottom: 0;">
+            <li>Push PII responsibility to each tenant application</li>
+            <li>Cannot be enforced centrally; tenants may skip or misconfigure</li>
+            <li>Defeats the purpose of transparent gateway-level PII protection</li>
+        </ul>
+    </div>
+</div>
+
+<h3>Decision</h3>
+
+<p><strong>We will deploy a dedicated PII redaction microservice as a Container App on the shared internal Container App Environment, reachable only from APIM via VNet-internal ingress. APIM routes all PII-enabled requests to this service.</strong></p>
+
+<h3>Rationale</h3>
+
+<ul>
+    <li><strong>Language API batching limit:</strong> The <code>/language/:analyze-text</code> endpoint accepts at most 5 documents per call (each up to 5 120 chars). Payloads with many or long messages exceed this and need sequential batch calls that APIM policies cannot express.</li>
+    <li><strong>APIM cannot loop:</strong> Policy XML has no iteration construct. Hard-coding multiple <code>send-request</code> blocks is brittle, hard to test, and caps out quickly. A real programming language (Python + asyncio) handles batching, timeouts, and error recovery naturally.</li>
+    <li><strong>Single routing path:</strong> A single route from APIM to the external service keeps the policy fragment simple. The service handles all payloads with the same batching logic regardless of size.</li>
+    <li><strong>Reuse existing infrastructure:</strong> The shared Container App Environment, Managed Identity RBAC, GHCR image builds, and Terraform module patterns are already in place. Adding one more Container App is incremental.</li>
+    <li><strong>Timeout budget alignment:</strong> The service enforces a 55 s total processing deadline that fits within the 60 s APIM <code>send-request</code> timeout, with per-batch timeouts (10 s) providing granular failure isolation.</li>
+    <li><strong>Fail-open / fail-closed flexibility:</strong> The service returns a structured response with coverage status. APIM decides whether to block (503) or pass through based on the tenant's <code>fail_closed</code> configuration.</li>
+    <li><strong>Testability:</strong> Python unit tests cover chunking, batching, reassembly, and API error handling — far easier to maintain than equivalent logic embedded in APIM XML.</li>
+</ul>
+
+<h3>Architecture</h3>
+
+<div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
+<pre style="background: var(--bc-blue-dark); margin: 0; padding: 1rem; overflow-x: auto;">
+┌──────────────────────────────────────────────────────────────────────┐
+│                 ALL-EXTERNAL PII REDACTION                           │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│   Client → App Gateway → APIM                                        │
+│                            │                                         │
+│                  ┌─────────┴────────────────────────┐                │
+│                  │  POST /redact                     │                │
+│                  │  (PII Redaction Service)          │                │
+│                  └─────────┬────────────────────────┘                │
+│                            │                                         │
+│                  ┌─────────┴────────────────────────┐                │
+│                  │  Sequential batches               │                │
+│                  │  (max 5 docs × 10 batches)       │                │
+│                  │  Word-boundary chunking            │                │
+│                  │  Deadline enforcement (55s)        │                │
+│                  │  Full-coverage check               │                │
+│                  └─────────┬────────────────────────┘                │
+│                            │                                         │
+│                  Redacted body → APIM → Backend                      │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<h3>Key Design Constraints</h3>
+
+<table>
+    <tr>
+        <th>Constraint</th>
+        <th>Value</th>
+        <th>Reason</th>
+    </tr>
+    <tr>
+        <td>Max chars per document</td>
+        <td>5 000</td>
+        <td>Language API limit (5 120) with safety margin</td>
+    </tr>
+    <tr>
+        <td>Max documents per Language API call</td>
+        <td>5</td>
+        <td>Language API batch limit</td>
+    </tr>
+    <tr>
+        <td>Max sequential batches</td>
+        <td>10 (→ 50 documents)</td>
+        <td>Caps total processing time; rejects with 413 if exceeded</td>
+    </tr>
+    <tr>
+        <td>Per-batch timeout</td>
+        <td>10 s</td>
+        <td>Isolate slow Language API calls</td>
+    </tr>
+    <tr>
+        <td>Total processing timeout</td>
+        <td>55 s</td>
+        <td>Fits within APIM 60 s send-request timeout</td>
+    </tr>
+    <tr>
+        <td>Chunking strategy</td>
+        <td>Word-boundary split</td>
+        <td>Avoids splitting mid-word which degrades PII detection accuracy</td>
+    </tr>
+</table>
+
+<h3>Consequences</h3>
+
+<h4>Positive</h4>
+<ul>
+    <li><strong>Transparent payload handling:</strong> Tenants do not need to know about Language API limits; APIM routes all PII-enabled requests to the external service automatically</li>
+    <li><strong>Single code path:</strong> All PII redaction flows through the Container App, keeping behaviour consistent across all payload sizes</li>
+    <li><strong>Testable orchestration logic:</strong> Chunking, batching, reassembly, and error handling are covered by Python unit tests rather than being embedded in untestable APIM XML</li>
+    <li><strong>Incremental infrastructure cost:</strong> Runs on the existing shared CAE with Managed Identity RBAC — no new networking or identity infrastructure</li>
+    <li><strong>Structured observability:</strong> JSON-formatted logs with correlation IDs, batch counts, and elapsed-time diagnostics</li>
+</ul>
+
+<h4>Negative</h4>
+<ul>
+    <li><strong>Additional component to deploy and maintain:</strong> One more Container App, Dockerfile, Terraform module, and deployment phase</li>
+    <li><strong>Extra network hop for all PII requests:</strong> Every PII-enabled request pays the cost of APIM → Container App → Language API instead of APIM → Language API directly</li>
+</ul>
+
+<h4>Mitigations</h4>
+<ul>
+    <li><strong>Reuse proven patterns:</strong> The Container App module, GHCR build workflow, and deploy ordering follow the same conventions as the key-rotation job</li>
+    <li><strong>Integration tests:</strong> The APIM integration test suite covers PII redaction end-to-end through the external service</li>
+    <li><strong>Conservative thresholds:</strong> The 50-document cap and 55 s deadline ensure the service stays within APIM timeout bounds even under adverse conditions</li>
+</ul>
+
+<h3>References</h3>
+<ul>
+    <li><a href="language-service-pii.html">Language Service PII Redaction</a> — operational documentation for PII redaction via the external service</li>
+    <li><a href="services.html">Services Overview</a> — Container App deployment topology</li>
+    <li><a href="https://learn.microsoft.com/en-us/rest/api/language/text-analysis-runtime/analyze-text">Azure Language Service — Analyze Text API</a></li>
+    <li><a href="https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/overview">Azure AI Language — PII Detection Overview</a></li>
+</ul>
+
+<div style="margin-top: 1rem;">
+    <a href="#decision-index" class="back-to-top-link">&#8593; Back to Decision Index</a>
+</div>
+
+</div>
+</details>
+
 <h2>ADR Template</h2>
 
 <p>Use this template when adding new ADRs:</p>

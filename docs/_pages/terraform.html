@@ -3,7 +3,7 @@
 
 <h1>Terraform Modules</h1>
 
-<p>This project uses modular Terraform configuration for Azure Landing Zone infrastructure. Each module is designed to be reusable and follows Azure best practices.</p>
+<p>This page explains the reusable Terraform modules that make up the platform. Think of each module as a building block with a clear purpose, such as networking, monitoring, gateway access, or shared service deployment.</p>
 
 <h2>Module Overview</h2>
 
@@ -19,25 +19,25 @@
     <tbody>
         <tr>
             <td><strong>network</strong></td>
-            <td>VNet subnets and NSG configuration</td>
+            <td>Virtual network subnets and network security rule configuration</td>
             <td>Subnets, Network Security Groups</td>
             <td><strong>No</strong></td>
         </tr>
         <tr>
             <td><strong>monitoring</strong></td>
-            <td>Observability with Log Analytics & Application Insights</td>
+            <td>Monitoring and observability with log collection and application insights</td>
             <td>Log Analytics Workspace, App Insights</td>
             <td>No</td>
         </tr>
         <tr>
             <td><strong>bastion</strong></td>
-            <td>Secure VM access without public IPs</td>
+            <td>Secure virtual machine access without exposing a public internet address</td>
             <td>Azure Bastion Host, Public IP</td>
             <td>Yes (<code>enable_bastion</code>)</td>
         </tr>
         <tr>
             <td><strong>jumpbox</strong></td>
-            <td>Development VM with CLI tools</td>
+            <td>Development virtual machine with command-line tools</td>
             <td>Linux VM, SSH Keys, Auto-shutdown</td>
             <td>Yes (<code>enable_jumpbox</code>)</td>
         </tr>
@@ -344,10 +344,10 @@ Commands:
 
 <h2>Azure Proxy Module (Chisel Tunnel)</h2>
 
-<p>Deploys a <strong>Chisel</strong> secure tunnel server for accessing private Azure resources (data plane) from your local machine. This solves the problem of accessing private endpoints when you're outside the VNet.</p>
+<p>This module deploys a <strong>Chisel</strong> tunnel server so platform maintainers can reach private Azure resources from a local machine. It solves the problem of trying to access private endpoints while you are outside the virtual network.</p>
 
 <div class="alert alert-info">
-    <strong>Why Chisel?</strong> Private endpoints block data plane access from the public internet. Chisel creates an HTTPS tunnel through an App Service (which has VNet integration) to reach Key Vault secrets, databases, and other private resources from your laptop.
+    <strong>Why Chisel?</strong> Private endpoints block public internet access to the data side of Azure services. Chisel creates an HTTPS tunnel through an App Service that is connected to the virtual network, which lets your laptop reach Key Vault secrets, databases, and other private resources without exposing them publicly.
 </div>
 
 <div class="grid grid-2">
@@ -427,10 +427,10 @@ psql -h localhost -p 5432 -U admin -d mydb</pre>
 
 <h2>Choosing Your Access Method</h2>
 
-<p>The infrastructure provides <strong>four interchangeable access methods</strong> for reaching Azure resources. Enable only what you need - all are optional and controlled via Terraform variables.</p>
+<p>The infrastructure provides <strong>four optional access methods</strong> for reaching Azure resources. You do not need all of them. Enable only the methods your team actually uses, because each one exists to solve a different access problem.</p>
 
 <div class="alert alert-success">
-    <strong>Understanding Control vs Data Plane:</strong> OIDC authentication works for <em>control plane</em> (creating resources) but <em>not</em> data plane (accessing secrets, blobs, databases) when private endpoints are enabled. See <a href="decisions.html#adr-011">ADR-011</a> for details.
+    <strong>Understanding Control vs Data Plane:</strong> OpenID Connect authentication works well for the management side of Azure, such as creating resources. It is not enough by itself for the data-access side, such as reading secrets, blobs, or database content, when private endpoints are enabled. See <a href="decisions.html#adr-011">ADR-011</a> for the full explanation.
 </div>
 
 <table>

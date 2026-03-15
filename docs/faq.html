@@ -1081,7 +1081,7 @@
 
 <h1 id="frequently-asked-questions">Frequently Asked Questions</h1>
 
-<p>Common questions about the AI Services Hub Landing Zone, network architecture, and onboarding process.</p>
+<p>This page answers common questions about the AI Services Hub, how the private network is designed, how teams are onboarded, and how people are expected to use the platform in practice. The wording here is intentionally plain and explanatory so that readers do not need to already know Azure platform terminology.</p>
 
 <div class="alert alert-info">
     <div class="alert-icon">
@@ -1133,7 +1133,7 @@
     <table style="margin-top: 1rem;">
         <tr>
             <th>Environment</th>
-            <th>VNet Size</th>
+            <th>Virtual Network Size</th>
             <th>Usable IPs</th>
         </tr>
         <tr>
@@ -1161,9 +1161,10 @@
 </div>
 
 <div class="card">
-    <h3 id="why-does-the-ai-hub-need-larger-vnets-than-standard-24" style="margin-top:0;">Why does the AI Hub need larger VNets than standard /24?</h3>
+    <h3 id="why-does-the-ai-hub-need-larger-private-networks-than-a-standard-24" style="margin-top:0;">Why does the AI Hub need larger private networks than a standard /24?</h3>
     <span class="badge badge-gold">Answered</span>
-    <p>The AI Hub will run multiple Azure services that each require significant IP allocation:</p>
+    <p>The platform is not hosting just one application. It contains several managed Azure services, and many of those services require their own dedicated subnet space and reserve more internet protocol addresses than people expect. Because of that, a small default network range is not enough for production.</p>
+    <p>The table below shows why the address space grows quickly:</p>
     <table style="margin-top: 1rem;">
         <tr>
             <th>Service</th>
@@ -1171,7 +1172,7 @@
             <th>Recommended</th>
         </tr>
         <tr>
-            <td>API Management (APIM)</td>
+            <td>Azure gateway service for application programming interfaces</td>
             <td>/26</td>
             <td>/24</td>
         </tr>
@@ -1181,22 +1182,22 @@
             <td>/24</td>
         </tr>
         <tr>
-            <td>AI Foundry</td>
+            <td>Azure AI Foundry</td>
             <td>/25</td>
             <td>/24</td>
         </tr>
         <tr>
-            <td>PrivateLink Subnet</td>
+            <td>Private endpoint subnet</td>
             <td>/27</td>
             <td>/27</td>
         </tr>
         <tr>
-            <td>AKS</td>
+            <td>Azure Kubernetes Service</td>
             <td>Variable</td>
             <td>Variable</td>
         </tr>
     </table>
-    <p style="margin-top: 1rem;"><strong>Total:</strong> This exceeds the standard /24 (256 IPs), requiring at least a /22 for production.</p>
+    <p style="margin-top: 1rem;"><strong>Total:</strong> Once you combine the gateway layer, private endpoints, container and platform subnets, and room for growth, the usual /24 network is too small. That is why production needs a much larger address range.</p>
 </div>
 
 <h2 id="control-plane-vs-data-plane">Control Plane vs Data Plane</h2>
@@ -1204,7 +1205,8 @@
 <div class="card">
     <h3 id="whats-the-difference-between-control-plane-and-data-plane" style="margin-top:0;">What's the difference between control plane and data plane?</h3>
     <span class="badge badge-gold">Answered</span>
-    <p>Azure has two distinct access paths:</p>
+    <p>Azure has two very different kinds of access, and understanding the difference explains many of the platform design choices in this repository.</p>
+    <p><strong>Control plane access</strong> means managing the resource itself: creating it, updating settings, changing permissions, or deleting it. <strong>Data plane access</strong> means using what is inside that resource: reading a secret, writing a blob, or querying stored data.</p>
     <table style="margin-top: 1rem;">
         <tr>
             <th>Aspect</th>
@@ -1222,86 +1224,95 @@
             <td><code>*.vault.azure.net</code>, <code>*.blob.core.windows.net</code></td>
         </tr>
         <tr>
-            <td><strong>OIDC Works?</strong></td>
-            <td style="color: #22c55e;">Yes - always</td>
-            <td style="color: #ef4444;">No - blocked by private endpoints</td>
+            <td><strong>Works from the public internet with short-lived sign-in?</strong></td>
+            <td style="color: #22c55e;">Yes. This is why GitHub Actions can still deploy infrastructure changes.</td>
+            <td style="color: #ef4444;">No. Private endpoints block this unless traffic first enters the private network.</td>
         </tr>
         <tr>
             <td><strong>Examples</strong></td>
-            <td>Create Key Vault, assign RBAC roles</td>
+            <td>Create a Key Vault, change settings, assign access roles</td>
             <td>Read secrets, write blobs, query databases</td>
         </tr>
     </table>
-    <p style="margin-top: 1rem;">See <a href="decisions.html#adr-011">ADR-011</a> and <a href="diagrams.html#control-data-plane">Control vs Data Plane Diagram</a> for details.</p>
+    <p style="margin-top: 1rem;">If you are wondering why some tasks work from a public automation runner and others do not, this is the reason. See <a href="decisions.html#adr-011">the architecture decision record on control plane versus data plane access</a> and <a href="diagrams.html#control-data-plane">the matching diagram</a> for a deeper explanation.</p>
 </div>
 
 <div class="card">
     <h3 id="why-cant-i-see-key-vault-secrets-in-the-azure-portal" style="margin-top:0;">Why can't I see Key Vault secrets in the Azure Portal?</h3>
     <span class="badge badge-gold">Answered</span>
-    <p>The Azure Portal is a <strong>control plane UI</strong>. When you browse to a Key Vault:</p>
+    <p>The Azure Portal is primarily a management interface. It is very good at showing you that a resource exists and how it is configured, but it does not magically bypass a private endpoint.</p>
+    <p>When you open a Key Vault in the Azure Portal:</p>
     <ul>
-        <li><strong>&#10003; You can see</strong> the vault exists (control plane: list resources)</li>
-        <li><strong>&#10003; You can see</strong> its configuration (control plane: read properties)</li>
-        <li><strong>&#10007; You CANNOT click</strong> "Show Secret Value" (data plane: blocked by private endpoint)</li>
+        <li><strong>&#10003; You can see</strong> that the vault exists, because listing resources is a management action.</li>
+        <li><strong>&#10003; You can see</strong> the vault configuration, because reading settings is also a management action.</li>
+        <li><strong>&#10007; You cannot</strong> reveal the secret value unless your traffic is actually coming from inside the allowed private network path.</li>
     </ul>
-    <p style="margin-bottom: 0;">To view secrets, use <a href="playbooks.html#chisel-tunnel">Chisel tunnel</a> or connect through the <a href="playbooks.html#bastion-access">Jumpbox via Bastion</a>.</p>
+    <p style="margin-bottom: 0;">In other words, the screen that shows the vault is not the same thing as network access to the vault's secret data. To view secrets, use <a href="playbooks.html#chisel-tunnel">the Chisel tunnel playbook</a> or connect through the <a href="playbooks.html#bastion-access">jumpbox by way of Azure Bastion</a>.</p>
 </div>
 
 <div class="card">
     <h3 id="do-tenant-developers-get-chisel-access" style="margin-top:0;">Do tenant developers get Chisel access?</h3>
     <span class="badge badge-gold">Answered</span>
-    <p><strong>No.</strong> Chisel is for <strong>platform maintainers only</strong>. Tenant/project developers access AI services through the designed public entry points:</p>
+    <p><strong>No.</strong> Chisel is an administrative tool for the people who operate the platform itself. It is not part of the normal tenant experience.</p>
+    <p>Tenant developers are expected to use the public entry points that were built for them:</p>
     <ul>
-        <li><strong>App Gateway + APIM</strong>: Public-facing API endpoints</li>
-        <li><strong>Their own applications</strong>: Which call APIM endpoints</li>
+        <li><strong>Application Gateway and the Azure gateway service for application programming interfaces</strong> for public service endpoints</li>
+        <li><strong>Their own applications</strong>, which then call those gateway endpoints</li>
     </ul>
-    <p style="margin-bottom: 0;">This separation ensures proper isolation and metering. Tenants don't need (or get) direct access to private endpoints.</p>
+    <p style="margin-bottom: 0;">This separation is deliberate. It keeps tenants isolated from private infrastructure, preserves metering and security boundaries, and avoids giving every team broad internal network access that they do not need.</p>
 </div>
 
 <div class="card">
     <h3 id="which-access-method-should-i-use" style="margin-top:0;">Which access method should I use?</h3>
     <span class="badge badge-gold">Answered</span>
+    <p>Choose the access method based on what you are trying to do. The important distinction is whether you need to reach private data inside Azure resources, or whether you only need to deploy and configure resources.</p>
     <table style="margin-top: 1rem;">
         <tr>
             <th>If you need...</th>
             <th>Use this</th>
         </tr>
         <tr>
-            <td>CI/CD with data plane (secrets, state)</td>
-            <td>Chisel tunnel (<code>enable_azure_proxy</code>)</td>
+            <td>Automated deployment that must read secrets or private state</td>
+            <td>Chisel tunnel with the Azure proxy enabled (<code>enable_azure_proxy</code>)</td>
         </tr>
         <tr>
-            <td>Admin access, debugging, CLI tools as platform admin</td>
-            <td>Chisel tunnel (<code>enable_azure_proxy</code>)</td>
+            <td>Administrative access, debugging, or command-line work by platform maintainers</td>
+            <td>Chisel tunnel with the Azure proxy enabled (<code>enable_azure_proxy</code>)</td>
         </tr>
         <tr>
-            <td>Local dev access to private databases or Azure services</td>
-            <td>Chisel tunnel (<code>enable_azure_proxy</code>)</td>
+            <td>Local development access to private databases or private Azure services</td>
+            <td>Chisel tunnel with the Azure proxy enabled (<code>enable_azure_proxy</code>)</td>
         </tr>
         <tr>
-            <td>Resource-only deployments</td>
-            <td>Public GitHub runners (default)</td>
+            <td>Deployment work that only changes resource definitions and does not need private data access</td>
+            <td>Standard public GitHub Actions runners</td>
         </tr>
     </table>
-    <p style="margin-top: 1rem;">See <a href="technical-deep-dive.html">Choosing Your Access Method</a> and <a href="diagrams.html#access-methods">Access Methods Diagram</a>.</p>
+    <p style="margin-top: 1rem;">See <a href="technical-deep-dive.html">Choosing Your Access Method</a> and <a href="diagrams.html#access-methods">the access methods diagram</a> if you want a more detailed decision guide.</p>
 </div>
 
 <h2 id="onboarding-access">Onboarding &amp; Access</h2>
 
 <div class="card">
     <h3 id="how-do-other-teams-onboard-to-the-ai-hub" style="margin-top:0;">How do other teams onboard to the AI Hub?</h3>
-    <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
-    <p>The onboarding process for other BC Gov teams to use the AI Hub is being developed.</p>
-    <div class="alert alert-warning" style="margin-top: 1rem;">
+    <span class="badge badge-gold">Answered</span>
+    <p>Teams onboard through the <strong>Tenant Onboarding Portal</strong>. This is a custom application built specifically for this platform because the team needed more than a simple request form. The portal stores structured onboarding information, supports review and approval by platform administrators, and gives the platform a place to expose approved tenant information later.</p>
+    <p>The current operating model works like this:</p>
+    <ol>
+        <li>A team submits its onboarding information through the portal.</li>
+        <li>Platform administrators review the request, verify that it fits the platform, and then approve or reject it.</li>
+        <li>Once a tenant has been approved, authorised tenant administrators can return to the portal and view environment-specific information that the platform exposes for them.</li>
+    </ol>
+    <p>This is important because onboarding here is not just a one-time form submission. It is an ongoing workflow that can later include approval history, generated configuration, operational details, and controlled access to credentials and service information.</p>
+    <div class="alert alert-info" style="margin-top: 1rem;">
         <div class="alert-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         </div>
         <div>
-            <strong>Open Questions:</strong>
+            <strong>Still evolving:</strong>
             <ul style="margin-bottom: 0;">
-                <li>What's the intake process for new teams?</li>
                 <li>What prerequisites must teams meet?</li>
-                <li>How are resources allocated per team?</li>
+                <li>How much of the downstream provisioning flow should be automated after approval?</li>
                 <li>What's the cost model (chargeback)?</li>
             </ul>
         </div>
@@ -1309,16 +1320,30 @@
 </div>
 
 <div class="card">
+    <h3 id="how-do-tenant-administrators-get-their-gateway-subscription-keys" style="margin-top:0;">How do tenant administrators get their gateway subscription keys?</h3>
+    <span class="badge badge-gold">Answered</span>
+    <p>Approved tenant administrators can view their gateway subscription keys directly in the <strong>Tenant Onboarding Portal</strong>. They do not need to open a support request for routine key retrieval.</p>
+    <ul>
+        <li>Only users listed as tenant administrators can access the credential panel.</li>
+        <li>The portal separates information by environment, so development, test, and production values are shown in different tabs.</li>
+        <li>The primary and secondary keys are masked on screen and exposed through copy actions rather than printed openly in the page.</li>
+        <li>When automatic key rotation is enabled, the portal also shows explanatory timing information such as the last rotation and the next scheduled rotation.</li>
+    </ul>
+    <p style="margin-bottom: 0;">Behind the scenes, the portal backend reads the tenant's key material from the shared central Key Vault by using its own managed identity. That means no long-lived stored password is required for the portal to retrieve those values. See <a href="apim-key-rotation.html">the key rotation guide</a> for the full operational details.</p>
+</div>
+
+<div class="card">
     <h3 id="whats-the-3-6-9-month-roadmap" style="margin-top:0;">What's the 3-6-9 month roadmap?</h3>
     <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
-    <p>A planning/whiteboarding session was proposed with the following agenda:</p>
+    <p>A planning session has been proposed, but the roadmap has not yet been finalised. The idea is to move from early pilot work into a clearer sequence of near-term, medium-term, and longer-term platform outcomes.</p>
+    <p>The working agenda currently includes:</p>
     <ul>
-        <li>Roles Overview</li>
-        <li>Technical capabilities - first 3 months to showcase value</li>
-        <li>Services onboarding enablers</li>
-        <li>3-6-9 months baseline roadmap/milestones</li>
-        <li>WBS tracker (Azure DevOps/GitHub)</li>
-        <li>Regular cadences</li>
+        <li>Role clarity and decision ownership</li>
+        <li>The first technical capabilities that should be delivered to show value quickly</li>
+        <li>The platform improvements that make onboarding easier for new teams</li>
+        <li>A baseline set of milestones for the next three, six, and nine months</li>
+        <li>A work tracker and delivery rhythm</li>
+        <li>Regular review meetings and planning cadence</li>
     </ul>
     <div class="alert alert-warning" style="margin-top: 1rem;">
         <div class="alert-icon">
@@ -1335,32 +1360,49 @@
 <div class="card">
     <h3 id="why-cant-github-actions-run-terraform-directly" style="margin-top:0;">Why can't GitHub Actions run Terraform directly?</h3>
     <span class="badge badge-gold">Answered</span>
-    <p>See <a href="decisions.html#adr-001">ADR-001: Shared Landing Zone</a> for the full explanation.</p>
-    <p><strong>Short answer:</strong> GitHub-hosted runners cannot reach private endpoints directly. The platform solves this with a <strong>Chisel SOCKS5 tunnel</strong>: an Azure App Service running Chisel inside the VNet acts as a proxy, routing Terraform’s private-endpoint traffic from the public runner through the VNet. An optional <code>github_runners_aca</code> module for persistent self-hosted runners is available but not used by this platform’s own CI/CD.</p>
-    <p style="margin-bottom: 0;"><strong>Cost note:</strong> The Chisel proxy runs as an App Service (billed by plan tier), which scales independently of workflow run frequency. See <a href="cost.html">Cost Tracking</a> for details.</p>
+    <p>GitHub Actions can run Terraform, but it cannot directly reach private endpoints from a standard public runner. That is the key limitation.</p>
+    <p>The platform solves this by creating a secure tunnel from the public automation runner into the private Azure network. A Chisel server runs inside an Azure App Service that sits in the private network path, and the deployment workflow sends private data traffic through that tunnel when it needs to talk to things like the private Terraform state account or secrets store.</p>
+    <p>This means the workflow can still use normal public GitHub-hosted runners for most automation, without paying for a permanently running private build fleet. There is an optional module for self-hosted runners on Azure Container Apps for special cases, but the platform's own deployment path does not depend on it.</p>
+    <p style="margin-bottom: 0;"><strong>Cost note:</strong> The Chisel proxy runs as an App Service plan-based component, so cost is tied to that service plan rather than to how often the workflow runs. See <a href="cost.html">Cost Tracking</a> for details.</p>
 </div>
 
 <div class="card">
     <h3 id="what-azure-services-will-the-ai-hub-provide" style="margin-top:0;">What Azure services will the AI Hub provide?</h3>
     <span class="badge badge-gold">Answered</span>
-    <p>The AI Hub provides shared AI services for BC Gov teams through a fully automated, multi-tenant platform. The following services are live in <strong>dev</strong> and <strong>test</strong>:</p>
+    <p>The platform provides shared artificial intelligence services for British Columbia Government teams through a multi-tenant setup. In practical terms, that means one platform supports multiple teams while still keeping each tenant's access, quotas, and configuration separate.</p>
+    <p>The following services are currently live in the development and test environments:</p>
     <ul>
-        <li><strong>Azure AI Foundry</strong> — GPT-4.1, GPT-4o, GPT-5 chat models; o1/o3-mini/o4-mini reasoning models; text-embedding models</li>
-        <li><strong>API Management (APIM)</strong> — Per-tenant subscription keys, rate limiting (<code>x-ms-tenant</code> header routing), and TPM quota metering</li>
-        <li><strong>App Gateway + WAF</strong> — Public ingress with TLS termination and cognitive service routing (Document Intelligence OCR, Language PII)</li>
-        <li><strong>Language Service (PII detection)</strong> — ML-based PII detection via APIM, available to all tenants</li>
-        <li><strong>Azure AI Search, Speech, Document Intelligence</strong> — Shared cognitive services routed via App Gateway</li>
+        <li><strong>Azure AI Foundry</strong> for language models, reasoning models, and text embedding models</li>
+        <li><strong>The Azure gateway service for application programming interfaces</strong> for tenant-specific subscription keys, per-tenant rate limiting, and usage metering</li>
+        <li><strong>Azure Application Gateway with built-in web request protection</strong> for public entry, secure transport termination, and routing toward the right backend service</li>
+        <li><strong>The Azure language service for sensitive personal information detection</strong>, now routed through a dedicated external redaction service</li>
+        <li><strong>Azure AI Search, Speech, and Document Intelligence</strong> as shared cognitive services exposed through the gateway layer</li>
     </ul>
-    <p style="margin-bottom: 0;">See the <a href="services.html">AI Services Catalogue</a> for the full model list, TPM quotas, and per-tenant allocation details.</p>
+    <p style="margin-bottom: 0;">See the <a href="services.html">services catalogue</a> for the full model list, per-tenant allocation details, and usage limits.</p>
 </div>
 
 <div class="card">
-    <h3 id="how-does-vnet-peering-work-between-environments" style="margin-top:0;">How does VNet peering work between environments?</h3>
+    <h3 id="how-does-sensitive-personal-information-redaction-work-in-the-current-architecture" style="margin-top:0;">How does sensitive personal information redaction work in the current architecture?</h3>
+    <span class="badge badge-gold">Answered</span>
+    <p>Requests that need sensitive personal information redaction are no longer processed directly inside the gateway policy engine. Instead, the platform gateway forwards the request body and the tenant's redaction settings to a dedicated redaction service that runs as an internal container application.</p>
+    <p>This design is easier to reason about because all redaction work goes through the same external service, regardless of request size.</p>
+    <ol>
+        <li>The platform gateway reads the tenant-specific settings that control whether redaction is enabled, which categories to exclude, which language to assume, whether failure should block the request, and which message roles should be scanned.</li>
+        <li>The gateway policy sends the request to the external redaction service over the internal private network path.</li>
+        <li>The redaction service calls Azure AI Language service over a private endpoint, reconstructs the result into the original request shape, and returns the redacted body together with diagnostic information.</li>
+        <li>The gateway forwards the request to the downstream backend only after the redaction service reports that it completed the full job successfully.</li>
+    </ol>
+    <p style="margin-bottom: 0;">See <a href="language-service-pii.html">the Language service redaction guide</a> and <a href="decisions.html#adr-018">the architecture decision record for the external redaction service</a> for the full flow and configuration details.</p>
+</div>
+
+<div class="card">
+    <h3 id="how-does-virtual-network-peering-work-between-environments" style="margin-top:0;">How does virtual network peering work between environments?</h3>
      <span class="badge badge-gold">Answered</span>
-    <p>AI Hub uses VNet peering for CI/CD.</p>
+    <p>The platform uses virtual network peering so that the tools environment can reach the development, test, and production environments for operational and deployment work without collapsing everything into one flat network.</p>
     <ul>
-        <li><strong>tools-> dev, test, prod</strong> Outbound traffic from tools is allowed to dev, test, prod for CI/CD purposes.</li>
+        <li><strong>Tools to development, test, and production:</strong> outbound traffic from the tools environment is allowed toward the other environments so deployment and maintenance workflows can reach what they need.</li>
     </ul>
+    <p>This is mainly there to support platform operations and automation. It is not a shortcut that gives tenant teams direct access to internal services in every environment.</p>
 
 </div>
 
@@ -1371,7 +1413,7 @@
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
     </div>
     <div>
-        <strong>Post kick-off questions for Microsoft regarding Azure AI Application Zone</strong> (Dec 2025)<br>
+        <strong>Post kick-off questions for Microsoft regarding the Azure artificial intelligence application zone</strong> (Dec 2025)<br>
         <small>Click any question to expand details</small>
     </div>
 </div>
@@ -1385,11 +1427,11 @@
             <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
         </summary>
         <div class="accordion-content">
-            <p>How will end users (data scientists, developers) access AI Foundry? What's the authentication/authorization model?</p>
+            <p>How will end users, such as data scientists and developers, access Azure AI Foundry? What sign-in and authorisation model should the platform expect?</p>
             <p><strong>Questions:</strong></p>
             <ul>
-                <li>Direct portal access vs API-only?</li>
-                <li>IDIR integration?</li>
+                <li>Should users work directly in the portal, or should access stay application-programming-interface only?</li>
+                <li>Integration with the provincial directory sign-in system?</li>
                 <li>Guest access for contractors?</li>
             </ul>
         </div>
@@ -1397,11 +1439,11 @@
 
     <details>
         <summary>
-            2. RBAC model
+            2. Role-based access model
             <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
         </summary>
         <div class="accordion-content">
-            <p>What RBAC roles are needed for different user personas (platform admins, team leads, developers, data scientists)?</p>
+            <p>What access roles are needed for the main user groups, such as platform administrators, team leads, developers, and data scientists?</p>
             <p><strong>Personas to define:</strong></p>
             <ul>
                 <li>Platform Admin - full control</li>
@@ -1425,7 +1467,7 @@
                 <li>Data classification enforcement</li>
                 <li>Model deployment approval workflows</li>
                 <li>Prompt/response logging for audit</li>
-                <li>PII detection and masking</li>
+                <li>Detection and masking of sensitive personal information</li>
             </ul>
         </div>
     </details>
@@ -1436,32 +1478,32 @@
 <div class="accordion-group">
     <details>
         <summary>
-            4. Cost-effective IaC deployment without Bastion+VM
+            4. Cost-effective infrastructure-as-code deployment without Azure Bastion and a virtual machine
             <span class="badge badge-gold">Answered</span>
         </summary>
         <div class="accordion-content">
-            <p><strong>Resolved:</strong> The platform uses <strong>standard GitHub-hosted runners</strong> (<code>ubuntu-24.04</code>) for all CI/CD, including Terraform operations that touch private endpoints. No persistent Bastion or Jumpbox is needed for automated deployments.</p>
-            <p>The mechanism is a <strong>Docker-based Chisel SOCKS tunnel + Privoxy</strong> running directly on the GitHub-hosted runner:</p>
+            <p><strong>Resolved:</strong> The platform uses standard GitHub-hosted runners for automated deployment, including Terraform operations that must touch private endpoints. It does not require a permanently running Azure Bastion session or jumpbox virtual machine for normal automation.</p>
+            <p>The mechanism is a Docker-based Chisel tunnel together with Privoxy, running directly on the GitHub-hosted runner:</p>
             <ol>
-                <li>A Chisel server (<code>azure-proxy/chisel</code> container) is first deployed into the <code>tools</code> VNet via <code>.deployer.yml</code></li>
-                <li>The Terraform deployer job starts a Chisel <em>client</em> container + Privoxy on the runner, creating an encrypted SOCKS tunnel into the VNet at <code>localhost:8118</code></li>
-                <li>Terraform sets <code>HTTP_PROXY</code>/<code>HTTPS_PROXY</code> to route data-plane traffic (Key Vault, private state) through the tunnel; Azure control-plane endpoints bypass it via <code>NO_PROXY</code></li>
+                <li>A Chisel server container is deployed into the tools virtual network through the deployment workflow.</li>
+                <li>The Terraform deployment job starts a Chisel client container and Privoxy on the runner, creating an encrypted tunnel into the private network.</li>
+                <li>Terraform sends data-plane traffic, such as access to the secrets store and private state, through that tunnel, while normal Azure management traffic bypasses it.</li>
             </ol>
-            <p>Bastion + Jumpbox remains available for <em>interactive</em> admin sessions (portal access, CLI debugging) but is not needed in CI/CD pipelines, and is auto-destroyed nightly by <code>schedule.yml</code>.</p>
-            <p style="margin-bottom: 0;">An optional <code>github_runners_aca</code> module (Container Apps self-hosted runners in the VNet) is also available for workloads in other repos that can't use the Chisel proxy approach.</p>
+            <p>Azure Bastion and the jumpbox remain available for interactive administrator sessions, such as portal access or command-line debugging, but they are not required for the normal automated deployment pipeline.</p>
+            <p style="margin-bottom: 0;">There is also an optional module for self-hosted runners on Azure Container Apps for other repositories that cannot use the Chisel proxy approach.</p>
         </div>
     </details>
 
     <details>
         <summary>
-            5. GitHub self-hosted runners vs Azure DevOps
+            5. GitHub-hosted runners versus Azure DevOps
             <span class="badge badge-gold">Answered — GitHub (public runners + Chisel tunnel)</span>
         </summary>
         <div class="accordion-content">
-            <p><strong>Decision:</strong> GitHub Actions was chosen over Azure DevOps. CI/CD jobs run on standard <strong>GitHub-hosted runners</strong> (<code>ubuntu-24.04</code>), not self-hosted runners inside the VNet.</p>
-            <p>Private-endpoint access is handled by the <strong>Chisel SOCKS tunnel</strong> approach: a proxy server in the <code>tools</code> VNet tunnels data-plane traffic for Terraform runners on demand. This avoids the ongoing cost and management overhead of persistent self-hosted agents (GitHub or Azure DevOps).</p>
-            <p>The optional <strong><code>github_runners_aca</code></strong> module provisions Container Apps-based self-hosted runners when a workload genuinely needs persistent VNet-internal compute. These scale to zero when idle.</p>
-            <p style="margin-bottom: 0;">See <a href="cost.html#cicd-runner-costs">Cost Tracking: CI/CD Runner Costs</a> for a detailed cost breakdown of the optional self-hosted runner module.</p>
+            <p><strong>Decision:</strong> GitHub Actions was chosen over Azure DevOps for the platform's own automation. The deployment jobs run on standard public GitHub-hosted runners rather than on always-on self-hosted machines inside the private network.</p>
+            <p>Access to private endpoints is handled by the Chisel tunnel approach, which sends the necessary private data traffic through the tools virtual network only when needed. This is cheaper and operationally simpler than maintaining a permanent pool of self-hosted agents.</p>
+            <p>The optional module for self-hosted runners on Azure Container Apps still exists for workloads that genuinely need persistent private-network compute, but it is not the default operating model for this platform.</p>
+            <p style="margin-bottom: 0;">See <a href="cost.html#cicd-runner-costs">the runner cost section</a> for a more detailed cost comparison.</p>
         </div>
     </details>
 
@@ -1471,13 +1513,13 @@
             <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
         </summary>
         <div class="accordion-content">
-            <p>Which resources should be shared across teams (APIM, AI models) vs dedicated per team (compute, storage)?</p>
+            <p>Which resources should be shared across teams, and which ones should be dedicated to a single team for stronger isolation?</p>
             <p><strong>Proposed split:</strong></p>
             <table>
                 <tr><th>Shared</th><th>Dedicated</th></tr>
-                <tr><td>APIM gateway</td><td>Compute quotas</td></tr>
-                <tr><td>AI model deployments</td><td>Storage accounts</td></tr>
-                <tr><td>Networking (VNet, NSG)</td><td>Key Vault</td></tr>
+                <tr><td>Azure gateway service for application programming interfaces</td><td>Compute quotas</td></tr>
+                <tr><td>Model deployments</td><td>Storage accounts</td></tr>
+                <tr><td>Networking, including virtual networks and security rules</td><td>Key Vault</td></tr>
                 <tr><td>Monitoring infrastructure</td><td>Resource groups</td></tr>
             </table>
         </div>
@@ -1489,11 +1531,11 @@
             <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
         </summary>
         <div class="accordion-content">
-            <p>How do we track and allocate costs to individual teams/projects using shared AI services?</p>
+            <p>How do we track and allocate costs to individual teams and projects when they are using shared artificial intelligence services?</p>
             <p><strong>Mechanisms needed:</strong></p>
             <ul>
                 <li>Tagging strategy for cost attribution</li>
-                <li>APIM subscription-based metering</li>
+                <li>Subscription-based metering at the gateway layer</li>
                 <li>Monthly cost reports per team</li>
                 <li>Budget alerts</li>
             </ul>
@@ -1527,10 +1569,10 @@
             <p>How do we prevent one team's workload from impacting others in a shared environment (rate limiting, quotas)?</p>
             <p><strong>Mitigation strategies:</strong></p>
             <ul>
-                <li>APIM rate limiting per subscription</li>
+                <li>Rate limiting per subscription at the gateway layer</li>
                 <li>Resource quotas per resource group</li>
                 <li>Kubernetes resource limits/requests</li>
-                <li>AI model TPM (tokens per minute) limits</li>
+                <li>Model token-per-minute limits</li>
             </ul>
         </div>
     </details>
@@ -1541,17 +1583,17 @@
 <div class="accordion-group">
     <details>
         <summary>
-            10. Project namespace concept
+            10. Workload isolation model
             <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
         </summary>
         <div class="accordion-content">
-            <p>How should we isolate team workloads? Resource groups per team? Subscriptions? Kubernetes namespaces?</p>
+            <p>How should team workloads be isolated from each other? Should that isolation happen through resource groups, subscriptions, Kubernetes namespaces, or a combination of those approaches?</p>
             <p><strong>Options:</strong></p>
             <ul>
                 <li><strong>Resource Groups:</strong> Simple but limited isolation</li>
                 <li><strong>Subscriptions:</strong> Strong isolation but management overhead</li>
-                <li><strong>K8s Namespaces:</strong> Good for container workloads</li>
-                <li><strong>Hybrid:</strong> Shared subscription + RG per team + K8s namespaces</li>
+                <li><strong>Kubernetes namespaces:</strong> Useful for container-based workloads</li>
+                <li><strong>Hybrid:</strong> Shared subscription, separate resource groups per team, and Kubernetes namespaces where needed</li>
             </ul>
         </div>
     </details>
@@ -1562,7 +1604,7 @@
             <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
         </summary>
         <div class="accordion-content">
-            <p>How do we govern teams that want to deploy their own AI services (Ollama, vLLM) outside of AI Foundry?</p>
+            <p>How do we govern teams that want to deploy their own artificial intelligence services, such as Ollama or vLLM, outside of Azure AI Foundry?</p>
             <p><strong>Considerations:</strong></p>
             <ul>
                 <li>Security review process for custom deployments</li>
@@ -1579,11 +1621,11 @@
             <span class="badge" style="background:#f59e0b;color:white;">Pending</span>
         </summary>
         <div class="accordion-content">
-            <p>What's the end-to-end flow for a new team to request access, get approved, and start using AI services?</p>
+            <p>What is the full end-to-end journey for a new team, starting with a request for access and ending with real use of platform services?</p>
             <p><strong>Proposed flow:</strong></p>
             <ol>
-                <li>Intake form submission</li>
-                <li>Security/privacy assessment</li>
+                <li>Portal submission</li>
+                <li>Security and privacy assessment</li>
                 <li>Resource allocation approval</li>
                 <li>Technical onboarding session</li>
                 <li>Sandbox environment provisioning</li>
@@ -1598,11 +1640,11 @@
             <span class="badge badge-gold">Answered</span>
         </summary>
         <div class="accordion-content">
-            <p>The <a href="playbooks.html">Playbooks</a> page documents operational runbooks for Day 2 operations, including:</p>
+            <p>The <a href="playbooks.html">Playbooks</a> page documents operational runbooks for the ongoing care and maintenance of the platform after initial deployment, including:</p>
             <ul>
                 <li>Chisel tunnel setup for private endpoint access</li>
-                <li>Bastion + Jumpbox access</li>
-                <li>APIM key rotation</li>
+                <li>Azure Bastion and jumpbox access</li>
+                <li>Gateway subscription key rotation</li>
                 <li>Chisel tunnel setup and proxy operations</li>
             </ul>
             <p style="margin-bottom: 0;">Additional runbooks (incident response, disaster recovery, cost spike investigation) are in progress.</p>
@@ -1611,11 +1653,11 @@
 
     <details>
         <summary>
-            14. SDPR OCR scope
+            14. SDPR document text extraction scope
             <span class="badge badge-gold">Answered</span>
         </summary>
         <div class="accordion-content">
-            <p>Document Intelligence (OCR) for SDPR is handled at the <strong>App Gateway layer</strong>. SDPR's applications call the App Gateway endpoint, which routes requests to the shared Document Intelligence cognitive service — no tenant-specific configuration required.</p>
+            <p>Document Intelligence for SDPR is handled at the <strong>Application Gateway layer</strong>. SDPR applications call the gateway endpoint, which then routes those requests to the shared Document Intelligence service. No tenant-specific routing configuration is required for that path.</p>
             <p>The integration is operational. SDPR is one of three active tenants (<code>wlrs</code>, <code>sdpr</code>, <code>nr-dap</code>) in the test environment.</p>
         </div>
     </details>
@@ -1639,7 +1681,7 @@
     </tr>
     <tr>
         <td>1</td>
-        <td>Team onboarding process documentation</td>
+        <td>Portal workflow completion and onboarding policy</td>
         <td>Product Management</td>
         <td><span class="badge" style="background:#f59e0b;color:white;">In Progress</span></td>
     </tr>
@@ -1651,19 +1693,19 @@
     </tr>
     <tr>
         <td>3</td>
-        <td>Cost model / chargeback for AI services</td>
+        <td>Cost model and chargeback for artificial intelligence services</td>
         <td>Executive Sponsor</td>
         <td><span class="badge" style="background:#ef4444;color:white;">Not Started</span></td>
     </tr>
     <tr>
         <td>4</td>
-        <td>Chisel tunnel proxy setup in VNet</td>
+        <td>Chisel tunnel proxy setup in the virtual network</td>
         <td>Platform Team</td>
         <td><span class="badge" style="background:#22c55e;color:white;">Done</span></td>
     </tr>
     <tr>
         <td>5</td>
-        <td>AI model governance policy</td>
+        <td>Artificial intelligence model governance policy</td>
         <td>TBD</td>
         <td><span class="badge" style="background:#ef4444;color:white;">Not Started</span></td>
     </tr>

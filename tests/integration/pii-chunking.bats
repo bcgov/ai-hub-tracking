@@ -1,7 +1,9 @@
 #!/usr/bin/env bats
 # Integration tests for PII Redaction with large payloads (chunking)
 # Verifies that PII is redacted in small (~2k), medium (~15k), and huge (~30k) payloads
-# These tests exercise the document-chunking logic added to the pii-anonymization fragment
+# These tests exercise the external PII redaction service's chunking and batch logic.
+# Chunking (splitting oversized documents) and batching (grouping calls) are handled
+# by the Python service (app/orchestrator.py) — not inside the APIM policy fragment.
 
 load 'test-helper'
 
@@ -140,7 +142,7 @@ skip_if_no_key() {
     local body
     body=$(build_pii_payload 1500)
 
-    local path="/openai/deployments/gpt-5-mini/chat/completions?api-version=${OPENAI_API_VERSION}"
+    local path="/openai/deployments/${DEFAULT_MODEL}/chat/completions?api-version=${OPENAI_API_VERSION}"
 
     echo "# Payload size: ~$(echo "${body}" | wc -c) bytes" >&3
 
@@ -168,7 +170,7 @@ skip_if_no_key() {
     local body
     body=$(build_pii_payload 14000)
 
-    local path="/openai/deployments/gpt-5-mini/chat/completions?api-version=${OPENAI_API_VERSION}"
+    local path="/openai/deployments/${DEFAULT_MODEL}/chat/completions?api-version=${OPENAI_API_VERSION}"
 
     echo "# Payload size: ~$(echo "${body}" | wc -c) bytes" >&3
 
@@ -196,7 +198,7 @@ skip_if_no_key() {
     local body
     body=$(build_pii_payload 29000)
 
-    local path="/openai/deployments/gpt-5-mini/chat/completions?api-version=${OPENAI_API_VERSION}"
+    local path="/openai/deployments/${DEFAULT_MODEL}/chat/completions?api-version=${OPENAI_API_VERSION}"
 
     echo "# Payload size: ~$(echo "${body}" | wc -c) bytes" >&3
 
