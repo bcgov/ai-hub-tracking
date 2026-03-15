@@ -21,7 +21,7 @@ class Message(BaseModel):
 class RequestBody(BaseModel):
     """Original OpenAI-compatible chat completion request body."""
 
-    messages: list[Message]
+    messages: list[Message] = Field(default_factory=list)
     # Additional top-level keys are preserved verbatim
     model_config = {"extra": "allow"}
 

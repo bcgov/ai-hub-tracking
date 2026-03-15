@@ -358,10 +358,11 @@ class TestBodyValidation:
         resp = c.post("/redact", json={"config": {}})
         assert resp.status_code == 503
 
-    def test_missing_messages_returns_503(self, client):
+    def test_missing_messages_passes_through(self, client):
         c, _ = client
         resp = c.post("/redact", json={"body": {"model": "gpt-4o"}})
-        assert resp.status_code == 503
+        assert resp.status_code == 200
+        assert resp.json()["status"] == "ok"
 
     def test_messages_not_a_list_returns_503(self, client):
         c, _ = client
