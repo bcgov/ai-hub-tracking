@@ -348,9 +348,12 @@
                 }" />
                 <rewrite-uri template="@((string)context.Variables[&quot;rewrittenPath&quot;])" copy-unmatched-params="true" />
                 <!-- Detect streaming requests: stream:true in body means SSE response (not JSON) -->
+                <!-- Read body as string first (preserveContent:true) to guarantee raw bytes are cached, -->
+                <!-- then parse in-memory. This ensures piiInputContent can reliably read the same bytes. -->
                 <set-variable name="isStream" value="@{
                     try {
-                        var body = context.Request.Body.As&lt;JObject&gt;(preserveContent: true);
+                        var bodyStr = context.Request.Body.As&lt;string&gt;(preserveContent: true);
+                        var body = JObject.Parse(bodyStr);
                         var streamVal = body?[&quot;stream&quot;];
                         if (streamVal != null) { return streamVal.Value&lt;bool&gt;(); }
                         return false;

@@ -96,7 +96,21 @@
                 }">
                     <set-variable name="piiAnonymizedContent" value="@{
                         var body = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExternalBodyStr&quot;, &quot;&quot;);
-                        return JObject.Parse(body)[&quot;redacted_body&quot;].ToString(Newtonsoft.Json.Formatting.None);
+                        var redacted = JObject.Parse(body)[&quot;redacted_body&quot;].ToString(Newtonsoft.Json.Formatting.None);
+                        // Guard: if the original body had messages but redacted_body has none,
+                        // the request body was lost in transit (APIM body-parse failure → empty JObject).
+                        // Fall back to the original piiInputContent to avoid sending messages:[] to Azure OAI.
+                        try {
+                            var orig     = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;{}&quot;);
+                            var origMsgs = JObject.Parse(orig)[&quot;messages&quot;] as JArray;
+                            if (origMsgs != null &amp;&amp; origMsgs.Count &gt; 0) {
+                                var redactedMsgs = JObject.Parse(redacted)[&quot;messages&quot;] as JArray;
+                                if (redactedMsgs == null || redactedMsgs.Count == 0) {
+                                    return orig;
+                                }
+                            }
+                        } catch { }
+                        return redacted;
                     }" />
                     <set-variable name="piiContentChanged" value="@{
                         var orig = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
