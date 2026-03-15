@@ -360,6 +360,45 @@ EOF
     assert_status "400" "${RESPONSE_STATUS}"
 }
 
+@test "Deployment route invalid JSON body returns 400" {
+    skip_if_no_key "wlrs-water-form-assistant"
+
+    local body='this is not valid json'
+
+    response=$(apim_request "POST" "wlrs-water-form-assistant" \
+        "/openai/deployments/${DEFAULT_MODEL}/chat/completions?api-version=${OPENAI_API_VERSION}" \
+        "${body}")
+    parse_response "${response}"
+
+    assert_status "400" "${RESPONSE_STATUS}"
+
+    local error_code
+    error_code=$(echo "${RESPONSE_BODY}" | jq -r '.error.code' 2>/dev/null)
+    [[ "${error_code}" == "InvalidRequestBody" ]]
+}
+
+@test "Deployment route JSON with trailing content returns 400" {
+    skip_if_no_key "wlrs-water-form-assistant"
+
+    local body
+    body=$(cat <<'EOF'
+{"messages":[{"role":"user","content":"hello"}],"max_tokens":5}
+@sdprPiiFailClosedPrompt = My email is test@example.com. Please process this.
+EOF
+)
+
+    response=$(apim_request "POST" "wlrs-water-form-assistant" \
+        "/openai/deployments/${DEFAULT_MODEL}/chat/completions?api-version=${OPENAI_API_VERSION}" \
+        "${body}")
+    parse_response "${response}"
+
+    assert_status "400" "${RESPONSE_STATUS}"
+
+    local error_code
+    error_code=$(echo "${RESPONSE_BODY}" | jq -r '.error.code' 2>/dev/null)
+    [[ "${error_code}" == "InvalidRequestBody" ]]
+}
+
 # =============================================================================
 # NR-DAP Tenant Tests - Dynamic Model Testing (1% quota allocation)
 # =============================================================================

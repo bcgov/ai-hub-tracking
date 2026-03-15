@@ -2,9 +2,10 @@
 # =============================================================================
 # Integration tests for PII Redaction Failure Scenarios
 # =============================================================================
-# These tests verify APIM pii-anonymization fragment behaviour when the
-# external PII redaction service is unreachable, returns an error, or the
-# payload exceeds service limits.
+# These tests cover two categories:
+# 1. Explicit fault-injection scenarios where the external PII redaction
+#    service is intentionally made unreachable.
+# 2. Always-on live-environment checks such as oversized payload handling.
 #
 # Failure error contract (fail-closed 503):
 #   {
@@ -25,18 +26,19 @@
 #   - "processing-timeout"  service took too long
 #   - "missing-chunk-output" chunk result missing from service response
 #
-# Tenant requirements:
-#   These tests need two tenants whose piiServiceUrl named value points to an
-#   INVALID / unreachable endpoint (e.g. http://127.0.0.1:9999/redact):
-#   - A fail-closed tenant: FAIL_CLOSED_TEST_TENANT (defaults to sdpr-invoice-automation
-#     if overridden via FAIL_CLOSED_TENANT env var; see setup below)
-#   - A fail-open tenant:   FAIL_OPEN_TEST_TENANT   (defaults to wlrs-water-form-assistant)
+# Fault-injection tenant requirements:
+#   The unreachable-service scenarios need two tenants whose piiServiceUrl named
+#   value points to an INVALID / unreachable endpoint
+#   (e.g. http://127.0.0.1:9999/redact):
+#   - A fail-closed tenant: FAIL_CLOSED_TEST_TENANT
+#   - A fail-open tenant:   FAIL_OPEN_TEST_TENANT
 #
-#   In CI, set PII_FAILURE_TEST_ENABLED=true AND configure the tenant(s) with
-#   invalid piiServiceUrl before running this suite.
+#   Enable those tests only when all of the following are true:
+#   - PII_FAILURE_TEST_ENABLED=true
+#   - PII_FAILURE_MODE=unreachable
+#   - the selected tenants are intentionally pointed at an unreachable endpoint
 #
-#   IMPORTANT: Do NOT point live tenant subscriptions here — use dedicated
-#   test-only tenant subscriptions or named-value overrides.
+#   Do not run those cases against the normal live test environment.
 # =============================================================================
 
 load 'test-helper'
@@ -49,19 +51,18 @@ setup() {
 }
 
 # ---------------------------------------------------------------------------
-# Skip guard: all tests in this file require PII_FAILURE_TEST_ENABLED=true
-# AND valid subscription keys for the test tenants.
-# When PII_FAILURE_TEST_ENABLED is not set, tests skip with a clear message
-# so the suite does not fail in environments without the test setup.
+# Skip guard: the unreachable-service scenarios require explicit fault
+# injection. They should not run in the normal integration suite against the
+# live test environment.
 # ---------------------------------------------------------------------------
-skip_unless_failure_test_enabled() {
-    if [[ "${PII_FAILURE_TEST_ENABLED:-false}" != "true" ]]; then
-        skip "Set PII_FAILURE_TEST_ENABLED=true and configure invalid piiServiceUrl on test tenants to run failure tests"
+skip_unless_unreachable_failure_test_enabled() {
+    if [[ "${PII_FAILURE_TEST_ENABLED:-false}" != "true" ]] || [[ "${PII_FAILURE_MODE:-}" != "unreachable" ]]; then
+        skip "Set PII_FAILURE_TEST_ENABLED=true and PII_FAILURE_MODE=unreachable with invalid piiServiceUrl overrides to run unreachable-service failure tests"
     fi
 }
 
 skip_unless_fail_closed_key() {
-    skip_unless_failure_test_enabled
+    skip_unless_unreachable_failure_test_enabled
     local key
     key=$(get_subscription_key "${FAIL_CLOSED_TEST_TENANT}")
     if [[ -z "${key}" ]]; then
@@ -70,7 +71,7 @@ skip_unless_fail_closed_key() {
 }
 
 skip_unless_fail_open_key() {
-    skip_unless_failure_test_enabled
+    skip_unless_unreachable_failure_test_enabled
     local key
     key=$(get_subscription_key "${FAIL_OPEN_TEST_TENANT}")
     if [[ -z "${key}" ]]; then

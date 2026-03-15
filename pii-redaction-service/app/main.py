@@ -202,7 +202,7 @@ async def _validation_exception_handler(request: Request, exc: RequestValidation
     else:
         raw_body_size = getattr(request.state, "raw_body_bytes", len(raw_body.encode("utf-8", errors="replace")))
 
-    logger.warning(
+    logger.debug(
         "Request validation failed (422)",
         extra={
             "path": str(request.url),

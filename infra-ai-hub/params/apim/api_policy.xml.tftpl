@@ -301,7 +301,8 @@
                     <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;/v1/&quot;))">
                         <set-variable name="v1ModelValidation" value="@{
                             try {
-                                var body = context.Request.Body.As&lt;JObject&gt;(preserveContent: true);
+                                var bodyStr = context.Request.Body.As&lt;string&gt;(preserveContent: true);
+                                var body = JObject.Parse(bodyStr);
                                 return body?[&quot;model&quot;]?.ToString() ?? &quot;&quot;;
                             } catch {
                                 return &quot;__INVALID_JSON__&quot;;
@@ -328,6 +329,28 @@
                             </when>
                         </choose>
                     </when>
+                    <when condition="@(context.Request.Method == &quot;POST&quot;)">
+                        <set-variable name="openaiJsonValidation" value="@{
+                            try {
+                                var bodyStr = context.Request.Body.As&lt;string&gt;(preserveContent: true);
+                                var body = JObject.Parse(bodyStr);
+                                return body != null ? &quot;true&quot; : &quot;false&quot;;
+                            } catch {
+                                return &quot;false&quot;;
+                            }
+                        }" />
+                        <choose>
+                            <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;openaiJsonValidation&quot;, &quot;false&quot;) == &quot;false&quot;)">
+                                <return-response>
+                                    <set-status code="400" reason="Bad Request" />
+                                    <set-header name="Content-Type" exists-action="override">
+                                        <value>application/json</value>
+                                    </set-header>
+                                    <set-body>{"error":{"code":"InvalidRequestBody","message":"Request body must be valid JSON for OpenAI endpoints."}}</set-body>
+                                </return-response>
+                            </when>
+                        </choose>
+                    </when>
                 </choose>
                 <!-- Rewrite deployment name in URL to include tenant prefix -->
                 <!-- Client sends: /openai/deployments/gpt-4.1-mini/chat/completions -->
@@ -349,7 +372,7 @@
                 <rewrite-uri template="@((string)context.Variables[&quot;rewrittenPath&quot;])" copy-unmatched-params="true" />
                 <!-- Detect streaming requests: stream:true in body means SSE response (not JSON) -->
                 <!-- Read body as string first (preserveContent:true) to guarantee raw bytes are cached, -->
-                <!-- then parse in-memory. This ensures piiInputContent can reliably read the same bytes. -->
+                <!-- then parse in-memory. The PII fragment re-reads the preserved body directly. -->
                 <set-variable name="isStream" value="@{
                     try {
                         var bodyStr = context.Request.Body.As&lt;string&gt;(preserveContent: true);
@@ -362,7 +385,6 @@
 %{ if pii_redaction_enabled ~}
                 <!-- PII Anonymization via Azure Language Service -->
                 <set-variable name="piiAnonymizationEnabled" value="true" />
-                <set-variable name="piiInputContent" value="@(context.Request.Body.As&lt;string&gt;(preserveContent: true))" />
                 <!-- PII Configuration: excluded categories and structural preservation -->
                 <set-variable name="piiExcludedCategories" value="${jsonencode(pii_excluded_categories)}" />
                 <set-variable name="piiPreserveJsonStructure" value="${pii_preserve_json_structure}" />

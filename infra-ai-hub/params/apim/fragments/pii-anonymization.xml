@@ -7,8 +7,7 @@
      App. APIM acts as a policy enforcement point only; all Language Service
      calls are handled by the external service.
 
-     Input variables (set by caller before <include-fragment>):
-       piiInputContent:         Request body as JSON string (messages object)
+         Input variables (set by caller before <include-fragment>):
        piiAnonymizationEnabled: "true" to enable; any other value = pass-through
        piiExcludedCategories:   JSON array of PII category strings to exclude
        piiDetectionLanguage:    Language code for detection (default "en")
@@ -24,6 +23,42 @@
     <choose>
         <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnonymizationEnabled&quot;, &quot;false&quot;) == &quot;true&quot;)">
             <set-variable name="piiStartTimeTicks" value="@(DateTime.UtcNow.Ticks)" />
+            <set-variable name="piiOutboundBodyTrace" value="@{
+                var inputText  = context.Request.Body.As&lt;string&gt;(preserveContent: true);
+                var excCats    = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExcludedCategories&quot;, &quot;[]&quot;);
+                var language   = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionLanguage&quot;, &quot;en&quot;);
+                var failClosed = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiFailClosed&quot;, &quot;false&quot;) == &quot;true&quot;;
+                var scanRoles  = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiScanRoles&quot;, &quot;[\&quot;user\&quot;,\&quot;assistant\&quot;,\&quot;tool\&quot;]&quot;);
+
+                JArray excludedArr;
+                try { excludedArr = JArray.Parse(excCats); } catch { excludedArr = new JArray(); }
+
+                JArray scanRolesArr;
+                try { scanRolesArr = JArray.Parse(scanRoles); }
+                catch { scanRolesArr = new JArray(new[] { &quot;user&quot;, &quot;assistant&quot;, &quot;tool&quot; }); }
+
+                var configObj = new JObject(
+                    new JProperty(&quot;fail_closed&quot;,         failClosed),
+                    new JProperty(&quot;excluded_categories&quot;, excludedArr),
+                    new JProperty(&quot;detection_language&quot;,  language),
+                    new JProperty(&quot;scan_roles&quot;,          scanRolesArr),
+                    new JProperty(&quot;correlation_id&quot;,      context.RequestId.ToString())
+                );
+
+                var bodyJson = string.IsNullOrWhiteSpace(inputText) ? &quot;{}&quot; : inputText;
+                return &quot;{\&quot;body\&quot;:&quot; + bodyJson + &quot;,\&quot;config\&quot;:&quot; + configObj.ToString(Newtonsoft.Json.Formatting.None) + &quot;}&quot;;
+            }" />
+            <trace source="pii-anonymization" severity="verbose">
+                <message>PII outbound request</message>
+                <metadata name="event-type" value="pii-outbound" />
+                <metadata name="request-id" value="@(context.RequestId.ToString())" />
+                <metadata name="subscription-id" value="@(context.Subscription.Id)" />
+                <metadata name="pii-service-url" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExternalRedactionUrl&quot;, &quot;&quot;) + &quot;/redact&quot;)" />
+                    <metadata name="pii-outbound-body" value="@{
+                        var body = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiOutboundBodyTrace&quot;, &quot;{}&quot;);
+                        return body;
+                    }" />
+            </trace>
             <!-- Send request to the pii-redaction Container App -->
             <send-request mode="new" response-variable-name="piiExternalResponse" timeout="60" ignore-error="true">
                 <set-url>@(context.Variables.GetValueOrDefault&lt;string&gt;("piiExternalRedactionUrl", "") + "/redact")</set-url>
@@ -32,14 +67,11 @@
                     <value>application/json</value>
                 </set-header>
                 <set-body>@{
-                    var inputText  = context.Variables.GetValueOrDefault&lt;string&gt;("piiInputContent", "{}");
+                    var inputText  = context.Request.Body.As&lt;string&gt;(preserveContent: true);
                     var excCats    = context.Variables.GetValueOrDefault&lt;string&gt;("piiExcludedCategories", "[]");
                     var language   = context.Variables.GetValueOrDefault&lt;string&gt;("piiDetectionLanguage", "en");
                     var failClosed = context.Variables.GetValueOrDefault&lt;string&gt;("piiFailClosed", "false") == "true";
                     var scanRoles  = context.Variables.GetValueOrDefault&lt;string&gt;("piiScanRoles", "[\"user\",\"assistant\",\"tool\"]");
-
-                    JObject bodyObj;
-                    try { bodyObj = JObject.Parse(inputText); } catch { bodyObj = new JObject(); }
 
                     JArray excludedArr;
                     try { excludedArr = JArray.Parse(excCats); } catch { excludedArr = new JArray(); }
@@ -48,16 +80,16 @@
                     try { scanRolesArr = JArray.Parse(scanRoles); }
                     catch { scanRolesArr = new JArray(new[] { "user", "assistant", "tool" }); }
 
-                    return new JObject(
-                        new JProperty("body", bodyObj),
-                        new JProperty("config", new JObject(
-                            new JProperty("fail_closed",         failClosed),
-                            new JProperty("excluded_categories", excludedArr),
-                            new JProperty("detection_language",  language),
-                            new JProperty("scan_roles",          scanRolesArr),
-                            new JProperty("correlation_id",      context.RequestId.ToString())
-                        ))
-                    ).ToString(Newtonsoft.Json.Formatting.None);
+                    var configObj = new JObject(
+                        new JProperty("fail_closed",         failClosed),
+                        new JProperty("excluded_categories", excludedArr),
+                        new JProperty("detection_language",  language),
+                        new JProperty("scan_roles",          scanRolesArr),
+                        new JProperty("correlation_id",      context.RequestId.ToString())
+                    );
+
+                    var bodyJson = string.IsNullOrWhiteSpace(inputText) ? "{}" : inputText;
+                    return "{\"body\":" + bodyJson + ",\"config\":" + configObj.ToString(Newtonsoft.Json.Formatting.None) + "}";
                 }</set-body>
             </send-request>
             <!-- Capture status code and elapsed time for diagnostics -->
@@ -74,12 +106,22 @@
             <!-- Read response body once (Body.As<string> with preserveContent avoids stream exhaustion) -->
             <set-variable name="piiExternalBodyStr" value="@{
                 var code = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;0&quot;);
-                if (code != &quot;200&quot;) { return &quot;&quot;; }
+                if (code != &quot;200&quot;) { return &quot;{}&quot;; }
                 try {
                     var r = context.Variables.GetValueOrDefault&lt;IResponse&gt;(&quot;piiExternalResponse&quot;);
-                    return r != null ? r.Body.As&lt;string&gt;(preserveContent: true) : &quot;&quot;;
-                } catch { return &quot;&quot;; }
+                    return r != null ? (r.Body.As&lt;string&gt;(preserveContent: true) ?? &quot;{}&quot;) : &quot;{}&quot;;
+                } catch { return &quot;{}&quot;; }
             }" />
+            <!-- Log inbound response from PII service -->
+            <trace source="pii-anonymization" severity="verbose">
+                <message>PII inbound response</message>
+                <metadata name="event-type" value="pii-inbound" />
+                <metadata name="request-id" value="@(context.RequestId.ToString())" />
+                <metadata name="subscription-id" value="@(context.Subscription.Id)" />
+                <metadata name="pii-status-code" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDetectionStatusCode&quot;, &quot;0&quot;))" />
+                <metadata name="pii-duration-ms" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiDurationMs&quot;, &quot;0&quot;))" />
+                <metadata name="pii-response-bytes" value="@((context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiExternalBodyStr&quot;, &quot;{}&quot;)).Length.ToString())" />
+            </trace>
             <!-- Success: HTTP 200, status=="ok", full_coverage==true, redacted_body present -->
             <choose>
                 <when condition="@{
@@ -99,9 +141,9 @@
                         var redacted = JObject.Parse(body)[&quot;redacted_body&quot;].ToString(Newtonsoft.Json.Formatting.None);
                         // Guard: if the original body had messages but redacted_body has none,
                         // the request body was lost in transit (APIM body-parse failure → empty JObject).
-                        // Fall back to the original piiInputContent to avoid sending messages:[] to Azure OAI.
+                        // Fall back to the original request body to avoid sending messages:[] to Azure OAI.
                         try {
-                            var orig     = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;{}&quot;);
+                            var orig     = context.Request.Body.As&lt;string&gt;(preserveContent: true);
                             var origMsgs = JObject.Parse(orig)[&quot;messages&quot;] as JArray;
                             if (origMsgs != null &amp;&amp; origMsgs.Count &gt; 0) {
                                 var redactedMsgs = JObject.Parse(redacted)[&quot;messages&quot;] as JArray;
@@ -113,7 +155,7 @@
                         return redacted;
                     }" />
                     <set-variable name="piiContentChanged" value="@{
-                        var orig = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;&quot;);
+                        var orig = context.Request.Body.As&lt;string&gt;(preserveContent: true);
                         var anon = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiAnonymizedContent&quot;, &quot;&quot;);
                         return (!string.IsNullOrEmpty(anon) &amp;&amp; orig != anon) ? &quot;true&quot; : &quot;false&quot;;
                     }" />
@@ -194,7 +236,7 @@
                         <otherwise>
                             <!-- Fail-open: pass original unredacted body through -->
                             <set-variable name="piiAnonymizedContent"
-                                value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;{}&quot;))" />
+                                value="@(context.Request.Body.As&lt;string&gt;(preserveContent: true))" />
                         </otherwise>
                     </choose>
                 </otherwise>
@@ -203,7 +245,7 @@
         <!-- PII disabled: pass original body through unchanged -->
         <otherwise>
             <set-variable name="piiAnonymizedContent"
-                value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;piiInputContent&quot;, &quot;{}&quot;))" />
+                value="@(context.Request.Body.As&lt;string&gt;(preserveContent: true))" />
         </otherwise>
     </choose>
 </fragment>
