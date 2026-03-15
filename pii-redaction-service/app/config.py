@@ -22,7 +22,7 @@ class Settings(BaseSettings):
     language_api_key: str | None = None
 
     # Language API version to target
-    language_api_version: str = "2025-11-15-preview"
+    language_api_version: str = "2024-11-01"  # Stable GA version
 
     # Per-batch HTTP timeout in seconds (APIM per-call budget)
     per_batch_timeout_seconds: int = 10
