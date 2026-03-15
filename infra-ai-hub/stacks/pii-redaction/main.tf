@@ -26,9 +26,10 @@ module "pii_redaction_service" {
   container_registry_url = lookup(local.pii_redaction_config, "container_registry_url", "ghcr.io")
   container_image_name   = lookup(local.pii_redaction_config, "container_image_name", "bcgov/ai-hub-tracking/pii-redaction-service")
   container_image_tag    = var.container_image_tag_svc_pii_redaction != "" ? var.container_image_tag_svc_pii_redaction : lookup(local.pii_redaction_config, "container_image_tag", "latest")
-
+  language_api_version   = var.language_api_version
+  # https://learn.microsoft.com/en-gb/azure/container-apps/containers#allocations
   cpu          = lookup(local.pii_redaction_config, "cpu", 0.25)
-  memory       = lookup(local.pii_redaction_config, "memory", "512Mi")
+  memory       = lookup(local.pii_redaction_config, "memory", "0.5Gi")
   min_replicas = lookup(local.pii_redaction_config, "min_replicas", 1)
   max_replicas = lookup(local.pii_redaction_config, "max_replicas", 5)
   log_level    = lookup(local.pii_redaction_config, "log_level", "INFO")

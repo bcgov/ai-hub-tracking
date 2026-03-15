@@ -71,7 +71,6 @@ variable "language_service_id" {
 variable "language_api_version" {
   description = "Language API version string (PII_LANGUAGE_API_VERSION)."
   type        = string
-  default     = "2025-11-15-preview"
 }
 
 # ---------------------------------------------------------------------------

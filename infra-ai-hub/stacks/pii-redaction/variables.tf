@@ -69,3 +69,8 @@ variable "container_image_tag_svc_pii_redaction" {
   type        = string
   default     = ""
 }
+variable "language_api_version" {
+  description = "Override Language API version string (empty = use config default, typically stable GA version)"
+  type        = string
+  default     = ""
+}
