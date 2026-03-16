@@ -3221,14 +3221,14 @@ module "storage" {
 
 <p>The AI Hub uses Azure Language Service PII recognition to redact personally identifiable information from chat completion payloads before they reach upstream LLM backends. APIM delegates all PII processing to a dedicated external service rather than calling the Language API inline, because APIM policies have no loop construct and the Language API imposes strict per-call limits.</p>
 
-<p>The Azure Language Service <code>/language/:analyze-text</code> endpoint accepts a <strong>maximum of 5 documents per call</strong>, and each document is limited to 5 120 characters. Real-world chat completion requests can contain many messages or very long messages that chunk into more than 5 documents. Covering the full payload requires sequential batched calls with deadline enforcement — logic that belongs in a real programming language, not APIM XML.</p>
+<p>The Azure Language Service <code>/language/:analyze-text</code> endpoint accepts a <strong>maximum of 5 documents per call</strong>, and each document is limited to 5 120 characters. Real-world chat completion requests can contain many messages or very long messages that chunk into more than 5 documents. Covering the full payload requires batched calls with deadline enforcement and transient retry handling — logic that belongs in a real programming language, not APIM XML.</p>
 
 <div class="alert alert-warning">
     <div class="alert-icon">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
     </div>
     <div>
-        <strong>The core constraint:</strong> APIM policies cannot loop. A single <code>send-request</code> covers at most 5 documents. Payloads exceeding that limit need an external orchestrator that can issue sequential batched calls within the APIM timeout budget.
+        <strong>The core constraint:</strong> APIM policies cannot loop. A single <code>send-request</code> covers at most 5 documents. Payloads exceeding that limit need an external orchestrator that can issue batched calls, handle transient retry/backoff, and stay within the APIM timeout budget.
     </div>
 </div>
 
@@ -3240,7 +3240,7 @@ module "storage" {
         <ul style="margin-bottom: 0;">
             <li>Dedicated FastAPI service deployed as a Container App on the shared internal CAE</li>
             <li>APIM routes all PII-enabled requests to the external service</li>
-            <li>Service handles sequential batching, deadline enforcement, and coverage verification</li>
+            <li>Service handles bounded batching, retry/backoff, deadline enforcement, and coverage verification</li>
             <li>Single code path keeps the APIM policy simple</li>
         </ul>
     </div>
@@ -3248,7 +3248,7 @@ module "storage" {
         <h4 style="margin-top: 0;">Azure Functions (Consumption or Flex)</h4>
         <ul style="margin-bottom: 0;">
             <li>Serverless compute that scales to zero</li>
-            <li>Cold start latency (seconds) conflicts with the 60 s APIM timeout budget</li>
+            <li>Cold start latency (seconds) conflicts with the 90 s APIM timeout budget</li>
             <li>Less control over runtime, networking, and concurrency model</li>
             <li>Does not align with existing Container App Environment already in use</li>
         </ul>
@@ -3279,11 +3279,11 @@ module "storage" {
 <h3>Rationale</h3>
 
 <ul>
-    <li><strong>Language API batching limit:</strong> The <code>/language/:analyze-text</code> endpoint accepts at most 5 documents per call (each up to 5 120 chars). Payloads with many or long messages exceed this and need sequential batch calls that APIM policies cannot express.</li>
-    <li><strong>APIM cannot loop:</strong> Policy XML has no iteration construct. Hard-coding multiple <code>send-request</code> blocks is brittle, hard to test, and caps out quickly. A real programming language (Python + asyncio) handles batching, timeouts, and error recovery naturally.</li>
+    <li><strong>Language API batching limit:</strong> The <code>/language/:analyze-text</code> endpoint accepts at most 5 documents per call (each up to 5 120 chars). Payloads with many or long messages exceed this and need orchestrated batch calls that APIM policies cannot express.</li>
+    <li><strong>APIM cannot loop:</strong> Policy XML has no iteration construct. Hard-coding multiple <code>send-request</code> blocks is brittle, hard to test, and caps out quickly. A real programming language (Python + asyncio) handles batching, timeouts, retry/backoff, and error recovery naturally.</li>
     <li><strong>Single routing path:</strong> A single route from APIM to the external service keeps the policy fragment simple. The service handles all payloads with the same batching logic regardless of size.</li>
     <li><strong>Reuse existing infrastructure:</strong> The shared Container App Environment, Managed Identity RBAC, GHCR image builds, and Terraform module patterns are already in place. Adding one more Container App is incremental.</li>
-    <li><strong>Timeout budget alignment:</strong> The service enforces a 55 s total processing deadline that fits within the 60 s APIM <code>send-request</code> timeout, with per-batch timeouts (10 s) providing granular failure isolation.</li>
+    <li><strong>Timeout budget alignment:</strong> The service enforces an 85 s total processing deadline that fits within the 90 s APIM <code>send-request</code> timeout, with per-attempt timeouts (10 s) and bounded transient retries for 429 and 5xx responses.</li>
     <li><strong>Fail-open / fail-closed flexibility:</strong> The service returns a structured response with coverage status. APIM decides whether to block (503) or pass through based on the tenant's <code>fail_closed</code> configuration.</li>
     <li><strong>Testability:</strong> Python unit tests cover chunking, batching, reassembly, and API error handling — far easier to maintain than equivalent logic embedded in APIM XML.</li>
 </ul>
@@ -3304,10 +3304,11 @@ module "storage" {
 │                  └─────────┬────────────────────────┘                │
 │                            │                                         │
 │                  ┌─────────┴────────────────────────┐                │
-│                  │  Sequential batches               │                │
-│                  │  (max 5 docs × 10 batches)       │                │
+│                  │  Bounded concurrent batches       │                │
+│                  │  (max 5 docs × 15 batches)       │                │
 │                  │  Word-boundary chunking            │                │
-│                  │  Deadline enforcement (55s)        │                │
+│                  │  Retry-after / backoff handling    │                │
+│                  │  Deadline enforcement (85s)        │                │
 │                  │  Full-coverage check               │                │
 │                  └─────────┬────────────────────────┘                │
 │                            │                                         │
@@ -3336,19 +3337,24 @@ module "storage" {
         <td>Language API batch limit</td>
     </tr>
     <tr>
-        <td>Max sequential batches</td>
-        <td>10 (→ 50 documents)</td>
+        <td>Max batches per request</td>
+        <td>15 (→ 75 documents)</td>
         <td>Caps total processing time; rejects with 413 if exceeded</td>
     </tr>
     <tr>
-        <td>Per-batch timeout</td>
+        <td>Per-attempt timeout</td>
         <td>10 s</td>
         <td>Isolate slow Language API calls</td>
     </tr>
     <tr>
         <td>Total processing timeout</td>
-        <td>55 s</td>
-        <td>Fits within APIM 60 s send-request timeout</td>
+        <td>85 s</td>
+        <td>Fits within APIM 90 s send-request timeout</td>
+    </tr>
+    <tr>
+        <td>Transient retry handling</td>
+        <td>429 + 5xx</td>
+        <td>Honor <code>Retry-After</code> for 429 and use exponential backoff for 5xx, all within the same 85 s budget</td>
     </tr>
     <tr>
         <td>Chunking strategy</td>
@@ -3378,7 +3384,7 @@ module "storage" {
 <ul>
     <li><strong>Reuse proven patterns:</strong> The Container App module, GHCR build workflow, and deploy ordering follow the same conventions as the key-rotation job</li>
     <li><strong>Integration tests:</strong> The APIM integration test suite covers PII redaction end-to-end through the external service</li>
-    <li><strong>Conservative thresholds:</strong> The 50-document cap and 55 s deadline ensure the service stays within APIM timeout bounds even under adverse conditions</li>
+    <li><strong>Conservative thresholds:</strong> The 75-document cap and 85 s deadline ensure the service stays within APIM timeout bounds even under adverse conditions, including transient retry/backoff</li>
 </ul>
 
 <h3>References</h3>

@@ -4,7 +4,7 @@ A FastAPI microservice that handles PII redaction for all APIM-proxied chat requ
 
 ## Why it exists
 
-Azure Language Service accepts a maximum of 5 documents and 5 000 characters per document in a single synchronous `/language/:analyze-text` call. Chat payloads routinely exceed these limits. This service handles word-boundary chunking, sequential batching (up to 10 batches of 5 documents each), rolling timeouts, and full-coverage verification transparently — keeping the APIM policy fragment thin and testable.
+Azure Language Service accepts a maximum of 5 documents and 5 000 characters per document in a single synchronous `/language/:analyze-text` call. Chat payloads routinely exceed these limits. This service handles word-boundary chunking, bounded concurrent batching, rolling deadlines, and transient retry/backoff for 429 and 5xx responses — keeping the APIM policy fragment thin and testable.
 
 ## Architecture
 
@@ -14,8 +14,9 @@ Client → App Gateway → APIM
                          └── POST /redact (this service)
                                   │
                                   ├── word-boundary chunking (5 000 chars)
-                                  ├── sequential batches (max 5 docs × max 10 batches)
-                                  ├── asyncio deadline enforcement (55 s)
+                                  ├── bounded concurrent batches (max 5 docs × max 15 batches)
+                                  ├── retry-after / exponential backoff for 429 and 5xx
+                                  ├── asyncio deadline enforcement (85 s)
                                   ├── full-coverage check
                                   └── reassembled redacted body → APIM
 ```
@@ -26,9 +27,11 @@ Client → App Gateway → APIM
 |---|---|
 | Max chars per document | 5 000 |
 | Max documents per Language API call | 5 |
-| Max sequential batches | 10 (→ 50 docs = rejects with 413) |
-| Per-batch timeout | 10 s |
-| Total processing timeout | 55 s (APIM 60 s surface) |
+| Max batches per request | 15 (→ 75 docs = rejects with 413) |
+| Per-attempt Language API timeout | 10 s |
+| Total processing timeout | 85 s (APIM 90 s surface) |
+| 429 retry behavior | Honor `Retry-After`, otherwise exponential backoff |
+| 5xx retry behavior | Exponential backoff |
 
 ## Local development
 
@@ -105,8 +108,11 @@ docker run --rm -e PII_LANGUAGE_ENDPOINT=https://... -p 8000:8000 pii-redaction-
 | `PII_ENVIRONMENT` | | `Azure` | `Azure` uses Managed Identity; `local` uses API key auth |
 | `PII_LANGUAGE_API_KEY` | ✅ when `local` | — | Language Service API key (local only) |
 | `PII_LANGUAGE_API_VERSION` | | `2025-11-15-preview` | Language API version |
-| `PII_PER_BATCH_TIMEOUT_SECONDS` | | `10` | Timeout per Language API batch call |
-| `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` | | `55` | Overall deadline for all batches |
+| `PII_PER_BATCH_TIMEOUT_SECONDS` | | `10` | Timeout per individual Language API attempt |
+| `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` | | `85` | Overall deadline for the full request, including retries and backoff |
+| `PII_TRANSIENT_RETRY_ATTEMPTS` | | `4` | Maximum retries for transient 429 and 5xx responses after the first attempt |
+| `PII_RETRY_BACKOFF_BASE_SECONDS` | | `1` | Base delay for exponential backoff |
+| `PII_RETRY_BACKOFF_MAX_SECONDS` | | `10` | Maximum exponential backoff delay when `Retry-After` is absent |
 | `PII_MAX_CONCURRENT_BATCHES` | | `15` | Reject payloads requiring more than this many batches |
 | `PII_MAX_BATCH_CONCURRENCY` | | `3` | Number of Language API batches processed concurrently |
 | `PII_MAX_DOC_CHARS` | | `5000` | Max characters per Language API document |
@@ -157,10 +163,49 @@ Redacts PII from chat messages and returns the modified body.
 
 **Payload too large (413):** More batches required than `max_concurrent_batches`.
 
-**Service unavailable (503):** Language API error or timeout.
+**Service unavailable (503):** Language API error, retry budget exhaustion, or total request timeout.
+
+## Retry behavior
+
+- `429 Too Many Requests`: the service honors `Retry-After`, `retry-after-ms`, or `x-ms-retry-after-ms` when present. If the service does not provide a retry hint, the client falls back to exponential backoff.
+- `500-599`: the service retries with exponential backoff.
+- All retries and backoff remain bounded by `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS`, so a single redact request never exceeds the service's 85 second processing budget.
 
 ## Container image
 
 Built via `.github/workflows/.builds.yml` and pushed to `ghcr.io/bcgov/ai-hub-tracking/pii-redaction-service`.
 
 Deployed as a Container App (HTTP-triggered, internal ingress only) in the shared Container App Environment.
+
+## Why REST Instead of the SDK
+
+REST is the better fit for this service because the implementation needs tight control over batching, retries, and the overall APIM request budget.
+
+### Comparison
+
+| Factor | REST (`httpx`) | SDK (`azure-ai-textanalytics`) |
+|---|---|---|
+| Chunking control | Full control. `orchestrator.py` builds batches exactly as needed. | More abstraction around document handling and batching. |
+| Retry control | Custom retry loop respects `request_deadline` and the APIM 90 second ceiling. | Built-in retries are not aware of the full request budget; they would still need to be overridden. |
+| Timeout precision | Uses `asyncio.wait_for()` with `min(per_batch_timeout, remaining_budget)` per attempt. | Timeout handling is less precise for this deadline-driven flow. |
+| Response parsing | Reads `response.json()` directly with no extra wrapper layer. | Returns SDK result objects that would need to be unwrapped back into the service's internal structures. |
+| Dependencies | Keeps the stack lean: `httpx` plus `azure-identity`. | Adds another client layer and its supporting packages. |
+| Async behavior | Native `httpx.AsyncClient` with explicit connection pooling. | Async client is available, but adds abstraction without solving the core batching problem. |
+| API version control | Explicit `api-version=2025-11-15-preview` in the request URL. | API support is tied to the SDK version in use. |
+
+### When the SDK Would Make Sense
+
+- If the service needed several Language Service features through one shared client surface.
+- If fine-grained request-budget control was not important.
+- If the per-document wrapper overhead did not matter for the request path.
+
+### What the Current REST Client Already Handles
+
+| Concern | Current implementation |
+|---|---|
+| Authentication | `DefaultAzureCredential` in Azure, API key fallback for local development |
+| Transient retry handling | Honors `Retry-After` for `429`, uses exponential backoff for `5xx` |
+| Budget-aware timeouts | Caps each attempt against the remaining `request_deadline` |
+| Connection management | Reuses a shared `httpx.AsyncClient` for pooling across requests |
+
+For this service, the SDK would add abstraction, not capability. The REST client already implements the pieces that matter most to correctness and latency.

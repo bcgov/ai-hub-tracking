@@ -65,8 +65,13 @@ def client(monkeypatch):
 
 class TestHealth:
     def test_health_returns_ok(self, client):
+        # Given the API test client is running.
         c, _ = client
+
+        # When the health endpoint is called.
         response = c.get("/health")
+
+        # Then the service reports a healthy status.
         assert response.status_code == 200
         assert response.json()["status"] == "healthy"
 
@@ -89,15 +94,21 @@ class TestRedact:
     }
 
     def test_redact_success(self, client):
+        # Given a valid redact request and a successful Language API response.
         c, mock_lc = client
         mock_lc.analyze_pii = AsyncMock(return_value=_make_language_response(["1_0"]))
+
+        # When the redact endpoint is called.
         response = c.post("/redact", json=self._BASE_REQUEST)
+
+        # Then the request succeeds with full coverage.
         assert response.status_code == 200
         data = response.json()
         assert data["status"] == "ok"
         assert data["full_coverage"] is True
 
     def test_system_message_not_sent_to_language_api(self, client):
+        # Given a request containing both system and user messages.
         c, mock_lc = client
         captured_docs: list = []
 
@@ -106,15 +117,24 @@ class TestRedact:
             return _make_language_response([d["id"] for d in documents])
 
         mock_lc.analyze_pii = capture_analyze
+
+        # When the redact endpoint is called.
         c.post("/redact", json=self._BASE_REQUEST)
+
+        # Then only scannable roles are forwarded to the Language API.
         # Only the "user" message (index 1) should have been sent
         assert all("1_" in d["id"] for d in captured_docs)
         assert not any("0_" in d["id"] for d in captured_docs)
 
     def test_empty_messages_returns_success(self, client):
+        # Given a request with no messages.
         c, mock_lc = client
         request = {**self._BASE_REQUEST, "body": {"model": "gpt-4o", "messages": []}}
+
+        # When the redact endpoint is called.
         response = c.post("/redact", json=request)
+
+        # Then the service succeeds without creating documents.
         assert response.status_code == 200
         assert response.json()["diagnostics"]["total_docs"] == 0
 
@@ -139,6 +159,7 @@ class TestReassembly:
 
     def test_single_chunk_message(self, client):
         """Short message → one chunk → redacted text in correct position."""
+        # Given one short user message.
         c, mock_lc = client
         mock_lc.analyze_pii = _auto_redact
         request = {
@@ -148,7 +169,11 @@ class TestReassembly:
             },
             "config": {"scan_roles": ["user"]},
         }
+
+        # When the redact endpoint is called.
         resp = c.post("/redact", json=request)
+
+        # Then the single redacted chunk is written back in place.
         assert resp.status_code == 200
         data = resp.json()
         assert data["full_coverage"] is True
@@ -159,6 +184,7 @@ class TestReassembly:
 
     def test_multi_chunk_message_concatenated(self, client):
         """Message exceeding max_doc_chars → chunks concatenated in order."""
+        # Given one message that forces chunking.
         c, mock_lc = client
         mock_lc.analyze_pii = _auto_redact
         # Build content >5000 chars to force chunking (default max_doc_chars=5000)
@@ -170,7 +196,11 @@ class TestReassembly:
             },
             "config": {"scan_roles": ["user"]},
         }
+
+        # When the redact endpoint is called.
         resp = c.post("/redact", json=request)
+
+        # Then the chunks are reassembled in their original order.
         assert resp.status_code == 200
         data = resp.json()
         assert data["full_coverage"] is True
@@ -182,6 +212,7 @@ class TestReassembly:
 
     def test_multiple_messages_each_redacted(self, client):
         """Each scannable message gets its own redacted content."""
+        # Given multiple scannable messages.
         c, mock_lc = client
         mock_lc.analyze_pii = _auto_redact
         request = {
@@ -195,7 +226,11 @@ class TestReassembly:
             },
             "config": {"scan_roles": ["user", "assistant"]},
         }
+
+        # When the redact endpoint is called.
         resp = c.post("/redact", json=request)
+
+        # Then each message is redacted independently.
         assert resp.status_code == 200
         msgs = resp.json()["redacted_body"]["messages"]
         assert len(msgs) == 3
@@ -205,6 +240,7 @@ class TestReassembly:
 
     def test_skipped_roles_preserved_verbatim(self, client):
         """Messages with roles outside scan_roles pass through unchanged."""
+        # Given a request with one skipped role and one scanned role.
         c, mock_lc = client
         mock_lc.analyze_pii = _auto_redact
         request = {
@@ -217,7 +253,11 @@ class TestReassembly:
             },
             "config": {"scan_roles": ["user"]},
         }
+
+        # When the redact endpoint is called.
         resp = c.post("/redact", json=request)
+
+        # Then skipped roles remain unchanged while scanned roles are redacted.
         assert resp.status_code == 200
         data = resp.json()
         msgs = data["redacted_body"]["messages"]
@@ -227,6 +267,7 @@ class TestReassembly:
 
     def test_extra_body_fields_preserved_in_output(self, client):
         """Top-level body fields (model, temperature) survive reassembly."""
+        # Given a request body with additional top-level fields.
         c, mock_lc = client
         mock_lc.analyze_pii = _auto_redact
         request = {
@@ -238,7 +279,11 @@ class TestReassembly:
             },
             "config": {"scan_roles": ["user"]},
         }
+
+        # When the redact endpoint is called.
         resp = c.post("/redact", json=request)
+
+        # Then the extra fields are preserved in the redacted body.
         assert resp.status_code == 200
         body = resp.json()["redacted_body"]
         assert body["model"] == "gpt-4o"
@@ -247,6 +292,7 @@ class TestReassembly:
 
     def test_message_order_preserved(self, client):
         """Output message order matches input regardless of scanning."""
+        # Given a request with scanned and unscanned messages in a fixed order.
         c, mock_lc = client
         mock_lc.analyze_pii = _auto_redact
         request = {
@@ -261,7 +307,11 @@ class TestReassembly:
             },
             "config": {"scan_roles": ["user", "assistant"]},
         }
+
+        # When the redact endpoint is called.
         resp = c.post("/redact", json=request)
+
+        # Then the output preserves the original message ordering.
         assert resp.status_code == 200
         msgs = resp.json()["redacted_body"]["messages"]
         assert [m["role"] for m in msgs] == ["system", "user", "assistant", "user"]
@@ -272,6 +322,7 @@ class TestReassembly:
 
     def test_null_content_message_passes_through(self, client):
         """Messages with null content are not scanned and pass through."""
+        # Given a request containing null content and regular text.
         c, mock_lc = client
         mock_lc.analyze_pii = _auto_redact
         request = {
@@ -284,7 +335,11 @@ class TestReassembly:
             },
             "config": {"scan_roles": ["user", "assistant"]},
         }
+
+        # When the redact endpoint is called.
         resp = c.post("/redact", json=request)
+
+        # Then null content is preserved and text content is redacted.
         assert resp.status_code == 200
         msgs = resp.json()["redacted_body"]["messages"]
         assert msgs[0]["content"] is None
@@ -292,6 +347,7 @@ class TestReassembly:
 
     def test_diagnostics_reflect_chunk_counts(self, client):
         """Diagnostics report correct total_docs and total_batches."""
+        # Given a request that produces several documents in one batch.
         c, mock_lc = client
         mock_lc.analyze_pii = _auto_redact
         request = {
@@ -305,7 +361,11 @@ class TestReassembly:
             },
             "config": {"scan_roles": ["user"]},
         }
+
+        # When the redact endpoint is called.
         resp = c.post("/redact", json=request)
+
+        # Then diagnostics report the expected document and batch counts.
         assert resp.status_code == 200
         diag = resp.json()["diagnostics"]
         assert diag["total_docs"] == 3
@@ -314,6 +374,7 @@ class TestReassembly:
 
     def test_mixed_scanned_and_unscanned_with_chunking(self, client):
         """Mix of scanned/unscanned roles with one long message that chunks."""
+        # Given a request with one long scanned message, one short scanned message, and one skipped message.
         c, mock_lc = client
         mock_lc.analyze_pii = _auto_redact
         long_content = "word " * 1100  # >5000 chars → 2+ chunks
@@ -328,7 +389,11 @@ class TestReassembly:
             },
             "config": {"scan_roles": ["user", "assistant"]},
         }
+
+        # When the redact endpoint is called.
         resp = c.post("/redact", json=request)
+
+        # Then chunked and unchunked messages are reassembled correctly and skipped roles pass through.
         assert resp.status_code == 200
         data = resp.json()
         msgs = data["redacted_body"]["messages"]
@@ -350,67 +415,112 @@ class TestReassembly:
 class TestBodyValidation:
     """Verify request body validation rejects malformed payloads.
 
-    Validation errors are converted to 503 by the RequestValidationError handler
-    so that APIM treats them as service failures rather than client errors.
+    Validation errors are converted to 422 by the RequestValidationError handler
+    so that APIM can distinguish client errors from service failures.
     """
 
-    def test_missing_body_returns_503(self, client):
+    def test_missing_body_returns_422(self, client):
+        # Given a request without the required body field.
         c, _ = client
+
+        # When the redact endpoint is called.
         resp = c.post("/redact", json={"config": {}})
-        assert resp.status_code == 503
+
+        # Then validation is surfaced as a 422 response.
+        assert resp.status_code == 422
 
     def test_missing_messages_passes_through(self, client):
+        # Given a body without messages.
         c, _ = client
+
+        # When the redact endpoint is called.
         resp = c.post("/redact", json={"body": {"model": "gpt-4o"}})
+
+        # Then the request succeeds without redaction work.
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
 
-    def test_messages_not_a_list_returns_503(self, client):
+    def test_messages_not_a_list_returns_422(self, client):
+        # Given a body where messages is not a list.
         c, _ = client
-        resp = c.post("/redact", json={"body": {"messages": "not a list"}})
-        assert resp.status_code == 503
 
-    def test_message_missing_role_returns_503(self, client):
+        # When the redact endpoint is called.
+        resp = c.post("/redact", json={"body": {"messages": "not a list"}})
+
+        # Then validation fails with a 422 response.
+        assert resp.status_code == 422
+
+    def test_message_missing_role_returns_422(self, client):
+        # Given a message missing the role field.
         c, _ = client
+
+        # When the redact endpoint is called.
         resp = c.post(
             "/redact",
             json={
                 "body": {"messages": [{"content": "missing role field"}]},
             },
         )
-        assert resp.status_code == 503
 
-    def test_messages_is_null_returns_503(self, client):
+        # Then validation fails with a 422 response.
+        assert resp.status_code == 422
+
+    def test_messages_is_null_returns_422(self, client):
+        # Given a request where messages is null.
         c, _ = client
+
+        # When the redact endpoint is called.
         resp = c.post("/redact", json={"body": {"messages": None}})
-        assert resp.status_code == 503
 
-    def test_body_is_null_returns_503(self, client):
+        # Then validation fails with a 422 response.
+        assert resp.status_code == 422
+
+    def test_body_is_null_returns_422(self, client):
+        # Given a request where body is null.
         c, _ = client
+
+        # When the redact endpoint is called.
         resp = c.post("/redact", json={"body": None})
-        assert resp.status_code == 503
 
-    def test_invalid_json_returns_503(self, client):
+        # Then validation fails with a 422 response.
+        assert resp.status_code == 422
+
+    def test_invalid_json_returns_422(self, client):
+        # Given malformed JSON payload bytes.
         c, _ = client
+
+        # When the redact endpoint is called.
         resp = c.post(
             "/redact",
             content=b"not valid json",
             headers={"content-type": "application/json"},
         )
-        assert resp.status_code == 503
+
+        # Then the request is treated as a validation error.
+        assert resp.status_code == 422
 
     def test_config_defaults_when_omitted(self, client):
         """Config field defaults are applied when config is not provided."""
+        # Given a request without an explicit config block.
         c, mock_lc = client
         mock_lc.analyze_pii = _auto_redact
         request = {"body": {"messages": [{"role": "user", "content": "Hi"}]}}
+
+        # When the redact endpoint is called.
         resp = c.post("/redact", json=request)
+
+        # Then default config values are applied and the request succeeds.
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
 
     def test_empty_messages_succeeds_with_zero_docs(self, client):
+        # Given a request with an empty messages list.
         c, _ = client
+
+        # When the redact endpoint is called.
         resp = c.post("/redact", json={"body": {"messages": []}})
+
+        # Then the service succeeds and reports zero documents.
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"

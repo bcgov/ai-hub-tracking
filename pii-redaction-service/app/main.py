@@ -67,9 +67,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             "environment": settings.environment,
             "auth_mode": "api_key" if is_local else "managed_identity",
             "language_endpoint": settings.language_endpoint,
+            "per_batch_timeout_seconds": settings.per_batch_timeout_seconds,
+            "total_processing_timeout_seconds": settings.total_processing_timeout_seconds,
             "max_docs_per_call": settings.max_docs_per_call,
             "max_concurrent_batches": settings.max_concurrent_batches,
             "max_batch_concurrency": settings.max_batch_concurrency,
+            "transient_retry_attempts": settings.transient_retry_attempts,
+            "retry_backoff_base_seconds": settings.retry_backoff_base_seconds,
+            "retry_backoff_max_seconds": settings.retry_backoff_max_seconds,
         },
     )
 
@@ -77,6 +82,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         endpoint=settings.language_endpoint,
         api_version=settings.language_api_version,
         per_batch_timeout=settings.per_batch_timeout_seconds,
+        transient_retry_attempts=settings.transient_retry_attempts,
+        retry_backoff_base_seconds=settings.retry_backoff_base_seconds,
+        retry_backoff_max_seconds=settings.retry_backoff_max_seconds,
         api_key=settings.language_api_key if is_local else None,
     )
     async with _language_client:
@@ -175,7 +183,7 @@ async def redact(redaction_request: RedactionRequest) -> JSONResponse:
 
     # RedactionFailure
     status_code = 413 if result.status == "payload-too-large" else 503
-    logger.warning(
+    logger.error(
         "Redaction failed",
         extra={
             "error": result.error,
@@ -212,7 +220,7 @@ async def _validation_exception_handler(request: Request, exc: RequestValidation
     )
     first_msg = errors[0]["msg"] if errors else "invalid request"
     failure = RedactionFailure(error=f"Request validation error: {first_msg}")
-    return JSONResponse(content=failure.model_dump(), status_code=503)
+    return JSONResponse(content=failure.model_dump(), status_code=422)
 
 
 @app.exception_handler(Exception)

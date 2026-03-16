@@ -5,6 +5,7 @@ All settings use the PII_ prefix.
 
 from __future__ import annotations
 
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -27,12 +28,19 @@ class Settings(BaseSettings):
     # Per-batch HTTP timeout in seconds (APIM per-call budget)
     per_batch_timeout_seconds: int = 10
 
-    # Total processing timeout budget in seconds (must be < APIM 60s timeout)
-    total_processing_timeout_seconds: int = 55
+    # Total processing timeout budget in seconds (must remain below APIM's 90s timeout)
+    total_processing_timeout_seconds: int = 85
+
+    # Maximum number of retries for transient 429/5xx responses after the first attempt.
+    transient_retry_attempts: int = 4
+
+    # Exponential backoff configuration used when Retry-After is absent or for 5xx responses.
+    retry_backoff_base_seconds: float = 1.0
+    retry_backoff_max_seconds: float = 10.0
 
     # Max Language API batches per request — reject with HTTP 413 if exceeded.
-    # Ceiling formula: ceil(N / max_batch_concurrency) × per_batch ≤ total_budget
-    # With concurrency=3 and per_batch=10s, budget=55s: ceil(N/3)×10 ≤ 55 → N ≤ 15
+    # This is a request-size guard, not a time guarantee. The total request deadline
+    # remains the authoritative upper bound when retries are in play.
     max_concurrent_batches: int = 15
 
     # Number of Language API calls allowed in flight simultaneously (Semaphore bound)
@@ -45,11 +53,31 @@ class Settings(BaseSettings):
     # Logging level (DEBUG | INFO | WARNING | ERROR)
     log_level: str = "INFO"
 
+    @model_validator(mode="after")
+    def validate_timeouts(self) -> Settings:
+        """Enforce retry and timeout invariants required by the APIM budget."""
+        if self.per_batch_timeout_seconds <= 0:
+            raise ValueError("PII_PER_BATCH_TIMEOUT_SECONDS must be > 0")
+        if self.total_processing_timeout_seconds <= 0:
+            raise ValueError("PII_TOTAL_PROCESSING_TIMEOUT_SECONDS must be > 0")
+        if self.total_processing_timeout_seconds > 85:
+            raise ValueError("PII_TOTAL_PROCESSING_TIMEOUT_SECONDS must be <= 85 (APIM backend timeout is 90s)")
+        if self.transient_retry_attempts < 0:
+            raise ValueError("PII_TRANSIENT_RETRY_ATTEMPTS must be >= 0")
+        if self.retry_backoff_base_seconds <= 0:
+            raise ValueError("PII_RETRY_BACKOFF_BASE_SECONDS must be > 0")
+        if self.retry_backoff_max_seconds <= 0:
+            raise ValueError("PII_RETRY_BACKOFF_MAX_SECONDS must be > 0")
+        if self.retry_backoff_base_seconds > self.retry_backoff_max_seconds:
+            raise ValueError("PII_RETRY_BACKOFF_BASE_SECONDS must be <= PII_RETRY_BACKOFF_MAX_SECONDS")
+        return self
+
 
 _settings: Settings | None = None
 
 
 def get_settings() -> Settings:
+    """Return the cached settings instance, creating it on first access."""
     global _settings
     if _settings is None:
         _settings = Settings()  # type: ignore[call-arg]

@@ -23,10 +23,18 @@ module "pii_redaction_service" {
   language_endpoint            = data.terraform_remote_state.shared.outputs.language_service_endpoint
   language_service_id          = data.terraform_remote_state.shared.outputs.language_service_id
 
-  container_registry_url = lookup(local.pii_redaction_config, "container_registry_url", "ghcr.io")
-  container_image_name   = lookup(local.pii_redaction_config, "container_image_name", "bcgov/ai-hub-tracking/pii-redaction-service")
-  container_image_tag    = var.container_image_tag_svc_pii_redaction != "" ? var.container_image_tag_svc_pii_redaction : lookup(local.pii_redaction_config, "container_image_tag", "latest")
-  language_api_version   = var.language_api_version
+  container_registry_url     = lookup(local.pii_redaction_config, "container_registry_url", "ghcr.io")
+  container_image_name       = lookup(local.pii_redaction_config, "container_image_name", "bcgov/ai-hub-tracking/pii-redaction-service")
+  container_image_tag        = var.container_image_tag_svc_pii_redaction != "" ? var.container_image_tag_svc_pii_redaction : lookup(local.pii_redaction_config, "container_image_tag", "latest")
+  language_api_version       = var.language_api_version
+  per_batch_timeout_seconds  = lookup(local.pii_redaction_config, "per_batch_timeout_seconds", 10)
+  transient_retry_attempts   = lookup(local.pii_redaction_config, "transient_retry_attempts", 4)
+  retry_backoff_base_seconds = lookup(local.pii_redaction_config, "retry_backoff_base_seconds", 1)
+  retry_backoff_max_seconds  = lookup(local.pii_redaction_config, "retry_backoff_max_seconds", 10)
+  max_concurrent_batches     = lookup(local.pii_redaction_config, "max_concurrent_batches", 15)
+  max_batch_concurrency      = lookup(local.pii_redaction_config, "max_batch_concurrency", 3)
+  max_doc_chars              = lookup(local.pii_redaction_config, "max_doc_chars", 5000)
+  max_docs_per_call          = lookup(local.pii_redaction_config, "max_docs_per_call", 5)
   # https://learn.microsoft.com/en-gb/azure/container-apps/containers#allocations
   cpu          = lookup(local.pii_redaction_config, "cpu", 0.25)
   memory       = lookup(local.pii_redaction_config, "memory", "0.5Gi")

@@ -60,7 +60,7 @@
                     }" />
             </trace>
             <!-- Send request to the pii-redaction Container App -->
-            <send-request mode="new" response-variable-name="piiExternalResponse" timeout="60" ignore-error="true">
+            <send-request mode="new" response-variable-name="piiExternalResponse" timeout="90" ignore-error="true">
                 <set-url>@(context.Variables.GetValueOrDefault&lt;string&gt;("piiExternalRedactionUrl", "") + "/redact")</set-url>
                 <set-method>POST</set-method>
                 <set-header name="Content-Type" exists-action="override">

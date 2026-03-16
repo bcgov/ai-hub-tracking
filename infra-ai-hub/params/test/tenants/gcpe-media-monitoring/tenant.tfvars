@@ -130,12 +130,12 @@ tenant = {
         content_filter = {
           base_policy_name = "Microsoft.DefaultV2"
           filters = [
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
           ]
@@ -150,12 +150,12 @@ tenant = {
         content_filter = {
           base_policy_name = "Microsoft.DefaultV2"
           filters = [
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
           ]
@@ -170,12 +170,12 @@ tenant = {
         content_filter = {
           base_policy_name = "Microsoft.DefaultV2"
           filters = [
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
           ]
@@ -191,12 +191,12 @@ tenant = {
         content_filter = {
           base_policy_name = "Microsoft.DefaultV2"
           filters = [
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
           ]
@@ -211,12 +211,12 @@ tenant = {
         content_filter = {
           base_policy_name = "Microsoft.DefaultV2"
           filters = [
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
           ]
@@ -232,12 +232,12 @@ tenant = {
         content_filter = {
           base_policy_name = "Microsoft.DefaultV2"
           filters = [
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
           ]
@@ -252,12 +252,12 @@ tenant = {
         content_filter = {
           base_policy_name = "Microsoft.DefaultV2"
           filters = [
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
           ]
@@ -273,12 +273,12 @@ tenant = {
         content_filter = {
           base_policy_name = "Microsoft.DefaultV2"
           filters = [
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
           ]
@@ -293,12 +293,12 @@ tenant = {
         content_filter = {
           base_policy_name = "Microsoft.DefaultV2"
           filters = [
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
           ]
@@ -314,12 +314,12 @@ tenant = {
         content_filter = {
           base_policy_name = "Microsoft.DefaultV2"
           filters = [
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
           ]
@@ -334,12 +334,12 @@ tenant = {
         content_filter = {
           base_policy_name = "Microsoft.DefaultV2"
           filters = [
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
           ]
@@ -354,12 +354,12 @@ tenant = {
         content_filter = {
           base_policy_name = "Microsoft.DefaultV2"
           filters = [
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "hate",     severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "sexual",   severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
             { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
           ]

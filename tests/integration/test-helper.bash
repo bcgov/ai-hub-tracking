@@ -5,6 +5,8 @@
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "${SCRIPT_DIR}/config.bash"
 
+APIM_REQUEST_TIMEOUT_SECONDS="${APIM_REQUEST_TIMEOUT_SECONDS:-120}"
+
 # Refresh tenant key from centralized hub Key Vault via Azure CLI.
 # Strategy:
 # 1) Try rotation metadata safe_slot first
@@ -109,7 +111,7 @@ apim_request() {
         -H "api-key: ${subscription_key}"           # APIM subscription key (SDK compatible)
         -H "Content-Type: application/json"
         -H "Accept: application/json"
-        --max-time 60                               # 60 second timeout
+        --max-time "${APIM_REQUEST_TIMEOUT_SECONDS}" # Client-side timeout for long APIM requests
     )
     
     local body_tmp=""
@@ -134,7 +136,7 @@ apim_request() {
             -H "api-key: ${subscription_key}"
             -H "Content-Type: application/json"
             -H "Accept: application/json"
-            --max-time 60
+            --max-time "${APIM_REQUEST_TIMEOUT_SECONDS}"
         )
         if [[ -n "${body_tmp}" ]]; then
             curl_opts+=(-d "@${body_tmp}")
@@ -170,7 +172,7 @@ apim_request_ocp() {
         -H "Ocp-Apim-Subscription-Key: ${subscription_key}"
         -H "Content-Type: application/json"
         -H "Accept: application/json"
-        --max-time 60                               # 60 second timeout
+        --max-time "${APIM_REQUEST_TIMEOUT_SECONDS}" # Client-side timeout for long APIM requests
     )
 
     local body_tmp=""
@@ -195,7 +197,7 @@ apim_request_ocp() {
             -H "Ocp-Apim-Subscription-Key: ${subscription_key}"
             -H "Content-Type: application/json"
             -H "Accept: application/json"
-            --max-time 60
+            --max-time "${APIM_REQUEST_TIMEOUT_SECONDS}"
         )
         if [[ -n "${body_tmp}" ]]; then
             curl_opts+=(-d "@${body_tmp}")
@@ -286,7 +288,7 @@ apim_request_with_headers() {
         -H "api-key: ${subscription_key}"
         -H "Content-Type: application/json"
         -H "Accept: application/json"
-        --max-time 60
+        --max-time "${APIM_REQUEST_TIMEOUT_SECONDS}"
     )
 
     local body_tmp=""
@@ -312,7 +314,7 @@ apim_request_with_headers() {
             -H "api-key: ${subscription_key}"
             -H "Content-Type: application/json"
             -H "Accept: application/json"
-            --max-time 60
+            --max-time "${APIM_REQUEST_TIMEOUT_SECONDS}"
         )
         if [[ -n "${body_tmp}" ]]; then
             curl_opts+=(-d "@${body_tmp}")

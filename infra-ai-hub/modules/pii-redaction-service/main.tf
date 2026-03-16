@@ -88,6 +88,18 @@ resource "azurerm_container_app" "service" {
         value = tostring(var.total_processing_timeout_seconds)
       }
       env {
+        name  = "PII_TRANSIENT_RETRY_ATTEMPTS"
+        value = tostring(var.transient_retry_attempts)
+      }
+      env {
+        name  = "PII_RETRY_BACKOFF_BASE_SECONDS"
+        value = tostring(var.retry_backoff_base_seconds)
+      }
+      env {
+        name  = "PII_RETRY_BACKOFF_MAX_SECONDS"
+        value = tostring(var.retry_backoff_max_seconds)
+      }
+      env {
         name  = "PII_MAX_CONCURRENT_BATCHES"
         value = tostring(var.max_concurrent_batches)
       }

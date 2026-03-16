@@ -168,6 +168,16 @@ shared_config = {
   }
 
   # ---------------------------------------------------------------------------
+  # PII Redaction Service
+  # ---------------------------------------------------------------------------
+  pii_redaction_service = {
+    per_batch_timeout_seconds  = 10 # Maximum duration for a single outbound Language API attempt
+    transient_retry_attempts   = 4  # Retry count for transient 429 and 5xx Language API responses
+    retry_backoff_base_seconds = 1  # Initial exponential backoff delay when Retry-After is absent
+    retry_backoff_max_seconds  = 10 # Cap for exponential backoff between retry attempts
+  }
+
+  # ---------------------------------------------------------------------------
   # App Configuration
   # ---------------------------------------------------------------------------
   # Centralized configuration store for feature flags and settings.
