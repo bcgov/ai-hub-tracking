@@ -176,3 +176,36 @@ Redacts PII from chat messages and returns the modified body.
 Built via `.github/workflows/.builds.yml` and pushed to `ghcr.io/bcgov/ai-hub-tracking/pii-redaction-service`.
 
 Deployed as a Container App (HTTP-triggered, internal ingress only) in the shared Container App Environment.
+
+## Why REST Instead of the SDK
+
+REST is the better fit for this service because the implementation needs tight control over batching, retries, and the overall APIM request budget.
+
+### Comparison
+
+| Factor | REST (`httpx`) | SDK (`azure-ai-textanalytics`) |
+|---|---|---|
+| Chunking control | Full control. `orchestrator.py` builds batches exactly as needed. | More abstraction around document handling and batching. |
+| Retry control | Custom retry loop respects `request_deadline` and the APIM 90 second ceiling. | Built-in retries are not aware of the full request budget; they would still need to be overridden. |
+| Timeout precision | Uses `asyncio.wait_for()` with `min(per_batch_timeout, remaining_budget)` per attempt. | Timeout handling is less precise for this deadline-driven flow. |
+| Response parsing | Reads `response.json()` directly with no extra wrapper layer. | Returns SDK result objects that would need to be unwrapped back into the service's internal structures. |
+| Dependencies | Keeps the stack lean: `httpx` plus `azure-identity`. | Adds another client layer and its supporting packages. |
+| Async behavior | Native `httpx.AsyncClient` with explicit connection pooling. | Async client is available, but adds abstraction without solving the core batching problem. |
+| API version control | Explicit `api-version=2025-11-15-preview` in the request URL. | API support is tied to the SDK version in use. |
+
+### When the SDK Would Make Sense
+
+- If the service needed several Language Service features through one shared client surface.
+- If fine-grained request-budget control was not important.
+- If the per-document wrapper overhead did not matter for the request path.
+
+### What the Current REST Client Already Handles
+
+| Concern | Current implementation |
+|---|---|
+| Authentication | `DefaultAzureCredential` in Azure, API key fallback for local development |
+| Transient retry handling | Honors `Retry-After` for `429`, uses exponential backoff for `5xx` |
+| Budget-aware timeouts | Caps each attempt against the remaining `request_deadline` |
+| Connection management | Reuses a shared `httpx.AsyncClient` for pooling across requests |
+
+For this service, the SDK would add abstraction, not capability. The REST client already implements the pieces that matter most to correctness and latency.
