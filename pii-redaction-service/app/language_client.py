@@ -121,7 +121,8 @@ class LanguageClient:
     def _get_retry_delay(self, response: httpx.Response, retry_number: int) -> float | None:
         """Return the retry delay for transient responses, or ``None`` if no retry applies."""
         if response.status_code == 429:
-            return self._parse_retry_after_seconds(response) or self._get_exponential_backoff_delay(retry_number)
+            parsed = self._parse_retry_after_seconds(response)
+            return parsed if parsed is not None else self._get_exponential_backoff_delay(retry_number)
         if 500 <= response.status_code <= 599:
             return self._get_exponential_backoff_delay(retry_number)
         return None
@@ -174,7 +175,7 @@ class LanguageClient:
                     ),
                     timeout=request_timeout,
                 )
-            except TimeoutError as exc:
+            except (TimeoutError, httpx.TimeoutException) as exc:
                 raise TimeoutError("Language API batch request timed out") from exc
 
             retry_delay = self._get_retry_delay(response, retry_count + 1)

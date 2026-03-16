@@ -108,3 +108,55 @@ async def test_analyze_pii_fails_when_retry_after_exceeds_remaining_budget(
 
         # Then the client fails immediately instead of sleeping past the deadline.
         sleep.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_analyze_pii_honors_retry_after_zero(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Given a 429 response with Retry-After: 0 (retry immediately).
+    async with LanguageClient(
+        endpoint="https://example.cognitiveservices.azure.com",
+        api_version="2024-11-01",
+        api_key="test-key",
+        transient_retry_attempts=2,
+        retry_backoff_base_seconds=5.0,
+    ) as client:
+        request = httpx.Request("POST", "https://example.cognitiveservices.azure.com/language/:analyze-text")
+        client._http.post = AsyncMock(
+            side_effect=[
+                httpx.Response(429, headers={"Retry-After": "0"}, request=request),
+                httpx.Response(200, json=_success_payload(), request=request),
+            ]
+        )
+        sleep = AsyncMock()
+        monkeypatch.setattr("app.language_client.asyncio.sleep", sleep)
+
+        # When the client analyzes a document within the request deadline.
+        result = await client.analyze_pii(
+            documents=[{"id": "0_0", "text": "hello"}],
+            request_deadline=time.monotonic() + 10,
+        )
+
+        # Then the client retries with zero delay (not exponential backoff).
+        assert result == _success_payload()
+        sleep.assert_awaited_once_with(0.0)
+        assert client._http.post.await_count == 2
+
+
+@pytest.mark.asyncio
+async def test_analyze_pii_catches_httpx_timeout_exception() -> None:
+    # Given the httpx client raises its own TimeoutException.
+    async with LanguageClient(
+        endpoint="https://example.cognitiveservices.azure.com",
+        api_version="2024-11-01",
+        api_key="test-key",
+    ) as client:
+        client._http.post = AsyncMock(
+            side_effect=httpx.ReadTimeout("read timed out"),
+        )
+
+        # When the client analyzes a document.
+        with pytest.raises(TimeoutError, match="Language API batch request timed out"):
+            await client.analyze_pii(
+                documents=[{"id": "0_0", "text": "hello"}],
+                request_deadline=time.monotonic() + 10,
+            )
