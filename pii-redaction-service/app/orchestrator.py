@@ -159,6 +159,7 @@ async def _run_batch(
     batch: list[ChunkEntry],
     language: str,
     excluded_categories: list[str],
+    request_deadline: float,
 ) -> tuple[dict[str, str], int]:
     """
     Send one batch to the Language API and return a map of doc_id → redacted text.
@@ -168,6 +169,7 @@ async def _run_batch(
         documents=documents,
         language=language,
         excluded_categories=excluded_categories or None,
+        request_deadline=request_deadline,
     )
 
     redacted: dict[str, str] = {}
@@ -185,7 +187,7 @@ async def _run_batch_with_semaphore(
     batch: list[ChunkEntry],
     language: str,
     excluded_categories: list[str],
-    per_batch_timeout: float,
+    request_deadline: float,
 ) -> tuple[dict[str, str], int]:
     """
     Acquire a semaphore slot, then execute one Language API batch.
@@ -203,9 +205,10 @@ async def _run_batch_with_semaphore(
             - ``max_batch_concurrency`` is the worker-pool size. It controls how many
                 of those allowed batches can actively execute at the same time.
 
-    The per-batch timeout applies only to the outbound API call after a worker
-    slot is acquired. Waiting on the semaphore is governed by the outer,
-    end-to-end request deadline in ``orchestrate_redaction``.
+    Waiting on the semaphore and any retry/backoff delay is governed by the
+    outer, end-to-end request deadline in ``orchestrate_redaction``. The
+    per-attempt HTTP timeout is enforced inside ``LanguageClient`` so retrying a
+    transient response does not escape the overall request budget.
 
         Example with ``max_batch_concurrency = 3``:
             - If a request produces 8 batches, batches 1-3 start immediately.
@@ -215,10 +218,7 @@ async def _run_batch_with_semaphore(
                 finish before the outer request deadline expires.
     """
     async with sem:
-        return await asyncio.wait_for(
-            _run_batch(client, batch, language, excluded_categories),
-            timeout=per_batch_timeout,
-        )
+        return await _run_batch(client, batch, language, excluded_categories, request_deadline)
 
 
 # ---------------------------------------------------------------------------
@@ -347,7 +347,7 @@ async def orchestrate_redaction(
                         batch,
                         config.detection_language,
                         config.excluded_categories,
-                        settings.per_batch_timeout_seconds,
+                        deadline,
                     )
                     for batch in batches
                 ],

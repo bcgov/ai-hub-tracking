@@ -1117,7 +1117,7 @@
         <li>A client request reaches the API Management gateway and includes content that may contain sensitive information.</li>
         <li>The tenant's gateway policy reads that tenant's redaction settings.</li>
         <li>The <code>pii-anonymization</code> fragment sends the request body and redaction settings to the PII Redaction Service by calling <code>POST /redact</code>.</li>
-        <li>The redaction service breaks large messages into smaller documents, sends them to the language service in small batches, and then reassembles the response.</li>
+        <li>The redaction service breaks large messages into smaller documents, sends them to the language service in bounded concurrent batches, retries transient throttling and 5xx responses within the request deadline, and then reassembles the response.</li>
         <li>The service returns the redacted body together with coverage status and diagnostic details.</li>
         <li>The API Management gateway replaces the original request body with the redacted content and forwards the request to the backend service.</li>
     </ol>
@@ -1138,12 +1138,12 @@
         </ul>
     </li>
     <li>The policy includes the <code>pii-anonymization</code> policy fragment.</li>
-    <li>The fragment creates a JSON payload that contains the original request body and the redaction settings, then sends it to the external PII Redaction Service by using <code>&lt;send-request&gt;</code> with a <code>POST /redact</code> call and a 60-second timeout.</li>
+    <li>The fragment creates a JSON payload that contains the original request body and the redaction settings, then sends it to the external PII Redaction Service by using <code>&lt;send-request&gt;</code> with a <code>POST /redact</code> call and a 90-second timeout.</li>
     <li>The PII Redaction Service:
         <ul>
             <li>Extracts chat messages and chunks long messages into documents (max 5 000 chars each, word-boundary split).</li>
-            <li>Calls <code>/language/:analyze-text</code> in sequential batches of up to 5 documents (max 10 batches).</li>
-            <li>Enforces a per-batch timeout (10 s) and a total processing deadline (55 s).</li>
+            <li>Calls <code>/language/:analyze-text</code> in batches of up to 5 documents, with bounded concurrency and a maximum of 15 batches per request.</li>
+            <li>Enforces a per-attempt timeout (10 s), honors <code>Retry-After</code> for 429 responses, applies exponential backoff for 5xx responses, and keeps all retry/backoff activity within an 85-second request deadline.</li>
             <li>Reassembles the redacted text back into the original message structure.</li>
             <li>Returns a JSON response with <code>status</code>, <code>full_coverage</code>, <code>redacted_body</code>, and <code>diagnostics</code>.</li>
         </ul>
@@ -1370,7 +1370,7 @@ apim_policies {
             <li>If the Language Service returns a non-200 response, the request is blocked with HTTP 503</li>
             <li>If the response cannot be parsed, the request is blocked with HTTP 503</li>
             <li>If the Language Service is unavailable, all requests are blocked until service is restored</li>
-            <li>Clients receive a JSON error response with code <code>PiiRedactionUnavailable</code></li>
+            <li>Clients receive a JSON error response with code <code>PiiRedactionFailed</code></li>
         </ul>
         <p><strong>Use when:</strong> Strict PII protection is required and no unredacted content should reach downstream services. Ensures that sensitive data is never exposed, even during service outages.</p>
 
@@ -1392,7 +1392,7 @@ apim_policies {
 <details>
     <summary><strong>What is the performance impact?</strong></summary>
     <div class="accordion-content">
-        <p>PII anonymization routes each request to the PII Redaction Service Container App, which sequentially batches Language Service API calls. For typical payloads (a few short messages), the total round-trip adds roughly 1–3 seconds. Larger payloads with many messages may take longer due to multiple sequential batches (up to 10 batches, each with a 10 s timeout). The total processing deadline is 55 seconds, fitting within the APIM 60 s <code>send-request</code> timeout.</p>
+        <p>PII anonymization routes each request to the PII Redaction Service Container App, which uses bounded batch concurrency and transient retry handling for 429 and 5xx responses. For typical payloads (a few short messages), the total round-trip adds roughly 1–3 seconds. Larger payloads with many messages may take longer due to multiple batches, but the total processing deadline remains capped at 85 seconds, fitting within the APIM 90 s <code>send-request</code> timeout.</p>
     </div>
 </details>
 
@@ -1414,9 +1414,9 @@ apim_policies {
         <p>The PII Redaction Service handles the Language API's per-call limits transparently:</p>
         <ul>
             <li>Messages are chunked into documents of up to 5 000 characters using word-boundary splitting</li>
-            <li>Documents are sent to Language Service in sequential batches of up to 5 per API call (max 10 batches = 50 documents)</li>
-            <li>Payloads exceeding 50 documents are rejected with HTTP 413</li>
-            <li>A rolling per-batch timeout (10 s) and total deadline (55 s) prevent runaway processing</li>
+            <li>Documents are sent to Language Service in batches of up to 5 per API call (max 15 batches = 75 documents), with bounded concurrency to control fan-out</li>
+            <li>Payloads exceeding 75 documents are rejected with HTTP 413</li>
+            <li>A per-attempt timeout (10 s) and total request deadline (85 s) prevent runaway processing, and transient 429 and 5xx responses are retried only within that same 85-second budget</li>
             <li>Full-coverage verification ensures every document was successfully redacted before returning</li>
         </ul>
     </div>
@@ -1440,7 +1440,7 @@ apim_policies {
         </tr>
         <tr>
             <td>413 from PII Redaction Service</td>
-            <td>Payload exceeds 50-document limit (10 batches × 5 docs)</td>
+            <td>Payload exceeds 75-document limit (15 batches × 5 docs)</td>
             <td>The request payload is too large for PII processing. Reduce message count or length.</td>
         </tr>
         <tr>

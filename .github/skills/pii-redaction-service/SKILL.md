@@ -26,13 +26,14 @@ Use this skill profile when creating or modifying the PII Redaction Service — 
 Required context before changes:
 - Current request flow (`POST /redact` → orchestrator → language client → Language Service)
 - Pydantic settings schema (`app/config.py`) — all env vars use the `PII_` prefix
-- Timeout budget: `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` (55s default) < APIM backend timeout (60s)
+- Timeout budget: `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` (85s default) < APIM backend timeout (90s)
 - Container App constraints: internal-only ingress, SystemAssigned MI, Consumption workload profile
 
 ## Output Contract
 Every change should deliver:
 - Python code changes with type hints (Python 3.13+, `from __future__ import annotations`)
-- Updated unit tests in `tests/` if logic changed
+- Inline function docstrings for any new or modified helper/business-logic functions; do not leave newly added functions undocumented
+- Updated unit tests in `tests/` if logic changed, using explicit `Given`, `When`, and `Then` sections inside each test
 - Ruff-clean code (`ruff check --fix . && ruff format .`)
 - Docker build verification if `Dockerfile` or dependencies changed
 - Terraform changes if infrastructure configuration affected
@@ -66,9 +67,9 @@ APIM → POST /redact  (Container App internal ingress, VNet only)
             ├── Guard: empty documents?
             ├── Split into batches  (max_docs_per_call=5, max_doc_chars=5000)
             └── For each batch  (concurrent, semaphore-bounded, up to max_concurrent_batches):
-                 ├── LanguageClient.recognize_pii()  with per_batch_timeout
+                                         ├── LanguageClient.analyze_pii()  with per-attempt timeout + request deadline
                  ├── Accumulate redacted text
-                 └── Check rolling timeout  (total_processing_timeout_seconds)
+                                         └── Check rolling timeout + retry budget  (total_processing_timeout_seconds)
   └── Returns RedactionSuccess | RedactionFailure
 ```
 
@@ -76,9 +77,10 @@ APIM → POST /redact  (Container App internal ingress, VNet only)
 - **Zero-secret operation**: Uses `DefaultAzureCredential` (Managed Identity in Azure, `az login` locally) — no API keys stored anywhere
 - **VNet-only ingress**: Container App uses `external_enabled = true` on an internal CAE environment — accessible within the VNet (APIM, other VNet resources) but not from the public internet. `external_enabled = false` would restrict access to apps within the same CAE, blocking APIM entirely.
 - **Stateless**: No shared state between requests; each `POST /redact` is fully independent
-- **Timeout budget**: `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` (55s default) is always less than APIM's backend timeout (60s) to ensure clean error propagation before APIM times out
+- **Timeout budget**: `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` (85s default) is always less than APIM's backend timeout (90s) to ensure clean error propagation before APIM times out
 - **Batching limits**: Language Service enforces 5 documents per call and 5000 characters per document; the orchestrator enforces these limits before making any API calls
 - **Concurrent batching**: Batches are processed with bounded concurrency (`max_batch_concurrency` semaphore, default 3) to maximise throughput while respecting the Language Service rate limits and rolling timeout budget
+- **Transient retry handling**: 429 responses honor `Retry-After` when present; 5xx responses use exponential backoff; all retry sleep and work must remain inside the same request budget
 - **Fail-closed**: Timeouts and Language Service errors return `RedactionFailure` — the service never passes unredacted text through on error
 - **Image refresh**: `terraform_data.image_refresh` in the Terraform module forces a re-pull when the `:latest` tag is used, because Terraform cannot detect mutable tag changes
 
@@ -90,8 +92,11 @@ All variables use the `PII_` prefix (e.g., `PII_LANGUAGE_ENDPOINT`).
 |---|---|---|---|
 | `PII_LANGUAGE_ENDPOINT` | Yes | — | Azure Language Service HTTPS endpoint URL |
 | `PII_LANGUAGE_API_VERSION` | No | `2025-11-15-preview` | Language Service API version for PII recognition |
-| `PII_PER_BATCH_TIMEOUT_SECONDS` | No | `10` | Timeout for each individual Language Service call (seconds) |
-| `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` | No | `55` | Rolling total timeout across all batches — must be < APIM backend timeout |
+| `PII_PER_BATCH_TIMEOUT_SECONDS` | No | `10` | Timeout for each individual Language Service attempt (seconds) |
+| `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` | No | `85` | Rolling total timeout across all batches, retries, and backoff — must be < APIM backend timeout |
+| `PII_TRANSIENT_RETRY_ATTEMPTS` | No | `4` | Retry count for transient 429 and 5xx responses after the first attempt |
+| `PII_RETRY_BACKOFF_BASE_SECONDS` | No | `1` | Initial exponential backoff delay when Retry-After is absent |
+| `PII_RETRY_BACKOFF_MAX_SECONDS` | No | `10` | Maximum exponential backoff delay between retries |
 | `PII_MAX_CONCURRENT_BATCHES` | No | `15` | Maximum number of batches allowed per request (413 if exceeded) |
 | `PII_MAX_BATCH_CONCURRENCY` | No | `3` | Number of Language API calls allowed in flight simultaneously |
 | `PII_MAX_DOC_CHARS` | No | `5000` | Maximum characters per document (Language Service hard limit) |
@@ -100,13 +105,15 @@ All variables use the `PII_` prefix (e.g., `PII_LANGUAGE_ENDPOINT`).
 
 ## Change Checklist
 1. **Python code** — type hints, `from __future__ import annotations`, Pydantic v2 patterns
-2. **Ruff (after every file edit)** — run `uv run ruff check . && uv run ruff format --check .` from `pii-redaction-service/` immediately after each file change, not just at the end. Fix before moving on.
-3. **Tests** — `uv run pytest` from `pii-redaction-service/`
-4. **Docker** — `docker build -t pii-redaction-service:test .` if Dockerfile or deps changed
-5. **Terraform** — `terraform fmt -recursive` and `terraform validate` if module or stack changed
-6. **Timeout budget** — verify `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` < APIM backend timeout if either value changes
-7. **Settings schema** — new env vars added to both `config.py` Settings class and `.env.example`
-8. **Integration tests** — any change to `app/orchestrator.py`, `app/language_client.py`, `app/models.py`, `app/main.py`, or `infra-ai-hub/params/apim/fragments/pii-anonymization.xml` **must** be followed by reviewing and running the integration test suites: `tests/integration/pii-redaction.bats`, `pii-coverage.bats`, `pii-chunking.bats`, and `pii-failure.bats`. Update the tests if error contracts, field names, or behavior changed.
+2. **Function docs** — every new or modified helper/business-logic function has an inline docstring before the code is considered complete
+3. **Unit-test structure** — every unit test uses explicit `Given`, `When`, and `Then` sections in the test body
+4. **Ruff (after every file edit)** — run `uv run ruff check . && uv run ruff format --check .` from `pii-redaction-service/` immediately after each file change, not just at the end. Fix before moving on.
+5. **Tests** — `uv run pytest` from `pii-redaction-service/`
+6. **Docker** — `docker build -t pii-redaction-service:test .` if Dockerfile or deps changed
+7. **Terraform** — `terraform fmt -recursive` and `terraform validate` if module or stack changed
+8. **Timeout budget** — verify `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` < APIM backend timeout if either value changes
+9. **Settings schema** — new env vars added to both `config.py` Settings class and `.env.example`
+10. **Integration tests** — any change to `app/orchestrator.py`, `app/language_client.py`, `app/models.py`, `app/main.py`, or `infra-ai-hub/params/apim/fragments/pii-anonymization.xml` **must** be followed by reviewing and running the integration test suites: `tests/integration/pii-redaction.bats`, `pii-coverage.bats`, `pii-chunking.bats`, and `pii-failure.bats`. Update the tests if error contracts, field names, or behavior changed.
 
 ## Validation Gates (Required)
 1. **Ruff clean**: No lint errors (`ruff check .`)
@@ -114,5 +121,7 @@ All variables use the `PII_` prefix (e.g., `PII_LANGUAGE_ENDPOINT`).
 3. **Docker builds**: Image builds without errors (if Dockerfile or `pyproject.toml` changed)
 4. **Settings schema**: All new env vars present in `config.py` + `.env.example`
 5. **Feature flag**: Stack gated behind `local.cae_config.enabled && try(local.pii_redaction_config.enabled, true)` in `stacks/pii-redaction/main.tf`
-6. **Timeout invariant**: `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` ≤ (APIM backend timeout − 5s)
-7. **Integration tests reviewed**: If service logic or the `pii-anonymization.xml` fragment changed, `tests/integration/pii-redaction.bats`, `pii-coverage.bats`, `pii-chunking.bats`, and `pii-failure.bats` have been reviewed and remain consistent with the new behavior. Run them (with `PII_FAILURE_TEST_ENABLED=true` for `pii-failure.bats`) before merging.
+6. **Function docs present**: Newly added or modified helper/business-logic functions include inline docstrings
+7. **Unit-test style enforced**: Updated unit tests use explicit `Given`, `When`, and `Then` sections
+8. **Timeout invariant**: `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` ≤ (APIM backend timeout − 5s)
+9. **Integration tests reviewed**: If service logic or the `pii-anonymization.xml` fragment changed, `tests/integration/pii-redaction.bats`, `pii-coverage.bats`, `pii-chunking.bats`, and `pii-failure.bats` have been reviewed and remain consistent with the new behavior. Run them (with `PII_FAILURE_TEST_ENABLED=true` for `pii-failure.bats`) before merging.
