@@ -166,6 +166,8 @@ jobs:
           TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_graph_client_id: ${{ secrets.GRAPH_CLIENT_ID }}
+          GRAPH_CLIENT_ID: ${{ secrets.GRAPH_CLIENT_ID }}
 
           # Network-related variables (used by different modes)
           TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}

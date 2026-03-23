@@ -33,6 +33,13 @@ variable "use_oidc" {
   default     = true
 }
 
+variable "graph_client_id" {
+  description = "Azure client ID for the Entra application used for Microsoft Graph operations"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
 variable "tenants" {
   description = "Tenant configurations (reuses the same tfvars as the main config)"
   type        = any
