@@ -11,10 +11,11 @@ locals {
   # Entra groups are tenant-wide (not per-subscription), and custom role
   # definitions are subscription-scoped. Without the env suffix, deploying
   # the same tenant to dev/test/prod would collide.
+  # Names follow the IDIM standard: MINISTRY-DIVISION-APPDESCRIPTION (e.g. CITZ-CSBC-AI-HUB-DEV-TENANT-ROLE).
   group_names = {
-    admin = "${local.group_prefix}-${var.app_env}-${var.tenant_name}-admin"
-    write = "${local.group_prefix}-${var.app_env}-${var.tenant_name}-write"
-    read  = "${local.group_prefix}-${var.app_env}-${var.tenant_name}-read"
+    admin = upper("${local.group_prefix}-${var.app_env}-${var.tenant_name}-admin")
+    write = upper("${local.group_prefix}-${var.app_env}-${var.tenant_name}-write")
+    read  = upper("${local.group_prefix}-${var.app_env}-${var.tenant_name}-read")
   }
 
   existing_group_ids = {
