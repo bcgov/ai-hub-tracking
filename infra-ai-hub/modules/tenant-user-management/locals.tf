@@ -68,6 +68,12 @@ locals {
     local.create_groups ? local.owner_members : []
   ))
 
+  # UPN → object_id lookup map derived from the bulk azuread_users read.
+  # try() safely returns {} when the data source has count = 0 (disabled).
+  user_object_ids = {
+    for u in try(data.azuread_users.members[0].users, []) : lower(u.user_principal_name) => u.object_id
+  }
+
   # Group member resources (only when create_groups = true)
   group_memberships = local.enabled && local.create_groups ? {
     for item in flatten([

@@ -21,7 +21,7 @@ resource "azuread_group" "tenant" {
   # membership via the Azure portal / myaccount without platform team.
   owners = [
     for upn in local.owner_members :
-    data.azuread_user.members[lower(upn)].object_id
+    local.user_object_ids[lower(upn)]
   ]
 }
 
@@ -29,7 +29,7 @@ resource "azuread_group_member" "seed_members" {
   for_each = local.group_memberships
 
   group_object_id  = local.group_object_ids[each.value.role]
-  member_object_id = data.azuread_user.members[lower(each.value.upn)].object_id
+  member_object_id = local.user_object_ids[lower(each.value.upn)]
 }
 
 # =============================================================================
@@ -160,6 +160,6 @@ resource "azurerm_role_assignment" "direct_users" {
 
   scope              = var.resource_group_id
   role_definition_id = local.role_definition_map[each.value.role]
-  principal_id       = data.azuread_user.members[lower(each.value.upn)].object_id
+  principal_id       = local.user_object_ids[lower(each.value.upn)]
   principal_type     = "User"
 }
