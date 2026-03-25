@@ -596,7 +596,7 @@ check_graph_permissions() {
   local graph_client_id="${GRAPH_CLIENT_ID:-${TF_VAR_graph_client_id:-}}"
   local token
 
-  if [[ -n "${graph_client_id}" && "${CI:-false}" == "true" && -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]]; then
+  if [[ -n "${graph_client_id}" && "${CI:-false}" == "true" && -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" && -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]]; then
     # In GHA: login with the Graph-specific Entra app in an isolated CLI session
     local oidc_token
     oidc_token=$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \

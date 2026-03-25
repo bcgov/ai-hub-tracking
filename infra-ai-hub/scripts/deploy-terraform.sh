@@ -175,7 +175,7 @@ check_prerequisites() {
 # =============================================================================
 # Graph API Permission Check
 # =============================================================================
-# Tenant user management requires Microsoft Graph User.Read.All permission.
+# Tenant user management requires Microsoft Graph User.ReadBasic.All permission.
 # This function probes the Graph API to check if the current identity has it.
 # Returns 0 if permission is available, 1 if not.
 # =============================================================================
@@ -185,7 +185,7 @@ check_graph_permissions() {
     local graph_client_id="${GRAPH_CLIENT_ID:-${TF_VAR_graph_client_id:-}}"
     local token
 
-    if [[ -n "${graph_client_id}" && "${CI:-false}" == "true" && -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" ]]; then
+    if [[ -n "${graph_client_id}" && "${CI:-false}" == "true" && -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" && -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]]; then
         # In GHA: login with the Graph-specific Entra app in an isolated CLI session
         log_info "Using dedicated Graph identity (${graph_client_id:0:8}...) for Graph API probe"
         local oidc_token
@@ -255,7 +255,7 @@ check_graph_permissions() {
         return 1
     fi
 
-    # 2. Probe with a minimal call — 200 means User.Read.All is granted
+    # 2. Probe with a minimal call — 200 means User.ReadBasic.All is granted
     local http_status
     http_status=$(curl -s -o /dev/null -w "%{http_code}" \
         -H "Authorization: Bearer ${token}" \
@@ -265,10 +265,10 @@ check_graph_permissions() {
     }
 
     if [[ "${http_status}" == "200" ]]; then
-        log_success "Graph API User.Read.All permission confirmed"
+        log_success "Graph API User.ReadBasic.All permission confirmed"
         return 0
     else
-        log_warning "Graph API returned HTTP ${http_status} — User.Read.All permission not available"
+        log_warning "Graph API returned HTTP ${http_status} — User.ReadBasic.All permission not available"
         return 1
     fi
 }

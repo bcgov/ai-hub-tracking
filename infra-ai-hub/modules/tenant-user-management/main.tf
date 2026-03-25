@@ -38,7 +38,7 @@ resource "azuread_group_member" "seed_members" {
 resource "azurerm_role_definition" "tenant_admin" {
   count = local.enabled ? 1 : 0
 
-  name        = "${local.group_prefix}-${var.app_env}-${var.tenant_name}-admin"
+  name        = upper("${local.group_prefix}-${var.app_env}-${var.tenant_name}-admin")
   scope       = var.resource_group_id
   description = "Full access to all resources in ${var.display_name} (${var.app_env}) tenant resource group"
 
@@ -73,7 +73,7 @@ resource "azurerm_role_definition" "tenant_admin" {
 resource "azurerm_role_definition" "tenant_write" {
   count = local.enabled ? 1 : 0
 
-  name        = "${local.group_prefix}-${var.app_env}-${var.tenant_name}-write"
+  name        = upper("${local.group_prefix}-${var.app_env}-${var.tenant_name}-write")
   scope       = var.resource_group_id
   description = "Write access to all resources in ${var.display_name} (${var.app_env}) tenant resource group"
 
@@ -105,7 +105,7 @@ resource "azurerm_role_definition" "tenant_write" {
 resource "azurerm_role_definition" "tenant_read" {
   count = local.enabled ? 1 : 0
 
-  name        = "${local.group_prefix}-${var.app_env}-${var.tenant_name}-read"
+  name        = upper("${local.group_prefix}-${var.app_env}-${var.tenant_name}-read")
   scope       = var.resource_group_id
   description = "Read-only access to all resources in ${var.display_name} (${var.app_env}) tenant resource group"
 

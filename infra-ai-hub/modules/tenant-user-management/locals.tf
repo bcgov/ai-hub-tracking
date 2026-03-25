@@ -110,3 +110,17 @@ locals {
     read  = azurerm_role_definition.tenant_read[0].role_definition_resource_id
   } : {}
 }
+
+# Validate that every requested UPN was resolved to an object ID.
+# A typo in a UPN would otherwise surface as a cryptic "Invalid index" error
+# deep in azuread_group_member / azurerm_role_assignment resources.
+check "all_upns_resolved" {
+  assert {
+    condition = (
+      !local.enabled ||
+      length(local.all_user_upns) == 0 ||
+      length(setsubtract(local.all_user_upns, keys(local.user_object_ids))) == 0
+    )
+    error_message = "The following UPNs could not be resolved in Entra ID: ${join(", ", setsubtract(local.all_user_upns, keys(local.user_object_ids)))}"
+  }
+}
