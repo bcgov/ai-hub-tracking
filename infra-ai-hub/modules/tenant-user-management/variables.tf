@@ -43,7 +43,7 @@ variable "user_management" {
     # When false, assigns custom RBAC roles directly to individual users.
     # Requires Group.ReadWrite.All Graph API permission when true.
     create_groups = optional(bool, false)
-    group_prefix  = optional(string, "ai-hub")
+    group_prefix  = optional(string, "CITZ-CSBC-AI-HUB")
     mail_enabled  = optional(bool, false)
     existing_group_ids = optional(object({
       admin = optional(string)

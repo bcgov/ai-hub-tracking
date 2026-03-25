@@ -593,7 +593,43 @@ stack_state_key() {
 }
 
 check_graph_permissions() {
+  local graph_client_id="${GRAPH_CLIENT_ID:-${TF_VAR_graph_client_id:-}}"
   local token
+
+  if [[ -n "${graph_client_id}" && "${CI:-false}" == "true" && -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" && -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]]; then
+    # In GHA: login with the Graph-specific Entra app in an isolated CLI session
+    local oidc_token
+    oidc_token=$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+      "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange" | jq -r '.value') || return 1
+    [[ -n "${oidc_token}" && "${oidc_token}" != "null" ]] || return 1
+
+    local tmp_azure_config
+    tmp_azure_config="$(mktemp -d)"
+    (
+      export AZURE_CONFIG_DIR="${tmp_azure_config}"
+      az login --service-principal \
+        --tenant "${TF_VAR_tenant_id}" \
+        --username "${graph_client_id}" \
+        --federated-token "${oidc_token}" \
+        --allow-no-subscriptions >/dev/null 2>&1 || exit 1
+
+      token=$(az account get-access-token \
+        --resource https://graph.microsoft.com \
+        --query accessToken -o tsv 2>/dev/null) || exit 1
+      [[ -n "${token:-}" ]] || exit 1
+
+      local http_status
+      http_status=$(curl -s -o /dev/null -w "%{http_code}" \
+        -H "Authorization: Bearer ${token}" \
+        "https://graph.microsoft.com/v1.0/users?\$top=1&\$select=id" 2>/dev/null) || exit 1
+      [[ "$http_status" == "200" ]]
+    )
+    local rc=$?
+    rm -rf "${tmp_azure_config}"
+    return $rc
+  fi
+
+  # Local / non-GHA fallback: use the current CLI identity
   token=$(az account get-access-token \
     --resource https://graph.microsoft.com \
     --query accessToken -o tsv 2>/dev/null) || return 1

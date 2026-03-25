@@ -4,8 +4,8 @@
     "preToolUse": [
       {
         "type": "command",
-        "bash": "bash .github/hooks/scripts/pre-tool-use.sh",
-        "powershell": "powershell -ExecutionPolicy Bypass -File .github/hooks/scripts/pre-tool-use.ps1",
+        "bash": "bash .github/hooks/scripts/guard-destructive.sh",
+        "powershell": "powershell -ExecutionPolicy Bypass -File .github/hooks/scripts/guard-destructive.ps1",
         "cwd": ".",
         "timeoutSec": 10,
         "comment": "Block dangerous bash commands (force-push, hard-reset, rm -rf on infra dirs)"

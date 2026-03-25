@@ -11,10 +11,11 @@ locals {
   # Entra groups are tenant-wide (not per-subscription), and custom role
   # definitions are subscription-scoped. Without the env suffix, deploying
   # the same tenant to dev/test/prod would collide.
+  # Names follow the IDIM standard: MINISTRY-DIVISION-APPDESCRIPTION (e.g. CITZ-CSBC-AI-HUB-DEV-TENANT-ROLE).
   group_names = {
-    admin = "${local.group_prefix}-${var.app_env}-${var.tenant_name}-admin"
-    write = "${local.group_prefix}-${var.app_env}-${var.tenant_name}-write"
-    read  = "${local.group_prefix}-${var.app_env}-${var.tenant_name}-read"
+    admin = upper("${local.group_prefix}-${var.app_env}-${var.tenant_name}-admin")
+    write = upper("${local.group_prefix}-${var.app_env}-${var.tenant_name}-write")
+    read  = upper("${local.group_prefix}-${var.app_env}-${var.tenant_name}-read")
   }
 
   existing_group_ids = {
@@ -67,6 +68,12 @@ locals {
     local.create_groups ? local.owner_members : []
   ))
 
+  # UPN → object_id lookup map derived from the bulk azuread_users read.
+  # try() safely returns {} when the data source has count = 0 (disabled).
+  user_object_ids = {
+    for u in try(data.azuread_users.members[0].users, []) : lower(u.user_principal_name) => u.object_id
+  }
+
   # Group member resources (only when create_groups = true)
   group_memberships = local.enabled && local.create_groups ? {
     for item in flatten([
@@ -102,4 +109,18 @@ locals {
     write = azurerm_role_definition.tenant_write[0].role_definition_resource_id
     read  = azurerm_role_definition.tenant_read[0].role_definition_resource_id
   } : {}
+}
+
+# Validate that every requested UPN was resolved to an object ID.
+# A typo in a UPN would otherwise surface as a cryptic "Invalid index" error
+# deep in azuread_group_member / azurerm_role_assignment resources.
+check "all_upns_resolved" {
+  assert {
+    condition = (
+      !local.enabled ||
+      length(local.all_user_upns) == 0 ||
+      length(setsubtract(local.all_user_upns, keys(local.user_object_ids))) == 0
+    )
+    error_message = "The following UPNs could not be resolved in Entra ID: ${join(", ", setsubtract(local.all_user_upns, keys(local.user_object_ids)))}"
+  }
 }
