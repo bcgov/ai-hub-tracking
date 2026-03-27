@@ -1,0 +1,76 @@
+name: Run Tenant User Management Stack
+description: >
+  Runs deploy-scaled.sh with ONLY_STACK=tenant-user-mgmt and ARM_CLIENT_ID
+  intentionally cleared. Clearing ARM_CLIENT_ID forces Terraform providers to
+  fall back to their block-configured client_id values instead of inheriting
+  the main SP set by the azure/login step (azuread → graph_client_id for
+  Group.ReadWrite.All, azurerm → client_id for RBAC operations).
+
+inputs:
+  command:
+    description: "Terraform command (plan, apply, validate, destroy)"
+    required: true
+  environment_name:
+    description: "Target environment (dev, test, prod)"
+    required: true
+  terraform_log_level:
+    description: "Terraform log level (ERROR, WARN, INFO, DEBUG, TRACE)"
+    required: false
+    default: "ERROR"
+  azure_tenant_id:
+    description: "Azure tenant ID (pass secrets.AZURE_TENANT_ID)"
+    required: true
+  azure_subscription_id:
+    description: "Azure subscription ID (pass secrets.AZURE_SUBSCRIPTION_ID)"
+    required: true
+  azure_client_id:
+    description: "Main SP client ID (pass secrets.AZURE_CLIENT_ID)"
+    required: true
+  graph_client_id:
+    description: "Graph SP client ID with Group.ReadWrite.All (pass secrets.GRAPH_CLIENT_ID)"
+    required: true
+  backend_resource_group:
+    description: "Terraform backend storage resource group (pass secrets.VNET_RESOURCE_GROUP_NAME)"
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Execute tenant-user-mgmt via deploy-scaled.sh
+      shell: bash
+      working-directory: ./infra-ai-hub
+      env:
+        ARM_USE_OIDC: "true"
+        # Clearing ARM_CLIENT_ID is the core of the fix: Terraform providers give
+        # ARM_* env vars higher precedence than explicit client_id in provider blocks.
+        # With this unset, azuread falls back to graph_client_id (Group.ReadWrite.All)
+        # and azurerm falls back to main SP client_id (subscription RBAC). The backend
+        # still uses explicit -backend-config client_id from tf_init_stack, so it is unaffected.
+        ARM_CLIENT_ID: ""
+        ARM_TENANT_ID: ${{ inputs.azure_tenant_id }}
+        ARM_SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
+        ONLY_STACK: "tenant-user-mgmt"
+        CI: "true"
+        TF_VAR_app_name: "ai-services-hub"
+        TF_VAR_app_env: ${{ inputs.environment_name }}
+        TF_VAR_location: "Canada Central"
+        TF_VAR_resource_group_name: "ai-services-hub-${{ inputs.environment_name }}"
+        TF_VAR_common_tags: '{"environment":"${{ inputs.environment_name }}","app_env":"${{ inputs.environment_name }}","repo_name":"${{ github.event.repository.name }}"}'
+        TF_VAR_subscription_id: ${{ inputs.azure_subscription_id }}
+        TF_VAR_tenant_id: ${{ inputs.azure_tenant_id }}
+        TF_VAR_client_id: ${{ inputs.azure_client_id }}
+        TF_VAR_graph_client_id: ${{ inputs.graph_client_id }}
+        GRAPH_CLIENT_ID: ${{ inputs.graph_client_id }}
+        TF_VAR_key_vault_name: "aihub${{ inputs.environment_name }}${{ vars.SUBSCRIPTION_NAME }}kv"
+        BACKEND_RESOURCE_GROUP: ${{ inputs.backend_resource_group }}
+        BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+        TF_LOG: ${{ inputs.terraform_log_level }}
+        TF_CLI_ARGS: "-no-color"
+        HTTP_PROXY: "http://127.0.0.1:8118"
+        HTTPS_PROXY: "http://127.0.0.1:8118"
+        NO_PROXY: "management.azure.com,login.microsoftonline.com,graph.microsoft.com,registry.terraform.io,releases.hashicorp.com,github.com,objects.githubusercontent.com"
+      run: |
+        set -euo pipefail
+        export no_proxy="$NO_PROXY"
+        chmod +x ./scripts/*.sh
+        ./scripts/deploy-scaled.sh "${{ inputs.command }}" "${{ inputs.environment_name }}"
