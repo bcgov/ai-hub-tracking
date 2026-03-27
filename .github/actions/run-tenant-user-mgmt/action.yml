@@ -32,6 +32,12 @@ inputs:
   backend_resource_group:
     description: "Terraform backend storage resource group (pass secrets.VNET_RESOURCE_GROUP_NAME)"
     required: true
+  subscription_name:
+    description: "Short subscription name used in resource naming (pass vars.SUBSCRIPTION_NAME)"
+    required: true
+  storage_account_name:
+    description: "Terraform backend storage account name (pass vars.STORAGE_ACCOUNT_NAME)"
+    required: true
 
 runs:
   using: composite
@@ -61,9 +67,9 @@ runs:
         TF_VAR_client_id: ${{ inputs.azure_client_id }}
         TF_VAR_graph_client_id: ${{ inputs.graph_client_id }}
         GRAPH_CLIENT_ID: ${{ inputs.graph_client_id }}
-        TF_VAR_key_vault_name: "aihub${{ inputs.environment_name }}${{ vars.SUBSCRIPTION_NAME }}kv"
+        TF_VAR_key_vault_name: "aihub${{ inputs.environment_name }}${{ inputs.subscription_name }}kv"
         BACKEND_RESOURCE_GROUP: ${{ inputs.backend_resource_group }}
-        BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+        BACKEND_STORAGE_ACCOUNT: ${{ inputs.storage_account_name }}
         TF_LOG: ${{ inputs.terraform_log_level }}
         TF_CLI_ARGS: "-no-color"
         HTTP_PROXY: "http://127.0.0.1:8118"
