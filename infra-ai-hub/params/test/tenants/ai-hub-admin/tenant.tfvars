@@ -342,7 +342,10 @@ tenant = {
   }
 
   # Tenant user management (applies across environments)
-  user_management = {}
+  # No seed members for the admin tenant — disable to avoid empty Entra groups.
+  user_management = {
+    enabled = false
+  }
 
   # APIM Policies Configuration
   # Consolidates all APIM policy settings for this tenant
