@@ -7,8 +7,8 @@ tenant resource group scope. Supports two assignment modes:
 
 | Mode | Flag | Description |
 |---|---|---|
-| **Direct User** | `create_groups = false` (default) | Assigns custom RBAC roles directly to individual users. No Entra ID group permissions needed. |
-| **Group** | `create_groups = true` | Creates Entra ID security groups, adds seed members, and assigns roles to groups. Requires `Group.ReadWrite.All` Graph API permission. |
+| **Group** | `create_groups = true` (default) | Creates Entra ID security groups, adds seed members, and assigns roles to groups. Requires `Group.ReadWrite.All` Graph API permission. |
+| **Direct User** | `create_groups = false` | Assigns custom RBAC roles directly to individual users. No Entra ID group permissions needed. |
 
 ## Resources Created
 
@@ -25,8 +25,10 @@ tenant resource group scope. Supports two assignment modes:
 
 - **Environment prefix** — Group and role names include `app_env` to prevent
   collisions in the shared Entra tenant across dev/test/prod.
-- **Direct user mode default** — Does not require Entra ID group creation
-  permissions, making it safe for all environments including local development.
+- **Group mode default** — `create_groups` defaults to `true` so tenants
+  get Entra security groups out of the box. The `tenant-user-mgmt` stack
+  automatically falls back to direct-user mode when `graph_client_id` is not
+  set, so pipelines without `Group.ReadWrite.All` degrade gracefully.
 - **Switchable** — Moving from `create_groups = false` to `true` will replace
   individual user assignments with group-based ones (Terraform handles lifecycle).
 - **Add-only membership** (group mode) — Uses individual `azuread_group_member`
@@ -53,7 +55,7 @@ module "tenant_user_management" {
 
 ## Tenant Configuration
 
-Direct user mode (default — no group permissions needed):
+Group mode (default — requires `Group.ReadWrite.All` via `graph_client_id`):
 
 ```hcl
 user_management = {
@@ -65,11 +67,11 @@ user_management = {
 }
 ```
 
-Group mode (requires `Group.ReadWrite.All` Graph API permission):
+Direct user mode (explicit opt-out, or automatic when `graph_client_id` is absent):
 
 ```hcl
 user_management = {
-  create_groups = true
+  create_groups = false
   seed_members = {
     admin = ["alice@gov.bc.ca", "bob@gov.bc.ca"]
     write = ["charlie@gov.bc.ca"]
@@ -101,7 +103,7 @@ user_management = {
 | Field | Description | Default |
 |---|---|---|
 | `enabled` | Enable/disable user management | `true` |
-| `create_groups` | Create Entra groups (vs direct user assignment) | `false` |
+| `create_groups` | Create Entra groups (vs direct user assignment) | `true` |
 | `group_prefix` | Prefix for group/role names | `"ai-hub"` |
 | `mail_enabled` | Enable mail on security groups | `false` |
 | `existing_group_ids` | Reuse existing Entra group IDs | `{}` |
