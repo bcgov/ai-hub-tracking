@@ -5,10 +5,16 @@
 # Executes Terraform across isolated stack roots in dependency order:
 #   Phase 1: shared
 #   Phase 2: tenant (per-tenant, parallel)
-#   Phase 3: foundry + pii-redaction (in parallel; tenant-user-mgmt runs via ONLY_STACK in CI)
-#   Phase 3b: apim (after pii-redaction — reads its FQDN via remote state)
-#   Phase 4:  key-rotation (depends on APIM outputs from phase 3b)
-# For destroy, execution is reversed.
+#   Phase 3: tenant-user-mgmt (graph SP auth required — see note below)
+#   Phase 4: foundry + pii-redaction (in parallel)
+#   Phase 5: apim (after pii-redaction — reads its FQDN via remote state)
+#   Phase 6: key-rotation (depends on APIM outputs from phase 5)
+# For destroy, execution is reversed: 6 → 5 → 4 → 3 → 2 → 1.
+#
+# Phase 3 note: tenant-user-mgmt requires a dedicated graph SP identity
+# (Group.ReadWrite.All). In the full flow (no --phase), phase 3 is skipped.
+# CI runs it as a separate step via .github/actions/run-tenant-user-mgmt,
+# which logs in with the graph SP and passes --phase=3.
 #
 # This is an internal engine. The public entrypoint is `deploy-terraform.sh`.
 #
@@ -18,7 +24,7 @@
 #   - Retries on transient Azure conflicts and connection errors
 #
 # Usage (delegated by deploy-terraform.sh):
-#   ./scripts/deploy-scaled.sh <validate|plan|apply|destroy> <env> [...terraform args]
+#   ./scripts/deploy-scaled.sh <validate|plan|apply|destroy> <env> [--phase=N] [...terraform args]
 #
 # Required environment variables:
 #   BACKEND_RESOURCE_GROUP, BACKEND_STORAGE_ACCOUNT
@@ -37,6 +43,18 @@ COMMAND="${1:-}"
 ENVIRONMENT="${2:-}"
 shift 2 || true
 EXTRA_ARGS=("$@")
+
+# Extract --phase=N from EXTRA_ARGS (pass remaining args through to Terraform)
+PHASE_FILTER=""
+FILTERED_ARGS=()
+for _arg in "${EXTRA_ARGS[@]}"; do
+  if [[ "$_arg" =~ ^--phase=([0-9]+)$ ]]; then
+    PHASE_FILTER="${BASH_REMATCH[1]}"
+  else
+    FILTERED_ARGS+=("$_arg")
+  fi
+done
+EXTRA_ARGS=("${FILTERED_ARGS[@]}")
 
 BACKEND_RESOURCE_GROUP="${BACKEND_RESOURCE_GROUP:-}"
 BACKEND_STORAGE_ACCOUNT="${BACKEND_STORAGE_ACCOUNT:-}"
@@ -596,8 +614,25 @@ check_graph_permissions() {
   local graph_client_id="${GRAPH_CLIENT_ID:-${TF_VAR_graph_client_id:-}}"
   local token
 
+  # When AZURE_CONFIG_DIR is already set (composite action logged in the graph SP
+  # in a prior step), reuse that session instead of doing another OIDC exchange.
+  if [[ -n "${AZURE_CONFIG_DIR:-}" && -d "${AZURE_CONFIG_DIR}" ]]; then
+    token=$(AZURE_CONFIG_DIR="${AZURE_CONFIG_DIR}" az account get-access-token \
+      --resource https://graph.microsoft.com \
+      --query accessToken -o tsv 2>/dev/null) || return 1
+    [[ -n "${token:-}" ]] || return 1
+
+    local http_status
+    http_status=$(curl -s -o /dev/null -w "%{http_code}" \
+      -H "Authorization: Bearer ${token}" \
+      "https://graph.microsoft.com/v1.0/users?\$top=1&\$select=id" 2>/dev/null) || return 1
+    [[ "$http_status" == "200" ]]
+    return $?
+  fi
+
   if [[ -n "${graph_client_id}" && "${CI:-false}" == "true" && -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" && -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]]; then
-    # In GHA: login with the Graph-specific Entra app in an isolated CLI session
+    # In GHA without pre-existing AZURE_CONFIG_DIR: login with the Graph-specific
+    # Entra app in an isolated CLI session
     local oidc_token
     oidc_token=$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
       "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange" | jq -r '.value') || return 1
@@ -848,12 +883,17 @@ run_tenant_user_mgmt() {
   local action="$1"
 
   if ! check_graph_permissions; then
-    echo "[WARNING] Skipping tenant-user-mgmt in scaled flow — Graph User.Read.All not available"
+    echo "[WARNING] Skipping tenant-user-mgmt — Graph User.Read.All not available"
     return 0
   fi
 
-  tf_init_stack tenant-user-mgmt
-  tf_run_stack tenant-user-mgmt "$action" "${INFRA_DIR}/.tenants-${ENVIRONMENT}.auto.tfvars"
+  # Run in a subshell with ARM_CLIENT_ID cleared so the graph SP identity
+  # (set via AZURE_CONFIG_DIR) is not overridden by the main SP's client ID.
+  (
+    export ARM_CLIENT_ID=""
+    tf_init_stack tenant-user-mgmt
+    tf_run_stack tenant-user-mgmt "$action" "${INFRA_DIR}/.tenants-${ENVIRONMENT}.auto.tfvars"
+  )
 }
 
 run_pii_redaction() {
@@ -862,26 +902,22 @@ run_pii_redaction() {
 }
 
 # ---------------------------------------------------------------------------
-# Phase 3 parallel runner — foundry + pii-redaction run concurrently once
-# shared+tenant are done. tenant-user-mgmt is intentionally omitted here and
-# runs via ONLY_STACK in a dedicated CI step where ARM_CLIENT_ID is cleared so
-# the azuread provider authenticates using its block-configured graph_client_id
-# (ARM_* env vars take precedence over provider-block client_id in Terraform;
-# clearing ARM_CLIENT_ID forces each provider to use its explicit block setting).
-# APIM is NOT included here because it reads pii-redaction FQDN via remote
-# state (Phase 3b, sequential).
+# Phase 4 parallel runner — foundry + pii-redaction run concurrently once
+# shared+tenant (phases 1–2) are done.
+# APIM (phase 5) is NOT included here because it reads pii-redaction FQDN
+# via remote state (sequential, after phase 4).
 # ---------------------------------------------------------------------------
-run_phase3_parallel() {
+run_foundry_pii_parallel() {
   local action="$1"
   local names=("foundry" "pii-redaction")
   local runners=("run_foundry" "run_pii_redaction")
   local pids=()
   local logs=()
 
-  log_info "Running phase-3 stacks in parallel: ${names[*]}"
+  log_info "Running phase-4 stacks in parallel: ${names[*]}"
 
   for i in "${!runners[@]}"; do
-    local log_file="${INFRA_DIR}/.phase3-${ENVIRONMENT}-${names[$i]}.log"
+    local log_file="${INFRA_DIR}/.phase4-${ENVIRONMENT}-${names[$i]}.log"
     logs+=("$log_file")
     ${runners[$i]} "$action" > "$log_file" 2>&1 &
     pids+=($!)
@@ -902,23 +938,17 @@ run_phase3_parallel() {
   done
 
   if [[ "$any_failed" == "true" ]]; then
-    log_error "One or more phase-3 stacks failed"
+    log_error "One or more phase-4 stacks failed"
     return 1
   fi
 }
 
 # ---------------------------------------------------------------------------
-# Phase 4: key-rotation — depends on APIM outputs from phase 3b
+# Phase 6: key-rotation — depends on APIM outputs from phase 5
 # ---------------------------------------------------------------------------
 run_key_rotation() {
   tf_init_stack key-rotation
   tf_run_stack key-rotation "$1" "${INFRA_DIR}/.tenants-${ENVIRONMENT}.auto.tfvars"
-}
-
-run_phase4() {
-  local action="$1"
-  log_info "Running phase-4: key-rotation"
-  run_key_rotation "$action"
 }
 
 run_tenant_per_tenant_destroy() {
@@ -978,62 +1008,86 @@ SCALED_START_TIME=$SECONDS
 log_info "Stack engine started at $(_ts) — command: ${COMMAND}, environment: ${ENVIRONMENT}"
 
 # ---------------------------------------------------------------------------
-# Single-stack mode — when ONLY_STACK is set, only the specified stack runs.
-# Used by CI to run tenant-user-mgmt in a step where ARM_CLIENT_ID is cleared
-# so the azuread provider falls back to the block-configured graph_client_id
-# for OIDC, without affecting ARM_CLIENT_ID for the other parallel stacks.
+# run_phase <N> <action> — execute exactly one phase by number
 # ---------------------------------------------------------------------------
-if [[ -n "${ONLY_STACK:-}" ]]; then
-  log_info "Single-stack mode: ${ONLY_STACK} (${COMMAND})"
-  case "${ONLY_STACK}" in
-    tenant-user-mgmt)
-      run_tenant_user_mgmt "${COMMAND}"
+run_phase() {
+  local phase_num="$1"
+  local action="$2"
+  case "$phase_num" in
+    1) run_shared "$action" ;;
+    2)
+      if [[ "$action" == "destroy" ]]; then
+        run_tenant_per_tenant_destroy
+      else
+        run_tenant_per_tenant "$action"
+      fi
       ;;
+    3) run_tenant_user_mgmt "$action" ;;
+    4) run_foundry_pii_parallel "$action" ;;
+    5) run_apim "$action" ;;
+    6) run_key_rotation "$action" ;;
     *)
-      log_error "Unsupported ONLY_STACK value: ${ONLY_STACK}"
+      log_error "Unknown phase number: $phase_num (valid: 1–6)"
       exit 1
       ;;
   esac
+}
+
+# ---------------------------------------------------------------------------
+# Phase-only mode — when --phase=N is passed, only that phase runs.
+# Used by .github/actions/run-tenant-user-mgmt (--phase=3) with the graph
+# SP logged in via an isolated AZURE_CONFIG_DIR.
+# ---------------------------------------------------------------------------
+if [[ -n "${PHASE_FILTER}" ]]; then
+  log_info "Phase-only mode: running phase ${PHASE_FILTER} (${COMMAND})"
+  run_phase "${PHASE_FILTER}" "${COMMAND}"
   scaled_elapsed=$(( SECONDS - SCALED_START_TIME ))
   scaled_mins=$(( scaled_elapsed / 60 ))
   scaled_secs=$(( scaled_elapsed % 60 ))
-  log_success "Stack engine (single-stack: ${ONLY_STACK}) finished at $(_ts) — total time: ${scaled_mins}m ${scaled_secs}s"
+  log_success "Stack engine (phase ${PHASE_FILTER}) finished at $(_ts) — total time: ${scaled_mins}m ${scaled_secs}s"
   exit 0
 fi
 
 case "$COMMAND" in
   validate)
-    run_shared validate
-    run_tenant_per_tenant validate
-    run_phase3_parallel validate
-    run_apim validate
-    run_phase4 validate
+    # Phase 3 (tenant-user-mgmt) requires graph SP auth; run explicitly via --phase=3.
+    run_phase 1 validate
+    run_phase 2 validate
+    run_phase 4 validate
+    run_phase 5 validate
+    run_phase 6 validate
+    log_info "Phase 3 (tenant-user-mgmt) skipped — requires Graph SP auth. Run with --phase=3 separately."
     ;;
   plan)
-    run_shared plan
+    run_phase 1 plan
     if ! check_shared_outputs_available; then
       log_warning "Shared stack has no outputs (clean/destroyed environment). Downstream stacks (tenant, foundry, apim, tenant-user-mgmt) cannot be planned until shared is applied."
       log_info "Only the shared plan is available. Run 'apply <env> --auto-approve' to bootstrap the environment first."
       exit 0
     fi
-    run_tenant_per_tenant plan
-    run_phase3_parallel plan
-    run_apim plan
-    run_phase4 plan
+    # Phase 3 (tenant-user-mgmt) requires graph SP auth; run explicitly via --phase=3.
+    run_phase 2 plan
+    run_phase 4 plan
+    run_phase 5 plan
+    run_phase 6 plan
+    log_info "Phase 3 (tenant-user-mgmt) skipped — requires Graph SP auth. Run with --phase=3 separately."
     ;;
   apply)
-    run_shared apply
-    run_tenant_per_tenant apply
-    run_phase3_parallel apply
-    run_apim apply
-    run_phase4 apply
+    # Phase 3 (tenant-user-mgmt) requires graph SP auth; run explicitly via --phase=3.
+    run_phase 1 apply
+    run_phase 2 apply
+    run_phase 4 apply
+    run_phase 5 apply
+    run_phase 6 apply
+    log_info "Phase 3 (tenant-user-mgmt) skipped — requires Graph SP auth. Run with --phase=3 separately."
     ;;
   destroy)
-    run_phase4 destroy
-    run_apim destroy
-    run_phase3_parallel destroy
-    run_tenant_per_tenant_destroy
-    run_shared destroy
+    # Reverse order: 6 → 5 → 4 → 2 → 1 (phase 3 destroy handled by composite before main).
+    run_phase 6 destroy
+    run_phase 5 destroy
+    run_phase 4 destroy
+    run_phase 2 destroy
+    run_phase 1 destroy
     ;;
   *)
     echo "Unknown command: $COMMAND" >&2

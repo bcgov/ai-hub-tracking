@@ -382,11 +382,11 @@ if [ -d "${AI_HUB_DIR}" ]; then
     if [ -d "${AI_HUB_DIR}/stacks" ]; then
         {
             echo "<h2 id=\"ai-hub-stacks\">Stacks</h2>"
-            echo "<p>Each stack has its own state file and backend configuration. Deployed in dependency order: shared &rarr; tenant (parallel) &rarr; foundry + apim + tenant-user-mgmt (parallel).</p>"
+            echo "<p>Each stack has its own state file and backend configuration. Deployed in dependency order: shared &rarr; tenant (parallel) &rarr; foundry + pii-redaction (parallel) &rarr; apim &rarr; key-rotation; tenant-user-mgmt runs in a dedicated CI step with <code>ARM_CLIENT_ID</code> cleared.</p>"
         } >> "$OUTPUT_FILE"
 
         # Process stacks in execution order
-        for stack_name in shared tenant foundry apim tenant-user-mgmt; do
+        for stack_name in shared tenant foundry pii-redaction apim key-rotation tenant-user-mgmt; do
             stack_dir="${AI_HUB_DIR}/stacks/${stack_name}"
             [ -d "$stack_dir" ] || continue
             process_dir "$stack_dir" "infra-ai-hub/stacks/${stack_name}/" "stack" "#0078d4" "stack-"

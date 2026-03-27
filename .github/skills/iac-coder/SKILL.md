@@ -50,10 +50,10 @@ Stacks are deployed in dependency order by `scripts/deploy-scaled.sh`. When addi
 |---|---|---|---|
 | 1 | `shared` | Serial | Shared infra: network, CAE, KV, DNS, App Gateway |
 | 2 | `tenant` (× N) | Parallel | Per-tenant Foundry project + KV, runs once per tenant |
-| 3 | `foundry`, `pii-redaction` | Parallel | Independent services; `tenant-user-mgmt` runs separately (see note below) |
-| 3b | `apim` | Serial (after Phase 3) | Reads pii-redaction FQDN via remote state — must run after `pii-redaction` |
-| 4 | `key-rotation` | Serial (after Phase 3b) | Reads APIM principal ID via remote state — must run after `apim` |
-| CI-only | `tenant-user-mgmt` | Via `ONLY_STACK` | Runs in a dedicated GHA step with `ARM_CLIENT_ID: ""` so the `azuread` provider uses `graph_client_id` via OIDC instead of inheriting the main SP from `ARM_CLIENT_ID`. For destroy runs BEFORE Execute Deployment; for apply/plan/validate runs AFTER. |
+| 3 | `tenant-user-mgmt` | Via `--phase=3` | Graph SP auth required (`Group.ReadWrite.All`). Skipped in full flow. CI runs it via `.github/actions/run-tenant-user-mgmt` with graph SP OIDC login and `ARM_CLIENT_ID: ""`. |
+| 4 | `foundry`, `pii-redaction` | Parallel | Independent services; run after phases 1–2 |
+| 5 | `apim` | Serial (after Phase 4) | Reads pii-redaction FQDN via remote state — must run after `pii-redaction` |
+| 6 | `key-rotation` | Serial (after Phase 5) | Reads APIM principal ID via remote state — must run after `apim` |
 
 > **Skill maintenance**: When changing the deploy sequence (adding phases, reordering stacks, or adding new serial/parallel constraints), update both `scripts/deploy-scaled.sh` **and** this skill profile.
 

@@ -102,7 +102,7 @@ Usage: $0 <command> <environment> [options]
 
 Commands:
     plan        Create execution plans for all stacks
-    apply       Apply changes across all stacks (shared -> tenant -> foundry + apim + tenant-user-mgmt -> key-rotation)
+    apply       Apply changes across all stacks (1:shared → 2:tenant → 4:foundry+pii-redaction → 5:apim → 6:key-rotation; phase 3 (tenant-user-mgmt) via --phase=3 from CI composite action)
     destroy     Destroy infrastructure in reverse dependency order
     validate    Validate all stack roots
     fmt         Format Terraform files
@@ -170,107 +170,6 @@ check_prerequisites() {
     fi
     
     log_success "Prerequisites check passed"
-}
-
-# =============================================================================
-# Graph API Permission Check
-# =============================================================================
-# Tenant user management requires Microsoft Graph User.ReadBasic.All permission.
-# This function probes the Graph API to check if the current identity has it.
-# Returns 0 if permission is available, 1 if not.
-# =============================================================================
-check_graph_permissions() {
-    log_info "Checking Microsoft Graph API permissions..."
-
-    local graph_client_id="${GRAPH_CLIENT_ID:-${TF_VAR_graph_client_id:-}}"
-    local token
-
-    if [[ -n "${graph_client_id}" && "${CI:-false}" == "true" && -n "${ACTIONS_ID_TOKEN_REQUEST_URL:-}" && -n "${ACTIONS_ID_TOKEN_REQUEST_TOKEN:-}" ]]; then
-        # In GHA: login with the Graph-specific Entra app in an isolated CLI session
-        log_info "Using dedicated Graph identity (${graph_client_id:0:8}...) for Graph API probe"
-        local oidc_token
-        oidc_token=$(curl -sS -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
-          "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange" | jq -r '.value') || {
-            log_warning "Could not acquire OIDC token for Graph identity"
-            return 1
-        }
-        if [[ -z "${oidc_token}" || "${oidc_token}" == "null" ]]; then
-            log_warning "OIDC token for Graph identity is empty"
-            return 1
-        fi
-
-        local tmp_azure_config
-        tmp_azure_config="$(mktemp -d)"
-        (
-            export AZURE_CONFIG_DIR="${tmp_azure_config}"
-            az login --service-principal \
-              --tenant "${TF_VAR_tenant_id}" \
-              --username "${graph_client_id}" \
-              --federated-token "${oidc_token}" \
-              --allow-no-subscriptions >/dev/null 2>&1 || {
-                log_warning "Could not login with Graph identity"
-                exit 1
-            }
-
-            token=$(az account get-access-token \
-              --resource https://graph.microsoft.com \
-              --query accessToken -o tsv 2>/dev/null) || {
-                log_warning "Could not acquire Graph API token from Graph identity"
-                exit 1
-            }
-            [[ -n "${token:-}" ]] || { log_warning "Graph API token is empty"; exit 1; }
-
-            local http_status
-            http_status=$(curl -s -o /dev/null -w "%{http_code}" \
-              -H "Authorization: Bearer ${token}" \
-              "https://graph.microsoft.com/v1.0/users?\$top=1&\$select=id" 2>/dev/null) || {
-                log_warning "Graph API probe failed (curl error)"
-                exit 1
-            }
-
-            if [[ "${http_status}" == "200" ]]; then
-                log_success "Graph API permission confirmed via dedicated Graph identity"
-                exit 0
-            else
-                log_warning "Graph API returned HTTP ${http_status} — permission not available"
-                exit 1
-            fi
-        )
-        local rc=$?
-        rm -rf "${tmp_azure_config}"
-        return $rc
-    fi
-
-    # Local / non-GHA fallback: use the current CLI identity
-    # 1. Get a Graph token via the current Azure CLI identity
-    token=$(az account get-access-token \
-        --resource https://graph.microsoft.com \
-        --query accessToken -o tsv 2>/dev/null) || {
-        log_warning "Could not acquire Graph API token"
-        return 1
-    }
-
-    if [[ -z "${token:-}" ]]; then
-        log_warning "Graph API token is empty"
-        return 1
-    fi
-
-    # 2. Probe with a minimal call — 200 means User.ReadBasic.All is granted
-    local http_status
-    http_status=$(curl -s -o /dev/null -w "%{http_code}" \
-        -H "Authorization: Bearer ${token}" \
-        "https://graph.microsoft.com/v1.0/users?\$top=1&\$select=id" 2>/dev/null) || {
-        log_warning "Graph API probe failed (curl error)"
-        return 1
-    }
-
-    if [[ "${http_status}" == "200" ]]; then
-        log_success "Graph API User.ReadBasic.All permission confirmed"
-        return 0
-    else
-        log_warning "Graph API returned HTTP ${http_status} — User.ReadBasic.All permission not available"
-        return 1
-    fi
 }
 
 setup_azure_auth() {
@@ -424,7 +323,7 @@ tf_fmt() {
 # =============================================================================
 # Scaled Stack Operations
 # All apply/plan/destroy/validate operations delegate to deploy-scaled.sh
-# which manages isolated stack roots (shared, tenant, foundry, apim, key-rotation, tenant-user-mgmt).
+# which manages isolated stack roots (shared, tenant, foundry, pii-redaction, apim, key-rotation, tenant-user-mgmt).
 # =============================================================================
 
 tf_destroy() {
@@ -536,6 +435,9 @@ main() {
     # Use vnet resource group as backend resource group if not set
     BACKEND_RESOURCE_GROUP="${BACKEND_RESOURCE_GROUP:-${TF_VAR_vnet_resource_group_name:-}}"
 
+    # Export backend vars so deploy-scaled.sh (subprocess) inherits them.
+    export BACKEND_RESOURCE_GROUP BACKEND_STORAGE_ACCOUNT BACKEND_CONTAINER_NAME
+
     # Log workflow start for infrastructure operations (not quick lookups like output)
     if [[ "$command" != "output" ]]; then
         log_info "Workflow started at $(_ts)"
@@ -553,22 +455,35 @@ main() {
     setup_variables
     # unset provider log to reduce noise
     unset TF_LOG_PROVIDER
+
+    # Extract --phase=N so it can be forwarded explicitly to deploy-scaled.sh.
+    # All other args are passed through as Terraform extra args.
+    local phase_arg=""
+    local pass_args=()
+    for _a in "$@"; do
+      if [[ "$_a" =~ ^--phase= ]]; then
+        phase_arg="$_a"
+      else
+        pass_args+=("$_a")
+      fi
+    done
+
     # Execute command
     case "$command" in
         plan)
-            SCALED_CALLER="deploy-terraform" bash "${SCRIPT_DIR}/deploy-scaled.sh" "plan" "$ENVIRONMENT" "$@"
+            SCALED_CALLER="deploy-terraform" bash "${SCRIPT_DIR}/deploy-scaled.sh" "plan" "$ENVIRONMENT" ${phase_arg:+"$phase_arg"} "${pass_args[@]}"
             ;;
         apply)
-            SCALED_CALLER="deploy-terraform" bash "${SCRIPT_DIR}/deploy-scaled.sh" "apply" "$ENVIRONMENT" "$@"
+            SCALED_CALLER="deploy-terraform" bash "${SCRIPT_DIR}/deploy-scaled.sh" "apply" "$ENVIRONMENT" ${phase_arg:+"$phase_arg"} "${pass_args[@]}"
             ;;
         destroy)
-            tf_destroy "$@"
+            tf_destroy ${phase_arg:+"$phase_arg"} "${pass_args[@]}"
             ;;
         validate)
-            SCALED_CALLER="deploy-terraform" bash "${SCRIPT_DIR}/deploy-scaled.sh" "validate" "$ENVIRONMENT" "$@"
+            SCALED_CALLER="deploy-terraform" bash "${SCRIPT_DIR}/deploy-scaled.sh" "validate" "$ENVIRONMENT" ${phase_arg:+"$phase_arg"} "${pass_args[@]}"
             ;;
         output)
-            tf_output "$@"
+            tf_output "${pass_args[@]}"
             ;;
         *)
             log_error "Unknown command: $command"

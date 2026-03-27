@@ -1,10 +1,13 @@
 name: Run Tenant User Management Stack
 description: >
-  Runs deploy-scaled.sh with ONLY_STACK=tenant-user-mgmt and ARM_CLIENT_ID
-  intentionally cleared. Clearing ARM_CLIENT_ID forces Terraform providers to
-  fall back to their block-configured client_id values instead of inheriting
-  the main SP set by the azure/login step (azuread → graph_client_id for
-  Group.ReadWrite.All, azurerm → client_id for RBAC operations).
+  Runs deploy-scaled.sh --phase=3 (tenant-user-mgmt) with the graph SP logged
+  in via OIDC using an isolated AZURE_CONFIG_DIR, and ARM_CLIENT_ID cleared.
+  Clearing ARM_CLIENT_ID forces Terraform providers to fall back to their
+  block-configured client_id values instead of inheriting the main SP set by
+  the azure/login step (azuread → graph_client_id for Group.ReadWrite.All,
+  azurerm → client_id for RBAC operations).
+  The graph SP OIDC login uses a temporary config dir (GRAPH_AZURE_CONFIG_DIR)
+  so it does not overwrite the runner's main SP CLI state.
 
 inputs:
   command:
@@ -32,9 +35,6 @@ inputs:
   backend_resource_group:
     description: "Terraform backend storage resource group (pass secrets.VNET_RESOURCE_GROUP_NAME)"
     required: true
-  subscription_name:
-    description: "Short subscription name used in resource naming (pass vars.SUBSCRIPTION_NAME)"
-    required: true
   storage_account_name:
     description: "Terraform backend storage account name (pass vars.STORAGE_ACCOUNT_NAME)"
     required: true
@@ -42,6 +42,47 @@ inputs:
 runs:
   using: composite
   steps:
+    - name: Login with Graph Service Principal (OIDC)
+      shell: bash
+      env:
+        AZURE_TENANT_ID: ${{ inputs.azure_tenant_id }}
+        GRAPH_CLIENT_ID: ${{ inputs.graph_client_id }}  # SP with Group.ReadWrite.All, NOT the main SP
+        # Defensive: ensure az login bypasses the tunnel proxy if one is set at workflow level
+        NO_PROXY: "login.microsoftonline.com"
+      run: |
+        set -euo pipefail
+        # Exchange the GitHub Actions OIDC JWT for an Azure-compatible federated token.
+        # ACTIONS_ID_TOKEN_REQUEST_TOKEN + URL are injected by GitHub when
+        # `id-token: write` permission is granted on the job.
+        oidc_token=$(curl -sS \
+          -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+          "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=api://AzureADTokenExchange" | jq -r '.value')
+        # Fail fast if the token came back empty — avoids a cryptic az login error later.
+        if [[ -z "${oidc_token}" || "${oidc_token}" == "null" ]]; then
+          echo "::error::Failed to acquire OIDC token for graph SP login" >&2
+          exit 1
+        fi
+        # Create a throwaway directory for this SP's CLI session.
+        # Azure CLI stores tokens in AZURE_CONFIG_DIR; using a separate dir means
+        # this login never touches the main SP's session already set by azure/login.
+        graph_config_dir=$(mktemp -d)
+        # Publish the dir path to subsequent steps via GITHUB_ENV so the next step
+        # can point AZURE_CONFIG_DIR here for Terraform's azuread CLI auth.
+        echo "GRAPH_AZURE_CONFIG_DIR=${graph_config_dir}" >> "$GITHUB_ENV"
+        # Log in the graph SP using the federated token (no client secret needed).
+        # --allow-no-subscriptions: this SP has no subscription-level RBAC,
+        # only Azure AD Graph permissions — without this flag az login would error.
+        # AZURE_CONFIG_DIR is scoped to this command only (prefix, not export),
+        # so the runner's main SP session is left intact.
+        AZURE_CONFIG_DIR="${graph_config_dir}" az login \
+          --service-principal \
+          --tenant "${AZURE_TENANT_ID}" \
+          --username "${GRAPH_CLIENT_ID}" \
+          --federated-token "${oidc_token}" \
+          --allow-no-subscriptions \
+          --output none
+        echo "Graph SP login successful (${GRAPH_CLIENT_ID})"
+
     - name: Execute tenant-user-mgmt via deploy-scaled.sh
       shell: bash
       working-directory: ./infra-ai-hub
@@ -55,19 +96,14 @@ runs:
         ARM_CLIENT_ID: ""
         ARM_TENANT_ID: ${{ inputs.azure_tenant_id }}
         ARM_SUBSCRIPTION_ID: ${{ inputs.azure_subscription_id }}
-        ONLY_STACK: "tenant-user-mgmt"
+        SCALED_CALLER: "deploy-terraform"
         CI: "true"
-        TF_VAR_app_name: "ai-services-hub"
         TF_VAR_app_env: ${{ inputs.environment_name }}
-        TF_VAR_location: "Canada Central"
-        TF_VAR_resource_group_name: "ai-services-hub-${{ inputs.environment_name }}"
-        TF_VAR_common_tags: '{"environment":"${{ inputs.environment_name }}","app_env":"${{ inputs.environment_name }}","repo_name":"${{ github.event.repository.name }}"}'
         TF_VAR_subscription_id: ${{ inputs.azure_subscription_id }}
         TF_VAR_tenant_id: ${{ inputs.azure_tenant_id }}
         TF_VAR_client_id: ${{ inputs.azure_client_id }}
         TF_VAR_graph_client_id: ${{ inputs.graph_client_id }}
         GRAPH_CLIENT_ID: ${{ inputs.graph_client_id }}
-        TF_VAR_key_vault_name: "aihub${{ inputs.environment_name }}${{ inputs.subscription_name }}kv"
         BACKEND_RESOURCE_GROUP: ${{ inputs.backend_resource_group }}
         BACKEND_STORAGE_ACCOUNT: ${{ inputs.storage_account_name }}
         TF_LOG: ${{ inputs.terraform_log_level }}
@@ -78,5 +114,19 @@ runs:
       run: |
         set -euo pipefail
         export no_proxy="$NO_PROXY"
+        # Point Terraform's azuread provider CLI auth at the graph SP login dir
+        # set by the previous step. GITHUB_ENV additions become shell env vars
+        # in subsequent steps, so we reference GRAPH_AZURE_CONFIG_DIR directly.
+        export AZURE_CONFIG_DIR="${GRAPH_AZURE_CONFIG_DIR:-}"
         chmod +x ./scripts/*.sh
-        ./scripts/deploy-scaled.sh "${{ inputs.command }}" "${{ inputs.environment_name }}"
+        ./scripts/deploy-scaled.sh "${{ inputs.command }}" "${{ inputs.environment_name }}" --phase=3
+
+    - name: Cleanup graph SP CLI session
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [[ -n "${GRAPH_AZURE_CONFIG_DIR:-}" && -d "${GRAPH_AZURE_CONFIG_DIR}" ]]; then
+          rm -rf "${GRAPH_AZURE_CONFIG_DIR}"
+          echo "Cleaned up graph SP config dir"
+        fi

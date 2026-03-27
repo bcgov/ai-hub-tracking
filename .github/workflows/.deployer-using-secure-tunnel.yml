@@ -164,7 +164,6 @@ jobs:
           azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           graph_client_id: ${{ secrets.GRAPH_CLIENT_ID }}
           backend_resource_group: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
-          subscription_name: ${{ vars.SUBSCRIPTION_NAME }}
           storage_account_name: ${{ vars.STORAGE_ACCOUNT_NAME }}
 
       - name: Execute Deployment
@@ -248,7 +247,6 @@ jobs:
           azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           graph_client_id: ${{ secrets.GRAPH_CLIENT_ID }}
           backend_resource_group: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
-          subscription_name: ${{ vars.SUBSCRIPTION_NAME }}
           storage_account_name: ${{ vars.STORAGE_ACCOUNT_NAME }}
 
       - name: Build plan summary output
