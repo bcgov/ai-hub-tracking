@@ -5,7 +5,7 @@
 # Executes Terraform across isolated stack roots in dependency order:
 #   Phase 1: shared
 #   Phase 2: tenant (per-tenant, parallel)
-#   Phase 3: foundry + tenant-user-mgmt + pii-redaction (in parallel)
+#   Phase 3: foundry + pii-redaction (in parallel; tenant-user-mgmt runs via ONLY_STACK in CI)
 #   Phase 3b: apim (after pii-redaction — reads its FQDN via remote state)
 #   Phase 4:  key-rotation (depends on APIM outputs from phase 3b)
 # For destroy, execution is reversed.
@@ -862,14 +862,19 @@ run_pii_redaction() {
 }
 
 # ---------------------------------------------------------------------------
-# Phase 3 parallel runner — foundry + tenant-user-mgmt + pii-redaction run
-# concurrently once shared+tenant are done.  APIM is NOT included here because
-# the APIM stack reads pii-redaction FQDN via remote state (Phase 3b, sequential).
+# Phase 3 parallel runner — foundry + pii-redaction run concurrently once
+# shared+tenant are done. tenant-user-mgmt is intentionally omitted here and
+# runs via ONLY_STACK in a dedicated CI step where ARM_CLIENT_ID is cleared so
+# the azuread provider authenticates using its block-configured graph_client_id
+# (ARM_* env vars take precedence over provider-block client_id in Terraform;
+# clearing ARM_CLIENT_ID forces each provider to use its explicit block setting).
+# APIM is NOT included here because it reads pii-redaction FQDN via remote
+# state (Phase 3b, sequential).
 # ---------------------------------------------------------------------------
 run_phase3_parallel() {
   local action="$1"
-  local names=("foundry" "tenant-user-mgmt" "pii-redaction")
-  local runners=("run_foundry" "run_tenant_user_mgmt" "run_pii_redaction")
+  local names=("foundry" "pii-redaction")
+  local runners=("run_foundry" "run_pii_redaction")
   local pids=()
   local logs=()
 
@@ -971,6 +976,30 @@ merge_all_tenants
 
 SCALED_START_TIME=$SECONDS
 log_info "Stack engine started at $(_ts) — command: ${COMMAND}, environment: ${ENVIRONMENT}"
+
+# ---------------------------------------------------------------------------
+# Single-stack mode — when ONLY_STACK is set, only the specified stack runs.
+# Used by CI to run tenant-user-mgmt in a step where ARM_CLIENT_ID is cleared
+# so the azuread provider falls back to the block-configured graph_client_id
+# for OIDC, without affecting ARM_CLIENT_ID for the other parallel stacks.
+# ---------------------------------------------------------------------------
+if [[ -n "${ONLY_STACK:-}" ]]; then
+  log_info "Single-stack mode: ${ONLY_STACK} (${COMMAND})"
+  case "${ONLY_STACK}" in
+    tenant-user-mgmt)
+      run_tenant_user_mgmt "${COMMAND}"
+      ;;
+    *)
+      log_error "Unsupported ONLY_STACK value: ${ONLY_STACK}"
+      exit 1
+      ;;
+  esac
+  scaled_elapsed=$(( SECONDS - SCALED_START_TIME ))
+  scaled_mins=$(( scaled_elapsed / 60 ))
+  scaled_secs=$(( scaled_elapsed % 60 ))
+  log_success "Stack engine (single-stack: ${ONLY_STACK}) finished at $(_ts) — total time: ${scaled_mins}m ${scaled_secs}s"
+  exit 0
+fi
 
 case "$COMMAND" in
   validate)

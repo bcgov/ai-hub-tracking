@@ -50,9 +50,10 @@ Stacks are deployed in dependency order by `scripts/deploy-scaled.sh`. When addi
 |---|---|---|---|
 | 1 | `shared` | Serial | Shared infra: network, CAE, KV, DNS, App Gateway |
 | 2 | `tenant` (× N) | Parallel | Per-tenant Foundry project + KV, runs once per tenant |
-| 3 | `foundry`, `tenant-user-mgmt`, `pii-redaction` | Parallel | Independent services with no cross-stack deps at deploy time |
+| 3 | `foundry`, `pii-redaction` | Parallel | Independent services; `tenant-user-mgmt` runs separately (see note below) |
 | 3b | `apim` | Serial (after Phase 3) | Reads pii-redaction FQDN via remote state — must run after `pii-redaction` |
 | 4 | `key-rotation` | Serial (after Phase 3b) | Reads APIM principal ID via remote state — must run after `apim` |
+| CI-only | `tenant-user-mgmt` | Via `ONLY_STACK` | Runs in a dedicated GHA step with `ARM_CLIENT_ID: ""` so the `azuread` provider uses `graph_client_id` via OIDC instead of inheriting the main SP from `ARM_CLIENT_ID`. For destroy runs BEFORE Execute Deployment; for apply/plan/validate runs AFTER. |
 
 > **Skill maintenance**: When changing the deploy sequence (adding phases, reordering stacks, or adding new serial/parallel constraints), update both `scripts/deploy-scaled.sh` **and** this skill profile.
 

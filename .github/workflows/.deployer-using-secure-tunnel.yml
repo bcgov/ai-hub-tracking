@@ -150,6 +150,51 @@ jobs:
             python3 -c 'import json, os; value = os.environ.get("EXTERNAL_PEERED_PROJECTS", ""); parsed = json.loads(value); assert isinstance(parsed, dict)'
           fi
 
+      - name: Execute Tenant User Management (destroy — before shared is torn down)
+        # For destroy the tenant-user-mgmt stack must run BEFORE Execute Deployment
+        # because it reads data "azurerm_resource_group" which are destroyed by the
+        # main flow (run_tenant_per_tenant_destroy). Running it first avoids a
+        # "resource group not found" refresh failure.
+        if: inputs.command == 'destroy'
+        shell: bash
+        working-directory: ./infra-ai-hub
+        env:
+          ARM_USE_OIDC: "true"
+          # Intentionally clear ARM_CLIENT_ID so Terraform providers fall back to the
+          # client_id set in their provider blocks (azuread → graph_client_id for Graph
+          # API access, azurerm → client_id for Azure RBAC). ARM_* env vars take
+          # precedence over provider-block config in Terraform; clearing this env var
+          # ensures each provider authenticates with the correct service principal.
+          ARM_CLIENT_ID: ""
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ONLY_STACK: "tenant-user-mgmt"
+          CI: "true"
+          TF_VAR_app_name: "ai-services-hub"
+          TF_VAR_app_env: ${{ inputs.environment_name }}
+          TF_VAR_location: "Canada Central"
+          TF_VAR_resource_group_name: ${{ format('{0}-{1}', 'ai-services-hub', inputs.environment_name) }}
+          TF_VAR_common_tags: >-
+            {"environment":"${{ inputs.environment_name }}","app_env":"${{ inputs.environment_name }}","repo_name":"${{ github.event.repository.name }}"}
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_graph_client_id: ${{ secrets.GRAPH_CLIENT_ID }}
+          GRAPH_CLIENT_ID: ${{ secrets.GRAPH_CLIENT_ID }}
+          TF_VAR_key_vault_name: ${{ format('{0}{1}{2}kv', 'aihub', inputs.environment_name, vars.SUBSCRIPTION_NAME) }}
+          BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+          TF_LOG: ${{ inputs.terraform_log_level }}
+          TF_CLI_ARGS: "-no-color"
+          HTTP_PROXY: "http://127.0.0.1:8118"
+          HTTPS_PROXY: "http://127.0.0.1:8118"
+          NO_PROXY: "management.azure.com,login.microsoftonline.com,graph.microsoft.com,registry.terraform.io,releases.hashicorp.com,github.com,objects.githubusercontent.com"
+        run: |
+          set -euo pipefail
+          export no_proxy="$NO_PROXY"
+          chmod +x ./scripts/*.sh
+          ./scripts/deploy-scaled.sh "${{ inputs.command }}" "${{ inputs.environment_name }}"
+
       - name: Execute Deployment
         id: execute_deployment
         shell: bash
@@ -215,6 +260,49 @@ jobs:
           ./scripts/deploy-terraform.sh "${{ inputs.command }}" "${{ inputs.environment_name }}" 2>&1 | tee "$LOG_FILE"
 
           echo "log_file=$LOG_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Execute Tenant User Management
+        # For plan/apply/validate the tenant-user-mgmt stack runs after all other phase-3
+        # stacks so the azuread provider can authenticate as the Graph SP. Runs separately
+        # from Execute Deployment to isolate auth: ARM_CLIENT_ID is cleared so Terraform
+        # providers fall back to their block-configured client_id settings (graph_client_id
+        # for azuread, main SP client_id for azurerm) rather than inheriting the main SP
+        # ARM_CLIENT_ID set by the earlier azure/login step.
+        if: inputs.command != 'destroy'
+        shell: bash
+        working-directory: ./infra-ai-hub
+        env:
+          ARM_USE_OIDC: "true"
+          # Intentionally clear ARM_CLIENT_ID — see comment on the destroy variant above.
+          ARM_CLIENT_ID: ""
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ONLY_STACK: "tenant-user-mgmt"
+          CI: "true"
+          TF_VAR_app_name: "ai-services-hub"
+          TF_VAR_app_env: ${{ inputs.environment_name }}
+          TF_VAR_location: "Canada Central"
+          TF_VAR_resource_group_name: ${{ format('{0}-{1}', 'ai-services-hub', inputs.environment_name) }}
+          TF_VAR_common_tags: >-
+            {"environment":"${{ inputs.environment_name }}","app_env":"${{ inputs.environment_name }}","repo_name":"${{ github.event.repository.name }}"}
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_graph_client_id: ${{ secrets.GRAPH_CLIENT_ID }}
+          GRAPH_CLIENT_ID: ${{ secrets.GRAPH_CLIENT_ID }}
+          TF_VAR_key_vault_name: ${{ format('{0}{1}{2}kv', 'aihub', inputs.environment_name, vars.SUBSCRIPTION_NAME) }}
+          BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+          TF_LOG: ${{ inputs.terraform_log_level }}
+          TF_CLI_ARGS: "-no-color"
+          HTTP_PROXY: "http://127.0.0.1:8118"
+          HTTPS_PROXY: "http://127.0.0.1:8118"
+          NO_PROXY: "management.azure.com,login.microsoftonline.com,graph.microsoft.com,registry.terraform.io,releases.hashicorp.com,github.com,objects.githubusercontent.com"
+        run: |
+          set -euo pipefail
+          export no_proxy="$NO_PROXY"
+          chmod +x ./scripts/*.sh
+          ./scripts/deploy-scaled.sh "${{ inputs.command }}" "${{ inputs.environment_name }}"
 
       - name: Build plan summary output
         id: plan_summary
