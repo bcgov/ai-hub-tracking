@@ -7,6 +7,37 @@ description: Guidance for modifying the tenant onboarding portal in ai-hub-track
 
 Use this skill when working in `tenant-onboarding-portal/`.
 
+## Use When
+- Modifying the NestJS backend (controllers, services, guards, DTOs)
+- Modifying the React/Vite frontend (components, stores, routes)
+- Changing mock auth or Keycloak integration behavior
+- Working with Azure Table Storage persistence
+- Writing or updating Playwright E2E tests
+- Updating portal deployment workflows or local run tooling
+
+## Do Not Use When
+- Changing Terraform infrastructure (use [IaC Coder](../iac-coder/SKILL.md))
+- Modifying APIM policies or routing (use [API Management](../api-management/SKILL.md))
+- Updating docs site pages (use [Documentation](../documentation/SKILL.md))
+- Reviewing infrastructure PRs (use [IaC Code Reviewer](../iac-code-reviewer/SKILL.md))
+
+## Input Contract
+Required context before making portal changes:
+- Which layer is affected (backend, frontend, or both)
+- Whether auth behavior changes (mock vs Keycloak)
+- Whether API contract (`/api/...` routes) is affected
+- Whether tenant request fields or validation rules change
+
+## Output Contract
+Every portal change should deliver:
+- Passing lint and format checks in both backend and frontend
+- Updated E2E coverage for new user-facing flows
+- Consistent auth behavior across mock and Keycloak modes
+- JSDoc on all new functions and methods
+
+## External Documentation
+- Use [External Docs Research](../external-docs/SKILL.md) as the single source of truth for external documentation workflow and fallback approval requirements.
+
 ## Scope
 
 - Backend: `tenant-onboarding-portal/backend/src/`
@@ -171,7 +202,7 @@ grep -c '.tab-bar' styles.css   # should be ≥ 1
 
 When reviewing PR diffs that touch frontend components, **always check that new `className` values have corresponding CSS rules**.
 
-## Post-Implementation Hook
+## Validation Gates (Required)
 
 After **every** code change in this skill — whether backend, frontend, or both — run the following checks before considering the task complete:
 
@@ -189,7 +220,7 @@ npm run lint         # must exit 0
 
 Both `npm run format` and `npm run lint` **must pass with exit code 0** before the task is done. If lint reports errors, fix them and re-run until clean. Do not hand back to the user while lint errors remain.
 
-## Implementation Rules
+## Change Checklist
 
 1. Preserve the `/api/...` contract used by the React SPA unless the task explicitly requires coordinated frontend and backend changes.
 2. Keep auth behavior centralized in the backend token validator and frontend auth store.

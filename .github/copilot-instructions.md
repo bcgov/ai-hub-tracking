@@ -101,6 +101,13 @@ Use when researching authoritative external docs for platform behavior and versi
 - Upstash Context7 for non-Learn sources and targeted version/topic queries
 - Explicit fallback approval required when Context7 has no documentation
 
+### [PII Redaction Service](./skills/pii-redaction-service/SKILL.md)
+Use when modifying the PII redaction custom service.
+- Python FastAPI app under `pii-redaction-service/`
+- Batch orchestration, Language Service integration, Container App scaling
+- Dockerfile, GHCR build workflow, and Terraform module
+- Terraform stack under `infra-ai-hub/stacks/pii-redaction/`
+
 ### [IaC Code Reviewer](./skills/iac-code-reviewer/SKILL.md)
 Use this for reviewing Terraform, GitHub Actions, Bash scripts, and AVM changes.
 - Review goals and severity levels

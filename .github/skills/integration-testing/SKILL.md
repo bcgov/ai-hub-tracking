@@ -56,6 +56,9 @@ Every test change should deliver:
 | `v1-chat-completions.bats` | OpenAI `/v1/` format, streaming SSE, Bearer token auth |
 | `apim-key-rotation.bats` | `/internal/apim-keys` endpoint, Key Vault rotation metadata |
 | `tenant-user-management.bats` | Tenant user management RBAC |
+| `tenant-info.bats` | Tenant info endpoint, model deployments, and feature flags |
+| `pii-failure.bats` | PII redaction failure scenarios, fail-closed 503 behavior |
+| `mistral.bats` | Mistral chat and OCR routing via APIM |
 
 ## File Structure Pattern
 
