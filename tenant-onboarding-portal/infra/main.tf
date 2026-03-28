@@ -65,7 +65,7 @@ resource "random_string" "storage_suffix" {
 
 module "portal_storage" {
   source  = "Azure/avm-res-storage-storageaccount/azurerm"
-  version = "0.6.7"
+  version = "0.6.8"
 
   name                = local.storage_account_name
   location            = var.location
@@ -106,7 +106,7 @@ module "portal_storage" {
 
 module "portal" {
   source  = "Azure/avm-res-web-site/azurerm"
-  version = "0.21.0"
+  version = "0.21.8"
 
   name                     = local.app_service_name
   location                 = var.location

@@ -72,7 +72,7 @@ resource "azurerm_application_insights" "this" {
 # Can be deployed to a different region than the VNet for model availability
 # -----------------------------------------------------------------------------
 resource "azapi_resource" "ai_foundry" {
-  type      = "Microsoft.CognitiveServices/accounts@2025-04-01-preview"
+  type      = "Microsoft.CognitiveServices/accounts@2025-12-01"
   name      = var.name
   location  = local.ai_location # May differ from PE location for model availability
   parent_id = var.resource_group_id
@@ -189,7 +189,7 @@ resource "azurerm_monitor_diagnostic_setting" "ai_foundry" {
 resource "azapi_resource" "ai_agent" {
   count = var.ai_agent.enabled ? 1 : 0
 
-  type      = "Microsoft.CognitiveServices/accounts/projects@2025-04-01-preview"
+  type      = "Microsoft.CognitiveServices/accounts/projects@2025-12-01"
   name      = "${var.name}-agent"
   location  = var.location
   parent_id = azapi_resource.ai_foundry.id
