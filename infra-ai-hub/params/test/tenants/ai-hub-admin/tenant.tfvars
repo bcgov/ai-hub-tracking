@@ -342,13 +342,7 @@ tenant = {
   }
 
   # Tenant user management (applies across environments)
-  # No seed members for the admin tenant — empty lists keep the map(any) shape
-  # consistent with other tenants while avoiding empty Entra groups.
-  user_management = {
-    seed_members = {
-      admin = []
-    }
-  }
+  user_management = {}
 
   # APIM Policies Configuration
   # Consolidates all APIM policy settings for this tenant
