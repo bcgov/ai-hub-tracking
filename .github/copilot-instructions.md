@@ -26,6 +26,20 @@ After **every** file edit or creation in a quality-gated directory, run the corr
 
 ---
 
+## Source Citations (Non-Negotiable)
+
+Every recommendation, configuration value, or behavioral claim **must** be backed by a verifiable source: a file path in the repo, a Terraform resource attribute, a workflow step, an official doc link, or a direct tool output. Do not present inferred or assumed information as fact. If the source cannot be identified, say so explicitly and ask the user for clarification.
+
+---
+
+## No Assumptions
+
+- Stick to facts derived from the codebase, tool outputs, or authoritative documentation.
+- Do not guess at values, behaviors, or configurations — verify first using available tools.
+- When context is ambiguous or incomplete, ask the user for clarification before proceeding.
+
+---
+
 ## Brief Status Format
 
 Use this format for task completion:
@@ -40,6 +54,8 @@ Verified: [confirmation]
 ## Skills-Based Work
 
 This repo uses **skill profiles** to guide work. Use the appropriate skill profile based on the task:
+
+**Skill Maintenance:** When a change introduces new patterns, modules, routes, test suites, or other artifacts covered by a skill profile, update the relevant SKILL.md to reflect the change. If the change introduces an entirely new domain not covered by any existing skill, create a new skill folder under `.github/skills/<name>/` with a SKILL.md following the standard template (Use When, Do Not Use When, Input/Output Contract, External Documentation, Scope, Change Checklist, Validation Gates) and add a corresponding subsection here.
 
 ### [IaC Coder](./skills/iac-coder/SKILL.md)
 Use when creating or modifying infrastructure code (Terraform, Bash, GitHub Actions).
@@ -100,6 +116,13 @@ Use when researching authoritative external docs for platform behavior and versi
 - Repository-first validation, then Learn/Context7 lookup
 - Upstash Context7 for non-Learn sources and targeted version/topic queries
 - Explicit fallback approval required when Context7 has no documentation
+
+### [PII Redaction Service](./skills/pii-redaction-service/SKILL.md)
+Use when modifying the PII redaction custom service.
+- Python FastAPI app under `pii-redaction-service/`
+- Batch orchestration, Language Service integration, Container App scaling
+- Dockerfile, GHCR build workflow, and Terraform module
+- Terraform stack under `infra-ai-hub/stacks/pii-redaction/`
 
 ### [IaC Code Reviewer](./skills/iac-code-reviewer/SKILL.md)
 Use this for reviewing Terraform, GitHub Actions, Bash scripts, and AVM changes.
