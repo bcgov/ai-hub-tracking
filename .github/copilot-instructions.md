@@ -26,6 +26,20 @@ After **every** file edit or creation in a quality-gated directory, run the corr
 
 ---
 
+## Source Citations (Non-Negotiable)
+
+Every recommendation, configuration value, or behavioral claim **must** be backed by a verifiable source: a file path in the repo, a Terraform resource attribute, a workflow step, an official doc link, or a direct tool output. Do not present inferred or assumed information as fact. If the source cannot be identified, say so explicitly and ask the user for clarification.
+
+---
+
+## No Assumptions
+
+- Stick to facts derived from the codebase, tool outputs, or authoritative documentation.
+- Do not guess at values, behaviors, or configurations — verify first using available tools.
+- When context is ambiguous or incomplete, ask the user for clarification before proceeding.
+
+---
+
 ## Brief Status Format
 
 Use this format for task completion:
