@@ -16,7 +16,7 @@
 # AI FOUNDRY PROJECT
 # =============================================================================
 resource "azapi_resource" "project" {
-  type      = "Microsoft.CognitiveServices/accounts/projects@2025-10-01-preview"
+  type      = "Microsoft.CognitiveServices/accounts/projects@2025-12-01"
   name      = "${local.name_prefix}-project"
   location  = var.ai_location # Must match parent hub location
   parent_id = var.ai_foundry_hub_id
@@ -118,7 +118,7 @@ resource "azurerm_role_assignment" "project_to_docint" {
 resource "azapi_resource" "connection_storage" {
   count = var.storage_account.enabled && var.project_connections.storage ? 1 : 0
 
-  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
+  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-12-01"
   name      = "storage-${local.name_prefix}"
   parent_id = azapi_resource.project.id
 
@@ -146,7 +146,7 @@ resource "azapi_resource" "connection_storage" {
 resource "azapi_resource" "connection_ai_search" {
   count = var.ai_search.enabled && var.project_connections.ai_search ? 1 : 0
 
-  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
+  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-12-01"
   name      = "aisearch-${local.name_prefix}"
   parent_id = azapi_resource.project.id
 
@@ -175,7 +175,7 @@ resource "azapi_resource" "connection_ai_search" {
 resource "azapi_resource" "connection_cosmos" {
   count = var.cosmos_db.enabled && var.project_connections.cosmos_db ? 1 : 0
 
-  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
+  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-12-01"
   name      = "cosmosdb-${local.name_prefix}"
   parent_id = azapi_resource.project.id
 
@@ -225,7 +225,7 @@ resource "azapi_resource" "rai_policy" {
   for_each = { for k, v in var.ai_model_deployments : k => v if length(v.content_filter.filters) > 0 }
 
   name      = replace("${var.tenant_name}-${each.value.name}-filter", ".", "-")
-  type      = "Microsoft.CognitiveServices/accounts/raiPolicies@2025-04-01-preview"
+  type      = "Microsoft.CognitiveServices/accounts/raiPolicies@2025-12-01"
   parent_id = var.ai_foundry_hub_id
 
   body = {
@@ -251,7 +251,7 @@ resource "azapi_resource" "ai_model_deployment" {
   # Prefix with tenant name to ensure uniqueness on shared Hub
   name      = "${var.tenant_name}-${each.value.name}"
   parent_id = var.ai_foundry_hub_id
-  type      = "Microsoft.CognitiveServices/accounts/deployments@2025-10-01-preview"
+  type      = "Microsoft.CognitiveServices/accounts/deployments@2025-12-01"
 
   body = {
     properties = {
@@ -282,7 +282,7 @@ resource "azapi_resource" "ai_model_deployment" {
 resource "azapi_resource" "connection_docint" {
   count = var.document_intelligence.enabled && var.project_connections.document_intelligence ? 1 : 0
 
-  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-04-01-preview"
+  type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-12-01"
   name      = "docint-${local.name_prefix}"
   parent_id = azapi_resource.project.id
 

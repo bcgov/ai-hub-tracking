@@ -7,7 +7,7 @@
 module "github_runners" {
   count   = var.enabled ? 1 : 0
   source  = "Azure/avm-ptn-cicd-agents-and-runners/azurerm"
-  version = "0.5.1"
+  version = "0.5.2"
 
   # Required inputs
   postfix                             = var.postfix
