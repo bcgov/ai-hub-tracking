@@ -92,9 +92,9 @@ ls -la "$SCRIPT_DIR"/*.html 2>/dev/null || echo "  No HTML files generated"
 echo ""
 echo "Generating search index..."
 NODE_BIN=""
-if command -v node &>/dev/null; then
+if command -v node &>/dev/null && node --version &>/dev/null 2>&1; then
     NODE_BIN="node"
-elif command -v node.exe &>/dev/null; then
+elif command -v node.exe &>/dev/null && node.exe --version &>/dev/null 2>&1; then
     NODE_BIN="node.exe"
 fi
 
@@ -106,5 +106,6 @@ if [ -n "$NODE_BIN" ]; then
         $NODE_BIN "$SCRIPT_DIR/generate-search-index.js" "$SCRIPT_DIR"
     fi
 else
-    echo "  WARNING: Node.js not found – search index was NOT generated."
+    echo "  WARNING: Node.js not found or not executable – search index was NOT generated."
+    echo "           Heading id= attributes will be missing. Install Node.js to fix."
 fi
