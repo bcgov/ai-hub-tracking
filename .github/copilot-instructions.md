@@ -41,6 +41,8 @@ Verified: [confirmation]
 
 This repo uses **skill profiles** to guide work. Use the appropriate skill profile based on the task:
 
+**Skill Maintenance:** When a change introduces new patterns, modules, routes, test suites, or other artifacts covered by a skill profile, update the relevant SKILL.md to reflect the change. If the change introduces an entirely new domain not covered by any existing skill, create a new skill folder under `.github/skills/<name>/` with a SKILL.md following the standard template (Use When, Do Not Use When, Input/Output Contract, External Documentation, Scope, Change Checklist, Validation Gates) and add a corresponding subsection here.
+
 ### [IaC Coder](./skills/iac-coder/SKILL.md)
 Use when creating or modifying infrastructure code (Terraform, Bash, GitHub Actions).
 - Terraform (>= 1.12.0) with Azure providers
