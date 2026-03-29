@@ -2199,13 +2199,13 @@
 <td><code>defender_enabled</code></td>
 <td><code>bool</code></td>
 <td><code>false</code></td>
-<td>Enable Defender for Cloud plans</td>
+<td>Enable Defender for Cloud plans (production only — disabled in dev and test)</td>
 </tr>
 <tr>
 <td><code>defender_resource_types</code></td>
 <td><code>map(object({</code></td>
 <td><code>{}</code></td>
-<td>Defender for Cloud resource types and subplans</td>
+<td>Defender for Cloud resource types and subplans. Production enables Api (P1) and AI plans.</td>
 </tr>
 <tr>
 <td><code>backend_resource_group</code></td>
@@ -2705,7 +2705,7 @@
 <td><code>defender_enabled</code></td>
 <td><code>bool</code></td>
 <td><code>false</code></td>
-<td><em>No description</em></td>
+<td>Enable Defender API collection tracking per tenant (production only)</td>
 </tr>
 <tr>
 <td><code>apim_pe_subnet_key</code></td>
@@ -2717,7 +2717,7 @@
 <td><code>defender_resource_types</code></td>
 <td><code>map(object({</code></td>
 <td><code>{}</code></td>
-<td><em>No description</em></td>
+<td>Defender resource types passed through from shared.tfvars (production only)</td>
 </tr>
 <tr>
 <td><code>backend_resource_group</code></td>
@@ -3940,7 +3940,7 @@
 </div>
 <h3 id="hub-defender">defender</h3>
 <div class="card" style="border-left-color: #22c55e;">
-<p>Microsoft Defender for Cloud Subscription Pricing</p>
+<p>Microsoft Defender for Cloud Subscription Pricing — enabled in production only (Api P1 and AI plans). Dev and test environments have Defender disabled.</p>
 <p><strong>Location:</strong> <code>infra-ai-hub/modules/defender/</code></p>
 <details>
 <summary style="cursor: pointer; color: var(--bc-blue-light);">Files (4)</summary>
