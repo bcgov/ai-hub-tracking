@@ -102,7 +102,8 @@ locals {
     "https://${lookup(var.shared_config.app_gateway, "frontend_hostname", "")}"
   ) : (local.apim_config.enabled ? module.apim[0].gateway_url : "")
 
-  tenant_api_policies = {
+  # Raw rendered templates (space-indented from tftpl)
+  _raw_tenant_api_policies = {
     for key, config in local.enabled_tenants : key => templatefile(
       "${path.root}/../../params/apim/api_policy.xml.tftpl",
       {
@@ -137,6 +138,21 @@ locals {
         base_url                   = local.tenant_info_base_url
       }
     )
+  }
+
+  # Normalize 4-space indentation to tabs — Azure APIM re-indents stored XML
+  # with tabs, causing a cosmetic whitespace diff on every plan without this.
+  # Pass 1 converts the first 4 leading spaces after each newline to a tab;
+  # passes 2-13 each convert one more 4-space group that follows a tab.
+  tenant_api_policies = {
+    for key, raw in local._raw_tenant_api_policies : key => replace(replace(
+      replace(replace(replace(replace(replace(replace(replace(replace(
+        replace(replace(replace(raw,
+          "\n    ", "\n\t"),
+        "\t    ", "\t\t"), "\t    ", "\t\t"), "\t    ", "\t\t"),
+        "\t    ", "\t\t"), "\t    ", "\t\t"), "\t    ", "\t\t"),
+        "\t    ", "\t\t"), "\t    ", "\t\t"), "\t    ", "\t\t"),
+    "\t    ", "\t\t"), "\t    ", "\t\t"), "\t    ", "\t\t")
   }
 
   tenant_apis = {
