@@ -213,6 +213,5 @@ shared_config = {
 # Note: "AI" plan protects Azure OpenAI and Azure AI Model Inference services
 defender_enabled = true
 defender_resource_types = {
-  "AI"  = { subplan = null }
-  "Api" = { subplan = "P1" }
+  "AI" = { subplan = null }
 }

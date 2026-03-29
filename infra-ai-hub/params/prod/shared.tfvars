@@ -219,3 +219,17 @@ shared_config = {
   }
 
 }
+
+# =============================================================================
+# DEFENDER FOR CLOUD
+# =============================================================================
+# Only manage Defender plans NOT already enabled by central team/Azure Policy.
+# Plans already enabled (managed externally): SqlServers, StorageAccounts,
+# SqlServerVirtualMachines, KeyVaults, Arm, CosmosDbs, Discovery, FoundationalCspm
+#
+# Add new plans here only if you want to enable something not already active.
+# Note: "Api" plan (P1) protects Azure API Management services.
+defender_enabled = true
+defender_resource_types = {
+  "Api" = { subplan = "P1" }
+}
