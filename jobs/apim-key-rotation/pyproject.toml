@@ -9,6 +9,7 @@ dependencies = [
     "azure-mgmt-apimanagement>=5.0.0",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.13.1",
+    "pyjwt>=2.12.1",
 ]
 
 [dependency-groups]
