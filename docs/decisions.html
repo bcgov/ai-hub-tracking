@@ -1398,8 +1398,8 @@ details.adr.pending[open] summary {
     </div>
     <div class="card" style="border-left-color: var(--bc-gold);">
         <h4 style="margin-top: 0;">Azure Bastion</h4>
-        <p><strong>What:</strong> Managed gateway service</p>
-        <p><strong>Why:</strong> Secure way to access Jumpbox (no public SSH)</p>
+        <p><strong>What:</strong> Managed gateway service (Standard SKU)</p>
+        <p><strong>Why:</strong> Secure way to access Jumpbox (no public SSH). Standard SKU enables native CLI tunneling and Entra ID SSH login.</p>
         <p style="margin-bottom:0;"><strong>Analogy:</strong> The secure lobby with ID verification</p>
     </div>
 </div>
@@ -1897,7 +1897,7 @@ details.adr.pending[open] summary {
 
 <h3 id="decision-1">Decision</h3>
 
-<p><strong>We chose Option C: Azure Bastion.</strong></p>
+<p><strong>We chose Option C: Azure Bastion (Standard SKU).</strong> Standard SKU enables native client tunneling (<code>az network bastion ssh</code> / <code>az network bastion tunnel</code>) and supports Entra ID SSH login via the <code>AADSSHLoginForLinux</code> VM extension, eliminating the need for SSH key management.</p>
 
 <h3 id="rationale-1">Rationale</h3>
 
@@ -1947,15 +1947,17 @@ details.adr.pending[open] summary {
     <li><strong>No public IPs on VMs</strong> - VMs only have private IPs</li>
     <li><strong>No client software</strong> - Works from any browser</li>
     <li><strong>Azure AD integration</strong> - Uses existing identity</li>
+    <li><strong>Entra ID SSH login</strong> - Optional passwordless SSH via <code>AADSSHLoginForLinux</code> extension with <code>Virtual Machine Administrator Login</code> RBAC role</li>
+    <li><strong>Native CLI tunneling</strong> - Standard SKU supports <code>az network bastion ssh --auth-type AAD</code> and <code>az network bastion tunnel</code> for local client access</li>
     <li><strong>Session recording</strong> - Can enable for audit</li>
     <li><strong>Cost control</strong> - Can deploy/destroy on demand via workflow</li>
 </ul>
 
 <h4>Negative</h4>
 <ul>
-    <li><strong>Azure Portal dependency</strong> - Must use Azure UI or CLI</li>
-    <li><strong>File transfer limitations</strong> - No native SCP/SFTP</li>
-    <li><strong>Latency</strong> - Browser-based adds some lag</li>
+    <li><strong>Azure Portal or CLI required</strong> - Must use Azure UI or <code>az network bastion ssh</code> CLI</li>
+    <li><strong>Latency</strong> - Browser-based adds some lag (CLI tunneling mitigates this)</li>
+    <li><strong>Higher SKU cost</strong> - Standard SKU (~$0.35/hr) vs Basic (~$0.19/hr), offset by CLI tunneling and Entra ID capabilities</li>
 </ul>
 
 <h3 id="references-2">References</h3>

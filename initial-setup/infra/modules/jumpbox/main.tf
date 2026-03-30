@@ -339,7 +339,9 @@ if __name__ == "__main__":
 
   tags = var.common_tags
   lifecycle {
-    ignore_changes = [tags]
+    # runbook_type: Azure Automation normalises "Python3" -> "Python" in the API
+    # response, causing a forced replace on every plan. Ignore to prevent drift.
+    ignore_changes = [tags, runbook_type]
   }
 }
 
@@ -374,5 +376,34 @@ resource "azurerm_role_assignment" "automation_vm_contributor" {
   scope                = azurerm_linux_virtual_machine.jumpbox.id
   role_definition_name = "Virtual Machine Contributor"
   principal_id         = azurerm_automation_account.jumpbox.identity[0].principal_id
+}
+
+# -----------------------------------------------------------------------------
+# Entra ID (AAD) SSH Login Extension
+# Enables `az network bastion ssh --auth-type AAD` and portal-based Entra login
+# -----------------------------------------------------------------------------
+resource "azurerm_virtual_machine_extension" "aad_ssh_login" {
+  count = var.enable_entra_login ? 1 : 0
+
+  name                       = "AADSSHLoginForLinux"
+  virtual_machine_id         = azurerm_linux_virtual_machine.jumpbox.id
+  publisher                  = "Microsoft.Azure.ActiveDirectory"
+  type                       = "AADSSHLoginForLinux"
+  type_handler_version       = "1.0"
+  auto_upgrade_minor_version = true
+
+  tags = var.common_tags
+  lifecycle {
+    ignore_changes = [tags]
+  }
+}
+
+# RBAC: Grant Virtual Machine Administrator Login to specified principals
+resource "azurerm_role_assignment" "vm_admin_login" {
+  for_each = var.enable_entra_login ? toset(var.vm_admin_login_principal_ids) : toset([])
+
+  scope                = azurerm_linux_virtual_machine.jumpbox.id
+  role_definition_name = "Virtual Machine Administrator Login"
+  principal_id         = each.value
 }
 

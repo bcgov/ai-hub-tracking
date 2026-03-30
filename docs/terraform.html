@@ -1303,7 +1303,7 @@ Commands:
         <h3 id="resources-created-1">Resources Created</h3>
         <ul>
             <li><strong>Public IP</strong>: Static, Standard SKU (required for Bastion)</li>
-            <li><strong>Bastion Host</strong>: Basic SKU for cost optimization</li>
+            <li><strong>Bastion Host</strong>: Standard SKU (tunneling enabled, minimum 2 instances)</li>
         </ul>
     </div>
     <div class="card">
@@ -1318,7 +1318,7 @@ Commands:
 </div>
 
 <div class="alert alert-info">
-    <strong>Cost Tip:</strong> Azure Bastion has hourly charges. Use the <code>add-or-remove-module.yml</code> workflow to deploy/destroy Bastion on demand.
+    <strong>Cost Tip:</strong> Azure Bastion Standard SKU requires a minimum of 2 instances (scale units), so hourly charges are always at least 2&times; the per-unit rate. Use the <code>add-or-remove-module.yml</code> workflow to deploy/destroy Bastion on demand.
 </div>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">

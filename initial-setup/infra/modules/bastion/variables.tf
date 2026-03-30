@@ -35,11 +35,17 @@ variable "common_tags" {
 variable "bastion_sku" {
   description = "SKU for Azure Bastion (Basic or Standard)"
   type        = string
-  default     = "Basic"
+  default     = "Standard"
   nullable    = false
 
   validation {
     condition     = contains(["Basic", "Standard", "Premium"], var.bastion_sku)
     error_message = "Bastion SKU must be Basic, Standard, or Premium."
   }
+}
+
+variable "tunneling_enabled" {
+  description = "Enable native client tunneling (az network bastion ssh/tunnel). Requires Standard or Premium SKU."
+  type        = bool
+  default     = true
 }

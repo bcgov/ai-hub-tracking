@@ -173,6 +173,26 @@ variable "enable_jumpbox" {
   type        = bool
   default     = false
 }
+
+variable "enable_entra_login" {
+  description = "Enable Microsoft Entra ID (AAD) SSH login on the jumpbox VM"
+  type        = bool
+  default     = true
+}
+
+variable "vm_admin_login_principal_ids" {
+  description = "List of Entra group or user object IDs to grant Virtual Machine Administrator Login role on the jumpbox"
+  type        = list(string)
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for id in var.vm_admin_login_principal_ids :
+      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", id))
+    ])
+    error_message = "All entries in vm_admin_login_principal_ids must be valid GUIDs (e.g. 033ec9ae-c728-42ae-8b40-0ca8fe777133)."
+  }
+}
 ### -----------------------------------------------------------------------------
 ### Log Analytics Variables
 ### -----------------------------------------------------------------------------
