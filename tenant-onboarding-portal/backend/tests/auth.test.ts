@@ -22,13 +22,17 @@ test('mock auth auto-establishes an admin session', async () => {
   try {
     const agent = request.agent(app.getHttpServer());
     const response = await agent.get('/api/session');
+    const setCookieHeader = response.headers['set-cookie'];
+    const sessionCookie = Array.isArray(setCookieHeader)
+      ? setCookieHeader.join(';')
+      : (setCookieHeader ?? '');
 
     expect(response.status).toBe(200);
     expect(response.body.authenticated).toBe(true);
     expect(response.body.isAdmin).toBe(true);
     expect(response.body.user.email).toBe('dev.user@gov.bc.ca');
     expect(response.body.user.roles).toEqual(['portal-admin']);
-    expect(response.headers['set-cookie']?.join(';')).toContain('tenant-portal-session=');
+    expect(sessionCookie).toContain('tenant-portal-session=');
   } finally {
     await app.close();
   }
