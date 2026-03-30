@@ -1,4 +1,4 @@
-FROM alpine:3.20
+FROM alpine:3
 
 RUN apk add --no-cache privoxy ca-certificates \
   && mkdir -p /etc/privoxy /var/log/privoxy

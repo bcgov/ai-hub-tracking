@@ -1,6 +1,6 @@
 FROM jpillora/chisel:1.11 AS chisel
 
-FROM alpine:3.20
+FROM alpine:3
 
 RUN apk add --no-cache ca-certificates busybox-extras
 
