@@ -23,7 +23,6 @@ jobs:
     secrets: inherit
 
   builds:
-    needs: lint
     concurrency:
       # Cancel in progress for PR open and close
       group: builds-${{ github.event.number || 'latest' }}
@@ -37,7 +36,6 @@ jobs:
         latest
 
   deploy-proxy-in-tools-environment:
-    needs: lint
     name: Deploy to 'tools' Environment
     uses: ./.github/workflows/.deployer.yml
     with:
@@ -142,7 +140,6 @@ jobs:
   detect-portal-changes:
     name: Detect portal changes
     runs-on: ubuntu-24.04
-    if: github.event_name == 'pull_request'
     outputs:
       changed: ${{ steps.diff.outputs.changed }}
     steps:
@@ -166,7 +163,7 @@ jobs:
   test-portal-pr:
     name: Test portal (backend + frontend + Playwright)
     needs: detect-portal-changes
-    if: needs.detect-portal-changes.outputs.changed == 'true'
+    if: (needs.detect-portal-changes.outputs.changed == 'true' && !github.event.pull_request.head.repo.fork)
     runs-on: ubuntu-24.04
     concurrency:
       group: portal-tests-${{ github.event.number || 'latest' }}
@@ -212,7 +209,7 @@ jobs:
   deploy-portal-preview:
     name: Deploy pr${{ github.event.number }}-ai-hub-onboarding
     needs: [detect-portal-changes]
-    if: needs.detect-portal-changes.outputs.changed == 'true'
+    if: (needs.detect-portal-changes.outputs.changed == 'true' && !github.event.pull_request.head.repo.fork)
     concurrency:
       group: portal-preview-${{ github.event.number || 'latest' }}
       cancel-in-progress: false # avoid terraform state cnflicts
