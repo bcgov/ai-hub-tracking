@@ -51,3 +51,15 @@ variable "os_disk_size_gb" {
   default     = 64
   nullable    = false
 }
+
+variable "enable_entra_login" {
+  description = "Enable Microsoft Entra ID (AAD) SSH login via the AADSSHLoginForLinux VM extension"
+  type        = bool
+  default     = true
+}
+
+variable "vm_admin_login_principal_ids" {
+  description = "List of Entra group or user object IDs to grant Virtual Machine Administrator Login role on the VM"
+  type        = list(string)
+  default     = []
+}

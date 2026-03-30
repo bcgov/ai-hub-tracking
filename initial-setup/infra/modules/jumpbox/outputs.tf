@@ -37,6 +37,12 @@ output "ssh_private_key_path" {
   value       = local_sensitive_file.ssh_private_key.filename
 }
 
+output "ssh_private_key" {
+  description = "PEM-encoded SSH private key for break-glass access (sensitive)"
+  value       = azapi_resource_action.ssh_public_key_gen.output.privateKey
+  sensitive   = true
+}
+
 output "automation_account_id" {
   description = "ID of the Azure Automation Account for VM scheduling"
   value       = azurerm_automation_account.jumpbox.id
@@ -50,4 +56,9 @@ output "auto_shutdown_time" {
 output "auto_start_schedule" {
   description = "Auto-start schedule"
   value       = "8:00 AM PST (Monday-Friday only)"
+}
+
+output "entra_login_enabled" {
+  description = "Whether Microsoft Entra ID SSH login is enabled on the jumpbox"
+  value       = var.enable_entra_login
 }

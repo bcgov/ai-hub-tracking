@@ -17,9 +17,10 @@ This module deploys an Azure Linux VM (Jumpbox) with Azure Bastion for secure, b
                               │
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
-│                    Azure Bastion (Basic SKU)                    │
+│                    Azure Bastion (Standard SKU)                 │
 │                    AzureBastionSubnet /26                       │
 │                    Public IP: Standard SKU                      │
+│                    Native client tunneling enabled              │
 └─────────────────────────────────────────────────────────────────┘
                               │
                               │ SSH (Port 22)
@@ -27,7 +28,7 @@ This module deploys an Azure Linux VM (Jumpbox) with Azure Bastion for secure, b
 ┌─────────────────────────────────────────────────────────────────┐
 │                    Jumpbox VM (Dedicated B-series)              │
 │                    Ubuntu 24.04 LTS (CLI Only)                  │
-│                    2 vCPU / 4 GB RAM (Standard_B2ls_v2)         │
+│                    2 vCPU / 4 GB RAM (Standard_B2als_v2)        │
 │                    Azure CLI, GitHub CLI, Terraform, Docker     │
 │                    SSH Access via Bastion                       │
 │                    jumpbox-subnet /28                           │
@@ -48,7 +49,8 @@ This module deploys an Azure Linux VM (Jumpbox) with Azure Bastion for secure, b
 - **Ubuntu 24.04 LTS**: Latest LTS release (Noble Numbat) with long-term support until 2034
 - **CLI-Only**: Lightweight setup with essential DevOps tools (no desktop environment)
 - **Pre-installed Tools**: Azure CLI, GitHub CLI, Terraform, kubectl, Docker
-- **Azure Bastion**: Secure SSH access without public IP on VM
+- **Azure Bastion**: Secure SSH access without public IP on VM (Standard SKU with native CLI tunneling)
+- **Entra ID SSH Login**: Optional Microsoft Entra ID (AAD) authentication via `AADSSHLoginForLinux` VM extension — no SSH keys required
 - **Managed Identity**: Access Azure services without storing credentials
 - **Auto-generated SSH Keys**: Keys stored in Azure and locally
 - **Random Admin Username**: 12-char alphanumeric username for added security
@@ -88,7 +90,34 @@ Or via Azure Portal:
 
 ## Connecting to the Jumpbox VM
 
-### Via SSH (Recommended)
+### Via Azure CLI with Entra ID (Recommended)
+
+When Entra ID login is enabled (`enable_entra_login = true`), you can SSH using your Entra identity without any SSH keys:
+
+```bash
+# Login to Azure CLI
+az login
+
+# SSH via Bastion using Entra ID authentication
+az network bastion ssh \
+  --name <bastion-name> \
+  --resource-group <rg-name> \
+  --target-resource-id <vm-resource-id> \
+  --auth-type AAD
+
+# Or tunnel a port for local SSH client access
+az network bastion tunnel \
+  --name <bastion-name> \
+  --resource-group <rg-name> \
+  --target-resource-id <vm-resource-id> \
+  --resource-port 22 \
+  --port 2222
+# Then in another terminal: ssh -p 2222 localhost
+```
+
+> **Prerequisites**: Requires Azure CLI with the `bastion` extension (`az extension add --name bastion`). Your Entra user or group must be in the `vm_admin_login_principal_ids` list for the `Virtual Machine Administrator Login` RBAC role.
+
+### Via Azure Portal with SSH Key (Fallback)
 
 1. Navigate to the [Azure Portal](https://portal.azure.com)
 2. Go to **Virtual Machines** → Select your Jumpbox VM (`*-jumpbox`)
@@ -130,6 +159,25 @@ sensitive/jumpbox_ssh_key.pem
 - File permissions are set to `0600` (owner read/write only)
 - Store securely and rotate keys periodically
 
+#### 3. Terraform State (Break-Glass Retrieval)
+
+If the local file is absent (e.g., infrastructure was deployed from GitHub Actions rather than a local machine), retrieve the private key directly from Terraform state:
+
+```bash
+cd initial-setup/infra
+
+# Print the private key to stdout — redirect to a secure file
+terraform output -raw jumpbox_ssh_private_key > /tmp/jumpbox_ssh_key.pem
+chmod 0600 /tmp/jumpbox_ssh_key.pem
+
+# Then connect via SSH through the Bastion tunnel:
+# az network bastion tunnel --name <bastion> --resource-group <rg> \
+#   --target-resource-id <vm-id> --resource-port 22 --port 2222 &
+# ssh -i /tmp/jumpbox_ssh_key.pem -p 2222 <admin_username>@localhost
+```
+
+> ⚠️ This requires access to the Terraform remote state backend (Azure Storage). Treat the extracted key as sensitive — delete the local copy after use.
+
 ### Using the CLI Tools
 
 After connecting via SSH through Bastion:
@@ -165,6 +213,173 @@ docker --version
 | tmux | Terminal multiplexer |
 | vim, htop, jq, curl, wget | Essential utilities |
 
+## SOCKS5 Proxy for Private PaaS Access
+
+The `bastion-proxy.sh` script creates a SOCKS5 proxy on your local machine by
+tunnelling through Azure Bastion to the jumpbox VM. Once running, any tool that
+supports SOCKS5 can reach private PaaS endpoints the jumpbox can see — no VPN
+required, and **a single proxy port handles all endpoints simultaneously**.
+
+### How It Works
+
+```
+Your machine  ──────────────────────────────────────────────────────────────▶
+  │                                                                         │
+  │  SOCKS5 (localhost:8228)                                                │
+  ▼                                                                         │
+az network bastion ssh ──▶ Azure Bastion ──▶ Jumpbox VM ──▶ Private endpoints
+                            (authenticated)   (DNS resolver)
+                                                              • CosmosDB
+                                                              • PostgreSQL
+                                                              • Redis
+                                                              • Azure OpenAI
+                                                              • AI Search
+                                                              • Key Vault
+```
+
+The jumpbox resolves hostnames and forwards TCP traffic on your behalf. Because
+SOCKS5 proxies DNS through the jumpbox, every private endpoint the jumpbox can
+reach is instantly accessible through the one proxy port — no per-service
+tunnel configuration is needed.
+
+### Running the Proxy
+
+> **Important — Incognito / Private Browsing required for device code login**
+>
+> When the terminal prints a device code URL (`https://microsoft.com/devicelogin`),
+> open it in an **Incognito / Private Browsing** window. If you use a regular
+> browser tab, the browser may silently sign in with a cached personal Microsoft
+> account and authenticate as the wrong user.
+>
+> | Browser | Open Incognito / Private |
+> |---------|-------------------------|
+> | Chrome / Edge | `Ctrl+Shift+N` (Win/Linux) &nbsp; `⌘+Shift+N` (macOS) |
+> | Firefox | `Ctrl+Shift+P` (Win/Linux) &nbsp; `⌘+Shift+P` (macOS) |
+> | Safari | `⌘+Shift+N` |
+
+```bash
+# Prerequisites (one-time setup)
+az extension add --name bastion
+az extension add --name ssh   # AAD auth only
+
+# Entra ID (AAD) auth — recommended
+# Run from initial-setup/infra/
+./scripts/bastion-proxy.sh \
+  --resource-group <rg-name> \
+  --bastion-name <app_name>-bastion \
+  --vm-name <app_name>-jumpbox
+
+# SSH key auth — break-glass fallback
+./scripts/bastion-proxy.sh \
+  --resource-group <rg-name> \
+  --bastion-name <app_name>-bastion \
+  --vm-name <app_name>-jumpbox \
+  --auth-type ssh-key \
+  --username $(terraform output -raw jumpbox_admin_username) \
+  --ssh-key ../sensitive/jumpbox_ssh_key.pem
+```
+
+The script will:
+1. Device-code `az login` if not already authenticated (open the URL in Incognito — see note above)
+2. Switch to subscription `eb733692-257d-40c8-bd7b-372e689f3b7f`
+3. Find an available SOCKS5 port starting at 8228 (tries next ports automatically if 8228 is in use)
+4. Start the VM if it is stopped (prompts for confirmation)
+5. Verify the Bastion host is in a healthy provisioning state (waits if still provisioning)
+6. Open the Bastion tunnel and print the proxy address with session expiry time
+7. Block until `Ctrl+C` — warns 1 hour before the 12h Entra ID session limit and stops automatically at expiry
+
+### Configuring Tools to Use the Proxy
+
+Set environment variables to route all tools through the proxy:
+
+```bash
+export HTTPS_PROXY=socks5://localhost:8228
+export HTTP_PROXY=socks5://localhost:8228
+```
+
+Or use per-command flags. All examples below use the **same proxy port** regardless
+of which PaaS endpoint you are targeting.
+
+#### Azure CLI
+
+```bash
+HTTPS_PROXY=socks5://localhost:8228 az cosmosdb list --resource-group <rg>
+HTTPS_PROXY=socks5://localhost:8228 az keyvault secret list --vault-name <kv>
+```
+
+#### curl
+
+```bash
+# --socks5-hostname ensures the hostname is resolved by the jumpbox (not locally)
+curl --socks5-hostname localhost:8228 https://<account>.documents.azure.com/
+curl --socks5-hostname localhost:8228 https://<account>.openai.azure.com/
+```
+
+#### PostgreSQL (psql)
+
+```bash
+# Via proxychains (Linux/macOS)
+proxychains psql "host=<server>.postgres.database.azure.com port=5432 \
+  dbname=<db> user=<user> sslmode=require"
+
+# Or set PGPROXY via ~/.proxychains/proxychains.conf
+```
+
+#### Redis
+
+```bash
+proxychains redis-cli -h <account>.redis.cache.windows.net -p 6380 --tls
+```
+
+#### MongoDB / CosmosDB (Mongo API)
+
+```bash
+proxychains mongosh "mongodb://<account>.mongo.cosmos.azure.com:10255/..." \
+  --tls --tlsAllowInvalidCertificates
+```
+
+#### Python / Node.js (environment variable approach)
+
+```python
+import os, httpx
+
+# Set before making any requests
+os.environ["HTTPS_PROXY"] = "socks5://localhost:8228"
+
+client = httpx.Client()
+resp = client.get("https://<account>.openai.azure.com/")
+```
+
+### Multiple Connections on One Port
+
+SOCKS5 is a full proxy protocol — a single listener handles unlimited concurrent
+connections to different hosts and ports. You do **not** need separate proxy
+instances for each PaaS service. All of the following can run simultaneously
+through `localhost:8228`:
+
+| Target | Example host |
+|--------|-------------|
+| Azure OpenAI | `<account>.openai.azure.com` |
+| CosmosDB | `<account>.documents.azure.com` |
+| PostgreSQL Flexible Server | `<server>.postgres.database.azure.com` |
+| Redis Cache | `<account>.redis.cache.windows.net` |
+| Azure AI Search | `<account>.search.windows.net` |
+| Key Vault | `<vault>.vault.azure.net` |
+| APIM private endpoint | `<apim>.azure-api.net` |
+
+### Using Different Ports for Multiple Sessions
+
+If you need two simultaneous proxy sessions (e.g., different subscriptions), pass
+`--port` to start the second instance on a different port:
+
+```bash
+# Session 1 (default port 8228)
+./scripts/bastion-proxy.sh -g <rg> -b <bastion> -v <vm>
+
+# Session 2 in a new terminal (auto-selects next free port after 8300)
+./scripts/bastion-proxy.sh -g <rg> -b <bastion> -v <vm> --port 8300
+```
+
 ## Auto-Start Implementation
 
 The auto-start feature uses Azure Automation with a Python3 runbook:
@@ -179,7 +394,7 @@ The runbook uses the Azure Instance Metadata Service (IMDS) to obtain an access 
 
 | Spec | Value |
 |------|-------|
-| **VM Size** | Standard_B2ls_v2 |
+| **VM Size** | Standard_B2als_v2 |
 | **vCPUs** | 2 |
 | **Memory** | 4 GB |
 | **Type** | Burstable (B-series) |
@@ -200,7 +415,8 @@ The runbook uses the Azure Instance Metadata Service (IMDS) to obtain an access 
 
 - **No Public IP**: The Jumpbox VM has no public IP address
 - **Random Admin Username**: 12-character alphanumeric username generated at deployment (security by obscurity)
-- **SSH Key Authentication**: Password authentication disabled, SSH keys required
+- **SSH Key Authentication**: Password authentication disabled, SSH keys required (Entra ID login available as alternative)
+- **Entra ID RBAC**: When enabled, `Virtual Machine Administrator Login` role scoped to the VM for authorized principals
 - **NSG Rules**: Only SSH (22) from Bastion subnet is allowed inbound
 - **Private Subnet**: Default outbound access is disabled
 - **Managed Identity**: VM can access Azure services without credentials
@@ -240,7 +456,7 @@ The GNOME desktop installation runs via `custom_data` script at first boot. Wait
 
 ## Azure Bastion Cost Optimization
 
-Azure Bastion has an hourly cost even when idle. Here are strategies to reduce costs:
+Azure Bastion Standard SKU runs a minimum of 2 scale units (instances), so the minimum hourly cost is always 2× the per-instance rate (~$0.397/hour × 2 = ~$0.794/hour in Canada Central). This cost applies even when idle. Here are strategies to reduce costs:
 
 ### Option 1: Delete and Recreate Bastion (Recommended)
 
@@ -269,14 +485,15 @@ az network public-ip create \
   --sku Standard \
   --allocation-method Static
 
-# Create Bastion
+# Create Bastion (Standard SKU for CLI tunneling support)
 az network bastion create \
   --name <bastion-name> \
   --resource-group <rg-name> \
   --location canadacentral \
   --vnet-name <vnet-name> \
   --public-ip-address <bastion-pip-name> \
-  --sku Basic
+  --sku Standard \
+  --enable-tunneling true
 ```
 
 ### Option 2: Use Terraform Workspace Targeting

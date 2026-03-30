@@ -31,6 +31,17 @@ output "jumpbox_auto_start_schedule" {
   value       = var.enable_jumpbox ? module.jumpbox[0].auto_start_schedule : null
 }
 
+output "jumpbox_entra_login_enabled" {
+  description = "Whether Entra ID SSH login is enabled on the jumpbox"
+  value       = var.enable_jumpbox ? module.jumpbox[0].entra_login_enabled : null
+}
+
+output "jumpbox_ssh_private_key" {
+  description = "PEM-encoded SSH private key for break-glass access (sensitive)"
+  value       = var.enable_jumpbox ? module.jumpbox[0].ssh_private_key : null
+  sensitive   = true
+}
+
 # Bastion Outputs
 output "bastion_resource_id" {
   description = "Resource ID of Azure Bastion"

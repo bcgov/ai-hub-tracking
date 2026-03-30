@@ -17,7 +17,7 @@ This directory contains scripts and Terraform configurations for the one-time se
 
 4. **One-time setup**: This is a bootstrap process that only needs to run once per environment and adds the self hosted runner in `tools` environment. After completion, GitHub Actions handles all subsequent deployments.
 
-5. **VM-Secret-Key**: The VM access is done if needed at all via bastion using ssh private key, which is another reason to run from dev machine who is owner of the subscription.
+5. **VM-Secret-Key**: The VM access is done if needed at all via bastion using ssh private key (or Entra ID SSH login with `az network bastion ssh --auth-type AAD`), which is another reason to run from dev machine who is owner of the subscription.
 
 ---
 

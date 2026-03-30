@@ -1085,23 +1085,23 @@
     <span class="alert-icon">🤖</span>
     <div>
         <strong>Auto-Generated Documentation</strong><br>
-        This page is generated directly from the Terraform source files. Run <code>./docs/generate-tf-docs.sh</code> when you want to refresh it.
+        This page is automatically generated from Terraform source files. Run <code>./docs/generate-tf-docs.sh</code> to update.
     </div>
 </div>
 
-    <p>This is the detailed reference page for Terraform modules, variables, and outputs. It is best used as a lookup tool after you already understand the platform at a higher level.</p>
+<p>Complete reference documentation for all Terraform modules, variables, and outputs extracted directly from the source code.</p>
 
 <div class="grid grid-2" style="margin-bottom: 2rem;">
     <a href="#section-initial-setup" class="card-link">
         <div class="card" style="border-left-color: #8b5cf6;">
             <h3 id="initial-setup" style="margin-top: 0;">Initial Setup</h3>
-            <p>Network foundation: virtual networks, Azure Bastion, jumpbox access, and optional self-hosted runners.</p>
+            <p>Network foundation: VNet, Bastion, Jumpbox, self-hosted runners.</p>
         </div>
     </a>
     <a href="#section-ai-hub" class="card-link">
         <div class="card" style="border-left-color: #22c55e;">
             <h3 id="ai-services-hub" style="margin-top: 0;">AI Services Hub</h3>
-            <p>Platform services: gateway, model platform, tenant resources, key rotation, and web request protection.</p>
+            <p>AI platform: APIM, AI Foundry, tenants, key rotation, WAF.</p>
         </div>
     </a>
 </div>
@@ -1290,6 +1290,18 @@
 <td>Enable deployment of the Azure Jumpbox VM</td>
 </tr>
 <tr>
+<td><code>enable_entra_login</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Enable Microsoft Entra ID (AAD) SSH login on the jumpbox VM</td>
+</tr>
+<tr>
+<td><code>vm_admin_login_principal_ids</code></td>
+<td><code>list(string)</code></td>
+<td><code>[]</code></td>
+<td>List of Entra group or user object IDs to grant Virtual Machine Administrator Login role on the jumpbox</td>
+</tr>
+<tr>
 <td><code>log_analytics_retention_days</code></td>
 <td><code>number</code></td>
 <td><code>30</code></td>
@@ -1324,6 +1336,14 @@
 <tr>
 <td><code>jumpbox_auto_start_schedule</code></td>
 <td>Auto-start schedule (PST)</td>
+</tr>
+<tr>
+<td><code>jumpbox_entra_login_enabled</code></td>
+<td>Whether Entra ID SSH login is enabled on the jumpbox</td>
+</tr>
+<tr>
+<td><code>jumpbox_ssh_private_key</code></td>
+<td>PEM-encoded SSH private key for break-glass access (sensitive)</td>
 </tr>
 <tr>
 <td><code>bastion_resource_id</code></td>
@@ -1527,8 +1547,14 @@
 <tr>
 <td><code>bastion_sku</code></td>
 <td><code>string</code></td>
-<td><code>Basic</code></td>
+<td><code>Standard</code></td>
 <td>SKU for Azure Bastion (Basic or Standard)</td>
+</tr>
+<tr>
+<td><code>tunneling_enabled</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Enable native client tunneling (az network bastion ssh/tunnel). Requires Standard or Premium SKU.</td>
 </tr>
 </table>
 <h4>Outputs</h4>
@@ -1763,6 +1789,18 @@
 <td><code>64</code></td>
 <td>Size of the OS disk in GB</td>
 </tr>
+<tr>
+<td><code>enable_entra_login</code></td>
+<td><code>bool</code></td>
+<td><code>true</code></td>
+<td>Enable Microsoft Entra ID (AAD) SSH login via the AADSSHLoginForLinux VM extension</td>
+</tr>
+<tr>
+<td><code>vm_admin_login_principal_ids</code></td>
+<td><code>list(string)</code></td>
+<td><code>[]</code></td>
+<td>List of Entra group or user object IDs to grant Virtual Machine Administrator Login role on the VM</td>
+</tr>
 </table>
 <h4>Outputs</h4>
 <table>
@@ -1796,6 +1834,10 @@
 <td>Local path to the SSH private key file</td>
 </tr>
 <tr>
+<td><code>ssh_private_key</code></td>
+<td>PEM-encoded SSH private key for break-glass access (sensitive)</td>
+</tr>
+<tr>
 <td><code>automation_account_id</code></td>
 <td>ID of the Azure Automation Account for VM scheduling</td>
 </tr>
@@ -1806,6 +1848,10 @@
 <tr>
 <td><code>auto_start_schedule</code></td>
 <td>Auto-start schedule</td>
+</tr>
+<tr>
+<td><code>entra_login_enabled</code></td>
+<td>Whether Microsoft Entra ID SSH login is enabled on the jumpbox</td>
 </tr>
 </table>
 <h4>Resources Created</h4>
@@ -1822,6 +1868,8 @@
 <li><code>azurerm_automation_schedule (weekday_start)</code></li>
 <li><code>azurerm_automation_job_schedule (start_vm)</code></li>
 <li><code>azurerm_role_assignment (automation_vm_contributor)</code></li>
+<li><code>azurerm_virtual_machine_extension (aad_ssh_login)</code></li>
+<li><code>azurerm_role_assignment (vm_admin_login)</code></li>
 </ul>
 </div>
 <h3 id="initial-monitoring">monitoring</h3>
@@ -2199,13 +2247,13 @@
 <td><code>defender_enabled</code></td>
 <td><code>bool</code></td>
 <td><code>false</code></td>
-<td>Enable Defender for Cloud plans (production only — disabled in dev and test)</td>
+<td>Enable Defender for Cloud plans</td>
 </tr>
 <tr>
 <td><code>defender_resource_types</code></td>
 <td><code>map(object({</code></td>
 <td><code>{}</code></td>
-<td>Defender for Cloud resource types and subplans. Production enables Api (P1) and AI plans.</td>
+<td>Defender for Cloud resource types and subplans</td>
 </tr>
 <tr>
 <td><code>backend_resource_group</code></td>
@@ -2705,7 +2753,7 @@
 <td><code>defender_enabled</code></td>
 <td><code>bool</code></td>
 <td><code>false</code></td>
-<td>Enable Defender API collection tracking per tenant (production only)</td>
+<td><em>No description</em></td>
 </tr>
 <tr>
 <td><code>apim_pe_subnet_key</code></td>
@@ -2717,7 +2765,7 @@
 <td><code>defender_resource_types</code></td>
 <td><code>map(object({</code></td>
 <td><code>{}</code></td>
-<td>Defender resource types passed through from shared.tfvars (production only)</td>
+<td><em>No description</em></td>
 </tr>
 <tr>
 <td><code>backend_resource_group</code></td>
@@ -2752,6 +2800,10 @@
 <tr>
 <td><code>apim_name</code></td>
 <td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>apim_principal_id</code></td>
+<td>Principal ID of the APIM system-assigned managed identity</td>
 </tr>
 <tr>
 <td><code>apim_key_rotation_summary</code></td>
@@ -2804,6 +2856,7 @@
 <li><code>azurerm_role_assignment (apim_speech_services_user)</code></li>
 <li><code>azurerm_role_assignment (apim_language_service_user)</code></li>
 <li><code>azurerm_role_assignment (apim_keyvault_secrets_user)</code></li>
+<li><code>azurerm_role_assignment (apim_pii_svc_reader)</code></li>
 <li><code>azurerm_api_management_subscription (tenant)</code></li>
 <li><code>azurerm_key_vault_secret (apim_subscription_primary_key)</code></li>
 <li><code>azurerm_key_vault_secret (apim_subscription_secondary_key)</code></li>
@@ -2862,6 +2915,12 @@
 <td><code>bool</code></td>
 <td><code>true</code></td>
 <td>Use OIDC for authentication</td>
+</tr>
+<tr>
+<td><code>graph_client_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure client ID for the Entra application used for Microsoft Graph operations</td>
 </tr>
 <tr>
 <td><code>tenants</code></td>
@@ -3745,6 +3804,24 @@
 <td><code>{}</code></td>
 <td>Tags to apply to resources</td>
 </tr>
+<tr>
+<td><code>private_endpoint_subnet_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Subnet ID for Container App Environment private endpoint. Required when enable_private_endpoint is true.</td>
+</tr>
+<tr>
+<td><code>scripts_dir</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Path to shared scripts directory for DNS wait operations</td>
+</tr>
+<tr>
+<td><code>private_endpoint_dns_wait</code></td>
+<td><code>object({</code></td>
+<td><code>{}</code></td>
+<td>Configuration for waiting on policy-managed DNS zone groups</td>
+</tr>
 </table>
 <h4>Outputs</h4>
 <table>
@@ -3769,6 +3846,8 @@
 <h4>Resources Created</h4>
 <ul>
 <li><code>azurerm_container_app_environment (main)</code></li>
+<li><code>azurerm_private_endpoint (containerapps)</code></li>
+<li><code>null_resource (wait_for_dns_cae)</code></li>
 <li><code>azurerm_monitor_diagnostic_setting (cae)</code></li>
 </ul>
 </div>
@@ -3940,7 +4019,7 @@
 </div>
 <h3 id="hub-defender">defender</h3>
 <div class="card" style="border-left-color: #22c55e;">
-<p>Microsoft Defender for Cloud Subscription Pricing — enabled in production only (Api P1 and AI plans). Dev and test environments have Defender disabled.</p>
+<p>Microsoft Defender for Cloud Subscription Pricing</p>
 <p><strong>Location:</strong> <code>infra-ai-hub/modules/defender/</code></p>
 <details>
 <summary style="cursor: pointer; color: var(--bc-blue-light);">Files (4)</summary>
@@ -4586,6 +4665,190 @@
 <li><code>azapi_resource (appgw_subnet)</code></li>
 <li><code>azurerm_network_security_group (aca)</code></li>
 <li><code>azapi_resource (aca_subnet)</code></li>
+</ul>
+</div>
+<h3 id="hub-pii-redaction-service">pii-redaction-service</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>=============================================================================</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/pii-redaction-service/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (4)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>name_prefix</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Prefix for all resource names (e.g. 'aihub-dev').</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the resource group where the Container App is deployed.</td>
+</tr>
+<tr>
+<td><code>container_app_environment_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Resource ID of the shared Container App Environment.</td>
+</tr>
+<tr>
+<td><code>container_registry_url</code></td>
+<td><code>string</code></td>
+<td><code>ghcr.io</code></td>
+<td>Container registry URL (without trailing slash).</td>
+</tr>
+<tr>
+<td><code>container_image_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Full image name within the registry (e.g. 'bcgov/ai-hub-tracking/jobs/pii-redaction-service').</td>
+</tr>
+<tr>
+<td><code>container_image_tag</code></td>
+<td><code>string</code></td>
+<td><code>latest</code></td>
+<td>Container image tag. Use 'latest' for rolling deployments or a semver tag for pinned releases.</td>
+</tr>
+<tr>
+<td><code>cpu</code></td>
+<td><code>number</code></td>
+<td><code>0.25</code></td>
+<td>vCPU allocation per replica.</td>
+</tr>
+<tr>
+<td><code>memory</code></td>
+<td><code>string</code></td>
+<td><code>512Mi</code></td>
+<td>Memory allocation per replica (e.g. '1Gi').</td>
+</tr>
+<tr>
+<td><code>min_replicas</code></td>
+<td><code>number</code></td>
+<td><code>1</code></td>
+<td>Minimum number of Container App replicas.</td>
+</tr>
+<tr>
+<td><code>max_replicas</code></td>
+<td><code>number</code></td>
+<td><code>5</code></td>
+<td>Maximum number of Container App replicas.</td>
+</tr>
+<tr>
+<td><code>language_endpoint</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure Language Service endpoint URL (PII_LANGUAGE_ENDPOINT).</td>
+</tr>
+<tr>
+<td><code>language_service_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Resource ID of the Language Service — used for the Cognitive Services User RBAC assignment.</td>
+</tr>
+<tr>
+<td><code>language_api_version</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Language API version string (PII_LANGUAGE_API_VERSION).</td>
+</tr>
+<tr>
+<td><code>per_batch_timeout_seconds</code></td>
+<td><code>number</code></td>
+<td><code>10</code></td>
+<td>Timeout in seconds for each Language API batch call (PII_PER_BATCH_TIMEOUT_SECONDS).</td>
+</tr>
+<tr>
+<td><code>total_processing_timeout_seconds</code></td>
+<td><code>number</code></td>
+<td><code>85</code></td>
+<td>Overall deadline in seconds for processing all batches (PII_TOTAL_PROCESSING_TIMEOUT_SECONDS).</td>
+</tr>
+<tr>
+<td><code>transient_retry_attempts</code></td>
+<td><code>number</code></td>
+<td><code>4</code></td>
+<td>Maximum retries for transient 429 and 5xx Language API responses after the initial request.</td>
+</tr>
+<tr>
+<td><code>retry_backoff_base_seconds</code></td>
+<td><code>number</code></td>
+<td><code>1</code></td>
+<td>Base exponential backoff delay in seconds when Retry-After is absent.</td>
+</tr>
+<tr>
+<td><code>retry_backoff_max_seconds</code></td>
+<td><code>number</code></td>
+<td><code>10</code></td>
+<td>Maximum exponential backoff delay in seconds when Retry-After is absent.</td>
+</tr>
+<tr>
+<td><code>max_concurrent_batches</code></td>
+<td><code>number</code></td>
+<td><code>15</code></td>
+<td>Maximum Language API batches per request. Requests requiring more batches are rejected with HTTP 413.</td>
+</tr>
+<tr>
+<td><code>max_batch_concurrency</code></td>
+<td><code>number</code></td>
+<td><code>3</code></td>
+<td>Number of Language API batches allowed in flight simultaneously (semaphore bound).</td>
+</tr>
+<tr>
+<td><code>max_doc_chars</code></td>
+<td><code>number</code></td>
+<td><code>5000</code></td>
+<td>Maximum characters per Language API document before word-boundary chunking (PII_MAX_DOC_CHARS).</td>
+</tr>
+<tr>
+<td><code>max_docs_per_call</code></td>
+<td><code>number</code></td>
+<td><code>5</code></td>
+<td>Maximum documents per Language API call (PII_MAX_DOCS_PER_CALL).</td>
+</tr>
+<tr>
+<td><code>log_level</code></td>
+<td><code>string</code></td>
+<td><code>INFO</code></td>
+<td>Application log level (PII_LOG_LEVEL). One of: DEBUG, INFO, WARNING, ERROR.</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td>Resource tags.</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>container_app_id</code></td>
+<td>Resource ID of the PII Redaction Container App.</td>
+</tr>
+<tr>
+<td><code>container_app_fqdn</code></td>
+<td>Internal FQDN of the PII Redaction Container App (accessible within the VNet via the Container App Environment).</td>
+</tr>
+<tr>
+<td><code>principal_id</code></td>
+<td>Object ID of the Container App's system-assigned managed identity.</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>terraform_data (image_refresh)</code></li>
+<li><code>azurerm_container_app (service)</code></li>
+<li><code>azurerm_role_assignment (svc_language_cognitive_user)</code></li>
 </ul>
 </div>
 <h3 id="hub-tenant-user-management">tenant-user-management</h3>
