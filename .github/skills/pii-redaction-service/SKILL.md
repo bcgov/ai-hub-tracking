@@ -34,6 +34,7 @@ Every change should deliver:
 - Python code changes with type hints (Python 3.13+, `from __future__ import annotations`)
 - Inline function docstrings for any new or modified helper/business-logic functions; do not leave newly added functions undocumented
 - Updated unit tests in `tests/` if logic changed, using explicit `Given`, `When`, and `Then` sections inside each test
+- Dependency upgrades should follow [Dependency Upgrades](../dependency-upgrades/SKILL.md); keep this skill's service-specific validation gates
 - Ruff-clean code (`ruff check --fix . && ruff format .`)
 - Docker build verification if `Dockerfile` or dependencies changed
 - Terraform changes if infrastructure configuration affected
@@ -107,13 +108,14 @@ All variables use the `PII_` prefix (e.g., `PII_LANGUAGE_ENDPOINT`).
 1. **Python code** — type hints, `from __future__ import annotations`, Pydantic v2 patterns
 2. **Function docs** — every new or modified helper/business-logic function has an inline docstring before the code is considered complete
 3. **Unit-test structure** — every unit test uses explicit `Given`, `When`, and `Then` sections in the test body
-4. **Ruff (after every file edit)** — run `uv run ruff check . && uv run ruff format --check .` from `pii-redaction-service/` immediately after each file change, not just at the end. Fix before moving on.
-5. **Tests** — `uv run pytest` from `pii-redaction-service/`
-6. **Docker** — `docker build -t pii-redaction-service:test .` if Dockerfile or deps changed
-7. **Terraform** — `terraform fmt -recursive` and `terraform validate` if module or stack changed
-8. **Timeout budget** — verify `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` < APIM backend timeout if either value changes
-9. **Settings schema** — new env vars added to both `config.py` Settings class and `.env.example`
-10. **Integration tests** — any change to `app/orchestrator.py`, `app/language_client.py`, `app/models.py`, `app/main.py`, or `infra-ai-hub/params/apim/fragments/pii-anonymization.xml` **must** be followed by reviewing and running the integration test suites: `tests/integration/pii-redaction.bats`, `pii-coverage.bats`, `pii-chunking.bats`, and `pii-failure.bats`. Update the tests if error contracts, field names, or behavior changed.
+4. **Dependency upgrades** — follow [Dependency Upgrades](../dependency-upgrades/SKILL.md); never hand-edit `uv.lock`.
+5. **Ruff (after every file edit)** — run `uv run ruff check . && uv run ruff format --check .` from `pii-redaction-service/` immediately after each file change, not just at the end. Fix before moving on.
+6. **Tests** — `uv run pytest` from `pii-redaction-service/`
+7. **Docker** — `docker build -t pii-redaction-service:test .` if Dockerfile or deps changed
+8. **Terraform** — `terraform fmt -recursive` and `terraform validate` if module or stack changed
+9. **Timeout budget** — verify `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` < APIM backend timeout if either value changes
+10. **Settings schema** — new env vars added to both `config.py` Settings class and `.env.example`
+11. **Integration tests** — any change to `app/orchestrator.py`, `app/language_client.py`, `app/models.py`, `app/main.py`, or `infra-ai-hub/params/apim/fragments/pii-anonymization.xml` **must** be followed by reviewing and running the integration test suites: `tests/integration/pii-redaction.bats`, `pii-coverage.bats`, `pii-chunking.bats`, and `pii-failure.bats`. Update the tests if error contracts, field names, or behavior changed.
 
 ## Validation Gates (Required)
 1. **Ruff clean**: No lint errors (`ruff check .`)

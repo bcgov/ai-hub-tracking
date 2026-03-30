@@ -7,12 +7,15 @@ dependencies = [
     "uvicorn[standard]>=0.34.0",
     "httpx>=0.28.0",
     "azure-identity>=1.19.0",
+    "cryptography>=46.0.6",
     "pydantic>=2.10.0",
     "pydantic-settings>=2.7.0",
+    "requests>=2.33.0",
 ]
 
 [dependency-groups]
 dev = [
+    "pygments>=2.20.0",
     "pytest>=8.0.0",
     "pytest-asyncio>=0.25.0",
     "httpx>=0.28.0",

@@ -7,13 +7,16 @@ dependencies = [
     "azure-identity>=1.25.2",
     "azure-keyvault-secrets>=4.10.0",
     "azure-mgmt-apimanagement>=5.0.0",
+    "cryptography>=46.0.6",
     "pydantic>=2.12.5",
     "pydantic-settings>=2.13.1",
     "pyjwt>=2.12.1",
+    "requests>=2.33.0",
 ]
 
 [dependency-groups]
 dev = [
+    "pygments>=2.20.0",
     "pytest>=9.0.2",
     "pytest-asyncio>=1.3.0",
     "ruff>=0.15.4",
