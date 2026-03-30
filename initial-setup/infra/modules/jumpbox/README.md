@@ -456,7 +456,7 @@ The GNOME desktop installation runs via `custom_data` script at first boot. Wait
 
 ## Azure Bastion Cost Optimization
 
-Azure Bastion Standard SKU runs a minimum of 2 scale units (instances), so the minimum hourly cost is always 2× the per-instance rate (~$0.26/hour × 2 = ~$0.52/hour in Canada Central). This cost applies even when idle. Here are strategies to reduce costs:
+Azure Bastion Standard SKU runs a minimum of 2 scale units (instances), so the minimum hourly cost is always 2× the per-instance rate (~$0.397/hour × 2 = ~$0.794/hour in Canada Central). This cost applies even when idle. Here are strategies to reduce costs:
 
 ### Option 1: Delete and Recreate Bastion (Recommended)
 
