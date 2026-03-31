@@ -34,6 +34,7 @@ Every portal change should deliver:
 - Updated E2E coverage for new user-facing flows
 - Consistent auth behavior across mock and Keycloak modes
 - JSDoc on all new functions and methods
+- Dependency upgrades should follow [Dependency Upgrades](../dependency-upgrades/SKILL.md); keep this skill's portal-specific validation gates
 
 ## External Documentation
 - Use [External Docs Research](../external-docs/SKILL.md) as the single source of truth for external documentation workflow and fallback approval requirements.
@@ -227,7 +228,8 @@ Both `npm run format` and `npm run lint` **must pass with exit code 0** before t
 3. Prefer environment-driven test modes over special-case test-only code paths scattered through controllers and components.
 4. When adding E2E coverage, verify the full user journey end to end instead of only checking page load.
 5. When changing tenant request fields, update validation, API types, frontend form handling, and tfvars generation together.
-6. **Always run `npm run format` after every code change** — the pre-commit hook will reject unformatted code.
+6. For dependency changes, follow [Dependency Upgrades](../dependency-upgrades/SKILL.md); never hand-edit `package-lock.json`.
+7. **Always run `npm run format` after every code change** — the pre-commit hook will reject unformatted code.
 
 ## Useful Commands
 

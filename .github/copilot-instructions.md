@@ -26,6 +26,15 @@ After **every** file edit or creation in a quality-gated directory, run the corr
 
 ---
 
+## Lockfile Handling (Non-Negotiable)
+
+- Hand-editing generated lockfiles is strictly prohibited. This includes `uv.lock`, `package-lock.json`, and any future generated dependency lockfile added to the repo.
+- Change dependency versions in the owning manifest first (`pyproject.toml`, `package.json`, or equivalent), then regenerate the lockfile with the owning package manager.
+- If the task or user instruction does not allow lockfile updates, do not edit the lockfile at all. State the limitation explicitly instead of patching the lockfile by hand.
+- Never use manual patch edits to rewrite resolved package entries, hashes, or metadata inside a generated lockfile.
+
+---
+
 ## Source Citations (Non-Negotiable)
 
 Every recommendation, configuration value, or behavioral claim **must** be backed by a verifiable source: a file path in the repo, a Terraform resource attribute, a workflow step, an official doc link, or a direct tool output. Do not present inferred or assumed information as fact. If the source cannot be identified, say so explicitly and ask the user for clarification.
@@ -123,6 +132,14 @@ Use when modifying the PII redaction custom service.
 - Batch orchestration, Language Service integration, Container App scaling
 - Dockerfile, GHCR build workflow, and Terraform module
 - Terraform stack under `infra-ai-hub/stacks/pii-redaction/`
+
+### [Dependency Upgrades](./skills/dependency-upgrades/SKILL.md)
+Use when upgrading tracked Python or npm dependencies, regenerating lockfiles, responding to Dependabot or Renovate alerts, or updating repository dependency automation.
+- `uv`-managed Python projects under `jobs/apim-key-rotation/` and `pii-redaction-service/`
+- npm manifests and lockfiles under `tenant-onboarding-portal/backend/` and `tenant-onboarding-portal/frontend/`
+- Dependency automation in `renovate.json`
+- Validation gates from repo policy for touched package-managed directories
+- Generated lockfiles must be regenerated through `uv` or `npm`; never hand-edit them
 
 ### [IaC Code Reviewer](./skills/iac-code-reviewer/SKILL.md)
 Use this for reviewing Terraform, GitHub Actions, Bash scripts, and AVM changes.

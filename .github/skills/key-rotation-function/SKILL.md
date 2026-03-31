@@ -31,6 +31,7 @@ Required context before changes:
 Every change should deliver:
 - Python code changes with type hints (Python 3.13+, `from __future__ import annotations`)
 - Updated unit tests in `tests/` if logic changed
+- Dependency upgrades should follow [Dependency Upgrades](../dependency-upgrades/SKILL.md); keep this skill's job-specific validation gates
 - Ruff-clean code (`ruff check --fix . && ruff format .`)
 - Docker build verification if `Dockerfile` or dependencies changed
 - Terraform changes if infrastructure configuration affected
@@ -103,10 +104,11 @@ Cron trigger fires → Container App Job starts → main.py
 
 ## Change Checklist
 1. **Python code** — type hints, `from __future__ import annotations`, Pydantic v2 patterns
-2. **Ruff** — `ruff check --fix . && ruff format .` (config in `pyproject.toml`)
-3. **Tests** — `pytest` from `jobs/apim-key-rotation/`
-4. **Docker** — `docker build -t apim-key-rotation:test .` if Dockerfile/deps changed
-5. **Terraform** — `terraform fmt -recursive` and `terraform validate` if module changed
+2. **Dependency upgrades** — follow [Dependency Upgrades](../dependency-upgrades/SKILL.md); never hand-edit `uv.lock`.
+3. **Ruff** — `ruff check --fix . && ruff format .` (config in `pyproject.toml`)
+4. **Tests** — `pytest` from `jobs/apim-key-rotation/`
+5. **Docker** — `docker build -t apim-key-rotation:test .` if Dockerfile/deps changed
+6. **Terraform** — `terraform fmt -recursive` and `terraform validate` if module changed
 
 ## Validation Gates (Required)
 1. **Ruff clean**: No lint errors (`ruff check .`)
