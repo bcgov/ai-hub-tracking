@@ -1200,10 +1200,16 @@
     <p>Returns the tenant's deployed AI models (with quota information) and the set of enabled AI services. The response is <strong>fully static</strong> &mdash; data is baked in at Terraform deploy time via <code>templatefile()</code>, so no Key Vault or backend calls are made at runtime. Always available; there is no feature flag that disables this endpoint.</p>
     <p>Use this endpoint to:</p>
     <ul>
-        <li>Discover which models are available and their per-model token-per-minute quota.</li>
+        <li>Discover which models are available, the APIM raw-token cap for each model, and any provisioned-throughput metadata.</li>
         <li>Confirm which AI services (Document Intelligence, AI Search, Speech, etc.) are enabled for your tenant.</li>
         <li>Drive UI dropdowns or config auto-discovery without maintaining a separate config file.</li>
     </ul>
+</div>
+
+<div class="alert alert-info">
+    <div>
+        <strong>Provisioned throughput note:</strong> For provisioned models, Microsoft Foundry measures throughput as <em>input-equivalent</em> tokens per minute, and some models weight output tokens more heavily than input tokens. APIM's <code>llm-token-limit</code> policy only enforces raw prompt + completion tokens, so the platform publishes both values and uses a conservative APIM cap to avoid Foundry rejecting requests earlier than APIM. For WLRS <code>gpt-5.1</code>, the Foundry ceiling is <code>71,250</code> input-equivalent TPM, the output weighting is <code>8x</code>, and the conservative APIM raw-token cap is therefore <code>8,906</code> TPM.
+    </div>
 </div>
 
 <div class="card">
@@ -1234,41 +1240,53 @@
   "base_url": "https://aihub.gov.bc.ca/wlrs-water-form-assistant",
   "models": [
     {
-      "name": "gpt-4.1-mini",
-      "model_name": "gpt-4.1-mini",
-      "model_version": "2025-04-14",
-      "scale_type": "GlobalStandard",
-      "capacity_k_tpm": 1500,
-      "tokens_per_minute": 1500000,
+            "name": "gpt-5.1",
+            "model_name": "gpt-5.1",
+            "model_version": "2025-11-13",
+            "scale_type": "GlobalProvisionedManaged",
+            "capacity": 15,
+            "capacity_unit": "PTU",
+            "capacity_k_tpm": null,
+            "input_tpm_per_ptu": 4750,
+            "output_tokens_to_input_ratio": 8,
+            "apim_raw_tokens_per_minute": 8906,
+            "input_equivalent_tokens_per_minute": 71250,
+            "tokens_per_minute": 8906,
       "endpoints": {
         "azure_openai": {
           "endpoint": "https://aihub.gov.bc.ca/wlrs-water-form-assistant",
           "api_version": "2025-03-01-preview",
-          "url": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/openai/deployments/gpt-4.1-mini/chat/completions?api-version=2025-03-01-preview"
+                    "url": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/openai/deployments/gpt-5.1/chat/completions?api-version=2025-03-01-preview"
         },
         "openai_compatible": {
           "base_url": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/openai/v1",
-          "model": "gpt-4.1-mini",
+                    "model": "gpt-5.1",
           "url": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/openai/v1/chat/completions"
         }
       }
     },
     {
-      "name": "gpt-4.1",
-      "model_name": "gpt-4.1",
+            "name": "gpt-4.1-mini",
+            "model_name": "gpt-4.1-mini",
       "model_version": "2025-04-14",
       "scale_type": "GlobalStandard",
-      "capacity_k_tpm": 300,
-      "tokens_per_minute": 300000,
+            "capacity": 1500,
+            "capacity_unit": "k TPM",
+            "capacity_k_tpm": 1500,
+            "input_tpm_per_ptu": null,
+            "output_tokens_to_input_ratio": null,
+            "apim_raw_tokens_per_minute": 1500000,
+            "input_equivalent_tokens_per_minute": 1500000,
+            "tokens_per_minute": 1500000,
       "endpoints": {
         "azure_openai": {
           "endpoint": "https://aihub.gov.bc.ca/wlrs-water-form-assistant",
           "api_version": "2025-03-01-preview",
-          "url": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/openai/deployments/gpt-4.1/chat/completions?api-version=2025-03-01-preview"
+                    "url": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/openai/deployments/gpt-4.1-mini/chat/completions?api-version=2025-03-01-preview"
         },
         "openai_compatible": {
           "base_url": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/openai/v1",
-          "model": "gpt-4.1",
+                    "model": "gpt-4.1-mini",
           "url": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/openai/v1/chat/completions"
         }
       }
@@ -1317,8 +1335,14 @@
             <tr><td><code>models[].model_name</code></td><td>string</td><td>Underlying Azure OpenAI model name.</td></tr>
             <tr><td><code>models[].model_version</code></td><td>string</td><td>Model version date string.</td></tr>
             <tr><td><code>models[].scale_type</code></td><td>string</td><td>Deployment scale type (e.g., <code>GlobalStandard</code>).</td></tr>
-            <tr><td><code>models[].capacity_k_tpm</code></td><td>number</td><td>Allocated quota in thousands of tokens per minute (from <code>tenant.tfvars</code>).</td></tr>
-            <tr><td><code>models[].tokens_per_minute</code></td><td>number</td><td>Computed TPM limit applied by rate-limiting (<code>capacity_k_tpm &times; 1000</code>).</td></tr>
+            <tr><td><code>models[].capacity</code></td><td>number</td><td>Raw capacity value from <code>tenant.tfvars</code>. This is expressed in <code>capacity_unit</code>.</td></tr>
+            <tr><td><code>models[].capacity_unit</code></td><td>string</td><td>Capacity unit for the deployment. Current values are <code>k TPM</code> for quota-based deployments and <code>PTU</code> for provisioned deployments.</td></tr>
+            <tr><td><code>models[].capacity_k_tpm</code></td><td>number|null</td><td>Allocated quota in thousands of tokens per minute for quota-based deployments. <code>null</code> for provisioned deployments.</td></tr>
+            <tr><td><code>models[].input_tpm_per_ptu</code></td><td>number|null</td><td>Model-specific input TPM available per PTU for provisioned deployments. <code>null</code> for quota-based deployments.</td></tr>
+            <tr><td><code>models[].output_tokens_to_input_ratio</code></td><td>number|null</td><td>For provisioned deployments, how many input-equivalent tokens one output token consumes. <code>null</code> for quota-based deployments.</td></tr>
+            <tr><td><code>models[].apim_raw_tokens_per_minute</code></td><td>number</td><td>The raw prompt + completion token cap enforced by APIM's <code>llm-token-limit</code> policy. For provisioned deployments this is a conservative ceiling chosen so APIM does not allow traffic that Foundry would reject sooner.</td></tr>
+            <tr><td><code>models[].input_equivalent_tokens_per_minute</code></td><td>number</td><td>The Foundry throughput ceiling expressed in input-equivalent tokens per minute. For quota-based deployments this matches the APIM cap. For provisioned deployments this is typically higher than the APIM raw-token cap because output tokens are weighted more heavily.</td></tr>
+            <tr><td><code>models[].tokens_per_minute</code></td><td>number</td><td>Legacy alias for <code>apim_raw_tokens_per_minute</code>. Use the explicit fields above for new consumers.</td></tr>
             <tr><td><code>models[].endpoints.azure_openai.endpoint</code></td><td>string</td><td>Endpoint for the Azure OpenAI SDK (<code>AzureOpenAI(azure_endpoint=...)</code>).</td></tr>
             <tr><td><code>models[].endpoints.azure_openai.api_version</code></td><td>string</td><td>Recommended API version for Azure OpenAI SDK calls.</td></tr>
             <tr><td><code>models[].endpoints.azure_openai.url</code></td><td>string</td><td>Full URL for this deployment&rsquo;s chat completions via Azure OpenAI SDK format.</td></tr>

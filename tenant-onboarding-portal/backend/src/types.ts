@@ -132,7 +132,12 @@ export interface RawApimTenantInfoModel {
   scale_type?: string;
   deployment?: string;
   capacity?: number;
+  capacity_unit?: string;
   capacity_k_tpm?: number;
+  input_tpm_per_ptu?: number;
+  output_tokens_to_input_ratio?: number;
+  apim_raw_tokens_per_minute?: number;
+  input_equivalent_tokens_per_minute?: number;
   tokens_per_minute?: number;
   endpoints?: {
     azure_openai?: {

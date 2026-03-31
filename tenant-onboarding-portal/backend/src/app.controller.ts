@@ -534,16 +534,37 @@ export class AppController {
    * @returns Formatted capacity string.
    */
   private formatTenantInfoCapacity(model: RawApimTenantInfoModel): string {
+    const formatter = new Intl.NumberFormat('en-CA');
+    const apimRawTokensPerMinute =
+      model.apim_raw_tokens_per_minute ?? model.tokens_per_minute ?? undefined;
+    const inputEquivalentTokensPerMinute =
+      model.input_equivalent_tokens_per_minute ?? model.tokens_per_minute ?? undefined;
+
+    if (model.capacity_unit === 'PTU' && typeof model.capacity === 'number') {
+      if (
+        typeof inputEquivalentTokensPerMinute === 'number' &&
+        typeof apimRawTokensPerMinute === 'number'
+      ) {
+        return `${formatter.format(model.capacity)} PTU (${formatter.format(inputEquivalentTokensPerMinute)} input-equivalent TPM; APIM cap ${formatter.format(apimRawTokensPerMinute)} raw TPM)`;
+      }
+
+      if (typeof inputEquivalentTokensPerMinute === 'number') {
+        return `${formatter.format(model.capacity)} PTU (${formatter.format(inputEquivalentTokensPerMinute)} input-equivalent TPM)`;
+      }
+
+      return `${formatter.format(model.capacity)} PTU`;
+    }
+
     if (typeof model.capacity_k_tpm === 'number') {
       return `${model.capacity_k_tpm}k TPM`;
     }
 
-    if (typeof model.tokens_per_minute === 'number') {
-      return `${new Intl.NumberFormat('en-CA').format(model.tokens_per_minute)} TPM`;
+    if (typeof apimRawTokensPerMinute === 'number') {
+      return `${formatter.format(apimRawTokensPerMinute)} TPM`;
     }
 
     if (typeof model.capacity === 'number') {
-      return new Intl.NumberFormat('en-CA').format(model.capacity);
+      return formatter.format(model.capacity);
     }
 
     return 'Not available';

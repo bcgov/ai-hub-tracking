@@ -127,7 +127,7 @@ post_tenant_info() {
 
     assert_status "200" "${RESPONSE_STATUS}"
 
-    # Every model must carry all six required fields and none may be null/empty
+    # Every model must carry the common fields plus either kTPM or PTU metadata.
     local invalid_count
     invalid_count=$(echo "${RESPONSE_BODY}" | jq '[
         .models[] | select(
@@ -135,14 +135,20 @@ post_tenant_info() {
             (.model_name    | (. == null or length == 0)) or
             (.model_version | (. == null or length == 0)) or
             (.scale_type    | (. == null or length == 0)) or
-            (.capacity_k_tpm   == null) or
-            (.tokens_per_minute == null)
+            (.tokens_per_minute == null) or
+            (.apim_raw_tokens_per_minute == null) or
+            (.input_equivalent_tokens_per_minute == null) or
+            (if .capacity_unit == "PTU" then
+                (.capacity == null or .input_tpm_per_ptu == null or .output_tokens_to_input_ratio == null)
+             else
+                (.capacity_k_tpm == null)
+             end)
         )
     ] | length')
     [[ "${invalid_count}" -eq 0 ]]
 }
 
-@test "Tenant-1: tenant-info tokens_per_minute equals capacity_k_tpm * 1000 for every model" {
+@test "Tenant-1: tenant-info rate-limit metadata matches the model capacity metadata" {
     local t1
     t1="$(tenant_1)"
     skip_if_no_key "${t1}"
@@ -154,9 +160,49 @@ post_tenant_info() {
 
     local mismatch_count
     mismatch_count=$(echo "${RESPONSE_BODY}" | jq '[
-        .models[] | select(.tokens_per_minute != (.capacity_k_tpm * 1000))
+        .models[] | select(
+            if .capacity_unit == "PTU" then
+                .input_equivalent_tokens_per_minute != (.capacity * .input_tpm_per_ptu) or
+                .apim_raw_tokens_per_minute != ((.input_equivalent_tokens_per_minute / .output_tokens_to_input_ratio) | floor) or
+                .tokens_per_minute != .apim_raw_tokens_per_minute
+            else
+                .tokens_per_minute != (.capacity_k_tpm * 1000) or
+                .apim_raw_tokens_per_minute != (.capacity_k_tpm * 1000) or
+                .input_equivalent_tokens_per_minute != (.capacity_k_tpm * 1000)
+            end
+        )
     ] | length')
     [[ "${mismatch_count}" -eq 0 ]]
+}
+
+@test "Tenant-1 (wlrs): gpt-5.1 PTU deployment reports the correct throughput" {
+    local t1
+    t1="$(tenant_1)"
+    skip_if_no_key "${t1}"
+
+    response=$(get_tenant_info "${t1}")
+    parse_response "${response}"
+
+    assert_status "200" "${RESPONSE_STATUS}"
+
+    local scale_type capacity capacity_unit input_tpm_per_ptu output_tokens_to_input_ratio apim_raw_tokens_per_minute input_equivalent_tokens_per_minute tokens_per_minute
+    scale_type=$(json_get "${RESPONSE_BODY}" '.models[] | select(.name == "gpt-5.1") | .scale_type')
+    capacity=$(json_get "${RESPONSE_BODY}" '.models[] | select(.name == "gpt-5.1") | .capacity')
+    capacity_unit=$(json_get "${RESPONSE_BODY}" '.models[] | select(.name == "gpt-5.1") | .capacity_unit')
+    input_tpm_per_ptu=$(json_get "${RESPONSE_BODY}" '.models[] | select(.name == "gpt-5.1") | .input_tpm_per_ptu')
+    output_tokens_to_input_ratio=$(json_get "${RESPONSE_BODY}" '.models[] | select(.name == "gpt-5.1") | .output_tokens_to_input_ratio')
+    apim_raw_tokens_per_minute=$(json_get "${RESPONSE_BODY}" '.models[] | select(.name == "gpt-5.1") | .apim_raw_tokens_per_minute')
+    input_equivalent_tokens_per_minute=$(json_get "${RESPONSE_BODY}" '.models[] | select(.name == "gpt-5.1") | .input_equivalent_tokens_per_minute')
+    tokens_per_minute=$(json_get "${RESPONSE_BODY}" '.models[] | select(.name == "gpt-5.1") | .tokens_per_minute')
+
+    [[ "${scale_type}" == "GlobalProvisionedManaged" ]]
+    [[ "${capacity}" == "15" ]]
+    [[ "${capacity_unit}" == "PTU" ]]
+    [[ "${input_tpm_per_ptu}" == "4750" ]]
+    [[ "${output_tokens_to_input_ratio}" == "8" ]]
+    [[ "${apim_raw_tokens_per_minute}" == "8906" ]]
+    [[ "${input_equivalent_tokens_per_minute}" == "71250" ]]
+    [[ "${tokens_per_minute}" == "8906" ]]
 }
 
 @test "Tenant-1: tenant-info contains services object with all required keys" {
@@ -296,8 +342,16 @@ post_tenant_info() {
         .models[] | select(
             (.name | (. == null or length == 0)) or
             (.model_name | (. == null or length == 0)) or
-            (.capacity_k_tpm == null) or
-            (.tokens_per_minute == null)
+            (.model_version | (. == null or length == 0)) or
+            (.scale_type | (. == null or length == 0)) or
+            (.tokens_per_minute == null) or
+            (.apim_raw_tokens_per_minute == null) or
+            (.input_equivalent_tokens_per_minute == null) or
+            (if .capacity_unit == "PTU" then
+                (.capacity == null or .input_tpm_per_ptu == null or .output_tokens_to_input_ratio == null)
+             else
+                (.capacity_k_tpm == null)
+             end)
         )
     ] | length')
     [[ "${invalid_count}" -eq 0 ]]
