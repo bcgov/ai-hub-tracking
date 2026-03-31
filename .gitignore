@@ -54,6 +54,8 @@ local.settings.json
 terraform.tfvars
 .terraform/
 .terraform.lock.hcl
+*.tfstate
+*.tfstate.*
 .tenants-*.auto.tfvars
 crash.log
 _bkp

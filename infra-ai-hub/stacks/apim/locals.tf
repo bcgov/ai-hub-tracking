@@ -102,13 +102,61 @@ locals {
     "https://${lookup(var.shared_config.app_gateway, "frontend_hostname", "")}"
   ) : (local.apim_config.enabled ? module.apim[0].gateway_url : "")
 
+  provisioned_scale_types = toset([
+    "GlobalProvisionedManaged",
+    "DataZoneProvisionedManaged",
+    "ProvisionedManaged",
+  ])
+
+  # Azure OpenAI provisioned throughput uses model-specific input TPM per PTU,
+  # and some models weight output tokens more heavily than input tokens.
+  # Sources:
+  # - https://learn.microsoft.com/en-us/azure/foundry/openai/how-to/provisioned-throughput-onboarding#latest-azure-openai-models
+  # - https://azure.microsoft.com/en-ca/pricing/details/cognitive-services/openai-service/
+  provisioned_capacity_metadata_by_model = {
+    "gpt-5.1" = {
+      input_tpm_per_ptu            = 4750
+      output_tokens_to_input_ratio = 8
+    }
+  }
+
   tenant_api_policies = {
     for key, config in local.enabled_tenants : key => templatefile(
       "${path.root}/../../params/apim/api_policy.xml.tftpl",
       {
-        tenant_name                    = key
-        tokens_per_minute              = try(config.apim_policies.rate_limiting.tokens_per_minute, 10000)
-        model_deployments              = try(config.openai.model_deployments, [])
+        tenant_name       = key
+        tokens_per_minute = try(config.apim_policies.rate_limiting.tokens_per_minute, 10000)
+        model_deployments = [
+          for _m in [
+            for deployment in try(config.openai.model_deployments, []) : merge(deployment, {
+              # Quota-backed deployments report capacity directly in k TPM; provisioned deployments use PTU.
+              capacity_unit = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? "PTU" : "k TPM"
+              # Preserve the legacy k TPM field for quota-backed deployments only.
+              capacity_k_tpm = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? null : try(deployment.capacity, null)
+              # PTU metadata is model-specific and comes from the lookup table above.
+              input_tpm_per_ptu            = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? try(local.provisioned_capacity_metadata_by_model[try(deployment.model_name, deployment.name)].input_tpm_per_ptu, null) : null
+              output_tokens_to_input_ratio = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? try(local.provisioned_capacity_metadata_by_model[try(deployment.model_name, deployment.name)].output_tokens_to_input_ratio, null) : null
+              # Foundry PTU throughput is tracked in input-equivalent TPM, not raw prompt+completion tokens.
+              input_equivalent_tokens_per_minute = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? (
+                try(deployment.capacity, 0) * try(local.provisioned_capacity_metadata_by_model[try(deployment.model_name, deployment.name)].input_tpm_per_ptu, 1000)
+              ) : (try(deployment.capacity, 0) * 1000)
+              # APIM can only rate-limit raw tokens, so convert the PTU ceiling into a conservative
+              # raw-token cap by dividing the input-equivalent ceiling by the output weighting ratio.
+              apim_raw_tokens_per_minute = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? floor(
+                (
+                  try(deployment.capacity, 0) *
+                  try(local.provisioned_capacity_metadata_by_model[try(deployment.model_name, deployment.name)].input_tpm_per_ptu, 1000)
+                  ) / max(
+                  1,
+                  try(local.provisioned_capacity_metadata_by_model[try(deployment.model_name, deployment.name)].output_tokens_to_input_ratio, 1)
+                )
+              ) : (try(deployment.capacity, 0) * 1000)
+            })
+            ] : merge(_m, {
+              # Legacy alias: kept aligned with the actual APIM-enforced raw-token cap.
+              tokens_per_minute = _m.apim_raw_tokens_per_minute
+          })
+        ]
         openai_enabled                 = length(try(config.openai.model_deployments, [])) > 0
         document_intelligence_enabled  = try(config.document_intelligence.enabled, false)
         ai_search_enabled              = try(config.ai_search.enabled, false)
@@ -187,5 +235,21 @@ locals {
   # ---------------------------------------------------------------------------
   monitoring_config = {
     enabled = lookup(lookup(var.shared_config, "monitoring", {}), "enabled", false)
+  }
+}
+
+# Advisory check: warn if a provisioned deployment references a model not in
+# the provisioned_capacity_metadata_by_model lookup table (silent fallback to
+# 1000 / 1 would produce incorrect rate-limit values).
+check "provisioned_model_metadata_coverage" {
+  assert {
+    condition = alltrue([
+      for key, config in local.enabled_tenants : alltrue([
+        for deployment in try(config.openai.model_deployments, []) :
+        !contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ||
+        contains(keys(local.provisioned_capacity_metadata_by_model), try(deployment.model_name, deployment.name))
+      ])
+    ])
+    error_message = "One or more provisioned deployments reference a model not in provisioned_capacity_metadata_by_model. Add the model's input_tpm_per_ptu and output_tokens_to_input_ratio to the lookup table in locals.tf."
   }
 }

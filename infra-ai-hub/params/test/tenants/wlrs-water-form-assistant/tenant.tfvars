@@ -91,7 +91,9 @@ tenant = {
       log_categories    = []
       metric_categories = ["AllMetrics"]
     }
-    # Capacity = 1% of regional quota limit per model
+    # Capacity uses model-specific units:
+    # - GlobalStandard deployments use 1% of the regional TPM quota per model
+    # - Provisioned deployments use PTUs and Azure's per-model PTU throughput table
     # Quota limits: gpt-4.1=30k, gpt-4.1-mini=150k, gpt-4.1-nano=150k,
     #   gpt-4o=30k, gpt-4o-mini=150k, gpt-5-mini=10k, gpt-5-nano=150k,
     #   gpt-5.1-chat=5k, gpt-5.1-codex-mini=10k, o1=5k, o3-mini=5k,
@@ -190,6 +192,14 @@ tenant = {
         model_version  = "2025-11-13"
         scale_type     = "GlobalStandard"
         capacity       = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+      {
+        name           = "gpt-5.1"
+        model_name     = "gpt-5.1"
+        model_version  = "2025-11-13"
+        scale_type     = "GlobalProvisionedManaged"
+        capacity       = 15 # 4,750 input TPM/PTU => 71,250 input TPM
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # Reasoning Models

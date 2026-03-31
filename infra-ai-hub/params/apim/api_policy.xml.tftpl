@@ -11,7 +11,7 @@
         </set-header>
 %{ if openai_enabled && rate_limiting_enabled ~}
         <!-- Per-model token rate limiting for OpenAI requests only -->
-        <!-- Each model has its own rate limit matching its Azure OpenAI deployment capacity -->
+        <!-- Each model has its own computed TPM limit based on its deployment type -->
         <!-- Only applies to /openai/* paths; DocInt/Speech/Search/Storage are not rate-limited by token count -->
         <!-- CRITICAL: estimate-prompt-tokens reads the entire request body for tokenization. -->
         <!-- On large binary payloads (e.g., 500KB base64 DocInt images) this causes APIM to hang. -->
@@ -40,10 +40,10 @@
                 <choose>
 %{ for model in model_deployments ~}
                     <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;deploymentName&quot;, &quot;&quot;) == &quot;${model.name}&quot;)">
-                        <!-- Rate limit for ${model.name}: ${model.capacity}k TPM (deployment capacity is in thousands of TPM) -->
+                        <!-- Rate limit for ${model.name}: ${model.apim_raw_tokens_per_minute} raw TPM -->
                         <llm-token-limit
                             counter-key="@(context.Subscription.Id + &quot;-${model.name}&quot;)"
-                            tokens-per-minute="${model.capacity * 1000}"
+                            tokens-per-minute="${model.apim_raw_tokens_per_minute}"
                             estimate-prompt-tokens="true"
                             remaining-tokens-variable-name="remainingTokens"
                             remaining-tokens-header-name="x-ratelimit-remaining-tokens"
@@ -225,12 +225,18 @@
   tenant = tenant_name
   base_url = "${base_url}/${tenant_name}"
   models = [for m in model_deployments : {
-    name              = m.name
-    model_name        = m.model_name
-    model_version     = m.model_version
-    scale_type        = m.scale_type
-    capacity_k_tpm    = m.capacity
-    tokens_per_minute = m.capacity * 1000
+    name                               = m.name
+    model_name                         = m.model_name
+    model_version                      = m.model_version
+    scale_type                         = m.scale_type
+    capacity                           = m.capacity
+    capacity_unit                      = m.capacity_unit
+    capacity_k_tpm                     = m.capacity_k_tpm
+    input_tpm_per_ptu                  = m.input_tpm_per_ptu
+    output_tokens_to_input_ratio       = m.output_tokens_to_input_ratio
+    apim_raw_tokens_per_minute         = m.apim_raw_tokens_per_minute
+    input_equivalent_tokens_per_minute = m.input_equivalent_tokens_per_minute
+    tokens_per_minute                  = m.tokens_per_minute
     endpoints = {
       azure_openai = {
         endpoint    = "${base_url}/${tenant_name}"

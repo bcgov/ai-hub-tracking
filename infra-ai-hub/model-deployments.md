@@ -4,7 +4,8 @@
 > See [IaC Coder Skills](../.github/skills/iac-coder/SKILL.md) for the mandatory update rule.
 
 This document tracks the OpenAI model capacity allocated to each tenant across all environments.
-Capacity values are in **thousands of Tokens Per Minute (TPM)** — the Azure OpenAI deployment unit.
+Capacity values for **GlobalStandard** deployments are in **thousands of Tokens Per Minute (TPM)**.
+Provisioned deployments use **PTU** instead, and their effective input TPM depends on the model-specific PTU throughput table published by Microsoft Learn.
 Percentage values show the share of the regional quota limit consumed by each tenant.
 
 ## Regional Quota Limits (Canada East)
@@ -60,6 +61,8 @@ Mistral models are serverless MaaS (pay-per-token). The Foundry deployment UI re
 
 Quota allocation strategy: **1% per tenant** for all models.
 
+The table below covers the quota-based **GlobalStandard** deployments. Provisioned deployments are listed separately because their capacity is measured in PTU, not k TPM.
+
 | Model | Quota Limit | wlrs (1%) | sdpr (1%) | nr-dap (1%) | gcpe (1%) | ai-hub-admin (1%) | Total (5%) | Remaining |
 |-------|------------:|----------:|----------:|------------:|----------:|------------------:|-----------:|----------:|
 | gpt-4.1 | 30,000 | 300 | 300 | 300 | 300 | 300 | 1,500 (5%) | 28,500 |
@@ -77,6 +80,15 @@ Quota allocation strategy: **1% per tenant** for all models.
 | text-embedding-ada-002 | 10,000 | 100 | 100 | 100 | 100 | 100 | 500 (5%) | 9,500 |
 | text-embedding-3-large | 10,000 | 100 | 100 | 100 | 100 | 100 | 500 (5%) | 9,500 |
 | text-embedding-3-small | 10,000 | 100 | 100 | 100 | 100 | 100 | 500 (5%) | 9,500 |
+
+### TEST Provisioned Deployments
+
+| Tenant | Deployment | Model | Scale Type | Capacity | Input TPM per PTU | Output Weight | Effective input-equivalent TPM | Conservative APIM raw TPM cap |
+|-------|------------|-------|------------|---------:|------------------:|--------------:|-------------------------------:|------------------------------:|
+| wlrs | gpt-5.1 | gpt-5.1 | GlobalProvisionedManaged | 15 PTU | 4,750 | 8x | 71,250 | 8,906 |
+
+The conservative APIM raw token cap is calculated as `floor(input_equivalent_tokens_per_minute / output_tokens_to_input_ratio)`.
+For GPT-5.1, APIM cannot enforce Foundry's output-weighted PTU accounting directly, so it uses `floor(71,250 / 8) = 8,906` raw tokens per minute to avoid Foundry accepting less traffic than APIM.
 
 ### Cohere Models (ai-hub-admin only)
 
