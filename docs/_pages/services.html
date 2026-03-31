@@ -110,6 +110,12 @@
             <td>150,000 TPM</td>
         </tr>
         <tr>
+            <td><strong>gpt-5.1</strong></td>
+            <td><span class="badge" style="background:#0f766e;color:white;">Provisioned Chat</span></td>
+            <td>Provisioned GPT-5.1 base model for sustained tenant workloads</td>
+            <td>4,750 input TPM/PTU; output weighted 8x</td>
+        </tr>
+        <tr>
             <td><strong>gpt-5.1-chat</strong></td>
             <td><span class="badge" style="background:#0369a1;color:white;">Chat Preview</span></td>
             <td>Next-gen preview chat model</td>
@@ -181,6 +187,13 @@
     <div class="alert-icon">💡</div>
     <div>
         TPM = Tokens Per Minute. OpenAI quotas shown above are <strong>subscription-wide limits</strong>; each tenant is allocated a share. Current test/dev allocation is typically <strong>1% per tenant</strong>, but provider-specific deployments can use different quotas. See <a href="infra-ai-hub/model-deployments.md">model-deployments.md</a> for the current allocation source of truth.
+    </div>
+</div>
+
+<div class="alert alert-info" style="margin-top: 1rem;">
+    <div class="alert-icon">💡</div>
+    <div>
+        Provisioned throughput uses <strong>input-equivalent</strong> TPM, not a simple raw input + output token total. For GPT-5.1, one output token counts as roughly eight input tokens toward PTU utilization, so the APIM safeguard uses a lower raw-token cap than the Foundry PTU ceiling.
     </div>
 </div>
 
