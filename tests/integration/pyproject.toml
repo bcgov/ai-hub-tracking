@@ -1,0 +1,45 @@
+[project]
+name = "ai-hub-integration-tests"
+version = "0.1.0"
+description = "Python integration and AI evaluation tests for AI Services Hub APIM"
+requires-python = ">=3.13"
+dependencies = [
+    "azure-ai-evaluation",
+    "azure-identity>=1.25.2",
+    "azure-keyvault-secrets>=4.10.0",
+    "pytest>=9.0.2",
+    "requests>=2.33.0",
+]
+
+[dependency-groups]
+dev = [
+    "pygments>=2.20.0",
+    "ruff>=0.15.4",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+markers = [
+    "live: requires a deployed integration environment",
+    "requires_proxy: requires the secure tunnel / proxy for private Key Vault access",
+    "appgw: requires App Gateway to be deployed",
+    "ai_eval: runs Azure AI Evaluation SDK-based scoring",
+    "slow: longer-running integration coverage",
+]
+
+[tool.ruff]
+target-version = "py313"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"run-tests.py" = ["E402"]
+"run-evaluation.py" = ["E402"]
+"tests/support.py" = ["E501"]
+
+[tool.pyright]
+include = ["src", "tests", "run-tests.py", "run-evaluation.py"]
+extraPaths = ["src"]

@@ -115,7 +115,7 @@ All variables use the `PII_` prefix (e.g., `PII_LANGUAGE_ENDPOINT`).
 8. **Terraform** — `terraform fmt -recursive` and `terraform validate` if module or stack changed
 9. **Timeout budget** — verify `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` < APIM backend timeout if either value changes
 10. **Settings schema** — new env vars added to both `config.py` Settings class and `.env.example`
-11. **Integration tests** — any change to `app/orchestrator.py`, `app/language_client.py`, `app/models.py`, `app/main.py`, or `infra-ai-hub/params/apim/fragments/pii-anonymization.xml` **must** be followed by reviewing and running the integration test suites: `tests/integration/pii-redaction.bats`, `pii-coverage.bats`, `pii-chunking.bats`, and `pii-failure.bats`. Update the tests if error contracts, field names, or behavior changed.
+11. **Integration coverage** — any change to `app/orchestrator.py`, `app/language_client.py`, `app/models.py`, `app/main.py`, or `infra-ai-hub/params/apim/fragments/pii-anonymization.xml` **must** be followed by reviewing the shared Python integration harness under `tests/integration/tests/` and adding or updating scenario coverage if the error contract, field names, or behavior changed.
 
 ## Validation Gates (Required)
 1. **Ruff clean**: No lint errors (`ruff check .`)
@@ -126,4 +126,4 @@ All variables use the `PII_` prefix (e.g., `PII_LANGUAGE_ENDPOINT`).
 6. **Function docs present**: Newly added or modified helper/business-logic functions include inline docstrings
 7. **Unit-test style enforced**: Updated unit tests use explicit `Given`, `When`, and `Then` sections
 8. **Timeout invariant**: `PII_TOTAL_PROCESSING_TIMEOUT_SECONDS` ≤ (APIM backend timeout − 5s)
-9. **Integration tests reviewed**: If service logic or the `pii-anonymization.xml` fragment changed, `tests/integration/pii-redaction.bats`, `pii-coverage.bats`, `pii-chunking.bats`, and `pii-failure.bats` have been reviewed and remain consistent with the new behavior. Run them (with `PII_FAILURE_TEST_ENABLED=true` for `pii-failure.bats`) before merging.
+9. **Integration coverage reviewed**: If service logic or the `pii-anonymization.xml` fragment changed, the Python harness under `tests/integration/tests/` has been reviewed and updated where needed, and any additional manual validation required by the changed error contract is documented before merging.

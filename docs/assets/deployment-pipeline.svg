@@ -191,7 +191,7 @@
   <g filter="url(#shadow)">
     <rect x="1095" y="348" width="110" height="60" rx="6" fill="#166534" stroke="#22c55e" stroke-width="1.5"/>
     <text x="1150" y="373" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#4ade80" font-weight="bold">Tests</text>
-    <text x="1150" y="393" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bbf7d0">bats + integration</text>
+    <text x="1150" y="393" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#bbf7d0">pytest + integration</text>
   </g>
   <path d="M 1205 378 L 1225 378" stroke="#94a3b8" stroke-width="1.5" marker-end="url(#arrowWhite)"/>
 
@@ -373,7 +373,7 @@
   <g filter="url(#shadow)">
     <rect x="1050" y="802" width="140" height="82" rx="6" fill="#14532d" stroke="#4ade80" stroke-width="1.5"/>
     <text x="1120" y="822" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#4ade80" font-weight="bold">Integration Tests</text>
-    <text x="1120" y="840" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8">bats-core harness</text>
+    <text x="1120" y="840" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8">pytest + uv harness</text>
     <text x="1120" y="855" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8">run-tests.sh --env</text>
     <text x="1120" y="870" text-anchor="middle" font-family="Arial, sans-serif" font-size="8" fill="#94a3b8">dev + test only</text>
   </g>

@@ -1226,8 +1226,9 @@
                         ├─ Deploy azure_proxy (tools) ───────────────────────────────┤
                         └─ Apply to test (via Chisel tunnel)
                              └─ Integration tests (post-apply)
-                                  ├─ Direct: all tests except apim-key-rotation.bats
-                                  └─ Via proxy: apim-key-rotation.bats (KV private endpoint)
+                                  ├─ Direct: pytest group=direct
+                                  ├─ AI evaluation (optional, judge model configured)
+                                  └─ Via proxy: pytest group=proxy (KV private endpoint)
                                   │
                                   ▼
                         manual-dispatch.yml (prod + apply + tag)
@@ -1536,8 +1537,9 @@
         <li><strong>Proxy-aware Terraform</strong>: sets <code>HTTP_PROXY</code>, <code>HTTPS_PROXY</code>, and <code>NO_PROXY</code></li>
         <li><strong>Integration tests</strong> (after successful <code>apply</code> in dev/test) — two phases:
             <ul>
-                <li><strong>Direct (no proxy):</strong> all suites <em>except</em> <code>apim-key-rotation.bats</code> — APIM and App Gateway are public endpoints; proxy not required</li>
-                <li><strong>Via proxy:</strong> <code>apim-key-rotation.bats</code> only — Key Vault is private-endpoint only (<code>public_network_access_enabled=false</code>), so the KV fallback (<code>az keyvault secret show</code>) must route through the Chisel tunnel</li>
+                <li><strong>Direct (no proxy):</strong> <code>uv run python ./run-tests.py --group direct</code> — APIM and App Gateway are public endpoints; proxy not required</li>
+                <li><strong>AI evaluation (optional):</strong> <code>uv run python ./run-evaluation.py</code> runs only when the judge-model secrets and vars are configured</li>
+                <li><strong>Via proxy:</strong> <code>uv run python ./run-tests.py --group proxy</code> — Key Vault is private-endpoint only (<code>public_network_access_enabled=false</code>), so the key-rotation suite must route through the Chisel tunnel</li>
             </ul>
         </li>
     </ul>

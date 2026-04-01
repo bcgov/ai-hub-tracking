@@ -205,14 +205,14 @@ To add a new tenant:
 - All model deployments exist and show `provisioningState: Succeeded`
 - APIM backend URL is correct
 - APIM managed identity has `Cognitive Services OpenAI User` on the hub
-- `tenant-info.bats` and `document-intelligence.bats` pass (unrelated backends)
+- `tests/test_tenant_info.py` and `tests/test_document_intelligence.py` pass (unrelated backends)
 
 **Root cause:** The AI Foundry private endpoint (PE) is in a broken/inconsistent state. APIM can resolve the hub hostname but the PE is not correctly routing traffic. Azure returns `DeploymentNotFound` instead of a connectivity error, making it easy to misdiagnose as a deployment naming or RBAC issue.
 
 **Most common trigger:** Manually purging the AI Foundry resource (or a full `terraform destroy` of the shared stack) then immediately re-applying. Even though Azure confirms PE deletion and PE recreation via the API, the PE's NIC/DNS binding can be stale for several minutes after Terraform reports success.
 
 **Diagnosis:**
-1. Rule out APIM/policy by checking if `document-intelligence.bats` passes (per-tenant DocInt resources, different backend) — if DocInt passes and OpenAI fails, the issue is hub PE, not APIM.
+1. Rule out APIM/policy by checking if `tests/test_document_intelligence.py` passes (per-tenant DocInt resources, different backend) — if DocInt passes and OpenAI fails, the issue is hub PE, not APIM.
 2. Check APIM MSI role: `az role assignment list --scope <hub_id> --assignee <apim_msi_principal_id> --query "[].roleDefinitionName"`
 3. Check deployment state: `az cognitiveservices account deployment show ... --query "properties.provisioningState"`
 4. If both are fine, **delete the Foundry private endpoint from the Azure portal** (or via `az network private-endpoint delete`) and re-apply to force a clean PE recreation.

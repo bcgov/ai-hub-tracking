@@ -1,0 +1,11 @@
+{"query":"What is 2 + 2? Answer with the number only.","ground_truth":"4"}
+{"query":"Name the capital of British Columbia. Answer with the city only.","ground_truth":"Victoria"}
+{"query":"Reply with the exact word 'hello' and nothing else.","ground_truth":"hello"}
+{"query":"Extract the tenant identifier from this note: 'Enable access for tenant ai-hub-admin in the test environment.' Answer with the tenant identifier only.","ground_truth":"ai-hub-admin"}
+{"query":"Convert the date 1 April 2026 to ISO format YYYY-MM-DD. Answer with the date only.","ground_truth":"2026-04-01"}
+{"query":"Extract the HTTP status code from this sentence: 'The upstream service returned 503 Service Unavailable.' Answer with the number only.","ground_truth":"503"}
+{"query":"Classify this deployment note as positive, neutral, or negative: 'The rollout completed successfully and every health check passed.' Answer with one word only.","ground_truth":"positive"}
+{"query":"Rewrite the phrase 'Tenant User Management' in lowercase snake_case. Answer with the transformed text only.","ground_truth":"tenant_user_management"}
+{"query":"From this sentence, return the environment name only: 'Run the proxy-only suite in prod after approval.'","ground_truth":"prod"}
+{"query":"Does this sentence indicate a successful request: 'The API returned HTTP 200 and the payload validated.' Answer yes or no only.","ground_truth":"yes"}
+{"query":"Extract the model name from this instruction: 'Use the prebuilt-layout model for the next document scan.' Answer with the model name only.","ground_truth":"prebuilt-layout"}

@@ -1384,19 +1384,19 @@
 <h2 id="integration-tests">Integration Tests</h2>
 
 <div class="card">
-    <p>Both endpoints have bats integration test coverage in <code>tests/integration/</code>:</p>
+    <p>Both endpoints have Python integration test coverage in <code>tests/integration/tests/</code>:</p>
     <table>
         <thead>
             <tr><th>Suite</th><th>Endpoint</th><th>Proxy required</th></tr>
         </thead>
         <tbody>
             <tr>
-                <td><code>apim-key-rotation.bats</code></td>
+                <td><code>test_apim_key_rotation.py</code></td>
                 <td><code>/internal/apim-keys</code></td>
                 <td>Yes &mdash; Key Vault is private-only. Runs via the chisel/privoxy tunnel in CI.</td>
             </tr>
             <tr>
-                <td><code>tenant-info.bats</code></td>
+                <td><code>test_tenant_info.py</code></td>
                 <td><code>/internal/tenant-info</code></td>
                 <td>No &mdash; response is static, no Key Vault calls. Runs in the direct (no-proxy) CI step.</td>
             </tr>
@@ -1404,10 +1404,10 @@
     </table>
     <pre># Run tenant-info tests locally
 cd tests/integration
-./run-tests.sh test tenant-info.bats
+./run-tests.sh --env test tenant-info
 
 # Run apim-keys tests (requires az login + hub Key Vault access)
-./run-tests.sh test apim-key-rotation.bats</pre>
+./run-tests.sh --env test --group proxy apim-key-rotation</pre>
 </div>
     </main>
     <footer class="site-footer">

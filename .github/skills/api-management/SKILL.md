@@ -57,7 +57,7 @@ Client → WAF (custom rules) → App Gateway (rewrite rules) → APIM global po
 - All routing sections are conditional — enabled/disabled per tenant via `tenant.tfvars` feature flags (e.g., `openai_enabled`, `speech_services_enabled`, `document_intelligence_enabled`, `ai_search_enabled`, `storage_enabled`, `key_rotation_enabled`).
 - There are **no per-tenant XML files**. Do not create `tenants/{tenant}/api_policy.xml` files.
 
-> **PII integration test impact**: changes to `infra-ai-hub/params/apim/fragments/pii-anonymization.xml` or any PII-related section of `api_policy.xml.tftpl` **require** reviewing and running `tests/integration/pii-redaction.bats`, `pii-coverage.bats`, `pii-chunking.bats`, and `pii-failure.bats`. The error contract (HTTP 503, `error.code`, `error.failure_reason`) is tested end-to-end in these suites — update them if the contract changes. See [PII Redaction Service](../pii-redaction-service/SKILL.md) for full integration test guidance.
+> **PII integration test impact**: changes to `infra-ai-hub/params/apim/fragments/pii-anonymization.xml` or any PII-related section of `api_policy.xml.tftpl` **require** reviewing the Python integration harness under `tests/integration/tests/` and adding or updating scenario coverage when the error contract changes. The shared harness no longer keeps dedicated `pii-*.bats` suites. See [PII Redaction Service](../pii-redaction-service/SKILL.md) for service-specific validation guidance.
 
 ## Routing Rules (Current Pattern)
 All routes live inside a single `<choose>` block in the inbound section. Routes are conditionally included:

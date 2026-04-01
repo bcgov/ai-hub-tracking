@@ -63,10 +63,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          node-version: 24
+          python-version: "3.13"
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
       - name: Azure CLI Login (OIDC)
         uses: azure/login@v2
         with:
@@ -116,26 +118,45 @@ jobs:
           docker logs privoxy
           curl --proxy http://127.0.0.1:8118 https://ifconfig.me
 
-      - name: Install bats-core
-        uses: bats-core/bats-action@4.0.0
+      - name: Install Python integration test dependencies
+        shell: bash
+        working-directory: ./tests/integration
+        run: |
+          set -euo pipefail
+          uv sync --group dev
 
       - name: Run Integration Tests (no proxy)
         shell: bash
-        working-directory: ./infra-ai-hub
+        working-directory: ./tests/integration
         # No HTTP_PROXY — APIM and App Gateway are public endpoints.
-        # apim-key-rotation.bats is excluded because its KV fallback
-        # (az keyvault secret show) requires the tunnel (KV is private-only).
         run: |
           set -euo pipefail
 
           echo "=== Running Integration Tests — direct (no proxy) ==="
-          cd ../tests/integration
-          chmod +x ./run-tests.sh
-          ./run-tests.sh --env "${TEST_ENV}" --exclude apim-key-rotation.bats
+          uv run python ./run-tests.py --env "${TEST_ENV}" --group direct
+
+      - name: Run AI Evaluation (optional)
+        shell: bash
+        working-directory: ./tests/integration
+        env:
+          AI_EVAL_JUDGE_ENDPOINT: ${{ vars.AI_EVAL_JUDGE_ENDPOINT }}
+          AI_EVAL_JUDGE_API_KEY: ${{ secrets.AI_EVAL_JUDGE_API_KEY }}
+          AI_EVAL_JUDGE_DEPLOYMENT: ${{ vars.AI_EVAL_JUDGE_DEPLOYMENT }}
+          AI_EVAL_JUDGE_API_VERSION: ${{ vars.AI_EVAL_JUDGE_API_VERSION }}
+          AI_EVAL_MIN_RELEVANCE: ${{ vars.AI_EVAL_MIN_RELEVANCE }}
+          AI_EVAL_MIN_COHERENCE: ${{ vars.AI_EVAL_MIN_COHERENCE }}
+          AI_EVAL_MIN_FLUENCY: ${{ vars.AI_EVAL_MIN_FLUENCY }}
+          AI_EVAL_MIN_SIMILARITY: ${{ vars.AI_EVAL_MIN_SIMILARITY }}
+          AI_EVAL_MIN_F1_SCORE: ${{ vars.AI_EVAL_MIN_F1_SCORE }}
+        run: |
+          set -euo pipefail
+
+          echo "=== Running Azure AI Evaluation (optional) ==="
+          uv run python ./run-evaluation.py --env "${TEST_ENV}"
 
       - name: Run Key Vault Integration Tests (with proxy)
         shell: bash
-        working-directory: ./infra-ai-hub
+        working-directory: ./tests/integration
         env:
           # Proxy required: Hub Key Vault has public_network_access_enabled=false
           # (private endpoint only). az keyvault secret show must reach vault.azure.net
@@ -147,6 +168,4 @@ jobs:
           set -euo pipefail
 
           echo "=== Running Key Vault Integration Tests — via proxy ==="
-          cd ../tests/integration
-          chmod +x ./run-tests.sh
-          ./run-tests.sh --env "${TEST_ENV}" apim-key-rotation.bats
+          uv run python ./run-tests.py --env "${TEST_ENV}" --group proxy

@@ -14,82 +14,78 @@ Supplementary reference for the [Integration Testing skill](../SKILL.md). Load t
 | `OPENAI_API_VERSION` | hardcoded | `2024-10-21` |
 | `DOCINT_API_VERSION` | hardcoded | `2024-11-30` |
 | `DEFAULT_MODEL` | hardcoded | `gpt-4.1-mini` |
-| `TENANTS` | hardcoded array | `wlrs-water-form-assistant`, `sdpr-invoice-automation`, `nr-dap-fish-wildlife` |
+| `PRIMARY_TENANT` | test helper constant | `ai-hub-admin` |
+| `LOW_QUOTA_TENANT` | test helper constant | `nr-dap-fish-wildlife` |
 
-Subscription keys are per-tenant: `WLRS_SUBSCRIPTION_KEY`, `SDPR_SUBSCRIPTION_KEY`, `NRDAP_SUBSCRIPTION_KEY`.
+Subscription keys are loaded per tenant from env vars or terraform outputs, most commonly `AI_HUB_ADMIN_SUBSCRIPTION_KEY` and `NRDAP_SUBSCRIPTION_KEY`.
 
 ### Dynamic Model Loading
-- `get_tenant_models <tenant>` — reads `infra-ai-hub/params/${env}/tenants/${tenant}/tenant.tfvars`, extracts `name = "..."` patterns
-- `get_tenant_chat_models <tenant>` — filters out `*embedding*` and `*codex*` models
+- `IntegrationConfig.get_tenant_models(tenant)` reads `infra-ai-hub/params/<env>/tenants/<tenant>/tenant.tfvars`
+- `IntegrationConfig.get_tenant_chat_models(tenant)` filters out `*embedding*` and `*codex*` models
 
 ## Helper Functions Reference
 
 ### HTTP Request Wrappers
 | Function | Auth Header | Retry | Use Case |
 |---|---|---|---|
-| `apim_request` | `api-key` | Auto-retry on 401 (vault refresh) | Standard API calls |
-| `apim_request_ocp` | `Ocp-Apim-Subscription-Key` | Auto-retry on 401 | Legacy SDK testing |
-| `apim_request_with_retry` | `api-key` | Exponential backoff (429/503/000) | Flaky or rate-limited endpoints |
-| `apim_request_with_retry_ocp` | `Ocp-Apim-Subscription-Key` | Exponential backoff | Legacy + retry |
+| `ApimClient.request(..., auth_mode="api-key")` | `api-key` | Optional | Standard API calls |
+| `ApimClient.request(..., auth_mode="bearer")` | `Authorization: Bearer` | Optional | App Gateway header-normalization coverage |
+| `ApimClient.request(..., auth_mode="ocp")` | `Ocp-Apim-Subscription-Key` | Optional | Legacy header compatibility coverage |
+| `ApimClient.request(..., retry=True)` | caller-selected | 429/503/transport | Flaky or rate-limited endpoints |
 
 ### High-Level API Calls
 | Function | Purpose |
 |---|---|
-| `chat_completion` | Builds chat completion JSON, handles GPT-5 model differences |
-| `chat_completion_ocp` | Same with `Ocp-Apim-Subscription-Key` header |
-| `docint_analyze` | Document Intelligence analyze via JSON `base64Source` |
-| `docint_analyze_file` | Reads file, base64-encodes, sends as WAF-safe JSON (returns full response with headers) |
-| `docint_analyze_binary` | Sends file as `application/octet-stream` (tests WAF custom rule) |
-| `docint_analyze_pdf` | Sends file as `application/pdf` |
-| `docint_analyze_multipart` | Sends file as `multipart/form-data` |
+| `ApimClient.chat_completion()` | Builds deployment-route chat completion JSON and handles GPT-5 parameter differences |
+| `ApimClient.chat_completion_v1()` | Same for `/openai/v1/chat/completions` |
+| `ApimClient.docint_analyze()` | Document Intelligence analyze via JSON `base64Source` |
+| `ApimClient.docint_analyze_file()` | Reads file, base64-encodes, and posts JSON |
+| `ApimClient.docint_analyze_binary()` | Sends file as `application/octet-stream` |
+| `ApimClient.docint_analyze_pdf()` | Sends file as `application/pdf` |
+| `ApimClient.docint_analyze_multipart()` | Sends file as `multipart/form-data` |
 
 ### Response Parsing
 | Function | Purpose |
 |---|---|
-| `parse_response` | Splits curl output into `RESPONSE_BODY` + `RESPONSE_STATUS` |
-| `json_get` | Extracts jq path; sanitizes `[REDACTED_PHONE]` → `0` first |
-| `extract_http_status` | Extracts HTTP status from full response headers |
-| `extract_response_body` | Extracts body from full response (after blank line) |
-| `extract_operation_path` | Strips gateway URL prefix from Operation-Location |
+| `response_json()` | Parses JSON and sanitizes `[REDACTED_PHONE]` → `0` first |
+| `operation_location()` | Extracts the `Operation-Location` header |
+| `ApimClient.extract_operation_path()` | Strips gateway URL prefix from Operation-Location |
 
 ### Assertions
 | Function | Purpose |
 |---|---|
-| `assert_status` | Compares expected vs actual HTTP status; auto-skips on 429 if `SKIP_ON_RATE_LIMIT=true` |
-| `assert_contains` | Asserts substring presence |
-| `assert_not_contains` | Asserts substring absence |
-| `looks_like_pii` | Regex match for email, phone, SSN patterns |
-| `is_redacted` | Checks for `*`, `[REDACTED]`, `XXXXX` markers |
+| `assert_status()` | Compares expected vs actual HTTP status; auto-skips on 429 if `SKIP_ON_RATE_LIMIT=true` |
+| `require_key()` | Skips when a tenant subscription key is unavailable |
+| `require_appgw()` | Skips when App Gateway is not deployed |
 
 ### Async Polling
 | Function | Purpose |
 |---|---|
-| `wait_for_operation` | Polls Document Intelligence operation path every 2s until `succeeded`/`completed`/`failed` or timeout |
+| `ApimClient.wait_for_operation()` | Polls Document Intelligence operation path every 2s until `succeeded`/`completed`/`failed` or timeout |
 
 ### Key Vault Fallback
 | Function | Purpose |
 |---|---|
-| `get_tenant_key_from_vault` | Refreshes key from Azure Key Vault using rotation metadata `safe_slot` |
-| `refresh_tenant_key_from_vault` | Calls above and updates the env var via `set_subscription_key` |
+| `ApimClient.refresh_tenant_key_from_vault()` | Refreshes a tenant key from Azure Key Vault using rotation metadata `safe_slot` |
 
 ## Retry Logic
 
-`apim_request_with_retry` uses exponential backoff:
+`ApimClient.request(..., retry=True)` uses exponential backoff:
 - **Max retries**: 5
 - **Initial delay**: 5s, **multiplier**: 2x, **max delay**: 60s
-- **Retries on**: `000` (transport failure), `429` (rate limit), `503` (transient)
-- **Does NOT retry** `503` with `failure_reason=partial-redaction` (intentional PII coverage block)
-- **429 delay**: uses `retry-after` from response body if available
+- **Retries on**: transport failures, `429` (rate limit), `503` (transient)
+- **Does NOT retry** `503` with `error.code = PiiRedactionFailed`
+- **429 delay**: uses the `Retry-After` response header if present
 
 ## Document Intelligence Async Flow
 
 ```
-1. Submit → docint_analyze_file "tenant" "model" "file.jpg"
-2. Parse  → extract_http_status (expect 202)
-3. Header → extract Operation-Location URL
-4. Path   → extract_operation_path (strip gateway prefix)
-5. Poll   → wait_for_operation "tenant" "path" 60
-6. Assert → json_get ".analyzeResult.content" / ".analyzeResult.pages"
+1. Submit → `ApimClient.docint_analyze_file(tenant, model, file_path)`
+2. Read   → `response.status_code` (`200` or `202`)
+3. Header → `operation_location(response)`
+4. Path   → `ApimClient.extract_operation_path(tenant, operation_url)`
+5. Poll   → `ApimClient.wait_for_operation(tenant, path, 60)`
+6. Assert → `response_json(response)["analyzeResult"]`
 ```
 
 ### Operation-Location Validation
@@ -99,7 +95,7 @@ Subscription keys are per-tenant: `WLRS_SUBSCRIPTION_KEY`, `SDPR_SUBSCRIPTION_KE
 
 ## GPT-5 Model Handling
 
-`chat_completion` detects `gpt-5*` model names and adjusts:
+`ApimClient.chat_completion()` and `.chat_completion_v1()` detect `gpt-5*` model names and adjust:
 - Uses `max_completion_tokens` instead of `max_tokens`
 - Does not set custom `temperature`
 - This avoids 400 errors from GPT-5 API parameter validation
@@ -114,7 +110,7 @@ Subscription keys are per-tenant: `WLRS_SUBSCRIPTION_KEY`, `SDPR_SUBSCRIPTION_KE
 
 ## DLP Sanitization
 
-`json_get` replaces `[REDACTED_PHONE]` with `0` before jq parsing. This works around BC Gov DLP proxies that redact Unix timestamps in HTTP response bodies, breaking JSON structure. Without this, `jq` fails on responses containing redacted numeric fields.
+`response_json()` replaces `[REDACTED_PHONE]` with `0` before JSON parsing. This works around BC Gov DLP proxies that redact Unix timestamps in HTTP response bodies, breaking JSON structure.
 
 ## SSE (Server-Sent Events) Parsing
 
@@ -130,16 +126,15 @@ echo "${RESPONSE_BODY}" | grep '^data: {' | sed 's/^data: //' | jq -c '...'
 echo "${RESPONSE_BODY}" | tr -d '\r' | grep '^data: {' | sed 's/^data: //' | jq -c '...'
 ```
 
-### Critical: Avoid SIGPIPE under pipefail
-`config.bash` enables `set -euo pipefail`. Piping jq output directly to `head -1` causes SIGPIPE when `head` closes the pipe early, which `pipefail` treats as a failure. Split the pipeline:
-```bash
-# BAD — SIGPIPE from head -1 propagates as pipeline failure
-chunk=$(... | jq -c 'select(...)' | head -1)
-
-# GOOD — collect all output first, then take first line
-all_chunks=$(... | jq -c 'select(...)') || true
-chunk=$(echo "${all_chunks}" | head -1)
+### Critical: Preserve SSE line parsing in Python
+The pytest harness parses SSE responses in Python instead of shell pipelines. Keep the equivalent safeguards:
+```python
+lines = [line.strip() for line in response.text.replace("\r", "").splitlines() if line.strip()]
+data_lines = [line for line in lines if line.startswith("data: ")]
+chunks = [json.loads(line.removeprefix("data: ")) for line in data_lines if line.startswith("data: {")]
 ```
+
+Do not assume the first SSE chunk is a chat delta; filter on `object == "chat.completion.chunk"` before asserting content.
 
 ### Azure OpenAI SSE first chunk
 The first SSE data chunk from Azure OpenAI is `prompt_filter_results` (Azure-specific), NOT `chat.completion.chunk`. Filter with:
