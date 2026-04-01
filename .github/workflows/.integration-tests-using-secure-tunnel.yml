@@ -134,14 +134,45 @@ jobs:
           echo "=== Running Integration Tests — direct (no proxy) ==="
           uv run python ./run-tests.py --env "${TEST_ENV}" --group direct
 
+      - name: Resolve AI Evaluation config from Terraform outputs
+        shell: bash
+        working-directory: ./tests/integration
+        run: |
+          set -euo pipefail
+
+          append_env() {
+            local name="$1"
+            local value="$2"
+            {
+              printf '%s<<EOF\n' "$name"
+              printf '%s\n' "$value"
+              printf 'EOF\n'
+            } >> "$GITHUB_ENV"
+          }
+
+          tf_outputs="$(../../infra-ai-hub/scripts/deploy-terraform.sh output "${TEST_ENV}")"
+          apim_gateway_url="$(jq -r '.apim_gateway_url.value // empty' <<<"$tf_outputs")"
+          judge_api_key="$(jq -r '.apim_tenant_subscriptions.value["ai-hub-admin"].primary_key // empty' <<<"$tf_outputs")"
+
+          append_env "AI_EVAL_TENANT" "ai-hub-admin"
+          append_env "AI_EVAL_MODEL" "gpt-4.1-mini"
+          append_env "AI_EVAL_JUDGE_DEPLOYMENT" "gpt-5.1-chat"
+          append_env "AI_EVAL_JUDGE_API_VERSION" "2024-10-21"
+
+          if [[ -z "$apim_gateway_url" || -z "$judge_api_key" ]]; then
+            echo "AI evaluation config could not be derived from terraform outputs; the evaluation step may skip."
+            exit 0
+          fi
+
+          judge_endpoint="${apim_gateway_url%/}/ai-hub-admin"
+          echo "::add-mask::$judge_api_key"
+          append_env "AI_EVAL_JUDGE_ENDPOINT" "$judge_endpoint"
+          append_env "AI_EVAL_JUDGE_API_KEY" "$judge_api_key"
+
       - name: Run AI Evaluation (optional)
         shell: bash
         working-directory: ./tests/integration
         env:
-          AI_EVAL_JUDGE_ENDPOINT: ${{ vars.AI_EVAL_JUDGE_ENDPOINT }}
-          AI_EVAL_JUDGE_API_KEY: ${{ secrets.AI_EVAL_JUDGE_API_KEY }}
-          AI_EVAL_JUDGE_DEPLOYMENT: ${{ vars.AI_EVAL_JUDGE_DEPLOYMENT }}
-          AI_EVAL_JUDGE_API_VERSION: ${{ vars.AI_EVAL_JUDGE_API_VERSION }}
           AI_EVAL_MIN_RELEVANCE: ${{ vars.AI_EVAL_MIN_RELEVANCE }}
           AI_EVAL_MIN_COHERENCE: ${{ vars.AI_EVAL_MIN_COHERENCE }}
           AI_EVAL_MIN_FLUENCY: ${{ vars.AI_EVAL_MIN_FLUENCY }}
