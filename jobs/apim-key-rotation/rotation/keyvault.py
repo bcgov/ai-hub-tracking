@@ -97,7 +97,7 @@ def store_key_in_vault(
         expires_on=expires_on,
         tags=tags or {},
     )
-    logger.debug("Stored key secret '%s' in hub KV", secret_name)
+    logger.debug("Stored APIM subscription key in hub KV")
 
 
 def verify_keyvault_exists(settings: Settings) -> bool:

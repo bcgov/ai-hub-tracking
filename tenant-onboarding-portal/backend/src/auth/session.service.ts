@@ -9,13 +9,29 @@ import { createHash, randomBytes } from 'node:crypto';
 
 import { getSettings } from '../config/settings';
 import { SessionStoreService } from '../storage/session-store.service';
-import type { OidcTokenSet, PortalLoginState, PortalSessionRecord, PortalUser } from '../types';
+import type {
+  OidcTokenSet,
+  PortalLoginState,
+  PortalRedirectState,
+  PortalSessionRecord,
+  PortalUser,
+} from '../types';
 import { TokenValidatorService } from './token-validator.service';
 
 const SESSION_COOKIE_NAME = 'tenant-portal-session';
 const LOGIN_STATE_TTL_SECONDS = 10 * 60;
+const REDIRECT_STATE_TTL_SECONDS = 10 * 60;
 const MOCK_SESSION_TTL_SECONDS = 8 * 60 * 60;
 const SESSION_REFRESH_INTERVAL_MS = 2 * 60 * 1000;
+const RETURN_TO_ROUTE_PATTERNS = [
+  /^\/$/,
+  /^\/tenants$/,
+  /^\/tenants\/new$/,
+  /^\/tenants\/[A-Za-z0-9._~-]+$/,
+  /^\/tenants\/[A-Za-z0-9._~-]+\/edit$/,
+  /^\/admin\/dashboard$/,
+  /^\/admin\/review\/[A-Za-z0-9._~-]+\/[A-Za-z0-9._~-]+$/,
+];
 
 @Injectable()
 export class AuthSessionService {
@@ -79,7 +95,7 @@ export class AuthSessionService {
 
     if (settings.authMode === 'mock') {
       await this.createMockSession(response, request);
-      response.redirect(302, normalizedReturnTo);
+      await this.redirectToStoredTarget(response, normalizedReturnTo);
       return;
     }
 
@@ -156,6 +172,25 @@ export class AuthSessionService {
   }
 
   /**
+   * Completes an internal redirect callback by resolving a stored redirect-state token.
+   *
+   * This indirection keeps user-supplied `return_to` values out of direct redirect sinks while
+   * preserving deep-link behavior for login and logout flows.
+   *
+   * @param response - The outgoing HTTP response used for the redirect.
+   * @param state - The short-lived redirect-state token created earlier in the auth flow.
+   */
+  async completeRedirect(response: Response, state?: string): Promise<void> {
+    if (!state) {
+      response.redirect(302, '/');
+      return;
+    }
+
+    const redirectState = await this.sessionStore.consumeRedirectState(state);
+    response.redirect(302, redirectState?.returnTo ?? '/');
+  }
+
+  /**
    * Logs the current user out by deleting the server-side session and clearing the session cookie.
    *
    * When OIDC is active and the IdP exposes an end-session endpoint, the user is redirected
@@ -177,21 +212,23 @@ export class AuthSessionService {
     this.clearSessionCookie(response, request);
 
     if (getSettings().authMode !== 'oidc') {
-      response.redirect(302, normalizedReturnTo);
+      await this.redirectToStoredTarget(response, normalizedReturnTo);
       return;
     }
 
     const config = await this.tokenValidator.publicConfig();
     if (!config.endSessionEndpoint) {
-      response.redirect(302, normalizedReturnTo);
+      await this.redirectToStoredTarget(response, normalizedReturnTo);
       return;
     }
+
+    const redirectState = await this.createAndStoreRedirectState(normalizedReturnTo);
 
     const logoutUrl = new URL(config.endSessionEndpoint);
     logoutUrl.searchParams.set('client_id', config.clientId);
     logoutUrl.searchParams.set(
       'post_logout_redirect_uri',
-      this.absoluteUrl(request, normalizedReturnTo),
+      this.absoluteUrl(request, this.redirectStatePath(redirectState.state)),
     );
     if (session?.idToken) {
       logoutUrl.searchParams.set('id_token_hint', session.idToken);
@@ -276,6 +313,57 @@ export class AuthSessionService {
       createdAt: now.toISOString(),
       expiresAt: expiresAt.toISOString(),
     };
+  }
+
+  /**
+   * Creates a short-lived redirect-state record for a validated internal target path.
+   *
+   * @param returnTo - The validated internal path to use after the auth flow completes.
+   * @returns A new {@link PortalRedirectState} ready to be persisted.
+   */
+  private createRedirectState(returnTo: string): PortalRedirectState {
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + REDIRECT_STATE_TTL_SECONDS * 1000);
+    return {
+      state: randomBytes(24).toString('base64url'),
+      returnTo,
+      createdAt: now.toISOString(),
+      expiresAt: expiresAt.toISOString(),
+    };
+  }
+
+  /**
+   * Persists a redirect-state record and returns it to the caller.
+   *
+   * @param returnTo - The validated internal path to use after the redirect callback.
+   * @returns The persisted redirect-state record.
+   */
+  private async createAndStoreRedirectState(returnTo: string): Promise<PortalRedirectState> {
+    const redirectState = this.createRedirectState(returnTo);
+    await this.sessionStore.saveRedirectState(redirectState);
+    return redirectState;
+  }
+
+  /**
+   * Persists a redirect-state record and redirects the browser to the fixed callback route.
+   *
+   * @param response - The outgoing HTTP response used for the redirect.
+   * @param returnTo - The validated internal path to restore after the callback route resolves.
+   */
+  private async redirectToStoredTarget(response: Response, returnTo: string): Promise<void> {
+    const redirectState = await this.createAndStoreRedirectState(returnTo);
+    response.redirect(302, this.redirectStatePath(redirectState.state));
+  }
+
+  /**
+   * Builds the fixed internal callback path for a redirect-state token.
+   *
+   * @param state - The server-generated redirect-state token.
+   * @returns The callback path that will resolve the stored redirect target.
+   */
+  private redirectStatePath(state: string): string {
+    const params = new URLSearchParams({ state });
+    return `/api/auth/redirect?${params.toString()}`;
   }
 
   /**
@@ -516,25 +604,49 @@ export class AuthSessionService {
    * @returns A safe relative URL path, defaulting to `'/'`.
    */
   private normalizeReturnTo(value: string | undefined): string {
-    if (!value) {
+    if (!value || !value.startsWith('/') || value.startsWith('//')) {
       return '/';
     }
 
     try {
       const parsed = new URL(value, 'http://localhost');
-      const relative = `${parsed.pathname}${parsed.search}${parsed.hash}`;
-      if (relative.startsWith('/') && !relative.startsWith('//')) {
-        return relative;
+      if (parsed.origin !== 'http://localhost') {
+        return '/';
       }
+
+      const pathname = this.normalizeReturnPath(parsed.pathname);
+      if (!this.isAllowedReturnPath(pathname)) {
+        return '/';
+      }
+
+      return `${pathname}${parsed.search}${parsed.hash}`;
     } catch {
-      // Fall back to the raw relative path handling below.
+      return '/';
+    }
+  }
+
+  /**
+   * Normalizes a return-path pathname by trimming trailing slashes from non-root routes.
+   *
+   * @param pathname - The parsed pathname component of the target URL.
+   * @returns The canonical pathname used for route allowlist matching.
+   */
+  private normalizeReturnPath(pathname: string): string {
+    if (pathname === '/') {
+      return pathname;
     }
 
-    if (value.startsWith('/') && !value.startsWith('//')) {
-      return value;
-    }
+    return pathname.replace(/\/+$/, '');
+  }
 
-    return '/';
+  /**
+   * Returns `true` when the pathname matches one of the known SPA routes.
+   *
+   * @param pathname - The canonical pathname to validate.
+   * @returns `true` when the pathname is safe to use as a post-auth return target.
+   */
+  private isAllowedReturnPath(pathname: string): boolean {
+    return RETURN_TO_ROUTE_PATTERNS.some((pattern) => pattern.test(pathname));
   }
 
   /**

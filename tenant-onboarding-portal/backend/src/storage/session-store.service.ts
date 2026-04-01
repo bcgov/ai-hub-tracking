@@ -3,10 +3,11 @@ import { TableClient, TableEntity } from '@azure/data-tables';
 import { DefaultAzureCredential } from '@azure/identity';
 
 import { getSettings } from '../config/settings';
-import type { PortalLoginState, PortalSessionRecord } from '../types';
+import type { PortalLoginState, PortalRedirectState, PortalSessionRecord } from '../types';
 
 const SESSIONS_TABLE = 'TenantPortalSessions';
 const LOGIN_PARTITION = 'login';
+const REDIRECT_PARTITION = 'redirect';
 const SESSION_PARTITION = 'session';
 
 type MemorySessionEntities = Record<string, Record<string, unknown>>;
@@ -102,6 +103,42 @@ export class SessionStoreService {
   }
 
   /**
+   * Persists a short-lived redirect-state record for internal post-auth redirects.
+   *
+   * @param state - The redirect-state object containing the validated target path.
+   */
+  async saveRedirectState(state: PortalRedirectState): Promise<void> {
+    await this.upsertEntity(REDIRECT_PARTITION, state.state, {
+      ReturnTo: state.returnTo,
+      CreatedAt: state.createdAt,
+      ExpiresAt: state.expiresAt,
+    });
+  }
+
+  /**
+   * Retrieves and atomically deletes the redirect-state record for the given state token.
+   *
+   * Returns `null` if the state is not found or has already expired.
+   *
+   * @param state - The redirect state token received from the internal callback route.
+   * @returns The matching {@link PortalRedirectState}, or `null` if absent or expired.
+   */
+  async consumeRedirectState(state: string): Promise<PortalRedirectState | null> {
+    const entity = await this.getEntity(REDIRECT_PARTITION, state);
+    await this.deleteEntity(REDIRECT_PARTITION, state);
+    if (!entity) {
+      return null;
+    }
+
+    const redirectState = this.deserializeRedirectState(state, entity);
+    if (Date.parse(redirectState.expiresAt) <= Date.now()) {
+      return null;
+    }
+
+    return redirectState;
+  }
+
+  /**
    * Persists a session record, creating or replacing any existing record with the same ID.
    *
    * @param session - The session record to save, including user info and token data.
@@ -163,6 +200,25 @@ export class SessionStoreService {
       state,
       codeVerifier: String(entity.CodeVerifier ?? ''),
       redirectUri: String(entity.RedirectUri ?? ''),
+      returnTo: String(entity.ReturnTo ?? '/'),
+      createdAt: String(entity.CreatedAt ?? new Date().toISOString()),
+      expiresAt: String(entity.ExpiresAt ?? new Date(0).toISOString()),
+    };
+  }
+
+  /**
+   * Deserializes a raw storage entity into a {@link PortalRedirectState} object.
+   *
+   * @param state - The redirect-state token used as the row key.
+   * @param entity - The raw key-value entity from the storage backend.
+   * @returns The deserialized redirect state.
+   */
+  private deserializeRedirectState(
+    state: string,
+    entity: Record<string, unknown>,
+  ): PortalRedirectState {
+    return {
+      state,
       returnTo: String(entity.ReturnTo ?? '/'),
       createdAt: String(entity.CreatedAt ?? new Date().toISOString()),
       expiresAt: String(entity.ExpiresAt ?? new Date(0).toISOString()),
