@@ -16,6 +16,15 @@
 
 const fs = require("fs");
 const path = require("path");
+const BASIC_ENTITY_REPLACEMENTS = {
+  "&lt;": "<",
+  "&gt;": ">",
+  "&quot;": '"',
+  "&#39;": "'",
+  "&nbsp;": " ",
+  "&amp;": "&",
+};
+const BASIC_ENTITY_RE = /&(lt|gt|quot|#39|nbsp|amp);/g;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -23,14 +32,9 @@ const path = require("path");
 
 /** Remove HTML tags and decode basic entities. */
 function stripHtml(html) {
-  return html
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&nbsp;/g, " ");
+  return html.replace(/<[^>]+>/g, " ").replace(BASIC_ENTITY_RE, (match) => {
+    return BASIC_ENTITY_REPLACEMENTS[match] ?? match;
+  });
 }
 
 /** Collapse whitespace. */

@@ -141,6 +141,17 @@ export class AppController {
   }
 
   /**
+   * Resolves an internal redirect-state token and redirects the browser to the stored target.
+   *
+   * @param response - The outgoing HTTP response used for the redirect.
+   * @param state - The short-lived redirect-state token from the auth service.
+   */
+  @Get('api/auth/redirect')
+  async authRedirect(@Res() response: Response, @Query('state') state?: string) {
+    await this.authSession.completeRedirect(response, state);
+  }
+
+  /**
    * Logs out the current user by deleting the portal session, clearing the session cookie,
    * and redirecting to the OIDC end-session endpoint.
    *

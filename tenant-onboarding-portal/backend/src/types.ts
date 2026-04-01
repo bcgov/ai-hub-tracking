@@ -55,6 +55,13 @@ export type PortalLoginState = {
   expiresAt: string;
 };
 
+export type PortalRedirectState = {
+  state: string;
+  returnTo: string;
+  createdAt: string;
+  expiresAt: string;
+};
+
 export type PortalSettings = {
   appName: string;
   debug: boolean;
