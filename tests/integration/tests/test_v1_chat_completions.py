@@ -14,6 +14,7 @@ pytestmark = [pytest.mark.live]
 
 
 def _v1_body(model: str, message: str, max_tokens: int = 10, *, stream: bool = False) -> dict:
+    """Build a request body for the OpenAI-compatible `/openai/v1` route."""
     body = {
         "model": model,
         "messages": [{"role": "user", "content": message}],
@@ -29,10 +30,12 @@ def _v1_body(model: str, message: str, max_tokens: int = 10, *, stream: bool = F
 
 
 def _deployment_path(config: IntegrationConfig) -> str:
+    """Build the default deployment-route path used for parity checks."""
     return f"/openai/deployments/gpt-4.1-mini/chat/completions?api-version={config.openai_api_version}"
 
 
 def test_ai_hub_admin_v1_chat_completion_returns_200(client: ApimClient, integration_config: IntegrationConfig) -> None:
+    """Verify that the `/openai/v1` chat route returns 200 for the primary model."""
     require_key(integration_config, PRIMARY_TENANT)
 
     response = client.chat_completion_v1(PRIMARY_TENANT, "gpt-4.1-mini", "Say hello in one word", 10)
@@ -43,6 +46,7 @@ def test_ai_hub_admin_v1_chat_completion_returns_200(client: ApimClient, integra
 def test_ai_hub_admin_v1_response_contains_valid_choices_array(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that `/v1` responses include a populated choices array."""
     require_key(integration_config, PRIMARY_TENANT)
 
     response = client.chat_completion_v1(PRIMARY_TENANT, "gpt-4.1-mini", "What is 2+2?", 10)
@@ -56,6 +60,7 @@ def test_ai_hub_admin_v1_response_contains_valid_choices_array(
 def test_ai_hub_admin_v1_model_name_is_not_double_prefixed(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that `/v1` model names are not prefixed twice with the tenant name."""
     require_key(integration_config, PRIMARY_TENANT)
 
     response = client.chat_completion_v1(PRIMARY_TENANT, "gpt-4.1-mini", "Say hello", 10)
@@ -68,6 +73,7 @@ def test_ai_hub_admin_v1_model_name_is_not_double_prefixed(
 def test_ai_hub_admin_all_deployed_chat_models_work_via_v1(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that all chat-capable models work through the OpenAI-compatible route."""
     require_key(integration_config, PRIMARY_TENANT)
     models = deployed_chat_models(integration_config, PRIMARY_TENANT)
 
@@ -89,6 +95,7 @@ def test_ai_hub_admin_all_deployed_chat_models_work_via_v1(
 def test_ai_hub_admin_streaming_v1_response_contains_sse_chunks(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that streaming `/v1` responses emit valid SSE chat chunks."""
     require_key(integration_config, PRIMARY_TENANT)
 
     response = client.request(
@@ -115,6 +122,7 @@ def test_ai_hub_admin_streaming_v1_response_contains_sse_chunks(
 def test_ai_hub_admin_missing_model_field_returns_400(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that `/v1` requests without a model field are rejected."""
     require_key(integration_config, PRIMARY_TENANT)
 
     response = client.request(
@@ -130,6 +138,7 @@ def test_ai_hub_admin_missing_model_field_returns_400(
 
 
 def test_ai_hub_admin_invalid_json_body_returns_400(client: ApimClient, integration_config: IntegrationConfig) -> None:
+    """Verify that malformed `/v1` JSON payloads return HTTP 400."""
     require_key(integration_config, PRIMARY_TENANT)
 
     response = client.request("POST", PRIMARY_TENANT, "/openai/v1/chat/completions", raw_body="this is not valid json")
@@ -140,6 +149,7 @@ def test_ai_hub_admin_invalid_json_body_returns_400(client: ApimClient, integrat
 def test_ai_hub_admin_bearer_token_auth_returns_200_via_v1(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that Bearer authentication succeeds on the `/v1` route."""
     require_key(integration_config, PRIMARY_TENANT)
     require_appgw(integration_config)
 
@@ -151,6 +161,7 @@ def test_ai_hub_admin_bearer_token_auth_returns_200_via_v1(
 def test_ai_hub_admin_bearer_token_auth_works_with_deployments_route(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that Bearer authentication still works on the deployments route."""
     require_key(integration_config, PRIMARY_TENANT)
     require_appgw(integration_config)
 
@@ -162,6 +173,7 @@ def test_ai_hub_admin_bearer_token_auth_works_with_deployments_route(
 def test_ai_hub_admin_deployments_route_still_returns_200(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that the deployments route remains functional alongside `/v1`."""
     require_key(integration_config, PRIMARY_TENANT)
 
     response = client.chat_completion(PRIMARY_TENANT, "gpt-4.1-mini", "Say hello", 10)
@@ -172,6 +184,7 @@ def test_ai_hub_admin_deployments_route_still_returns_200(
 def test_ai_hub_admin_v1_and_deployments_report_identical_token_limits(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that `/v1` and deployments expose identical token-rate-limit headers."""
     require_key(integration_config, PRIMARY_TENANT)
 
     v1_response = client.request(

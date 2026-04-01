@@ -16,6 +16,7 @@ from ai_hub_integration.runner import build_marker_expression, normalize_selecto
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line options for the Python integration test runner."""
     parser = argparse.ArgumentParser(description="Run Python integration tests for AI Services Hub APIM")
     parser.add_argument("tests", nargs="*", help="Optional pytest paths or suite aliases")
     parser.add_argument("-e", "--env", dest="environment", default=os.getenv("TEST_ENV", "test"))
@@ -32,6 +33,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """Translate CLI options into pytest arguments and execute the selected suites."""
     args = parse_args()
     os.environ["TEST_ENV"] = args.environment
 

@@ -31,6 +31,7 @@ Every evaluation change should deliver:
 - Clear env-var driven configuration for judge-model settings
 - Threshold handling that fails only on configured metrics
 - Documentation for any new datasets, thresholds, or workflow inputs
+- Detailed docstrings on every Python function and method touched in the evaluation runtime, CLI, fixtures, and tests
 
 ## External Documentation
 - Use [External Docs Research](../external-docs/SKILL.md) as the single source of truth for external documentation workflow and fallback approval requirements.
@@ -74,6 +75,7 @@ uv run pytest tests/test_ai_evaluation.py -q
 3. Add thresholds only for metrics you intend to gate on
 4. Keep judge-model configuration env-driven; do not hardcode secrets or endpoints
 5. Document any new dataset or threshold expectations in `tests/integration/README.md`
+6. Add or update meaningful docstrings for every Python function or method changed in the evaluation files
 
 ## Validation Gates (Required)
 1. `uv sync --group dev` succeeds in `tests/integration/`

@@ -9,4 +9,5 @@ pytestmark = [
 
 
 def test_legacy_subscription_header_support_is_disabled() -> None:
+    """Document that this legacy-header regression test must remain skipped."""
     raise AssertionError("This test should always be skipped")

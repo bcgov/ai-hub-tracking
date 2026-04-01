@@ -36,6 +36,7 @@ SUITE_ALIASES = {
 
 
 def build_marker_expression(group: str, include_ai_eval: bool) -> str:
+    """Build the pytest marker expression for the selected execution group."""
     if group not in {"all", "direct", "proxy"}:
         raise ValueError(f"Unsupported test group: {group}")
 
@@ -52,6 +53,7 @@ def build_marker_expression(group: str, include_ai_eval: bool) -> str:
 
 
 def normalize_selector(selector: str) -> str:
+    """Normalize suite aliases and filesystem paths into pytest selectors."""
     normalized = selector.replace("\\", "/")
     if normalized in SUITE_ALIASES:
         return SUITE_ALIASES[normalized]

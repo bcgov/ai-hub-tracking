@@ -11,14 +11,17 @@ pytestmark = [pytest.mark.live, pytest.mark.requires_proxy]
 
 
 def _tenant_1(config: IntegrationConfig) -> str:
+    """Return the first tenant configured for APIM key-rotation comparisons."""
     return config.apim_keys_tenant_1
 
 
 def _tenant_2(config: IntegrationConfig) -> str:
+    """Return the second tenant configured for APIM key-rotation comparisons."""
     return config.apim_keys_tenant_2
 
 
 def test_tenant_1_get_internal_apim_keys_returns_200(client: ApimClient, integration_config: IntegrationConfig) -> None:
+    """Verify that tenant 1 can retrieve its internal APIM key payload."""
     if not integration_config.is_apim_key_rotation_enabled():
         pytest.skip("APIM key rotation is disabled in shared.tfvars")
     tenant = _tenant_1(integration_config)
@@ -30,6 +33,7 @@ def test_tenant_1_get_internal_apim_keys_returns_200(client: ApimClient, integra
 
 
 def test_tenant_1_apim_keys_contains_expected_fields(client: ApimClient, integration_config: IntegrationConfig) -> None:
+    """Verify that tenant 1 receives rotation metadata and Key Vault references."""
     if not integration_config.is_apim_key_rotation_enabled():
         pytest.skip("APIM key rotation is disabled in shared.tfvars")
     tenant = _tenant_1(integration_config)
@@ -49,6 +53,7 @@ def test_tenant_1_apim_keys_contains_expected_fields(client: ApimClient, integra
 
 
 def test_tenant_2_get_internal_apim_keys_returns_200(client: ApimClient, integration_config: IntegrationConfig) -> None:
+    """Verify that tenant 2 can retrieve a valid internal APIM key payload."""
     if not integration_config.is_apim_key_rotation_enabled():
         pytest.skip("APIM key rotation is disabled in shared.tfvars")
     tenant = _tenant_2(integration_config)
@@ -65,6 +70,7 @@ def test_tenant_2_get_internal_apim_keys_returns_200(client: ApimClient, integra
 
 
 def test_post_internal_apim_keys_returns_405(client: ApimClient, integration_config: IntegrationConfig) -> None:
+    """Verify that the internal APIM key endpoint remains read-only."""
     if not integration_config.is_apim_key_rotation_enabled():
         pytest.skip("APIM key rotation is disabled in shared.tfvars")
     tenant = _tenant_1(integration_config)
@@ -76,6 +82,7 @@ def test_post_internal_apim_keys_returns_405(client: ApimClient, integration_con
 
 
 def test_unauthenticated_internal_apim_keys_returns_401_or_403(integration_config: IntegrationConfig) -> None:
+    """Verify that the internal APIM key endpoint rejects unauthenticated requests."""
     if not integration_config.is_apim_key_rotation_enabled():
         pytest.skip("APIM key rotation is disabled in shared.tfvars")
     tenant = _tenant_1(integration_config)
@@ -89,6 +96,7 @@ def test_unauthenticated_internal_apim_keys_returns_401_or_403(integration_confi
 def test_tenant_1_and_tenant_2_return_different_primary_keys(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that different tenants receive distinct rotated primary keys."""
     if not integration_config.is_apim_key_rotation_enabled():
         pytest.skip("APIM key rotation is disabled in shared.tfvars")
     tenant_1 = _tenant_1(integration_config)

@@ -28,6 +28,7 @@ class EvaluationThresholds:
 
     @property
     def configured(self) -> bool:
+        """Return whether at least one evaluation threshold has been set."""
         return any(value is not None for value in self.__dict__.values())
 
 
@@ -45,9 +46,11 @@ class ChatEvaluationSettings:
 
     @property
     def configured(self) -> bool:
+        """Return whether the required judge-model settings are populated."""
         return bool(self.judge_endpoint and self.judge_api_key and self.judge_deployment)
 
     def model_config(self) -> AzureOpenAIModelConfiguration:
+        """Build the Azure AI Evaluation SDK model configuration for the judge."""
         return AzureOpenAIModelConfiguration(
             azure_endpoint=self.judge_endpoint,
             api_key=self.judge_api_key,
@@ -58,11 +61,13 @@ class ChatEvaluationSettings:
 
 class ApimChatTarget:
     def __init__(self, client: ApimClient, tenant: str, model: str) -> None:
+        """Bind the evaluation target to an APIM client, tenant, and model."""
         self.client = client
         self.tenant = tenant
         self.model = model
 
     def __call__(self, query: str, **_: Any) -> dict[str, Any]:
+        """Execute a single evaluation query against the hub target model."""
         response = self.client.chat_completion_v1(self.tenant, self.model, query, max_tokens=80)
         response.raise_for_status()
         payload = response.json()
@@ -74,6 +79,7 @@ class ApimChatTarget:
 
 
 def load_chat_evaluation_settings(tests_dir: Path, default_tenant: str, default_model: str) -> ChatEvaluationSettings:
+    """Load evaluation settings, thresholds, and dataset paths from the environment."""
     thresholds = EvaluationThresholds(
         relevance=_optional_float("AI_EVAL_MIN_RELEVANCE"),
         coherence=_optional_float("AI_EVAL_MIN_COHERENCE"),
@@ -100,6 +106,7 @@ def load_chat_evaluation_settings(tests_dir: Path, default_tenant: str, default_
 
 
 def _optional_float(name: str) -> float | None:
+    """Read an optional floating-point environment variable."""
     value = os.getenv(name)
     if value is None or value == "":
         return None
@@ -107,6 +114,7 @@ def _optional_float(name: str) -> float | None:
 
 
 def _metric_value(metrics: dict[str, Any], exact_key: str, nested_suffix: str) -> float | None:
+    """Extract a metric value from flattened Azure AI Evaluation metrics output."""
     for key, value in metrics.items():
         if key == exact_key or key.endswith(nested_suffix):
             try:
@@ -117,6 +125,7 @@ def _metric_value(metrics: dict[str, Any], exact_key: str, nested_suffix: str) -
 
 
 def validate_thresholds(metrics: dict[str, Any], thresholds: EvaluationThresholds) -> list[str]:
+    """Compare emitted metrics against configured thresholds and report failures."""
     expectations = {
         "relevance": (thresholds.relevance, "relevance", ".relevance"),
         "coherence": (thresholds.coherence, "coherence", ".coherence"),
@@ -138,13 +147,14 @@ def validate_thresholds(metrics: dict[str, Any], thresholds: EvaluationThreshold
 
 
 def run_chat_evaluation(client: ApimClient, settings: ChatEvaluationSettings) -> dict[str, Any]:
+    """Execute the dataset-backed Azure AI Evaluation run against the APIM target."""
     model_config = settings.model_config()
     target = ApimChatTarget(client, settings.tenant, settings.model)
     evaluators = {
         "relevance": RelevanceEvaluator(model_config),
         "coherence": CoherenceEvaluator(model_config),
         "fluency": FluencyEvaluator(model_config),
-        "similarity": SimilarityEvaluator(),
+        "similarity": SimilarityEvaluator(model_config),
         "f1_score": F1ScoreEvaluator(),
     }
 

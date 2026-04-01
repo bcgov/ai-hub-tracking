@@ -11,6 +11,7 @@ pytestmark = [pytest.mark.live, pytest.mark.appgw]
 
 
 def _wait_for_result(client: ApimClient, initial_response) -> dict:
+    """Resolve a Document Intelligence response into the final JSON payload."""
     if initial_response.status_code == 200:
         return response_json(initial_response)
 
@@ -28,6 +29,7 @@ def _wait_for_result(client: ApimClient, initial_response) -> dict:
 def test_ai_hub_admin_binary_upload_returns_200_or_202(
     client: ApimClient, integration_config: IntegrationConfig, test_form_jpg
 ) -> None:
+    """Verify that binary uploads reach Document Intelligence without WAF rejection."""
     require_appgw(integration_config)
     require_key(integration_config, PRIMARY_TENANT)
     ensure_test_file(test_form_jpg)
@@ -43,6 +45,7 @@ def test_ai_hub_admin_binary_upload_returns_200_or_202(
 def test_ai_hub_admin_binary_upload_full_async_flow_validates_extracted_text(
     client: ApimClient, integration_config: IntegrationConfig, test_form_jpg
 ) -> None:
+    """Verify that the async binary upload flow returns extracted document content."""
     require_appgw(integration_config)
     require_key(integration_config, PRIMARY_TENANT)
     ensure_test_file(test_form_jpg)
@@ -59,6 +62,7 @@ def test_ai_hub_admin_binary_upload_full_async_flow_validates_extracted_text(
 def test_ai_hub_admin_pdf_content_type_upload_is_not_blocked_by_waf(
     client: ApimClient, integration_config: IntegrationConfig, test_form_jpg
 ) -> None:
+    """Verify that PDF-content-type uploads are allowed through the WAF path."""
     require_appgw(integration_config)
     require_key(integration_config, PRIMARY_TENANT)
     ensure_test_file(test_form_jpg)
@@ -74,6 +78,7 @@ def test_ai_hub_admin_pdf_content_type_upload_is_not_blocked_by_waf(
 def test_ai_hub_admin_multipart_upload_is_not_blocked_by_waf(
     client: ApimClient, integration_config: IntegrationConfig, test_form_jpg
 ) -> None:
+    """Verify that multipart uploads are allowed through the WAF path."""
     require_appgw(integration_config)
     require_key(integration_config, PRIMARY_TENANT)
     ensure_test_file(test_form_jpg)
@@ -89,6 +94,7 @@ def test_ai_hub_admin_multipart_upload_is_not_blocked_by_waf(
 def test_binary_upload_to_non_docintel_path_is_not_accepted(
     client: ApimClient, integration_config: IntegrationConfig, test_form_jpg
 ) -> None:
+    """Verify that binary payloads sent to non-Document-Intelligence routes are rejected."""
     require_appgw(integration_config)
     require_key(integration_config, PRIMARY_TENANT)
     ensure_test_file(test_form_jpg)
@@ -107,6 +113,7 @@ def test_binary_upload_to_non_docintel_path_is_not_accepted(
 def test_ai_hub_admin_binary_upload_operation_location_uses_app_gateway_url(
     client: ApimClient, integration_config: IntegrationConfig, test_form_jpg
 ) -> None:
+    """Verify that async binary uploads return an App Gateway-based operation URL."""
     require_appgw(integration_config)
     require_key(integration_config, PRIMARY_TENANT)
     ensure_test_file(test_form_jpg)

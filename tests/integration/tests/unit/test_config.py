@@ -4,6 +4,7 @@ from ai_hub_integration.config import filter_chat_models, filter_deployments_cha
 
 
 def test_filter_chat_models_keeps_openai_and_v1_mistral_models() -> None:
+    """Verify that chat filtering keeps OpenAI chat models and supported Mistral `/v1` models."""
     models = [
         "gpt-4.1-mini",
         "text-embedding-3-small",
@@ -18,12 +19,14 @@ def test_filter_chat_models_keeps_openai_and_v1_mistral_models() -> None:
 
 
 def test_filter_deployments_chat_models_keeps_openai_route_models_only() -> None:
+    """Verify that deployments-route filtering excludes non-OpenAI chat models."""
     models = ["gpt-4.1-mini", "Mistral-Large-3", "o3-mini", "cohere-command-a", "mistral-document-ai-2505"]
 
     assert filter_deployments_chat_models(models) == ["gpt-4.1-mini", "o3-mini"]
 
 
 def test_parse_stack_output_strips_log_preamble() -> None:
+    """Verify that stack-output parsing tolerates log text before the JSON payload."""
     raw = '[INFO] loading\n{"appgw_url": {"value": "https://example"}}'
 
     parsed = parse_stack_output(raw)

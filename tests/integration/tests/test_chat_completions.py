@@ -19,12 +19,14 @@ pytestmark = [pytest.mark.live]
 
 
 def _deployment_path(config: IntegrationConfig, model: str) -> str:
+    """Build the deployment-route chat completion path for a model."""
     return f"/openai/deployments/{model}/chat/completions?api-version={config.openai_api_version}"
 
 
 def test_ai_hub_admin_primary_model_responds_successfully(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that the primary admin chat model responds successfully."""
     require_key(integration_config, PRIMARY_TENANT)
 
     response = client.chat_completion(PRIMARY_TENANT, "gpt-4.1-mini", "Say hello", 10)
@@ -35,6 +37,7 @@ def test_ai_hub_admin_primary_model_responds_successfully(
 def test_ai_hub_admin_all_deployed_chat_models_connectivity(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that all deployment-route chat models connect without unexpected failures."""
     require_key(integration_config, PRIMARY_TENANT)
     models = deployed_deployments_chat_models(integration_config, PRIMARY_TENANT)
 
@@ -56,6 +59,7 @@ def test_ai_hub_admin_all_deployed_chat_models_connectivity(
 def test_ai_hub_admin_chat_completion_returns_valid_json_with_choices(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that chat completions return a JSON payload containing choices."""
     require_key(integration_config, PRIMARY_TENANT)
 
     response = client.chat_completion(PRIMARY_TENANT, integration_config.default_model, "What is 2+2?")
@@ -68,6 +72,7 @@ def test_ai_hub_admin_chat_completion_returns_valid_json_with_choices(
 def test_ai_hub_admin_chat_completion_includes_usage_metrics(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that successful chat completions include prompt and completion token usage."""
     require_key(integration_config, PRIMARY_TENANT)
 
     response = client.chat_completion(PRIMARY_TENANT, integration_config.default_model, "Hello")
@@ -81,6 +86,7 @@ def test_ai_hub_admin_chat_completion_includes_usage_metrics(
 def test_ai_hub_admin_chat_completion_handles_system_prompt(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that the deployment route accepts a system prompt in the message list."""
     require_key(integration_config, PRIMARY_TENANT)
 
     response = client.chat_completion(
@@ -97,6 +103,7 @@ def test_ai_hub_admin_chat_completion_handles_system_prompt(
 def test_ai_hub_admin_chat_completion_returns_correlation_id(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that successful chat responses include correlation or request identifiers."""
     require_key(integration_config, PRIMARY_TENANT)
 
     response = client.chat_completion(PRIMARY_TENANT, integration_config.default_model, "Hi", 10)
@@ -106,6 +113,7 @@ def test_ai_hub_admin_chat_completion_returns_correlation_id(
 
 
 def test_invalid_subscription_key_returns_401_or_404(integration_config: IntegrationConfig) -> None:
+    """Verify that an invalid subscription key is rejected on the deployment route."""
     url = (
         f"{integration_config.apim_gateway_url}/{PRIMARY_TENANT}"
         f"{_deployment_path(integration_config, integration_config.default_model)}"
@@ -121,6 +129,7 @@ def test_invalid_subscription_key_returns_401_or_404(integration_config: Integra
 
 
 def test_missing_subscription_key_returns_auth_failure(integration_config: IntegrationConfig) -> None:
+    """Verify that omitting the subscription key fails authentication."""
     url = (
         f"{integration_config.apim_gateway_url}/{PRIMARY_TENANT}"
         f"{_deployment_path(integration_config, integration_config.default_model)}"
@@ -136,6 +145,7 @@ def test_missing_subscription_key_returns_auth_failure(integration_config: Integ
 
 
 def test_invalid_tenant_returns_404_or_401(integration_config: IntegrationConfig) -> None:
+    """Verify that requests targeting an invalid tenant route are rejected."""
     require_key(integration_config, PRIMARY_TENANT)
     url = (
         f"{integration_config.apim_gateway_url}/invalid-tenant"
@@ -155,6 +165,7 @@ def test_invalid_tenant_returns_404_or_401(integration_config: IntegrationConfig
 
 
 def test_ai_hub_admin_invalid_model_returns_404(client: ApimClient, integration_config: IntegrationConfig) -> None:
+    """Verify that a non-existent deployment name returns 404."""
     require_key(integration_config, PRIMARY_TENANT)
 
     response = client.chat_completion(PRIMARY_TENANT, "nonexistent-model", "Hello")
@@ -165,6 +176,7 @@ def test_ai_hub_admin_invalid_model_returns_404(client: ApimClient, integration_
 def test_ai_hub_admin_empty_messages_array_returns_400(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that an empty messages array is rejected with HTTP 400."""
     require_key(integration_config, PRIMARY_TENANT)
 
     response = client.request(
@@ -178,6 +190,7 @@ def test_ai_hub_admin_empty_messages_array_returns_400(
 
 
 def test_ai_hub_admin_invalid_json_body_returns_400(client: ApimClient, integration_config: IntegrationConfig) -> None:
+    """Verify that malformed JSON payloads are rejected on the deployment route."""
     require_key(integration_config, PRIMARY_TENANT)
 
     response = client.request(
@@ -191,6 +204,7 @@ def test_ai_hub_admin_invalid_json_body_returns_400(client: ApimClient, integrat
 
 
 def test_nr_dap_primary_model_responds_successfully(client: ApimClient, integration_config: IntegrationConfig) -> None:
+    """Verify that the low-quota tenant's primary model responds successfully."""
     require_key(integration_config, LOW_QUOTA_TENANT)
 
     response = client.chat_completion(LOW_QUOTA_TENANT, "gpt-5-mini", "Say hello", 10)
@@ -201,6 +215,7 @@ def test_nr_dap_primary_model_responds_successfully(client: ApimClient, integrat
 def test_nr_dap_all_deployed_chat_models_connectivity(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that all low-quota deployment-route chat models connect without unexpected failures."""
     require_key(integration_config, LOW_QUOTA_TENANT)
     models = deployed_deployments_chat_models(integration_config, LOW_QUOTA_TENANT)
 

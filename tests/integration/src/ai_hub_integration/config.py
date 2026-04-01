@@ -24,6 +24,7 @@ OPENAI_COMPATIBLE_CHAT_MODELS = {"mistral-large-3"}
 
 
 def _env_flag(name: str, default: bool) -> bool:
+    """Parse a boolean environment variable with a default fallback."""
     value = os.getenv(name)
     if value is None:
         return default
@@ -31,11 +32,13 @@ def _env_flag(name: str, default: bool) -> bool:
 
 
 def _is_openai_chat_model(model: str) -> bool:
+    """Return whether a deployment name belongs to an OpenAI chat family."""
     normalized = model.casefold()
     return normalized.startswith(OPENAI_CHAT_MODEL_PREFIXES)
 
 
 def filter_chat_models(models: list[str]) -> list[str]:
+    """Filter models down to chat-capable deployments exposed on `/openai/v1`."""
     filtered: list[str] = []
     for model in models:
         normalized = model.casefold()
@@ -45,10 +48,12 @@ def filter_chat_models(models: list[str]) -> list[str]:
 
 
 def filter_deployments_chat_models(models: list[str]) -> list[str]:
+    """Filter models down to deployments supported by the legacy route."""
     return [model for model in models if _is_openai_chat_model(model)]
 
 
 def parse_stack_output(raw_output: str) -> dict:
+    """Parse stack output after trimming any log preamble ahead of JSON."""
     start = raw_output.find("{")
     if start == -1:
         raise RuntimeError("Could not locate JSON payload in terraform output")
@@ -56,10 +61,12 @@ def parse_stack_output(raw_output: str) -> dict:
 
 
 def _run_command(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
+    """Run a subprocess, capturing text output without raising on failure."""
     return subprocess.run(args, cwd=cwd, capture_output=True, text=True, check=False)
 
 
 def _extract_named_block(text: str, block_name: str) -> str:
+    """Extract a named HCL block from tfvars text as raw nested content."""
     lines = text.splitlines()
     in_block = False
     depth = 0
@@ -85,11 +92,13 @@ def _extract_named_block(text: str, block_name: str) -> str:
 
 
 def _derive_hostname(url: str) -> str:
+    """Return the hostname component from a URL string."""
     parsed = urlparse(url)
     return parsed.netloc
 
 
 def _load_shared_tfvars_config(infra_dir: Path, environment: str) -> tuple[bool, str]:
+    """Read App Gateway enablement and hostname from shared tfvars."""
     shared_tfvars = infra_dir / "params" / environment / "shared.tfvars"
     if not shared_tfvars.exists():
         return False, ""
@@ -102,6 +111,7 @@ def _load_shared_tfvars_config(infra_dir: Path, environment: str) -> tuple[bool,
 
 
 def _find_bash() -> str | None:
+    """Locate a usable Bash executable, preferring Git Bash on Windows hosts."""
     if os.name == "nt":
         for env_var in ("ProgramFiles", "ProgramFiles(x86)"):
             base = os.getenv(env_var)
@@ -115,6 +125,7 @@ def _find_bash() -> str | None:
 
 
 def _load_stack_output_from_script(infra_dir: Path, environment: str) -> dict:
+    """Load aggregated Terraform outputs through the repository wrapper script."""
     script = infra_dir / "scripts" / "deploy-terraform.sh"
     bash = _find_bash()
     if not bash or not script.exists():
@@ -130,6 +141,7 @@ def _load_stack_output_from_script(infra_dir: Path, environment: str) -> dict:
 
 
 def _load_stack_output_direct(infra_dir: Path) -> dict:
+    """Load Terraform outputs directly from the current working state."""
     result = _run_command(["terraform", "output", "-json"], cwd=infra_dir)
     if result.returncode != 0:
         stderr = result.stderr.strip()
@@ -160,6 +172,12 @@ class IntegrationConfig:
 
     @classmethod
     def load(cls, environment: str | None = None) -> IntegrationConfig:
+        """Load integration configuration from env vars and Terraform outputs.
+
+        The loader first honors explicit environment variables for CI and ad hoc
+        runs, then falls back to the Terraform wrapper script, and finally tries
+        raw `terraform output -json` if the wrapper is unavailable.
+        """
         tests_dir = Path(__file__).resolve().parents[2]
         repo_root = tests_dir.parents[1]
         infra_dir = repo_root / "infra-ai-hub"
@@ -244,15 +262,18 @@ class IntegrationConfig:
         )
 
     def get_subscription_key(self, tenant: str) -> str:
+        """Return the cached APIM subscription key for the requested tenant."""
         return self.subscription_keys.get(tenant, "")
 
     def set_subscription_key(self, tenant: str, value: str) -> None:
+        """Update the in-memory and environment-variable key cache for a tenant."""
         self.subscription_keys[tenant] = value
         env_var = TENANT_ENV_VAR_NAMES.get(tenant)
         if env_var:
             os.environ[env_var] = value
 
     def get_tenant_models(self, tenant: str) -> list[str]:
+        """Read the configured deployment names for a tenant from its tfvars file."""
         tenant_file = self.infra_dir / "params" / self.environment / "tenants" / tenant / "tenant.tfvars"
         if not tenant_file.exists():
             return [self.default_model]
@@ -262,12 +283,15 @@ class IntegrationConfig:
         return models or [self.default_model]
 
     def get_tenant_chat_models(self, tenant: str) -> list[str]:
+        """Return tenant models that are valid on the OpenAI-compatible `/v1` route."""
         return filter_chat_models(self.get_tenant_models(tenant))
 
     def get_tenant_deployments_chat_models(self, tenant: str) -> list[str]:
+        """Return tenant models that are valid on the deployments chat route."""
         return filter_deployments_chat_models(self.get_tenant_models(tenant))
 
     def is_apim_key_rotation_enabled(self) -> bool:
+        """Determine whether APIM key rotation is enabled in shared tfvars."""
         shared_tfvars = self.infra_dir / "params" / self.environment / "shared.tfvars"
         if not shared_tfvars.exists():
             return True

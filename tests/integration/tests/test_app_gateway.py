@@ -24,6 +24,7 @@ pytestmark = [pytest.mark.live, pytest.mark.appgw]
 
 
 def test_custom_domain_resolves_and_returns_http_response(integration_config: IntegrationConfig) -> None:
+    """Verify that the App Gateway custom domain resolves and serves an HTTP response."""
     require_appgw(integration_config)
 
     response = direct_request(f"https://{integration_config.appgw_hostname}/", timeout=15)
@@ -32,6 +33,7 @@ def test_custom_domain_resolves_and_returns_http_response(integration_config: In
 
 
 def test_tls_certificate_is_valid_and_matches_hostname(integration_config: IntegrationConfig) -> None:
+    """Verify that the App Gateway TLS endpoint presents a certificate for the hostname."""
     require_appgw(integration_config)
 
     cert = get_server_certificate(integration_config.appgw_hostname)
@@ -42,6 +44,7 @@ def test_tls_certificate_is_valid_and_matches_hostname(integration_config: Integ
 def test_chat_completion_routed_through_app_gateway_returns_200(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that chat traffic succeeds when routed through App Gateway."""
     require_appgw(integration_config)
     require_key(integration_config, PRIMARY_TENANT)
 
@@ -55,6 +58,7 @@ def test_chat_completion_routed_through_app_gateway_returns_200(
 def test_document_intelligence_routed_through_app_gateway_returns_supported_status(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that Document Intelligence requests reach the backend through App Gateway."""
     require_appgw(integration_config)
     require_key(integration_config, PRIMARY_TENANT)
 
@@ -66,6 +70,7 @@ def test_document_intelligence_routed_through_app_gateway_returns_supported_stat
 def test_operation_location_uses_app_gateway_url_not_backend(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that async operation polling stays on the App Gateway host."""
     require_appgw(integration_config)
     require_key(integration_config, PRIMARY_TENANT)
 
@@ -82,6 +87,7 @@ def test_operation_location_uses_app_gateway_url_not_backend(
 
 
 def test_request_without_subscription_key_returns_auth_failure(integration_config: IntegrationConfig) -> None:
+    """Verify that unauthenticated App Gateway requests fail authorization."""
     require_appgw(integration_config)
 
     response = direct_request(
@@ -96,6 +102,7 @@ def test_request_without_subscription_key_returns_auth_failure(integration_confi
 
 
 def test_unauthenticated_burst_traffic_is_rate_limited_or_denied(integration_config: IntegrationConfig) -> None:
+    """Verify that repeated unauthenticated requests are denied or throttled."""
     require_appgw(integration_config)
 
     statuses: list[int] = []
@@ -114,6 +121,7 @@ def test_unauthenticated_burst_traffic_is_rate_limited_or_denied(integration_con
 
 
 def test_invalid_tenant_via_app_gateway_returns_404(integration_config: IntegrationConfig) -> None:
+    """Verify that App Gateway rejects requests for a non-existent tenant route."""
     require_appgw(integration_config)
     require_key(integration_config, PRIMARY_TENANT)
 
@@ -132,6 +140,7 @@ def test_invalid_tenant_via_app_gateway_returns_404(integration_config: Integrat
 
 
 def test_http_port_80_is_blocked_at_nsg(integration_config: IntegrationConfig) -> None:
+    """Verify that the App Gateway host is not reachable over plain HTTP on port 80."""
     require_appgw(integration_config)
 
     with pytest.raises((OSError, TimeoutError)):
@@ -141,6 +150,7 @@ def test_http_port_80_is_blocked_at_nsg(integration_config: IntegrationConfig) -
 def test_v1_chat_completion_routed_through_app_gateway_returns_200(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that the OpenAI-compatible `/v1` route works through App Gateway."""
     require_appgw(integration_config)
     require_key(integration_config, PRIMARY_TENANT)
 
@@ -154,6 +164,7 @@ def test_v1_chat_completion_routed_through_app_gateway_returns_200(
 def test_bearer_token_auth_through_app_gateway_returns_200(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that Bearer authentication succeeds on the deployments route through App Gateway."""
     require_appgw(integration_config)
     require_key(integration_config, PRIMARY_TENANT)
 
@@ -165,6 +176,7 @@ def test_bearer_token_auth_through_app_gateway_returns_200(
 def test_bearer_token_v1_through_app_gateway_returns_200(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that Bearer authentication succeeds on the `/v1` route through App Gateway."""
     require_appgw(integration_config)
     require_key(integration_config, PRIMARY_TENANT)
 
@@ -178,6 +190,7 @@ def test_bearer_token_v1_through_app_gateway_returns_200(
 def test_request_with_only_bearer_token_is_not_blocked_by_waf(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that the WAF does not reject a request authenticated only with Bearer."""
     require_appgw(integration_config)
     require_key(integration_config, PRIMARY_TENANT)
 
@@ -190,6 +203,7 @@ def test_request_with_only_bearer_token_is_not_blocked_by_waf(
 def test_ai_hub_admin_key_cannot_access_nr_dap_apis_via_app_gateway(
     integration_config: IntegrationConfig,
 ) -> None:
+    """Verify that a tenant key cannot cross access another tenant's APIs via App Gateway."""
     require_appgw(integration_config)
     require_key(integration_config, PRIMARY_TENANT)
 

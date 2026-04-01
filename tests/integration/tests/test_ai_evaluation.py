@@ -14,6 +14,7 @@ pytestmark = [pytest.mark.live, pytest.mark.ai_eval, pytest.mark.slow]
 def test_chat_quality_dataset_meets_configured_thresholds(
     client: ApimClient, integration_config: IntegrationConfig, tmp_path
 ) -> None:
+    """Verify that the configured evaluation dataset meets all active thresholds."""
     require_key(integration_config, PRIMARY_TENANT)
 
     settings = load_chat_evaluation_settings(

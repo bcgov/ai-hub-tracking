@@ -11,12 +11,14 @@ pytestmark = [pytest.mark.live]
 
 
 def _tenant_info_payload(client: ApimClient) -> dict:
+    """Fetch the tenant-info payload used to discover deployed Mistral models."""
     response = client.request("GET", PRIMARY_TENANT, "/internal/tenant-info")
     assert_status(response, 200)
     return response_json(response)
 
 
 def _mistral_chat_model(payload: dict) -> str:
+    """Return the deployed Mistral chat model name, if one is present."""
     for model in payload.get("models", []):
         if model.get("name") == "Mistral-Large-3":
             return model["name"]
@@ -24,6 +26,7 @@ def _mistral_chat_model(payload: dict) -> str:
 
 
 def _mistral_document_model(payload: dict) -> str:
+    """Return the deployed Mistral OCR model name, if one is present."""
     for model in payload.get("models", []):
         name = model.get("name", "")
         if name.startswith("mistral-document-ai-"):
@@ -34,6 +37,7 @@ def _mistral_document_model(payload: dict) -> str:
 def test_ai_hub_admin_tenant_info_exposes_deployed_mistral_models(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that tenant info advertises deployed Mistral models when present."""
     require_key(integration_config, PRIMARY_TENANT)
 
     payload = _tenant_info_payload(client)
@@ -53,6 +57,7 @@ def test_ai_hub_admin_tenant_info_exposes_deployed_mistral_models(
 def test_ai_hub_admin_deployed_mistral_chat_model_works_via_v1(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that the deployed Mistral chat model responds on the `/v1` route."""
     require_key(integration_config, PRIMARY_TENANT)
 
     payload = _tenant_info_payload(client)
@@ -70,6 +75,7 @@ def test_ai_hub_admin_deployed_mistral_chat_model_works_via_v1(
 def test_ai_hub_admin_mistral_chat_model_is_rejected_on_legacy_route(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that Mistral chat traffic is rejected on the deprecated legacy route."""
     require_key(integration_config, PRIMARY_TENANT)
 
     payload = _tenant_info_payload(client)
@@ -96,6 +102,7 @@ def test_ai_hub_admin_mistral_chat_model_is_rejected_on_legacy_route(
 def test_ai_hub_admin_deployed_mistral_document_model_accepts_ocr_requests(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that the deployed Mistral document model accepts OCR requests."""
     require_key(integration_config, PRIMARY_TENANT)
 
     payload = _tenant_info_payload(client)

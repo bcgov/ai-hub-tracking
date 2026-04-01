@@ -22,10 +22,12 @@ pytestmark = [pytest.mark.live]
 
 
 def _docint_path(config: IntegrationConfig, model: str) -> str:
+    """Build the Document Intelligence analyze path for a model."""
     return f"/documentintelligence/documentModels/{model}:analyze?api-version={config.docint_api_version}"
 
 
 def _wait_for_docint_result(client: ApimClient, tenant: str, initial_response) -> dict:
+    """Resolve a Document Intelligence request into its final result payload."""
     if initial_response.status_code == 200:
         return response_json(initial_response)
 
@@ -40,6 +42,7 @@ def _wait_for_docint_result(client: ApimClient, tenant: str, initial_response) -
 def test_ai_hub_admin_document_analysis_endpoint_returns_200_or_202(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that the analyze endpoint accepts a standard layout request."""
     require_key(integration_config, PRIMARY_TENANT)
     if not document_intelligence_accessible(client, integration_config, PRIMARY_TENANT):
         pytest.skip("Document Intelligence backend not accessible")
@@ -52,6 +55,7 @@ def test_ai_hub_admin_document_analysis_endpoint_returns_200_or_202(
 def test_ai_hub_admin_document_analysis_returns_operation_location_or_direct_200(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that analysis returns either a direct success or an operation-location header."""
     require_key(integration_config, PRIMARY_TENANT)
     if not document_intelligence_accessible(client, integration_config, PRIMARY_TENANT):
         pytest.skip("Document Intelligence backend not accessible")
@@ -68,6 +72,7 @@ def test_ai_hub_admin_document_analysis_returns_operation_location_or_direct_200
 def test_ai_hub_admin_operation_location_uses_app_gateway_url_not_backend_url(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that async Document Intelligence polling stays on the front-door hostname."""
     require_key(integration_config, PRIMARY_TENANT)
     require_appgw(integration_config)
     if not document_intelligence_accessible(client, integration_config, PRIMARY_TENANT):
@@ -89,6 +94,7 @@ def test_ai_hub_admin_operation_location_uses_app_gateway_url_not_backend_url(
 def test_ai_hub_admin_document_analysis_accepts_json_input(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that JSON base64 input is accepted by the analyze endpoint."""
     require_key(integration_config, PRIMARY_TENANT)
     if not document_intelligence_accessible(client, integration_config, PRIMARY_TENANT):
         pytest.skip("Document Intelligence backend not accessible")
@@ -101,6 +107,7 @@ def test_ai_hub_admin_document_analysis_accepts_json_input(
 def test_ai_hub_admin_prebuilt_invoice_model_is_accessible(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that the prebuilt invoice model is reachable through the shared endpoint."""
     require_key(integration_config, PRIMARY_TENANT)
     if not document_intelligence_accessible(client, integration_config, PRIMARY_TENANT):
         pytest.skip("Document Intelligence backend not accessible")
@@ -113,6 +120,7 @@ def test_ai_hub_admin_prebuilt_invoice_model_is_accessible(
 def test_ai_hub_admin_prebuilt_read_model_is_accessible(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that the prebuilt read model is reachable through the shared endpoint."""
     require_key(integration_config, PRIMARY_TENANT)
     if not document_intelligence_accessible(client, integration_config, PRIMARY_TENANT):
         pytest.skip("Document Intelligence backend not accessible")
@@ -125,6 +133,7 @@ def test_ai_hub_admin_prebuilt_read_model_is_accessible(
 def test_ai_hub_admin_full_async_flow_extracts_expected_text_from_jpg(
     client: ApimClient, integration_config: IntegrationConfig, test_form_jpg
 ) -> None:
+    """Verify that the async JPG flow extracts expected text from the sample form."""
     require_key(integration_config, PRIMARY_TENANT)
     if not document_intelligence_accessible(client, integration_config, PRIMARY_TENANT):
         pytest.skip("Document Intelligence backend not accessible")
@@ -142,6 +151,7 @@ def test_ai_hub_admin_full_async_flow_extracts_expected_text_from_jpg(
 def test_ai_hub_admin_async_flow_returns_valid_analyze_result_structure(
     client: ApimClient, integration_config: IntegrationConfig, test_form_jpg
 ) -> None:
+    """Verify that async analysis returns the expected top-level result structure."""
     require_key(integration_config, PRIMARY_TENANT)
     if not document_intelligence_accessible(client, integration_config, PRIMARY_TENANT):
         pytest.skip("Document Intelligence backend not accessible")
@@ -159,6 +169,7 @@ def test_ai_hub_admin_async_flow_returns_valid_analyze_result_structure(
 def test_ai_hub_admin_async_flow_extracts_multiple_expected_fields(
     client: ApimClient, integration_config: IntegrationConfig, test_form_jpg
 ) -> None:
+    """Verify that the sample form yields several expected phrases after extraction."""
     require_key(integration_config, PRIMARY_TENANT)
     if not document_intelligence_accessible(client, integration_config, PRIMARY_TENANT):
         pytest.skip("Document Intelligence backend not accessible")
@@ -177,6 +188,7 @@ def test_ai_hub_admin_async_flow_extracts_multiple_expected_fields(
 
 
 def test_ai_hub_admin_invalid_base64_returns_400(client: ApimClient, integration_config: IntegrationConfig) -> None:
+    """Verify that invalid base64 payloads are rejected with HTTP 400."""
     require_key(integration_config, PRIMARY_TENANT)
     if not document_intelligence_accessible(client, integration_config, PRIMARY_TENANT):
         pytest.skip("Document Intelligence backend not accessible")
@@ -187,6 +199,7 @@ def test_ai_hub_admin_invalid_base64_returns_400(client: ApimClient, integration
 
 
 def test_ai_hub_admin_empty_body_returns_400(client: ApimClient, integration_config: IntegrationConfig) -> None:
+    """Verify that an empty JSON body is rejected by the analyze endpoint."""
     require_key(integration_config, PRIMARY_TENANT)
     if not document_intelligence_accessible(client, integration_config, PRIMARY_TENANT):
         pytest.skip("Document Intelligence backend not accessible")
@@ -197,6 +210,7 @@ def test_ai_hub_admin_empty_body_returns_400(client: ApimClient, integration_con
 
 
 def test_ai_hub_admin_invalid_model_returns_404(client: ApimClient, integration_config: IntegrationConfig) -> None:
+    """Verify that an unknown Document Intelligence model name returns 404."""
     require_key(integration_config, PRIMARY_TENANT)
     if not document_intelligence_accessible(client, integration_config, PRIMARY_TENANT):
         pytest.skip("Document Intelligence backend not accessible")
@@ -209,6 +223,7 @@ def test_ai_hub_admin_invalid_model_returns_404(client: ApimClient, integration_
 def test_ai_hub_admin_document_analysis_without_subscription_key_returns_auth_failure(
     integration_config: IntegrationConfig,
 ) -> None:
+    """Verify that unauthenticated analyze requests fail authorization."""
     url = f"{integration_config.apim_gateway_url}/{PRIMARY_TENANT}{_docint_path(integration_config, 'prebuilt-layout')}"
     response = direct_request(
         url,
@@ -223,6 +238,7 @@ def test_ai_hub_admin_document_analysis_without_subscription_key_returns_auth_fa
 def test_ai_hub_admin_supported_api_version_is_accepted(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
+    """Verify that the configured Document Intelligence API version is accepted."""
     require_key(integration_config, PRIMARY_TENANT)
     if not document_intelligence_accessible(client, integration_config, PRIMARY_TENANT):
         pytest.skip("Document Intelligence backend not accessible")

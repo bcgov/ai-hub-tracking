@@ -23,16 +23,19 @@ MISTRAL_OCR_SAMPLE_PDF_BASE64 = SAMPLE_PDF_BASE64
 
 
 def require_key(config: IntegrationConfig, tenant: str) -> None:
+    """Skip the current test when the tenant has no configured subscription key."""
     if not config.get_subscription_key(tenant):
         pytest.skip(f"No subscription key for tenant: {tenant}")
 
 
 def require_appgw(config: IntegrationConfig) -> None:
+    """Skip the current test when App Gateway is not deployed in the environment."""
     if not config.appgw_deployed:
         pytest.skip(f"App Gateway is not deployed for TEST_ENV={config.environment}")
 
 
 def deployed_chat_models(config: IntegrationConfig, tenant: str) -> list[str]:
+    """Return `/openai/v1` chat-capable models for a tenant or skip if none exist."""
     models = config.get_tenant_chat_models(tenant)
     if not models:
         pytest.skip(f"No chat models found for tenant: {tenant}")
@@ -40,6 +43,7 @@ def deployed_chat_models(config: IntegrationConfig, tenant: str) -> list[str]:
 
 
 def deployed_deployments_chat_models(config: IntegrationConfig, tenant: str) -> list[str]:
+    """Return deployment-route chat models for a tenant or skip if none exist."""
     models = config.get_tenant_deployments_chat_models(tenant)
     if not models:
         pytest.skip(f"No deployment-route chat models found for tenant: {tenant}")
@@ -47,6 +51,7 @@ def deployed_deployments_chat_models(config: IntegrationConfig, tenant: str) -> 
 
 
 def response_json(response: requests.Response) -> dict:
+    """Decode a response body as JSON after normalizing redacted placeholders."""
     if not response.text:
         return {}
     sanitized = response.text.replace("[REDACTED_PHONE]", "0")
@@ -54,6 +59,7 @@ def response_json(response: requests.Response) -> dict:
 
 
 def assert_status(response: requests.Response, expected: int) -> None:
+    """Assert an expected status code, optionally skipping rate-limited runs."""
     if response.status_code == 429 and os.getenv("SKIP_ON_RATE_LIMIT", "false").lower() == "true":
         pytest.skip("Rate limited (429) - skipping test")
     assert response.status_code == expected, response.text
@@ -68,19 +74,23 @@ def direct_request(
     data: str | bytes | None = None,
     timeout: int = 30,
 ) -> requests.Response:
+    """Send a direct HTTP request outside the shared APIM client abstraction."""
     return requests.request(method, url, headers=headers, json=json_body, data=data, timeout=timeout)
 
 
 def operation_location(response: requests.Response) -> str:
+    """Return the operation-location header regardless of response header casing."""
     return response.headers.get("Operation-Location") or response.headers.get("operation-location") or ""
 
 
 def document_intelligence_accessible(client: ApimClient, config: IntegrationConfig, tenant: str) -> bool:
+    """Check Document Intelligence reachability after ensuring the tenant has a key."""
     require_key(config, tenant)
     return client.document_intelligence_accessible(tenant)
 
 
 def is_azure_key_vault_uri(uri: str) -> bool:
+    """Return whether a URI is a bare HTTPS Azure Key Vault endpoint."""
     parsed = urlsplit(uri)
     hostname = parsed.hostname or ""
     return (
@@ -93,6 +103,7 @@ def is_azure_key_vault_uri(uri: str) -> bool:
 
 
 def get_server_certificate(hostname: str) -> dict:
+    """Open a TLS connection and return the peer certificate metadata."""
     context = ssl.create_default_context()
     context.minimum_version = ssl.TLSVersion.TLSv1_2
     with (
@@ -104,6 +115,7 @@ def get_server_certificate(hostname: str) -> dict:
 
 
 def ensure_test_file(path: Path) -> Path:
+    """Return the fixture path or skip when the expected test file is absent."""
     if not path.exists():
         pytest.skip(f"Test fixture not found: {path}")
     return path

@@ -27,6 +27,7 @@ Required context before making test changes:
 ## Output Contract
 Every test change should deliver:
 - Pytest functions with explicit, behavior-focused names
+- Detailed docstrings on every Python function, method, fixture, helper, and test touched by the change; missing function documentation is not acceptable in `tests/integration/`
 - Proper skip guards for missing keys, App Gateway absence, or disabled features
 - Coverage built on the shared Python runtime instead of ad hoc curl/bash logic
 - No hardcoded URLs, keys, or model names outside the centralized config/runtime layer
@@ -112,6 +113,7 @@ uv run python ./run-tests.py --env test --group proxy
 4. `uv run pytest tests/unit -q` passes
 5. Live tests keep retry-safe behavior for 429/503-prone endpoints
 6. Async Document Intelligence flows still poll through `wait_for_operation`
+7. Every Python function and method in the touched integration files has a meaningful docstring before handoff
 
 ## Detailed References
 

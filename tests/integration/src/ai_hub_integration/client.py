@@ -21,6 +21,12 @@ MAX_RETRY_DELAY_SECONDS = 60
 
 class ApimClient:
     def __init__(self, config: IntegrationConfig) -> None:
+        """Initialize an APIM client bound to the loaded integration configuration.
+
+        The client owns a shared `requests.Session` so tests can reuse proxy
+        configuration, connection pooling, and refreshed subscription keys across
+        multiple live requests.
+        """
         self.config = config
         self.session = requests.Session()
         self.session.trust_env = True
@@ -28,9 +34,16 @@ class ApimClient:
         self._secret_client = None
 
     def _build_url(self, tenant: str, path: str) -> str:
+        """Build the absolute tenant-scoped APIM URL for a relative path."""
         return f"{self.config.apim_gateway_url.rstrip('/')}/{tenant}{path}"
 
     def _secret_service(self) -> SecretClient:
+        """Create or reuse the Key Vault client used for key-refresh fallback.
+
+        The method prefers `DefaultAzureCredential` without interactive browser
+        fallback and uses `AzureCliCredential` when local developer auth is the
+        only available option.
+        """
         if self._secret_client is None:
             vault_url = f"https://{self.config.hub_keyvault_name}.vault.azure.net"
             try:
@@ -43,6 +56,11 @@ class ApimClient:
         return self._secret_client
 
     def refresh_tenant_key_from_vault(self, tenant: str, preferred_slot: str | None = None) -> bool:
+        """Refresh a tenant APIM key from Key Vault and update local config state.
+
+        When rotation metadata is available, the helper probes the slot expected
+        to be safe first and then falls back to the alternate slot.
+        """
         if not self.config.enable_vault_key_fallback or not self.config.hub_keyvault_name:
             return False
 
@@ -75,6 +93,7 @@ class ApimClient:
         return False
 
     def _headers(self, tenant: str, auth_mode: str, extra_headers: dict[str, str] | None = None) -> dict[str, str]:
+        """Build request headers for the selected tenant and authentication mode."""
         headers = {
             "Accept": "application/json",
         }
@@ -106,6 +125,12 @@ class ApimClient:
         timeout: int = APIM_REQUEST_TIMEOUT_SECONDS,
         retry: bool = False,
     ) -> requests.Response:
+        """Send an APIM request with retry and key-refresh behavior.
+
+        The method retries transient request failures, 429 responses, and most
+        503 responses, while allowing a one-time Key Vault refresh when APIM
+        rejects a cached key with 401.
+        """
         url = self._build_url(tenant, path)
         headers = self._headers(tenant, auth_mode, extra_headers)
         if json_body is not None or (raw_body is not None and isinstance(raw_body, str)):
@@ -176,6 +201,7 @@ class ApimClient:
         auth_mode: str = "api-key",
         stream: bool = False,
     ) -> requests.Response:
+        """Call the deployment-based chat completions route for a tenant model."""
         messages: list[dict[str, str]] = []
         if system_prompt:
             messages.append({"role": "system", "content": system_prompt})
@@ -204,6 +230,7 @@ class ApimClient:
         auth_mode: str = "api-key",
         stream: bool = False,
     ) -> requests.Response:
+        """Call the OpenAI-compatible `/openai/v1/chat/completions` route."""
         body: dict[str, Any] = {
             "model": model,
             "messages": [{"role": "user", "content": message}],
@@ -225,24 +252,33 @@ class ApimClient:
         )
 
     def document_intelligence_accessible(self, tenant: str) -> bool:
+        """Probe whether Document Intelligence is reachable for a tenant.
+
+        The probe treats 200, 202, and 400 as evidence that routing reached the
+        backend, even if the sample payload itself is not valid for extraction.
+        """
         response = self.docint_analyze(tenant, "prebuilt-layout", "dGVzdA==")
         return response.status_code in {200, 202, 400}
 
     def docint_analyze(self, tenant: str, model: str, base64_content: str) -> requests.Response:
+        """Submit a JSON Document Intelligence analyze request using base64 input."""
         path = f"/documentintelligence/documentModels/{model}:analyze?api-version={self.config.docint_api_version}"
         body = {"base64Source": base64_content}
         return self.request("POST", tenant, path, json_body=body)
 
     def docint_analyze_ocp(self, tenant: str, model: str, base64_content: str) -> requests.Response:
+        """Submit the same analyze request using the legacy OCP auth header."""
         path = f"/documentintelligence/documentModels/{model}:analyze?api-version={self.config.docint_api_version}"
         body = {"base64Source": base64_content}
         return self.request("POST", tenant, path, auth_mode="ocp", json_body=body)
 
     def docint_analyze_file(self, tenant: str, model: str, file_path: Path) -> requests.Response:
+        """Read a local file, encode it as base64, and submit a JSON analyze request."""
         content = base64.b64encode(file_path.read_bytes()).decode("utf-8")
         return self.docint_analyze(tenant, model, content)
 
     def docint_analyze_binary(self, tenant: str, model: str, file_path: Path) -> requests.Response:
+        """Upload a document as raw binary bytes for WAF and backend validation."""
         path = f"/documentintelligence/documentModels/{model}:analyze?api-version={self.config.docint_api_version}"
         return self.request(
             "POST",
@@ -253,6 +289,7 @@ class ApimClient:
         )
 
     def docint_analyze_pdf(self, tenant: str, model: str, file_path: Path) -> requests.Response:
+        """Upload a document while explicitly sending `application/pdf`."""
         path = f"/documentintelligence/documentModels/{model}:analyze?api-version={self.config.docint_api_version}"
         return self.request(
             "POST",
@@ -263,15 +300,18 @@ class ApimClient:
         )
 
     def docint_analyze_multipart(self, tenant: str, model: str, file_path: Path) -> requests.Response:
+        """Upload a document as multipart form data for path and WAF coverage."""
         path = f"/documentintelligence/documentModels/{model}:analyze?api-version={self.config.docint_api_version}"
         with file_path.open("rb") as handle:
             return self.request("POST", tenant, path, files={"file": handle})
 
     def extract_operation_path(self, tenant: str, operation_url: str) -> str:
+        """Convert a fully-qualified operation URL into a tenant-relative path."""
         prefix = f"{self.config.apim_gateway_url.rstrip('/')}/{tenant}"
         return operation_url.removeprefix(prefix)
 
     def wait_for_operation(self, tenant: str, operation_path: str, max_wait_seconds: int = 60) -> requests.Response:
+        """Poll an async operation until success, failure, or timeout."""
         deadline = time.time() + max_wait_seconds
         while time.time() < deadline:
             response = self.request("GET", tenant, operation_path)

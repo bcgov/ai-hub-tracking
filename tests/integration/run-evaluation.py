@@ -20,6 +20,7 @@ from ai_hub_integration.evaluation import (
 
 
 def parse_args() -> argparse.Namespace:
+    """Parse command-line options for the standalone Azure AI evaluation runner."""
     parser = argparse.ArgumentParser(
         description="Run Azure AI Evaluation SDK checks against the deployed APIM endpoint"
     )
@@ -32,6 +33,7 @@ def parse_args() -> argparse.Namespace:
 
 
 def main() -> int:
+    """Execute the configured Azure AI Evaluation run and enforce thresholds."""
     args = parse_args()
     os.environ["TEST_ENV"] = args.environment
 
