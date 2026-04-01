@@ -35,8 +35,20 @@ jobs:
         ${{github.event.number}}-${{ github.run_number }}
         latest
 
+  detect-infra-changes:
+    name: Detect infra/test changes
+    uses: ./.github/workflows/.detect-changes.yml
+    with:
+      paths: |
+        infra-ai-hub/
+        tests/
+      comparison: pr
+      default_changed: true
+
   deploy-proxy-in-tools-environment:
     name: Deploy to 'tools' Environment
+    needs: detect-infra-changes
+    if: needs.detect-infra-changes.outputs.changed == 'true'
     uses: ./.github/workflows/.deployer.yml
     with:
       environment_name: tools
@@ -47,7 +59,8 @@ jobs:
     secrets: inherit
   plan-against-test-environment:
     name: Plan against test Environment
-    needs: deploy-proxy-in-tools-environment
+    needs: [detect-infra-changes, deploy-proxy-in-tools-environment]
+    if: needs.detect-infra-changes.outputs.changed == 'true'
     uses: ./.github/workflows/.deployer-using-secure-tunnel.yml
     with:
       environment_name: test
@@ -139,26 +152,12 @@ jobs:
   # ---------------------------------------------------------------------------
   detect-portal-changes:
     name: Detect portal changes
-    runs-on: ubuntu-24.04
-    outputs:
-      changed: ${{ steps.diff.outputs.changed }}
-    steps:
-      - name: Checkout (with full history for diff)
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Check for changes in tenant-onboarding-portal
-        id: diff
-        run: |
-          CHANGED=$(git diff --name-only "origin/${{ github.base_ref }}...HEAD" \
-            -- tenant-onboarding-portal/ | wc -l | tr -d ' ')
-          echo "Portal files changed: ${CHANGED}"
-          if [[ "${CHANGED}" -gt 0 ]]; then
-            echo "changed=true"  >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          fi
+    uses: ./.github/workflows/.detect-changes.yml
+    with:
+      paths: |
+        tenant-onboarding-portal/
+      comparison: pr
+      default_changed: false
 
   test-portal-pr:
     name: Test portal (backend + frontend + Playwright)

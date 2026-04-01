@@ -84,8 +84,20 @@ jobs:
             ${{ needs.semantic-version.outputs.semanticVersion }}
             ${{ needs.semantic-version.outputs.tag }}
 
+  detect-infra-changes:
+    name: Detect infra/test changes
+    uses: ./.github/workflows/.detect-changes.yml
+    with:
+      paths: |
+        infra-ai-hub/
+        tests/
+      comparison: push
+      default_changed: false
+
   deploy-proxy-in-tools-environment:
     name: Deploy Proxy in tools
+    needs: detect-infra-changes
+    if: needs.detect-infra-changes.outputs.changed == 'true'
     uses: ./.github/workflows/.deployer.yml
     with:
       environment_name: tools
@@ -97,8 +109,17 @@ jobs:
 
   apply-to-test-environment:
     name: Apply to test Environment
+    if: >-
+      ${{
+        always() &&
+        needs.detect-infra-changes.outputs.changed == 'true' &&
+        needs.deploy-proxy-in-tools-environment.result == 'success' &&
+        needs.semantic-version.result == 'success' &&
+        (needs.tag-container-images.result == 'success' || needs.tag-container-images.result == 'skipped')
+      }}
     needs:
       [
+        "detect-infra-changes",
         "deploy-proxy-in-tools-environment",
         "tag-container-images",
         "semantic-version",
@@ -121,22 +142,12 @@ jobs:
   # ---------------------------------------------------------------------------
   detect-portal-changes:
     name: Detect portal changes
-    runs-on: ubuntu-24.04
-    timeout-minutes: 2
-    outputs:
-      changed: ${{ steps.diff.outputs.changed }}
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - name: Check for changes in tenant-onboarding-portal
-        id: diff
-        run: |
-          CHANGED=$(git diff --name-only HEAD~1 HEAD -- tenant-onboarding-portal/ | wc -l | tr -d ' ')
-          echo "Portal files changed: ${CHANGED}"
-          echo "changed=$([[ ${CHANGED} -gt 0 ]] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+    uses: ./.github/workflows/.detect-changes.yml
+    with:
+      paths: |
+        tenant-onboarding-portal/
+      comparison: push
+      default_changed: false
 
   # ---------------------------------------------------------------------------
   # Collect AI hub Terraform outputs (dev / test / prod)

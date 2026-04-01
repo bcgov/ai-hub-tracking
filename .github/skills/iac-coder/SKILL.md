@@ -41,6 +41,7 @@ Every change should deliver:
 - Azure Verified Modules (AVM)
 - GitHub Actions with OIDC
 - Bash scripts used for Terraform operations
+- Reusable workflow path gating via `.github/workflows/.detect-changes.yml` for PR-vs-main change detection in workflow callers
 
 ## Stack Deploy Ordering
 
@@ -106,7 +107,7 @@ Run these gates before handoff:
 1. Formatting: `terraform fmt -recursive` on changed Terraform roots/modules
 2. Syntax/static: `terraform validate` for affected root(s)
 3. Script sanity: `bash -n` for modified Bash scripts
-4. Workflow sanity: ensure OIDC, secret handling, and workflow-call contracts remain valid
+4. Workflow sanity: ensure OIDC, secret handling, and workflow-call contracts remain valid; use `.detect-changes.yml` instead of duplicating inline `git diff` jobs when path-based gating is needed
 5. Behavior sanity: confirm feature flags and counts do not create unintended resources
 6. Documentation sanity: if the change affects tenant-facing service availability, confirm `docs/_pages/services.html`, the published docs page, and `infra-ai-hub/model-deployments.md` still match the deployed configuration
 
