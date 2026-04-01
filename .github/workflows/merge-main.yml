@@ -4,7 +4,13 @@ on:
   push:
     branches:
       - main
-
+    paths-ignore:
+      - "docs/**"
+      - "azure-proxy/**"
+      - "initial-setup/**"
+      - "ssl_certs/**"
+      - "README.md"
+      - "docker-compose.yml"
 permissions:
   id-token: write
   contents: write

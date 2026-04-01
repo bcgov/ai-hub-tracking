@@ -3,7 +3,17 @@
 
 <h1>Sensitive Personal Information Detection</h1>
 
-<p>This system lets each tenant decide whether sensitive personal information should be detected and masked before a request is sent to a downstream service. The platform gateway sends qualifying requests to a dedicated redaction service, and that service calls the Azure language service to detect sensitive entities such as names, addresses, financial details, and medical information.</p>
+<p>This system lets each tenant decide whether sensitive personal information should be detected and masked before a request is sent to a downstream service. The platform gateway sends qualifying requests to a dedicated redaction service, and that service calls Azure AI Language PII detection to detect sensitive entities such as names, addresses, financial details, and medical information.</p>
+
+<div class="alert alert-warning">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div>
+        <strong>Platform scope:</strong><br>
+        This shared Language integration is limited to PII detection. The AI Hub does not use Azure AI Language for summarization, sentiment, key phrase extraction, classification, question answering, or orchestration workflows. New non-PII text-analysis workloads should be built on tenant Azure AI Foundry model deployments instead.
+    </div>
+</div>
 
 <div class="alert alert-info">
     <div class="alert-icon">
@@ -17,7 +27,7 @@
 
 <h2>Overview</h2>
 
-<p>The system uses the Azure language service to identify and redact sensitive information in requests. This machine-learning approach gives broader coverage than a simple list of regular expressions because it can use context, not just text patterns, to decide what should be masked.</p>
+<p>The system uses Azure AI Language PII detection to identify and redact sensitive information in requests. This machine-learning approach gives broader coverage than a simple list of regular expressions because it can use context, not just text patterns, to decide what should be masked.</p>
 
 <h3>Supported Entity Types</h3>
 <p>The Azure language service can detect and redact a wide range of sensitive personal information types:</p>

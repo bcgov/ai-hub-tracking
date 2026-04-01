@@ -1375,7 +1375,7 @@
         <li><strong>Azure AI Foundry</strong> for language models, reasoning models, and text embedding models</li>
         <li><strong>The Azure gateway service for application programming interfaces</strong> for tenant-specific subscription keys, per-tenant rate limiting, and usage metering</li>
         <li><strong>Azure Application Gateway with built-in web request protection</strong> for public entry, secure transport termination, and routing toward the right backend service</li>
-        <li><strong>The Azure language service for sensitive personal information detection</strong>, now routed through a dedicated external redaction service</li>
+        <li><strong>Azure AI Language for sensitive personal information detection only</strong>, routed through a dedicated external redaction service; other text-analysis workloads belong on Azure AI Foundry models</li>
         <li><strong>Azure AI Search, Speech, and Document Intelligence</strong> as shared cognitive services exposed through the gateway layer</li>
     </ul>
     <p style="margin-bottom: 0;">See the <a href="services.html">services catalogue</a> for the full model list, per-tenant allocation details, and usage limits.</p>
@@ -1392,6 +1392,7 @@
         <li>The redaction service calls Azure AI Language service over a private endpoint, reconstructs the result into the original request shape, and returns the redacted body together with diagnostic information.</li>
         <li>The gateway forwards the request to the downstream backend only after the redaction service reports that it completed the full job successfully.</li>
     </ol>
+    <p style="margin-bottom: 0;">This path is intentionally scoped to PII detection. If a tenant needs summarization, classification, or other non-PII language behavior, the platform standard is to implement that on Azure AI Foundry models rather than on the shared Language service.</p>
     <p style="margin-bottom: 0;">See <a href="language-service-pii.html">the Language service redaction guide</a> and <a href="decisions.html#adr-018">the architecture decision record for the external redaction service</a> for the full flow and configuration details.</p>
 </div>
 

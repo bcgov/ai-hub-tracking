@@ -10,8 +10,10 @@ Comprehensive guides for OIDC setup, Terraform deployments, and Azure Landing Zo
 - [Local Development Deployment Guide](infra-ai-hub/README.md#local-development-deployment) - Deploy from your local machine using Chisel tunnel
 - [Operational Playbooks](https://bcgov.github.io/ai-hub-tracking/playbooks.html) - Troubleshooting and runbooks
 - [Terraform Modules](https://bcgov.github.io/ai-hub-tracking/terraform.html) - Terraform modules overview
-- [PII Anonymization](https://bcgov.github.io/ai-hub-tracking/language-service-pii.html) - PII redaction via Azure Language Service
+- [PII Anonymization](https://bcgov.github.io/ai-hub-tracking/language-service-pii.html) - PII redaction via Azure AI Language PII detection
 - [Document Intelligence](https://bcgov.github.io/ai-hub-tracking/document-intelligence.html) - OCR and document analysis
+
+Platform note: this repo uses Azure AI Language only for PII detection. Text summarization, classification, sentiment, and other non-PII language workloads should be built on Azure AI Foundry model deployments instead.
 
 ## Tools & Installation
 
