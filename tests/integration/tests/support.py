@@ -39,6 +39,13 @@ def deployed_chat_models(config: IntegrationConfig, tenant: str) -> list[str]:
     return models
 
 
+def deployed_deployments_chat_models(config: IntegrationConfig, tenant: str) -> list[str]:
+    models = config.get_tenant_deployments_chat_models(tenant)
+    if not models:
+        pytest.skip(f"No deployment-route chat models found for tenant: {tenant}")
+    return models
+
+
 def response_json(response: requests.Response) -> dict:
     if not response.text:
         return {}

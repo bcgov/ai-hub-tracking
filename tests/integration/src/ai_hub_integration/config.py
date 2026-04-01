@@ -19,6 +19,8 @@ TENANT_ENV_VAR_NAMES = {
 DEFAULT_OPENAI_API_VERSION = "2024-10-21"
 DEFAULT_DOCINT_API_VERSION = "2024-11-30"
 DEFAULT_MODEL = "gpt-4.1-mini"
+OPENAI_CHAT_MODEL_PREFIXES = ("gpt-", "o1", "o3", "o4")
+OPENAI_COMPATIBLE_CHAT_MODELS = {"mistral-large-3"}
 
 
 def _env_flag(name: str, default: bool) -> bool:
@@ -28,8 +30,22 @@ def _env_flag(name: str, default: bool) -> bool:
     return value.lower() in {"1", "true", "yes", "on"}
 
 
+def _is_openai_chat_model(model: str) -> bool:
+    normalized = model.casefold()
+    return normalized.startswith(OPENAI_CHAT_MODEL_PREFIXES)
+
+
 def filter_chat_models(models: list[str]) -> list[str]:
-    return [model for model in models if "embedding" not in model and "codex" not in model]
+    filtered: list[str] = []
+    for model in models:
+        normalized = model.casefold()
+        if _is_openai_chat_model(model) or normalized in OPENAI_COMPATIBLE_CHAT_MODELS:
+            filtered.append(model)
+    return filtered
+
+
+def filter_deployments_chat_models(models: list[str]) -> list[str]:
+    return [model for model in models if _is_openai_chat_model(model)]
 
 
 def parse_stack_output(raw_output: str) -> dict:
@@ -85,13 +101,27 @@ def _load_shared_tfvars_config(infra_dir: Path, environment: str) -> tuple[bool,
     return enabled, hostname
 
 
+def _find_bash() -> str | None:
+    if os.name == "nt":
+        for env_var in ("ProgramFiles", "ProgramFiles(x86)"):
+            base = os.getenv(env_var)
+            if not base:
+                continue
+            for relative_path in ("Git\\bin\\bash.exe", "Git\\usr\\bin\\bash.exe"):
+                candidate = Path(base) / relative_path
+                if candidate.exists():
+                    return str(candidate)
+    return shutil.which("bash")
+
+
 def _load_stack_output_from_script(infra_dir: Path, environment: str) -> dict:
     script = infra_dir / "scripts" / "deploy-terraform.sh"
-    bash = shutil.which("bash")
+    bash = _find_bash()
     if not bash or not script.exists():
         raise RuntimeError("bash or deploy-terraform.sh is not available")
 
-    result = _run_command([bash, str(script), "output", environment], cwd=infra_dir)
+    script_path = script.relative_to(infra_dir).as_posix()
+    result = _run_command([bash, script_path, "output", environment], cwd=infra_dir)
     if result.returncode != 0:
         stderr = result.stderr.strip()
         stdout = result.stdout.strip()
@@ -234,6 +264,9 @@ class IntegrationConfig:
     def get_tenant_chat_models(self, tenant: str) -> list[str]:
         return filter_chat_models(self.get_tenant_models(tenant))
 
+    def get_tenant_deployments_chat_models(self, tenant: str) -> list[str]:
+        return filter_deployments_chat_models(self.get_tenant_models(tenant))
+
     def is_apim_key_rotation_enabled(self) -> bool:
         shared_tfvars = self.infra_dir / "params" / self.environment / "shared.tfvars"
         if not shared_tfvars.exists():
@@ -260,6 +293,7 @@ __all__ = [
     "DEFAULT_OPENAI_API_VERSION",
     "TENANT_ENV_VAR_NAMES",
     "IntegrationConfig",
+    "filter_deployments_chat_models",
     "filter_chat_models",
     "parse_stack_output",
 ]

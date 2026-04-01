@@ -9,7 +9,7 @@ from .support import (
     LOW_QUOTA_TENANT,
     PRIMARY_TENANT,
     assert_status,
-    deployed_chat_models,
+    deployed_deployments_chat_models,
     direct_request,
     require_key,
     response_json,
@@ -36,7 +36,7 @@ def test_ai_hub_admin_all_deployed_chat_models_connectivity(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
     require_key(integration_config, PRIMARY_TENANT)
-    models = deployed_chat_models(integration_config, PRIMARY_TENANT)
+    models = deployed_deployments_chat_models(integration_config, PRIMARY_TENANT)
 
     passed = 0
     failed: list[str] = []
@@ -202,7 +202,7 @@ def test_nr_dap_all_deployed_chat_models_connectivity(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
     require_key(integration_config, LOW_QUOTA_TENANT)
-    models = deployed_chat_models(integration_config, LOW_QUOTA_TENANT)
+    models = deployed_deployments_chat_models(integration_config, LOW_QUOTA_TENANT)
 
     passed = 0
     failed: list[str] = []

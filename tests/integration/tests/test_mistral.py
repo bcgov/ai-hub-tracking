@@ -121,5 +121,7 @@ def test_ai_hub_admin_deployed_mistral_document_model_accepts_ocr_requests(
 
     assert_status(response, 200)
     assert body["model"] == document_model
-    assert len(body["pages"]) > 0
-    assert body["usage_info"]["pages_processed"] > 0
+    assert isinstance(body["pages"], list)
+    assert body["usage_info"]["doc_size_bytes"] > 0
+    assert body["usage_info"]["pages_processed"] == len(body["pages"])
+    assert body["usage_info"]["pages_processed_annotation"] >= 0
