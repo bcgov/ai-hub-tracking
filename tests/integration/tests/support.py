@@ -5,6 +5,7 @@ import os
 import socket
 import ssl
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import pytest
 import requests
@@ -72,8 +73,21 @@ def document_intelligence_accessible(client: ApimClient, config: IntegrationConf
     return client.document_intelligence_accessible(tenant)
 
 
+def is_azure_key_vault_uri(uri: str) -> bool:
+    parsed = urlsplit(uri)
+    hostname = parsed.hostname or ""
+    return (
+        parsed.scheme == "https"
+        and parsed.path in {"", "/"}
+        and not parsed.query
+        and not parsed.fragment
+        and (hostname == "vault.azure.net" or hostname.endswith(".vault.azure.net"))
+    )
+
+
 def get_server_certificate(hostname: str) -> dict:
     context = ssl.create_default_context()
+    context.minimum_version = ssl.TLSVersion.TLSv1_2
     with (
         socket.create_connection((hostname, 443), timeout=10) as sock,
         context.wrap_socket(sock, server_hostname=hostname) as tls_socket,

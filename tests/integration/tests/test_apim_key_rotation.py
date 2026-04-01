@@ -5,7 +5,7 @@ import pytest
 from ai_hub_integration.client import ApimClient
 from ai_hub_integration.config import IntegrationConfig
 
-from .support import assert_status, direct_request, require_key, response_json
+from .support import assert_status, direct_request, is_azure_key_vault_uri, require_key, response_json
 
 pytestmark = [pytest.mark.live, pytest.mark.requires_proxy]
 
@@ -43,7 +43,7 @@ def test_tenant_1_apim_keys_contains_expected_fields(client: ApimClient, integra
     assert payload["primary_key"]
     assert payload["secondary_key"]
     assert payload["rotation"] is not None
-    assert payload["keyvault"]["uri"].endswith("vault.azure.net")
+    assert is_azure_key_vault_uri(payload["keyvault"]["uri"])
     assert payload["keyvault"]["primary_key_secret"] == f"{tenant}-apim-primary-key"
     assert payload["keyvault"]["secondary_key_secret"] == f"{tenant}-apim-secondary-key"
 
