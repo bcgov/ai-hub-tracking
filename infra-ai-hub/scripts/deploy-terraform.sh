@@ -71,26 +71,36 @@ NC='\033[0m' # No Color
 
 # Variables tracking configuration
 ENVIRONMENT=""
+OUTPUT_JSON_MODE=false
 
 # =============================================================================
 # Logging Functions
 # =============================================================================
 _ts() { date -u +'%Y-%m-%dT%H:%M:%SZ'; }
 
+_log_line() {
+    local message="$1"
+    if [[ "${OUTPUT_JSON_MODE:-false}" == "true" ]]; then
+        echo -e "$message" >&2
+    else
+        echo -e "$message"
+    fi
+}
+
 log_info() {
-    echo -e "${GRAY}$(_ts)${NC} ${BLUE}[INFO]${NC} $*"
+    _log_line "${GRAY}$(_ts)${NC} ${BLUE}[INFO]${NC} $*"
 }
 
 log_success() {
-    echo -e "${GRAY}$(_ts)${NC} ${GREEN}[SUCCESS]${NC} $*"
+    _log_line "${GRAY}$(_ts)${NC} ${GREEN}[SUCCESS]${NC} $*"
 }
 
 log_warning() {
-    echo -e "${GRAY}$(_ts)${NC} ${YELLOW}[WARNING]${NC} $*"
+    _log_line "${GRAY}$(_ts)${NC} ${YELLOW}[WARNING]${NC} $*"
 }
 
 log_error() {
-    echo -e "${GRAY}$(_ts)${NC} ${RED}[ERROR]${NC} $*"
+    _log_line "${GRAY}$(_ts)${NC} ${RED}[ERROR]${NC} $*"
 }
 
 # =============================================================================
@@ -511,6 +521,10 @@ main() {
     
     local command="$1"
     shift
+
+    if [[ "$command" == "output" ]]; then
+        OUTPUT_JSON_MODE=true
+    fi
     
     # Commands that don't need environment
     case "$command" in
