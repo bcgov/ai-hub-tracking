@@ -1,0 +1,99 @@
+name: .Detect Changes
+
+on:
+    workflow_call:
+        inputs:
+            paths:
+                description: "Newline-separated repository paths to diff"
+                required: true
+                type: string
+            comparison:
+                description: "Diff mode: pr for pull request comparison, push for HEAD~1..HEAD"
+                required: true
+                type: string
+            default_changed:
+                description: "Fallback changed value when the requested comparison context is unavailable"
+                required: false
+                default: false
+                type: boolean
+        outputs:
+            changed:
+                description: "Whether any of the selected paths changed"
+                value: ${{ jobs.detect.outputs.changed }}
+
+permissions:
+    contents: read
+
+jobs:
+    detect:
+        name: Detect changes
+        runs-on: ubuntu-24.04
+        timeout-minutes: 2
+        outputs:
+            changed: ${{ steps.diff.outputs.changed }}
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v6
+              with:
+                  fetch-depth: 0
+
+            - name: Compare selected paths
+              id: diff
+              shell: bash
+              env:
+                  INPUT_PATHS: ${{ inputs.paths }}
+                  INPUT_COMPARISON: ${{ inputs.comparison }}
+                  INPUT_DEFAULT_CHANGED: ${{ inputs.default_changed }}
+                  BASE_REF: ${{ github.base_ref }}
+                  EVENT_NAME: ${{ github.event_name }}
+              run: |
+                  set -euo pipefail
+
+                  mapfile -t path_filters < <(
+                    printf '%s\n' "$INPUT_PATHS" \
+                      | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' \
+                      | sed '/^$/d'
+                  )
+
+                  if [[ ${#path_filters[@]} -eq 0 ]]; then
+                    echo "::error::inputs.paths must include at least one non-empty path." >&2
+                    exit 1
+                  fi
+
+                  echo "Comparison mode: $INPUT_COMPARISON"
+                  printf 'Checking paths:\n'
+                  printf '  - %s\n' "${path_filters[@]}"
+
+                  case "$INPUT_COMPARISON" in
+                    pr)
+                      if [[ "$EVENT_NAME" != "pull_request" || -z "$BASE_REF" ]]; then
+                        echo "::warning::PR comparison requested outside a pull_request context; defaulting changed=$INPUT_DEFAULT_CHANGED"
+                        echo "changed=$INPUT_DEFAULT_CHANGED" >> "$GITHUB_OUTPUT"
+                        exit 0
+                      fi
+                      range_args=("origin/$BASE_REF...HEAD")
+                      ;;
+                    push)
+                      if ! git rev-parse --verify HEAD~1 >/dev/null 2>&1; then
+                        echo "::warning::Unable to resolve HEAD~1; defaulting changed=$INPUT_DEFAULT_CHANGED"
+                        echo "changed=$INPUT_DEFAULT_CHANGED" >> "$GITHUB_OUTPUT"
+                        exit 0
+                      fi
+                      range_args=("HEAD~1" "HEAD")
+                      ;;
+                    *)
+                      echo "::error::Unsupported comparison '$INPUT_COMPARISON'. Supported values: pr, push" >&2
+                      exit 1
+                      ;;
+                  esac
+
+                  changed_files=$(git diff --name-only "${range_args[@]}" -- "${path_filters[@]}")
+
+                  if [[ -n "$changed_files" ]]; then
+                    echo "Changed files:"
+                    printf '%s\n' "$changed_files"
+                    echo "changed=true" >> "$GITHUB_OUTPUT"
+                  else
+                    echo "No matching files changed."
+                    echo "changed=false" >> "$GITHUB_OUTPUT"
+                  fi
