@@ -17,7 +17,8 @@ This directory is a Python project that hosts the live APIM/App Gateway integrat
 | `src/ai_hub_integration/evaluation.py` | Azure AI Evaluation SDK integration and threshold handling |
 | `tests/test_*.py` | Live pytest suites |
 | `tests/unit/` | Fast unit tests for shared helpers |
-| `eval_datasets/chat_quality.jsonl` | Chat-quality dataset covering concise instruction-following, extraction, normalization, and classification prompts |
+| `eval_datasets/chat_quality.jsonl` | Exact-answer dataset for concise instruction-following, extraction, normalization, and classification prompts |
+| `eval_datasets/chat_quality_fluent.jsonl` | Fluent-response dataset for full-sentence explanations and summaries |
 | `run-tests.py` | Pytest runner with suite aliases and direct/proxy grouping |
 | `run-evaluation.py` | Standalone Azure AI Evaluation entrypoint |
 | `run-tests.sh` | Shell wrapper around `run-tests.py` |
@@ -73,7 +74,12 @@ uv run pytest tests/unit -q
 
 ## AI Evaluation
 
-The optional evaluation runner uses `azure-ai-evaluation` to score chat responses against `eval_datasets/chat_quality.jsonl`. The dataset mixes simple factual checks with short instruction-following, extraction, normalization, and classification prompts that have deterministic ground truth.
+The optional evaluation runner uses `azure-ai-evaluation` to score two datasets by default:
+
+- `eval_datasets/chat_quality.jsonl` keeps the deterministic exact-answer prompts and does not gate on fluency.
+- `eval_datasets/chat_quality_fluent.jsonl` uses full-sentence prompts so fluency can be measured meaningfully.
+
+This split avoids punishing the exact-answer suite for doing the right thing with terse outputs like `4`, `Victoria`, or `yes`, while still giving you a place to enforce fluent natural-language responses.
 
 ```bash
 cd tests/integration
@@ -83,10 +89,16 @@ export AI_EVAL_JUDGE_API_KEY="..."
 export AI_EVAL_JUDGE_DEPLOYMENT="gpt-4.1-mini"
 export AI_EVAL_MIN_RELEVANCE="4.0"
 export AI_EVAL_MIN_COHERENCE="4.0"
+export AI_EVAL_MIN_FLUENCY="4.0"  # applied to the fluent-response dataset only
 
 uv run python ./run-evaluation.py --env test
 uv run pytest tests/test_ai_evaluation.py -q
 ```
+
+Optional dataset overrides:
+
+- `AI_EVAL_DATASET` overrides the exact-answer dataset path.
+- `AI_EVAL_FLUENT_DATASET` overrides the fluent-response dataset path.
 
 If the judge-model variables are not configured, the evaluation command and pytest suite skip cleanly.
 

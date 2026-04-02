@@ -20,6 +20,7 @@ DEFAULT_OPENAI_API_VERSION = "2024-10-21"
 DEFAULT_DOCINT_API_VERSION = "2024-11-30"
 DEFAULT_MODEL = "gpt-4.1-mini"
 OPENAI_CHAT_MODEL_PREFIXES = ("gpt-", "o1", "o3", "o4")
+REASONING_MODEL_PREFIXES = ("gpt-5", "o1", "o3", "o4")
 OPENAI_COMPATIBLE_CHAT_MODELS = {"mistral-large-3"}
 
 
@@ -35,6 +36,11 @@ def _is_openai_chat_model(model: str) -> bool:
     """Return whether a deployment name belongs to an OpenAI chat family."""
     normalized = model.casefold()
     return normalized.startswith(OPENAI_CHAT_MODEL_PREFIXES)
+
+
+def uses_max_completion_tokens(model: str) -> bool:
+    """Return whether a model requires `max_completion_tokens` request semantics."""
+    return model.casefold().startswith(REASONING_MODEL_PREFIXES)
 
 
 def filter_chat_models(models: list[str]) -> list[str]:
@@ -315,9 +321,11 @@ __all__ = [
     "DEFAULT_DOCINT_API_VERSION",
     "DEFAULT_MODEL",
     "DEFAULT_OPENAI_API_VERSION",
+    "REASONING_MODEL_PREFIXES",
     "TENANT_ENV_VAR_NAMES",
     "IntegrationConfig",
     "filter_deployments_chat_models",
     "filter_chat_models",
     "parse_stack_output",
+    "uses_max_completion_tokens",
 ]

@@ -6,7 +6,7 @@ import time
 import pytest
 
 from ai_hub_integration.client import ApimClient
-from ai_hub_integration.config import IntegrationConfig
+from ai_hub_integration.config import IntegrationConfig, uses_max_completion_tokens
 
 from .support import PRIMARY_TENANT, assert_status, deployed_chat_models, require_appgw, require_key, response_json
 
@@ -19,7 +19,7 @@ def _v1_body(model: str, message: str, max_tokens: int = 10, *, stream: bool = F
         "model": model,
         "messages": [{"role": "user", "content": message}],
     }
-    if model.startswith("gpt-5"):
+    if uses_max_completion_tokens(model):
         body["max_completion_tokens"] = max_tokens
     else:
         body["max_tokens"] = max_tokens

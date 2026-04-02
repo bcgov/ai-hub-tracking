@@ -10,7 +10,7 @@ import requests
 from azure.identity import AzureCliCredential, DefaultAzureCredential
 from azure.keyvault.secrets import SecretClient
 
-from .config import IntegrationConfig
+from .config import IntegrationConfig, uses_max_completion_tokens
 
 APIM_REQUEST_TIMEOUT_SECONDS = 120
 MAX_RETRIES = 5
@@ -208,7 +208,7 @@ class ApimClient:
         messages.append({"role": "user", "content": message})
         body: dict[str, Any] = {"messages": messages}
 
-        if model.startswith("gpt-5"):
+        if uses_max_completion_tokens(model):
             body["max_completion_tokens"] = max_tokens
         else:
             body["max_tokens"] = max_tokens
@@ -235,7 +235,7 @@ class ApimClient:
             "model": model,
             "messages": [{"role": "user", "content": message}],
         }
-        if model.startswith("gpt-5"):
+        if uses_max_completion_tokens(model):
             body["max_completion_tokens"] = max_tokens
         else:
             body["max_tokens"] = max_tokens

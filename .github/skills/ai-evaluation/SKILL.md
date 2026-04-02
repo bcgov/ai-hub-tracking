@@ -47,6 +47,8 @@ Every evaluation change should deliver:
 
 The shared evaluation flow uses these environment variables:
 
+- `AI_EVAL_DATASET` for the exact-answer dataset override
+- `AI_EVAL_FLUENT_DATASET` for the fluent-response dataset override
 - `AI_EVAL_JUDGE_ENDPOINT`
 - `AI_EVAL_JUDGE_API_KEY`
 - `AI_EVAL_JUDGE_DEPLOYMENT`
@@ -58,6 +60,11 @@ The shared evaluation flow uses these environment variables:
 - `AI_EVAL_MIN_F1_SCORE`
 
 If the required judge-model variables are missing, the CLI and pytest suite skip cleanly.
+
+The default suite runs two profiles:
+
+- `exact`: deterministic short-form answers scored for relevance, coherence, similarity, and F1 only
+- `fluent`: full-sentence answers scored for relevance, coherence, fluency, and similarity
 
 ## Running Evaluation
 
