@@ -211,9 +211,9 @@ jobs:
           LOG_FILE="$RUNNER_TEMP/terraform-${{ inputs.environment_name }}-${{ inputs.command }}.log"
 
           # Run deployment via script
-          #./scripts/deploy-terraform.sh "${{ inputs.command }}" "${{ inputs.environment_name }}" 2>&1 | tee "$LOG_FILE"
+          ./scripts/deploy-terraform.sh "${{ inputs.command }}" "${{ inputs.environment_name }}" 2>&1 | tee "$LOG_FILE"
 
-          #echo "log_file=$LOG_FILE" >> "$GITHUB_OUTPUT"
+          echo "log_file=$LOG_FILE" >> "$GITHUB_OUTPUT"
 
       - name: Build plan summary output
         id: plan_summary
