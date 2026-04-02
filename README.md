@@ -140,17 +140,13 @@ ai-hub-tracking/
 │   └── README.md                      # Portal architecture, local dev, and deployment notes
 │
 ├── tests/                              # Integration test suite
-│   └── integration/                    # BATS-based integration tests
-│       ├── chat-completions.bats       # OpenAI chat API tests
-│       ├── document-intelligence.bats  # Document Intelligence API tests
-│       ├── document-intelligence-binary.bats # Binary upload tests
-│       ├── pii-redaction.bats          # PII redaction behavior tests
-│       ├── pii-failure.bats            # PII fail-closed/fail-open tests
-│       ├── subscription-key-header.bats # Auth and tenant isolation tests
-│       ├── tenant-user-management.bats # User management tests
-│       ├── test-helper.bash            # Shared test utilities
-│       ├── config.bash                 # Test environment configuration
-│       ├── run-tests.sh                # Test runner script
+│   └── integration/                    # Python/pytest integration and evaluation project
+│       ├── src/ai_hub_integration/     # Shared config loader, APIM client, evaluation helpers
+│       ├── tests/                      # Live pytest suites for APIM, App Gateway, DocInt, and AI eval
+│       ├── eval_datasets/              # Azure AI Evaluation datasets
+│       ├── run-tests.py                # Pytest runner with suite aliases and group selection
+│       ├── run-evaluation.py           # Azure AI Evaluation CLI entrypoint
+│       ├── run-tests.sh                # Shell wrapper around the Python runner
 │       └── README.md                   # Test documentation
 │
 ├── azure-proxy/                        # Docker configurations for secure proxy tunnel
@@ -215,7 +211,8 @@ ai-hub-tracking/
 │   │   ├── iac-code-reviewer/          # IaC code review skills
 │   │   ├── api-management/             # APIM policy and routing skills
 │   │   ├── key-rotation-function/      # Key rotation Container App Job skills
-│   │   ├── integration-testing/        # BATS integration testing skills
+│   │   ├── integration-testing/        # Python/pytest integration testing skills
+│   │   ├── ai-evaluation/              # Azure AI Evaluation SDK skills
 │   │   ├── network/                    # Network module and subnet skills
 │   │   └── documentation/              # Documentation authoring skills
 │   │
@@ -260,7 +257,7 @@ Multi-tenant AI Services Hub infrastructure. Manages APIM gateway, AI Foundry, p
 - **stacks/**: Isolated Terraform root modules (`shared`, `tenant`, `foundry`, `apim`, `tenant-user-mgmt`) with separate state files
 
 ### `tests/`
-BATS-based integration test suite for validating deployed infrastructure. Tests cover chat completions, document intelligence, PII redaction (fail-closed/fail-open), tenant isolation, binary uploads, and user management.
+Python/pytest-based integration test suite for validating deployed infrastructure. Tests cover chat completions, document intelligence, PII redaction (fail-closed/fail-open), tenant isolation, binary uploads, and user management.
 
 ### `jobs/`
 Container App Jobs source code. Contains the APIM key rotation job (`apim-key-rotation/`), a Python-based cron job that automatically rotates APIM subscription keys using an alternating primary/secondary pattern. Deployed as a custom container from GHCR via `.builds.yml`, with the Terraform module at `infra-ai-hub/modules/key-rotation-function/` and stack at `infra-ai-hub/stacks/key-rotation/`.

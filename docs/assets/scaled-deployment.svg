@@ -327,7 +327,7 @@
   <!-- Test boxes -->
   <g filter="url(#shadow)">
     <rect x="70" y="862" width="200" height="35" rx="6" fill="#14532d" stroke="#4ade80" stroke-width="1"/>
-    <text x="170" y="884" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#4ade80" font-weight="bold">Install bats-core</text>
+    <text x="170" y="884" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#4ade80" font-weight="bold">uv sync --group dev</text>
   </g>
   <path d="M 270 879 L 295 879" stroke="#4ade80" stroke-width="1.5" marker-end="url(#arrowGreen)"/>
 

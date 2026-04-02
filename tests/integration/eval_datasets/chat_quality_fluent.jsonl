@@ -1,0 +1,6 @@
+{"query":"In one complete sentence, explain what HTTP 503 Service Unavailable means.","ground_truth":"HTTP 503 Service Unavailable means the server is temporarily unable to handle the request."}
+{"query":"In one complete sentence, summarize this deployment note: 'The rollout completed successfully and every health check passed.'","ground_truth":"The rollout completed successfully and every health check passed."}
+{"query":"In one complete sentence, explain what it means if the API returned HTTP 200 and the payload validated.","ground_truth":"It means the request succeeded and the response payload passed validation."}
+{"query":"In one complete sentence, restate this instruction for a teammate: 'Enable access for tenant ai-hub-admin in the test environment.'","ground_truth":"Enable access for the ai-hub-admin tenant in the test environment."}
+{"query":"In one complete sentence, describe what the prebuilt-layout model is used for.","ground_truth":"The prebuilt-layout model is used to extract structural elements such as text, tables, and selection marks from documents."}
+{"query":"In one complete sentence, explain why a proxy-only suite might run after approval in prod.","ground_truth":"A proxy-only suite might run after approval in prod because it needs controlled access to private resources."}

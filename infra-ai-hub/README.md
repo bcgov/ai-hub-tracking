@@ -1740,15 +1740,18 @@ Test the deployed infrastructure using the integration test suite:
 cd tests/integration
 
 # Run all tests against your environment
-TEST_ENV=${ENVIRONMENT} ./run-tests.sh
+TEST_ENV=${ENVIRONMENT} ./run-tests.sh --group all
 
-# Run a single test file
-TEST_ENV=${ENVIRONMENT} ./run-tests.sh pii-redaction.bats
+# Run the direct-only suites (public APIM/App Gateway paths)
+TEST_ENV=${ENVIRONMENT} ./run-tests.sh --group direct
+
+# Run the proxy-only suite (Key Vault fallback)
+TEST_ENV=${ENVIRONMENT} ./run-tests.sh --group proxy
 ```
 
 The tests validate:
 - API routing through APIM
-- PII redaction functionality
+- Optional Azure AI Evaluation scoring
 - Tenant isolation
 - Service connectivity
 

@@ -30,7 +30,7 @@ Required context before changes:
 Every AppGW/WAF change should deliver:
 - WAF custom rule changes in `stacks/shared/locals.tf` (`default_waf_custom_rules`)
 - Rewrite rule changes in `stacks/shared/main.tf` (inside `rewrite_rule_set`)
-- Updated integration tests for App Gateway behavior in `tests/integration/app-gateway.bats`
+- Updated integration tests for App Gateway behavior in `tests/integration/tests/test_app_gateway.py`
 - Confirmation that WAF priority ordering is correct (no gaps that create bypass windows)
 
 ## External Documentation
@@ -134,7 +134,7 @@ APIM validates subscription keys *before* running any policy code. APIM looks fo
 
 ### General
 - Run `terraform fmt -recursive` and `terraform validate` on `stacks/shared/`
-- Update integration tests in `tests/integration/app-gateway.bats`
+- Update integration tests in `tests/integration/tests/test_app_gateway.py`
 - Confirm no subscription key normalization was added to APIM policies
 
 ## Validation Gates (Required)

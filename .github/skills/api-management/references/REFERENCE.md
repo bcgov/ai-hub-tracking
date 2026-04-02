@@ -177,7 +177,7 @@ Stored as JSON in `{tenant}-apim-rotation-metadata`:
 }
 ```
 
-`safe_slot` indicates which key tenants should currently use (the one **not** regenerated). Integration tests use this for Key Vault key fallback (`get_tenant_key_from_vault` in `test-helper.bash`).
+`safe_slot` indicates which key tenants should currently use (the one **not** regenerated). Integration tests use this for Key Vault key fallback via `ApimClient.refresh_tenant_key_from_vault()` in the Python harness.
 
 ## Route Validation Matrix Template
 

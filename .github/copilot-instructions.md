@@ -102,9 +102,15 @@ Use when modifying the APIM key rotation Container App Job.
 
 ### [Integration Testing](./skills/integration-testing/SKILL.md)
 Use when creating, modifying, or debugging integration tests.
-- bats-core test suites under `tests/integration/`
-- Test helpers, config loading, and assertion patterns
-- Retry logic, skip guards, and async polling
+- Python/pytest suites under `tests/integration/tests/`
+- Shared Python client/config/evaluation modules under `tests/integration/src/ai_hub_integration/`
+- Retry logic, skip guards, async polling, and secure-tunnel grouping
+
+### [AI Evaluation](./skills/ai-evaluation/SKILL.md)
+Use when creating, modifying, or debugging Azure AI Evaluation SDK coverage.
+- Judge-model configuration and evaluation thresholds
+- Dataset-driven response scoring under `tests/integration/eval_datasets/`
+- `run-evaluation.py` and pytest `ai_eval` coverage
 
 ### [Tenant Onboarding Portal](./skills/tenant-onboarding-portal/SKILL.md)
 Use when modifying the tenant onboarding portal application.
@@ -135,7 +141,7 @@ Use when modifying the PII redaction custom service.
 
 ### [Dependency Upgrades](./skills/dependency-upgrades/SKILL.md)
 Use when upgrading tracked Python or npm dependencies, regenerating lockfiles, responding to Dependabot or Renovate alerts, or updating repository dependency automation.
-- `uv`-managed Python projects under `jobs/apim-key-rotation/` and `pii-redaction-service/`
+- `uv`-managed Python projects under `jobs/apim-key-rotation/`, `pii-redaction-service/`, and `tests/integration/`
 - npm manifests and lockfiles under `tenant-onboarding-portal/backend/` and `tenant-onboarding-portal/frontend/`
 - Dependency automation in `renovate.json`
 - Validation gates from repo policy for touched package-managed directories

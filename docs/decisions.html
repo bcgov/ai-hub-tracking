@@ -1323,6 +1323,12 @@ details.adr.pending[open] summary {
         <td><span class="badge" style="background:#22c55e;color:white;">Choice</span></td>
         <td><span class="badge badge-gold">Accepted</span></td>
     </tr>
+    <tr>
+        <td><a href="#adr-019">ADR-019</a></td>
+        <td>Holistic Python Integration Tests with AI Evaluation</td>
+        <td><span class="badge" style="background:#22c55e;color:white;">Choice</span></td>
+        <td><span class="badge badge-gold">Accepted</span></td>
+    </tr>
 </table>
 
 <details class="adr" id="adr-001" open>
@@ -4455,6 +4461,165 @@ module "storage" {
     <li><a href="services.html">Services Overview</a> — Container App deployment topology</li>
     <li><a href="https://learn.microsoft.com/en-us/rest/api/language/text-analysis-runtime/analyze-text">Azure Language Service — Analyze Text API</a></li>
     <li><a href="https://learn.microsoft.com/en-us/azure/ai-services/language-service/personally-identifiable-information/overview">Azure AI Language — PII Detection Overview</a></li>
+</ul>
+
+<div style="margin-top: 1rem;">
+    <a href="#decision-index" class="back-to-top-link">&#8593; Back to Decision Index</a>
+</div>
+
+</div>
+</details>
+
+<details class="adr" id="adr-019">
+<summary>
+    <span class="adr-title">ADR-019: Holistic Python Integration Tests with AI Evaluation</span>
+    <span class="adr-status"><span class="badge badge-gold">Accepted</span></span>
+</summary>
+<div class="adr-content">
+
+<div class="grid grid-4" style="margin-bottom: 1rem;">
+    <div><strong>Status:</strong> Accepted</div>
+    <div><strong>Date:</strong> 2026-04</div>
+    <div><strong>Driver:</strong> <span class="badge" style="background:#22c55e;color:white;">Choice</span></div>
+    <div><strong>Category:</strong> Testing / Quality Engineering</div>
+</div>
+
+<h3 id="context-18">Context</h3>
+
+<p>The original integration harness in <code>tests/integration</code> was built around BATS, Bash, <code>curl</code>, and <code>jq</code>. That approach was sufficient when the suite was mostly endpoint smoke tests, but the test surface has expanded to include shared config loading from Terraform outputs, App Gateway and APIM route validation, Key Vault fallback behaviour, and dataset-driven response evaluation.</p>
+
+<p>The new AI quality requirement is materially different from shell-based HTTP checks. Azure AI Evaluation needs a Python runtime, SDK integrations, dataset files, a callable target, configurable thresholds, and reusable scoring logic. Keeping BATS for transport tests while adding a separate Python evaluation harness would split configuration, CI entrypoints, and maintenance across two test systems that target the same deployed platform.</p>
+
+<div class="alert alert-warning">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+    </div>
+    <div>
+        <strong>The core constraint:</strong> AI evaluation is not just another HTTP assertion. It needs a programmable runtime with SDK support, dataset loading, metric aggregation, threshold validation, and skip logic for optional judge-model configuration.
+    </div>
+</div>
+
+<h3 id="options-considered-4">Options Considered</h3>
+
+<div class="grid grid-2">
+    <div class="card">
+        <h4 style="margin-top: 0;">Keep BATS as the primary harness</h4>
+        <ul style="margin-bottom: 0;">
+            <li>Preserves the existing shell-first workflow</li>
+            <li>Works for simple HTTP request/response assertions</li>
+            <li>Poor fit for SDK-backed evaluation, shared runtime code, and unit-testable helpers</li>
+            <li>Would continue the growth of duplicated Bash helpers and suite-specific glue</li>
+        </ul>
+    </div>
+    <div class="card">
+        <h4 style="margin-top: 0;">Hybrid model: BATS for transport, Python for evaluation</h4>
+        <ul style="margin-bottom: 0;">
+            <li>Minimises immediate migration work</li>
+            <li>Adds a second harness with separate configuration, CI wiring, and operator documentation</li>
+            <li>Creates overlapping abstractions for environment loading, auth, retries, and reporting</li>
+            <li>Raises the cost of every future test change because two frameworks must stay aligned</li>
+        </ul>
+    </div>
+    <div class="card" style="border-left-color: #22c55e;">
+        <h4 style="margin-top: 0;">Holistic Python harness with pytest and AI evaluation (selected)</h4>
+        <ul style="margin-bottom: 0;">
+            <li>Single uv-managed project for live integration tests, unit tests, and AI evaluation</li>
+            <li>Shared runtime modules for config loading, APIM/App Gateway clients, and Key Vault fallback</li>
+            <li>Pytest markers preserve direct/proxy execution grouping without a second harness</li>
+            <li>Azure AI Evaluation runs in the same project with dataset files and threshold checks</li>
+        </ul>
+    </div>
+</div>
+
+<h3 id="decision-15">Decision</h3>
+
+<p><strong>We will retire the BATS-based integration harness and consolidate active integration coverage into a single uv-managed Python project under <code>tests/integration</code>, with pytest as the authoritative test runner and Azure AI Evaluation as an optional first-class layer in the same harness.</strong></p>
+
+<p>This decision includes the following implementation constraints:</p>
+<ul>
+    <li><strong>Single source of truth runner:</strong> <code>run-tests.py</code> is authoritative, and <code>run-tests.sh</code> remains only as a thin convenience wrapper</li>
+    <li><strong>Shared Python runtime:</strong> common config, APIM/App Gateway client logic, retry behaviour, and Key Vault fallback live under <code>src/ai_hub_integration/</code></li>
+    <li><strong>Optional AI evaluation:</strong> dataset-driven evaluation runs through <code>run-evaluation.py</code> and <code>tests/test_ai_evaluation.py</code>, and only executes when judge-model settings are present</li>
+    <li><strong>Marker-based execution groups:</strong> direct and proxy-only suites are separated by pytest markers rather than separate frameworks</li>
+</ul>
+
+<h3 id="rationale-11">Rationale</h3>
+
+<ul>
+    <li><strong>One language for one problem space:</strong> The same deployed AI Hub surface now needs both HTTP integration coverage and SDK-driven evaluation. Python can handle both; BATS cannot handle the evaluation layer cleanly.</li>
+    <li><strong>Shared configuration model:</strong> The Python harness centralises environment loading from explicit env vars, <code>deploy-terraform.sh output &lt;env&gt;</code>, and <code>terraform output -json</code>, instead of duplicating discovery logic across shell helpers and separate tools.</li>
+    <li><strong>Reusable runtime and unit tests:</strong> Config parsing, request retry logic, operation polling, suite alias mapping, and evaluation threshold checks are now testable as Python modules rather than embedded in shell scripts.</li>
+    <li><strong>Holistic CI wiring:</strong> The secure-tunnel workflow can install one Python environment, run direct suites, optionally run evaluation, and then run proxy-only suites without cross-language glue.</li>
+    <li><strong>Avoid parallel harness drift:</strong> A hybrid BATS-plus-Python model would create two places to maintain auth handling, path aliases, network-group rules, and operator documentation for the same platform.</li>
+    <li><strong>Extensibility:</strong> Adding more service integrations, richer assertions, or more evaluation datasets now extends an existing project structure instead of growing shell complexity.</li>
+</ul>
+
+<h3 id="architecture-1">Architecture</h3>
+
+<div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
+<pre style="background: var(--bc-blue-dark); margin: 0; padding: 1rem; overflow-x: auto;">
+┌──────────────────────────────────────────────────────────────────────┐
+│         HOLISTIC PYTHON INTEGRATION TEST HARNESS                     │
+├──────────────────────────────────────────────────────────────────────┤
+│                                                                      │
+│  tests/integration/                                                  │
+│   ├─ pyproject.toml        → dependencies, pytest, ruff              │
+│   ├─ run-tests.py          → authoritative runner                    │
+│   ├─ run-evaluation.py     → optional Azure AI Evaluation entrypoint │
+│   ├─ src/ai_hub_integration/                                         │
+│   │   ├─ config.py         → env + terraform output loading          │
+│   │   ├─ client.py         → APIM/AppGW/Key Vault helpers            │
+│   │   └─ evaluation.py     → dataset scoring + thresholds            │
+│   ├─ tests/test_*.py       → live integration suites                 │
+│   ├─ tests/unit/           → fast unit tests for harness logic       │
+│   └─ eval_datasets/        → seed evaluation datasets                │
+│                                                                      │
+│  CI flow                                                              │
+│   1. uv sync --group dev                                             │
+│   2. run direct suites                                               │
+│   3. run AI evaluation when judge config exists                      │
+│   4. run proxy-only suites for Key Vault/private access              │
+│                                                                      │
+└──────────────────────────────────────────────────────────────────────┘
+</pre>
+</div>
+
+<h3 id="consequences-18">Consequences</h3>
+
+<h4>Positive</h4>
+<ul>
+    <li><strong>One harness instead of two:</strong> Live API coverage, helper logic, and AI evaluation all live in the same project and follow the same configuration model</li>
+    <li><strong>Better reuse and maintainability:</strong> Shared runtime modules replace duplicated shell helper behaviour</li>
+    <li><strong>Unit-testable infrastructure:</strong> Runner logic, config parsing, and threshold validation can be verified without hitting Azure</li>
+    <li><strong>Clearer CI semantics:</strong> Direct, evaluation, and proxy-only execution map cleanly to one workflow and one dependency toolchain</li>
+    <li><strong>Evaluation is now executable policy:</strong> Quality thresholds can be expressed as code and run consistently when judge-model configuration is present</li>
+    <li><strong>Docs and skills simplify:</strong> The repository now documents one integration-testing model instead of parallel shell and Python stories</li>
+</ul>
+
+<h4>Negative</h4>
+<ul>
+    <li><strong>Migration cost:</strong> Porting suites from BATS to Python requires upfront rewrite effort</li>
+    <li><strong>More runtime dependencies:</strong> The harness now depends on Python, uv, pytest, requests, and Azure SDK packages</li>
+    <li><strong>Loss of shell-only simplicity:</strong> Contributors familiar with BATS must now work in Python for integration tests</li>
+    <li><strong>Evaluation adds optional external configuration:</strong> Judge endpoint, API key, deployment name, and thresholds must be wired separately in environments that want scoring enabled</li>
+</ul>
+
+<h4>Mitigations</h4>
+<ul>
+    <li><strong>Keep the shell entrypoint:</strong> <code>run-tests.sh</code> preserves a familiar command while delegating to the authoritative Python runner</li>
+    <li><strong>Make evaluation optional:</strong> The evaluation runner and pytest suite skip cleanly when judge-model settings are absent</li>
+    <li><strong>Preserve network execution boundaries:</strong> Direct and proxy-only group separation remains explicit through pytest markers and CI steps</li>
+    <li><strong>Validate the harness itself:</strong> Ruff, unit tests, and collection-only pytest checks catch harness regressions before live environment execution</li>
+</ul>
+
+<h3 id="references-16">References</h3>
+<ul>
+    <li><code>tests/integration/README.md</code> — source-of-truth usage and layout for the Python harness</li>
+    <li><code>tests/integration/pyproject.toml</code> — project dependencies, pytest markers, and Ruff configuration</li>
+    <li><code>tests/integration/run-tests.py</code> and <code>tests/integration/run-evaluation.py</code> — canonical entrypoints</li>
+    <li><code>tests/integration/src/ai_hub_integration/</code> — shared runtime modules for config, client, runner, and evaluation</li>
+    <li><code>.github/workflows/.integration-tests-using-secure-tunnel.yml</code> — CI execution model for direct, evaluation, and proxy test groups</li>
+    <li><a href="workflows.html">GitHub Actions Workflows</a></li>
 </ul>
 
 <div style="margin-top: 1rem;">

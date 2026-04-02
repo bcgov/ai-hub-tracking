@@ -1,92 +1,131 @@
 # Integration Tests for AI Services Hub APIM
 
-This directory contains integration tests using [bats-core](https://github.com/bats-core/bats-core) (Bash Automated Testing System) and curl for testing the APIM gateway endpoints.
+This directory is a Python project that hosts the live APIM/App Gateway integration suites and the optional Azure AI Evaluation runner.
+
+## Tooling
+
+- `uv` manages dependencies and local virtual environments.
+- `pytest` runs the live integration suites under `tests/`.
+- `requests` and the Azure SDKs power the APIM, Key Vault, and AI evaluation clients.
+
+## Layout
+
+| Path | Purpose |
+|------|---------|
+| `src/ai_hub_integration/config.py` | Loads environment config from env vars or terraform outputs |
+| `src/ai_hub_integration/client.py` | Shared APIM/App Gateway/Document Intelligence client |
+| `src/ai_hub_integration/evaluation.py` | Azure AI Evaluation SDK integration and threshold handling |
+| `tests/test_*.py` | Live pytest suites |
+| `tests/unit/` | Fast unit tests for shared helpers |
+| `eval_datasets/chat_quality.jsonl` | Exact-answer dataset for concise instruction-following, extraction, normalization, and classification prompts |
+| `eval_datasets/chat_quality_fluent.jsonl` | Fluent-response dataset for full-sentence explanations and summaries |
+| `run-tests.py` | Pytest runner with suite aliases and direct/proxy grouping |
+| `run-evaluation.py` | Standalone Azure AI Evaluation entrypoint |
+| `run-tests.sh` | Shell wrapper around `run-tests.py` |
 
 ## Prerequisites
 
-1. **Install bats-core**:
-   ```bash
-   # On Windows with Git Bash or WSL:
-   git clone https://github.com/bats-core/bats-core.git
-   cd bats-core
-   ./install.sh /usr/local  # or a local path
-   
-   # Or via npm:
-   npm install -g bats
-   ```
-
-2. **Required tools**:
-   - `curl` - for HTTP requests
-   - `jq` - for JSON parsing
-   - `terraform` - for extracting output values
-
-3. **Azure authentication** - for extracting subscription keys from terraform output
+1. Install `uv` and Python 3.13.
+2. Authenticate to Azure if you want Key Vault fallback or terraform-output discovery to work.
+3. Ensure the target environment has already been deployed.
 
 ## Configuration
 
-Tests load configuration from terraform outputs. Set environment variables or run via `run-tests.sh`:
+The harness resolves configuration in this order:
+
+1. Explicit environment variables such as `APIM_GATEWAY_URL`, `AI_HUB_ADMIN_SUBSCRIPTION_KEY`, and `NRDAP_SUBSCRIPTION_KEY`
+2. `infra-ai-hub/scripts/deploy-terraform.sh output <env>`
+3. Direct `terraform output -json` as a fallback
+
+Common variables:
 
 ```bash
-# Required environment variables (auto-loaded from terraform):
-export APIM_GATEWAY_URL="https://ai-services-hub-test-apim.azure-api.net"
-export WLRS_SUBSCRIPTION_KEY="<from-terraform-output>"
-export SDPR_SUBSCRIPTION_KEY="<from-terraform-output>"
-export TEST_ENV="test"  # dev|test|prod
-export HTTPS_PROXY="http://127.0.0.1:8118"  # For VPN/proxy access
+export TEST_ENV=test
+export APIM_GATEWAY_URL="https://your-gateway.example"
+export AI_HUB_ADMIN_SUBSCRIPTION_KEY="..."
+export NRDAP_SUBSCRIPTION_KEY="..."
+export HTTPS_PROXY="http://127.0.0.1:8118"  # only for proxy-only suites
 ```
-
-The test harness reads `infra-ai-hub/params/${TEST_ENV}/shared.tfvars` to determine environment-specific settings.
-If App Gateway is not deployed, tests automatically use direct APIM base URL and skip AppGW-specific assertions.
 
 ## Running Tests
 
 ```bash
-# Run all tests with proxy:
-./run-tests.sh
+cd tests/integration
 
-# Run against dev environment:
-./run-tests.sh --env dev
+# Install/update the local environment
+uv sync --group dev
 
-# Run specific test file:
-bats chat-completions.bats
+# Fast unit coverage
+uv run pytest tests/unit -q
 
-# Run with verbose output:
-bats --tap chat-completions.bats
+# All live suites
+./run-tests.sh --env test --group all
+
+# Direct suites only (public APIM/App Gateway paths)
+./run-tests.sh --env test --group direct
+
+# Proxy-only suites (Key Vault fallback / private endpoint access)
+./run-tests.sh --env test --group proxy
+
+# Run a specific suite alias
+./run-tests.sh --env test tenant-info
+./run-tests.sh --env test document-intelligence
 ```
 
-## Test Files
+## AI Evaluation
 
-| File | Description |
-|------|-------------|
-| `chat-completions.bats` | Tests OpenAI chat completion endpoints for both tenants |
-| `pii-redaction.bats` | Tests PII redaction policy (WLRS=enabled, SDPR=disabled) |
-| `document-intelligence.bats` | Tests Document Intelligence layout analysis endpoints |
-| `test-helper.bash` | Shared helper functions and setup |
-| `config.bash` | Configuration loader from terraform outputs |
+The optional evaluation runner uses `azure-ai-evaluation` to score two datasets by default:
 
-## Test Structure
+- `eval_datasets/chat_quality.jsonl` keeps the deterministic exact-answer prompts and does not gate on fluency.
+- `eval_datasets/chat_quality_fluent.jsonl` uses full-sentence prompts so fluency can be measured meaningfully.
 
-Each test follows this pattern:
-1. **Setup**: Load config and verify prerequisites
-2. **Request**: Make API call via curl to APIM gateway
-3. **Validate**: Check response status, headers, and body content
-4. **Teardown**: Clean up any resources if needed
+This split avoids punishing the exact-answer suite for doing the right thing with terse outputs like `4`, `Victoria`, or `yes`, while still giving you a place to enforce fluent natural-language responses.
 
-## APIM Endpoints
+```bash
+cd tests/integration
 
-- **Chat Completions**: `POST /{tenant}/openai/deployments/{model}/chat/completions?api-version=2024-10-21`
-- **Document Intelligence**: `POST /{tenant}/documentintelligence/documentModels/prebuilt-layout:analyze?api-version=2024-02-29-preview`
+export AI_EVAL_JUDGE_ENDPOINT="https://<judge-endpoint>.openai.azure.com"
+export AI_EVAL_JUDGE_API_KEY="..."
+export AI_EVAL_JUDGE_DEPLOYMENT="gpt-4.1-mini"
+export AI_EVAL_MIN_RELEVANCE="4.0"
+export AI_EVAL_MIN_COHERENCE="4.0"
+export AI_EVAL_MIN_FLUENCY="4.0"  # applied to the fluent-response dataset only
 
-## Tenant Configuration
+uv run python ./run-evaluation.py --env test
+uv run pytest tests/test_ai_evaluation.py -q
+```
 
-| Tenant | PII Redaction | Model |
-|--------|---------------|-------|
-| wlrs-water-form-assistant | Enabled | gpt-4.1-mini |
-| sdpr-invoice-automation | Disabled | gpt-4.1-mini |
+Optional dataset overrides:
 
-## Troubleshooting
+- `AI_EVAL_DATASET` overrides the exact-answer dataset path.
+- `AI_EVAL_FLUENT_DATASET` overrides the fluent-response dataset path.
 
-1. **Connection refused**: Ensure proxy is running (`http://127.0.0.1:8118`)
-2. **401 Unauthorized**: Check subscription key is valid
-3. **404 Not Found**: Verify API path and tenant name
-4. **500 Internal Server Error**: Check backend service status in Azure Portal
+If the judge-model variables are not configured, the evaluation command and pytest suite skip cleanly.
+
+## Suite Map
+
+| Suite | Coverage |
+|------|----------|
+| `test_chat_completions.py` | Deployment-route chat completions for `ai-hub-admin` and NR-DAP |
+| `test_v1_chat_completions.py` | OpenAI-compatible `/openai/v1` routing, streaming, and Bearer auth |
+| `test_document_intelligence.py` | JSON and async Document Intelligence coverage |
+| `test_document_intelligence_binary.py` | Binary and multipart Document Intelligence coverage through App Gateway |
+| `test_app_gateway.py` | TLS, routing, auth normalization, and cross-key isolation |
+| `test_tenant_info.py` | `/internal/tenant-info` contract coverage |
+| `test_apim_key_rotation.py` | `/internal/apim-keys` and Key Vault fallback coverage |
+| `test_mistral.py` | Mistral chat and OCR routing |
+| `test_ai_evaluation.py` | Azure AI Evaluation dataset scoring |
+
+## Validation
+
+Run these checks before merging Python harness changes:
+
+```bash
+cd tests/integration
+uv sync --group dev
+uv run ruff check .
+uv run ruff format --check .
+uv run pytest tests/unit -q
+```
+
+Live suites depend on deployed infrastructure and valid subscription keys, so run the relevant groups that match your environment.
