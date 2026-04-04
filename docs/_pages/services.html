@@ -193,7 +193,7 @@
 <div class="alert alert-info" style="margin-top: 1rem;">
     <div class="alert-icon">💡</div>
     <div>
-        Provisioned throughput uses <strong>input-equivalent</strong> TPM, not a simple raw input + output token total. For GPT-5.1, one output token counts as roughly eight input tokens toward PTU utilization, so the APIM safeguard uses a lower raw-token cap than the Foundry PTU ceiling.
+        Provisioned throughput uses <strong>input-equivalent</strong> TPM, not a simple raw input + output token total. For GPT-5.1, APIM now enforces non-streaming requests on a dedicated PTU backend using actual response usage with prompt tokens weighted x1 and completion tokens weighted x8. The lower raw-token cap is retained only as a fallback for streaming requests, where APIM cannot reliably read final SSE usage before returning the stream.
     </div>
 </div>
 

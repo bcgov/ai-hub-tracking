@@ -126,7 +126,7 @@
     <p>Returns the tenant's deployed AI models (with quota information) and the set of enabled AI services. The response is <strong>fully static</strong> &mdash; data is baked in at Terraform deploy time via <code>templatefile()</code>, so no Key Vault or backend calls are made at runtime. Always available; there is no feature flag that disables this endpoint.</p>
     <p>Use this endpoint to:</p>
     <ul>
-        <li>Discover which models are available, the APIM raw-token cap for each model, and any provisioned-throughput metadata.</li>
+        <li>Discover which models are available, including the weighted PTU limit, raw fallback cap, and other provisioned-throughput metadata.</li>
         <li>Confirm which AI services (Document Intelligence, AI Search, Speech, etc.) are enabled for your tenant.</li>
         <li>Drive UI dropdowns or config auto-discovery without maintaining a separate config file.</li>
     </ul>
@@ -134,7 +134,7 @@
 
 <div class="alert alert-info">
     <div>
-        <strong>Provisioned throughput note:</strong> For provisioned models, Microsoft Foundry measures throughput as <em>input-equivalent</em> tokens per minute, and some models weight output tokens more heavily than input tokens. APIM's <code>llm-token-limit</code> policy only enforces raw prompt + completion tokens, so the platform publishes both values and uses a conservative APIM cap to avoid Foundry rejecting requests earlier than APIM. For WLRS <code>gpt-5.1</code>, the Foundry ceiling is <code>71,250</code> input-equivalent TPM, the output weighting is <code>8x</code>, and the conservative APIM raw-token cap is therefore <code>8,906</code> TPM.
+        <strong>Provisioned throughput note:</strong> For provisioned models, Microsoft Foundry measures throughput as <em>input-equivalent</em> tokens per minute, and some models weight output tokens more heavily than input tokens. For WLRS <code>gpt-5.1</code>, APIM now enforces non-streaming traffic on a dedicated PTU backend using actual response usage with prompt tokens weighted x1 and completion tokens weighted x8 against a <code>71,250</code> weighted TPM ceiling. The conservative <code>8,906</code> raw TPM value remains published as a fallback for streaming requests, where APIM cannot reliably read final SSE usage before returning the stream.
     </div>
 </div>
 
@@ -175,6 +175,10 @@
             "capacity_k_tpm": null,
             "input_tpm_per_ptu": 4750,
             "output_tokens_to_input_ratio": 8,
+            "token_limit_strategy": "response_weighted_actual_tokens",
+            "prompt_tokens_weight": 1,
+            "completion_tokens_weight": 8,
+            "weighted_tokens_per_minute": 71250,
             "apim_raw_tokens_per_minute": 8906,
             "input_equivalent_tokens_per_minute": 71250,
             "tokens_per_minute": 8906,
@@ -201,6 +205,10 @@
             "capacity_k_tpm": 1500,
             "input_tpm_per_ptu": null,
             "output_tokens_to_input_ratio": null,
+            "token_limit_strategy": "raw_tokens_per_minute",
+            "prompt_tokens_weight": 1,
+            "completion_tokens_weight": 1,
+            "weighted_tokens_per_minute": 1500000,
             "apim_raw_tokens_per_minute": 1500000,
             "input_equivalent_tokens_per_minute": 1500000,
             "tokens_per_minute": 1500000,
@@ -266,8 +274,12 @@
             <tr><td><code>models[].capacity_k_tpm</code></td><td>number|null</td><td>Allocated quota in thousands of tokens per minute for quota-based deployments. <code>null</code> for provisioned deployments.</td></tr>
             <tr><td><code>models[].input_tpm_per_ptu</code></td><td>number|null</td><td>Model-specific input TPM available per PTU for provisioned deployments. <code>null</code> for quota-based deployments.</td></tr>
             <tr><td><code>models[].output_tokens_to_input_ratio</code></td><td>number|null</td><td>For provisioned deployments, how many input-equivalent tokens one output token consumes. <code>null</code> for quota-based deployments.</td></tr>
-            <tr><td><code>models[].apim_raw_tokens_per_minute</code></td><td>number</td><td>The raw prompt + completion token cap enforced by APIM's <code>llm-token-limit</code> policy. For provisioned deployments this is a conservative ceiling chosen so APIM does not allow traffic that Foundry would reject sooner.</td></tr>
-            <tr><td><code>models[].input_equivalent_tokens_per_minute</code></td><td>number</td><td>The Foundry throughput ceiling expressed in input-equivalent tokens per minute. For quota-based deployments this matches the APIM cap. For provisioned deployments this is typically higher than the APIM raw-token cap because output tokens are weighted more heavily.</td></tr>
+            <tr><td><code>models[].token_limit_strategy</code></td><td>string</td><td>The APIM enforcement mode for the model. Current values are <code>raw_tokens_per_minute</code> for quota-backed models and <code>response_weighted_actual_tokens</code> for provisioned (PTU) deployments.</td></tr>
+            <tr><td><code>models[].prompt_tokens_weight</code></td><td>number</td><td>The multiplier APIM applies to prompt tokens when computing weighted token counts for PTU rate limiting.</td></tr>
+            <tr><td><code>models[].completion_tokens_weight</code></td><td>number</td><td>The multiplier APIM applies to completion tokens when computing weighted token counts for PTU rate limiting.</td></tr>
+            <tr><td><code>models[].weighted_tokens_per_minute</code></td><td>number</td><td>The weighted TPM budget used by APIM. For provisioned (PTU) deployments this matches the Foundry input-equivalent TPM ceiling; for quota-based models it matches the raw TPM cap.</td></tr>
+            <tr><td><code>models[].apim_raw_tokens_per_minute</code></td><td>number</td><td>The raw prompt + completion token ceiling. For quota-based models this is the enforced limit. For provisioned (PTU) deployments this is retained as the streaming/raw fallback cap.</td></tr>
+            <tr><td><code>models[].input_equivalent_tokens_per_minute</code></td><td>number</td><td>The Foundry throughput ceiling expressed in input-equivalent tokens per minute. For quota-based deployments this matches the APIM cap. For provisioned deployments this is typically higher than the raw fallback cap because output tokens are weighted more heavily.</td></tr>
             <tr><td><code>models[].tokens_per_minute</code></td><td>number</td><td>Legacy alias for <code>apim_raw_tokens_per_minute</code>. Use the explicit fields above for new consumers.</td></tr>
             <tr><td><code>models[].endpoints.azure_openai.endpoint</code></td><td>string</td><td>Endpoint for the Azure OpenAI SDK (<code>AzureOpenAI(azure_endpoint=...)</code>).</td></tr>
             <tr><td><code>models[].endpoints.azure_openai.api_version</code></td><td>string</td><td>Recommended API version for Azure OpenAI SDK calls.</td></tr>
