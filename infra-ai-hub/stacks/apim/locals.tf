@@ -120,43 +120,65 @@ locals {
     }
   }
 
+  tenant_model_deployments = {
+    for key, config in local.enabled_tenants : key => [
+      for _m in [
+        for deployment in try(config.openai.model_deployments, []) : merge(deployment, {
+          # Quota-backed deployments report capacity directly in k TPM; provisioned deployments use PTU.
+          capacity_unit = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? "PTU" : "k TPM"
+          # Preserve the legacy k TPM field for quota-backed deployments only.
+          capacity_k_tpm = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? null : try(deployment.capacity, null)
+          # PTU metadata is model-specific and comes from the lookup table above.
+          input_tpm_per_ptu            = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? try(local.provisioned_capacity_metadata_by_model[try(deployment.model_name, deployment.name)].input_tpm_per_ptu, null) : null
+          output_tokens_to_input_ratio = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? try(local.provisioned_capacity_metadata_by_model[try(deployment.model_name, deployment.name)].output_tokens_to_input_ratio, null) : null
+          # Foundry PTU throughput is tracked in input-equivalent TPM, not raw prompt+completion tokens.
+          input_equivalent_tokens_per_minute = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? (
+            try(deployment.capacity, 0) * try(local.provisioned_capacity_metadata_by_model[try(deployment.model_name, deployment.name)].input_tpm_per_ptu, 1000)
+          ) : (try(deployment.capacity, 0) * 1000)
+          # APIM can only rate-limit raw tokens, so convert the PTU ceiling into a conservative
+          # raw-token cap by dividing the input-equivalent ceiling by the output weighting ratio.
+          apim_raw_tokens_per_minute = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? floor(
+            (
+              try(deployment.capacity, 0) *
+              try(local.provisioned_capacity_metadata_by_model[try(deployment.model_name, deployment.name)].input_tpm_per_ptu, 1000)
+              ) / max(
+              1,
+              try(local.provisioned_capacity_metadata_by_model[try(deployment.model_name, deployment.name)].output_tokens_to_input_ratio, 1)
+            )
+          ) : (try(deployment.capacity, 0) * 1000)
+        })
+        ] : merge(_m, {
+          # Track whether APIM enforces this model via raw-token caps or weighted actual usage.
+          token_limit_strategy = _m.capacity_unit == "PTU" ? "response_weighted_actual_tokens" : "raw_tokens_per_minute"
+          # PTU models use prompt x1 + completion xN weighting; quota-backed models stay 1:1.
+          prompt_tokens_weight       = 1
+          completion_tokens_weight   = _m.capacity_unit == "PTU" ? coalesce(_m.output_tokens_to_input_ratio, 1) : 1
+          weighted_tokens_per_minute = _m.capacity_unit == "PTU" ? _m.input_equivalent_tokens_per_minute : _m.apim_raw_tokens_per_minute
+          # Dedicated backend entity isolates PTU circuit-breaking from the shared quota-backed path.
+          openai_backend_id = _m.capacity_unit == "PTU" ? "${key}-openai-ptu" : "${key}-openai"
+          # Legacy alias: kept aligned with the actual APIM-enforced raw-token cap.
+          tokens_per_minute = _m.apim_raw_tokens_per_minute
+      })
+    ]
+  }
+
+  tenant_backend_routing_is_valid = {
+    for key, deployments in local.tenant_model_deployments : key => alltrue([
+      for deployment in deployments : (
+        deployment.capacity_unit == "PTU"
+        ? deployment.openai_backend_id == "${key}-openai-ptu"
+        : deployment.openai_backend_id == "${key}-openai"
+      )
+    ])
+  }
+
   tenant_api_policies = {
     for key, config in local.enabled_tenants : key => templatefile(
       "${path.root}/../../params/apim/api_policy.xml.tftpl",
       {
-        tenant_name       = key
-        tokens_per_minute = try(config.apim_policies.rate_limiting.tokens_per_minute, 10000)
-        model_deployments = [
-          for _m in [
-            for deployment in try(config.openai.model_deployments, []) : merge(deployment, {
-              # Quota-backed deployments report capacity directly in k TPM; provisioned deployments use PTU.
-              capacity_unit = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? "PTU" : "k TPM"
-              # Preserve the legacy k TPM field for quota-backed deployments only.
-              capacity_k_tpm = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? null : try(deployment.capacity, null)
-              # PTU metadata is model-specific and comes from the lookup table above.
-              input_tpm_per_ptu            = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? try(local.provisioned_capacity_metadata_by_model[try(deployment.model_name, deployment.name)].input_tpm_per_ptu, null) : null
-              output_tokens_to_input_ratio = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? try(local.provisioned_capacity_metadata_by_model[try(deployment.model_name, deployment.name)].output_tokens_to_input_ratio, null) : null
-              # Foundry PTU throughput is tracked in input-equivalent TPM, not raw prompt+completion tokens.
-              input_equivalent_tokens_per_minute = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? (
-                try(deployment.capacity, 0) * try(local.provisioned_capacity_metadata_by_model[try(deployment.model_name, deployment.name)].input_tpm_per_ptu, 1000)
-              ) : (try(deployment.capacity, 0) * 1000)
-              # APIM can only rate-limit raw tokens, so convert the PTU ceiling into a conservative
-              # raw-token cap by dividing the input-equivalent ceiling by the output weighting ratio.
-              apim_raw_tokens_per_minute = contains(local.provisioned_scale_types, try(deployment.scale_type, "")) ? floor(
-                (
-                  try(deployment.capacity, 0) *
-                  try(local.provisioned_capacity_metadata_by_model[try(deployment.model_name, deployment.name)].input_tpm_per_ptu, 1000)
-                  ) / max(
-                  1,
-                  try(local.provisioned_capacity_metadata_by_model[try(deployment.model_name, deployment.name)].output_tokens_to_input_ratio, 1)
-                )
-              ) : (try(deployment.capacity, 0) * 1000)
-            })
-            ] : merge(_m, {
-              # Legacy alias: kept aligned with the actual APIM-enforced raw-token cap.
-              tokens_per_minute = _m.apim_raw_tokens_per_minute
-          })
-        ]
+        tenant_name                    = key
+        tokens_per_minute              = try(config.apim_policies.rate_limiting.tokens_per_minute, 10000)
+        model_deployments              = local.tenant_model_deployments[key]
         openai_enabled                 = length(try(config.openai.model_deployments, [])) > 0
         document_intelligence_enabled  = try(config.document_intelligence.enabled, false)
         ai_search_enabled              = try(config.ai_search.enabled, false)
@@ -251,5 +273,12 @@ check "provisioned_model_metadata_coverage" {
       ])
     ])
     error_message = "One or more provisioned deployments reference a model not in provisioned_capacity_metadata_by_model. Add the model's input_tpm_per_ptu and output_tokens_to_input_ratio to the lookup table in locals.tf."
+  }
+}
+
+check "provisioned_backend_routing_alignment" {
+  assert {
+    condition     = alltrue(values(local.tenant_backend_routing_is_valid))
+    error_message = "One or more OpenAI deployments render with the wrong APIM backend id. PTU deployments must use <tenant>-openai-ptu and non-PTU deployments must use <tenant>-openai."
   }
 }

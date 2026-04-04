@@ -11,6 +11,11 @@
         - routeLocation: The Azure region of the backend
         - routeName: The name of the route used
         - deploymentName: The OpenAI deployment name
+        - tokenLimitStrategy (optional): "raw_tokens_per_minute" or "response_weighted_actual_tokens"
+        - promptTokensWeight (optional): Multiplier for prompt tokens (default 1)
+        - completionTokensWeight (optional): Multiplier for completion tokens (default 1)
+        - weightedTokensPerMinute (optional): Weighted TPM budget (default 0)
+        - weightedTokensConsumed (optional): Weighted tokens used by this request (default 0)
         
         Usage: Include in outbound section after setting responseBody:
         <set-variable name="responseBody" value="@(context.Response.Body.As<JObject>(preserveContent: true))" />
@@ -65,6 +70,11 @@
                     var responseBody = (JObject)context.Variables["responseBody"];
                     return responseBody?["usage"]?["total_tokens"]?.Value<int>().ToString() ?? "0";
                 }" />
+                <metadata name="token-limit-strategy" value="@(context.Variables.GetValueOrDefault<string>("tokenLimitStrategy", "raw_tokens_per_minute"))" />
+                <metadata name="prompt-tokens-weight" value="@(context.Variables.GetValueOrDefault<int>("promptTokensWeight", 1).ToString())" />
+                <metadata name="completion-tokens-weight" value="@(context.Variables.GetValueOrDefault<int>("completionTokensWeight", 1).ToString())" />
+                <metadata name="weighted-tokens-per-minute" value="@(context.Variables.GetValueOrDefault<int>("weightedTokensPerMinute", 0).ToString())" />
+                <metadata name="weighted-tokens-consumed" value="@(context.Variables.GetValueOrDefault<int>("weightedTokensConsumed", 0).ToString())" />
                 <!-- Session/User tracking (if provided by client) -->
                 <metadata name="session-id" value="@(context.Request.Headers.GetValueOrDefault("X-Session-Id", "N/A"))" />
                 <metadata name="end-user-id" value="@(context.Request.Headers.GetValueOrDefault("X-End-User-Id", "N/A"))" />

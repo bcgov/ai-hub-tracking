@@ -97,6 +97,8 @@ Always:
 
 ## Rate Limiting
 - Per-model rate limiting is the default: each `model_deployments` entry in `tenant.tfvars` gets its own `<llm-token-limit>` keyed by `{subscriptionId}-{modelName}`.
+- Provisioned PTU models can use a dedicated APIM backend plus response-weighted `<rate-limit-by-key>` accounting for non-streaming traffic when the Foundry model weights completion tokens more heavily than prompt tokens.
+- When using response-weighted PTU accounting, keep a conservative raw `<llm-token-limit>` fallback for streaming requests because APIM cannot reliably parse final SSE usage before the stream is returned.
 - A fallback `<llm-token-limit>` handles unrecognized deployment names.
 - If `model_deployments` is empty, a single subscription-level token limit applies.
 - Emit `x-ratelimit-remaining-tokens` header for observability.

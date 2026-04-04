@@ -143,6 +143,10 @@ export interface RawApimTenantInfoModel {
   capacity_k_tpm?: number;
   input_tpm_per_ptu?: number;
   output_tokens_to_input_ratio?: number;
+  token_limit_strategy?: 'raw_tokens_per_minute' | 'response_weighted_actual_tokens';
+  prompt_tokens_weight?: number;
+  completion_tokens_weight?: number;
+  weighted_tokens_per_minute?: number;
   apim_raw_tokens_per_minute?: number;
   input_equivalent_tokens_per_minute?: number;
   tokens_per_minute?: number;

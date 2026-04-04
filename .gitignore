@@ -59,6 +59,8 @@ terraform.tfvars
 .tenants-*.auto.tfvars
 crash.log
 _bkp
+_tmp/
+temp/
 *._bkp
 *.pem
 **/*.pem

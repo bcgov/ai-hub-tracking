@@ -1,5 +1,3 @@
-data "azurerm_client_config" "current" {}
-
 data "terraform_remote_state" "shared" {
   backend = "azurerm"
   config = {
@@ -218,6 +216,44 @@ resource "azurerm_api_management_backend" "openai" {
 
   circuit_breaker_rule {
     name                       = "openai-breaker"
+    trip_duration              = "PT1M"
+    accept_retry_after_enabled = true
+
+    failure_condition {
+      count             = 3
+      interval_duration = "PT1M"
+
+      status_code_range {
+        min = 429
+        max = 429
+      }
+
+      status_code_range {
+        min = 500
+        max = 599
+      }
+    }
+  }
+}
+
+resource "azurerm_api_management_backend" "openai_ptu" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if length([
+      for deployment in lookup(config.openai, "model_deployments", []) : deployment
+      if contains(local.provisioned_scale_types, try(deployment.scale_type, ""))
+    ]) > 0 && local.apim_config.enabled
+  }
+
+  name                = "${each.key}-openai-ptu"
+  resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
+  api_management_name = module.apim[0].name
+  protocol            = "http"
+  url                 = data.terraform_remote_state.shared.outputs.ai_foundry_hub_endpoint
+  description         = "Dedicated PTU OpenAI backend for ${each.value.display_name}"
+
+  circuit_breaker_rule {
+    name                       = "openai-ptu-breaker"
     trip_duration              = "PT1M"
     accept_retry_after_enabled = true
 
@@ -642,6 +678,7 @@ resource "azurerm_api_management_api_policy" "tenant" {
     azurerm_api_management_policy_fragment.tracking_dimensions,
     azurerm_api_management_backend.ai_foundry,
     azurerm_api_management_backend.openai,
+    azurerm_api_management_backend.openai_ptu,
     azurerm_api_management_backend.docint,
     azurerm_api_management_backend.storage,
     azurerm_api_management_backend.ai_search,
@@ -656,6 +693,13 @@ resource "azurerm_api_management_api_policy" "tenant" {
     azurerm_api_management_named_value.pii_service_url,
     azurerm_api_management_named_value.speech_services_key,
   ]
+
+  lifecycle {
+    precondition {
+      condition     = local.tenant_backend_routing_is_valid[each.key]
+      error_message = "Tenant ${each.key} has one or more OpenAI deployments mapped to the wrong APIM backend. PTU deployments must use ${each.key}-openai-ptu and non-PTU deployments must use ${each.key}-openai."
+    }
+  }
 }
 
 resource "azurerm_role_assignment" "apim_openai_user" {

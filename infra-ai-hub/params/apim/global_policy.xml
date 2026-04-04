@@ -76,11 +76,28 @@
             <when condition="@(context.Response.StatusCode == 429)">
                 <return-response>
                     <set-status code="429" reason="Too Many Requests" />
+                    <set-header name="x-request-id" exists-action="override">
+                        <value>@(context.RequestId.ToString())</value>
+                    </set-header>
                     <set-header name="x-ms-request-id" exists-action="override">
                         <value>@(context.RequestId.ToString())</value>
                     </set-header>
                     <set-header name="Retry-After" exists-action="override">
                         <value>@(context.Response.Headers.GetValueOrDefault("Retry-After", "30"))</value>
+                    </set-header>
+                    <set-header name="retry-after-ms" exists-action="override">
+                        <value>@{
+                            var retryAfter = context.Response.Headers.GetValueOrDefault("Retry-After", "30");
+                            int retryAfterSeconds;
+                            if (System.Int32.TryParse(retryAfter, out retryAfterSeconds))
+                            {
+                                return System.Math.Max(0, retryAfterSeconds * 1000).ToString();
+                            }
+                            return "30000";
+                        }</value>
+                    </set-header>
+                    <set-header name="x-should-retry" exists-action="override">
+                        <value>true</value>
                     </set-header>
                     <set-header name="x-ratelimit-remaining-tokens" exists-action="override">
                         <value>@(context.Response.Headers.GetValueOrDefault("x-ratelimit-remaining-tokens", "0"))</value>
@@ -103,18 +120,38 @@
             </when>
             <!-- ================================================================== -->
             <!-- CIRCUIT BREAKER HANDLING                                           -->
-            <!-- When a backend circuit breaker trips, APIM returns 503.            -->
-            <!-- Provide a clear error with Retry-After so clients can back off.    -->
-            <!-- See ADR-016 in decisions.html for circuit breaker design.          -->
+            <!-- APIM's native backend circuit breaker enters on-error with 503.    -->
+            <!-- Rewrite the client-facing response to 429 so OpenAI SDK retries    -->
+            <!-- honor Retry-After automatically. See ADR-016 for design context.   -->
             <!-- ================================================================== -->
             <when condition="@(context.Response.StatusCode == 503)">
                 <return-response>
-                    <set-status code="503" reason="Service Unavailable" />
+                    <set-status code="429" reason="Too Many Requests" />
+                    <set-header name="x-request-id" exists-action="override">
+                        <value>@(context.RequestId.ToString())</value>
+                    </set-header>
                     <set-header name="x-ms-request-id" exists-action="override">
                         <value>@(context.RequestId.ToString())</value>
                     </set-header>
                     <set-header name="Retry-After" exists-action="override">
                         <value>@(context.Response.Headers.GetValueOrDefault("Retry-After", "60"))</value>
+                    </set-header>
+                    <set-header name="retry-after-ms" exists-action="override">
+                        <value>@{
+                            var retryAfter = context.Response.Headers.GetValueOrDefault("Retry-After", "60");
+                            int retryAfterSeconds;
+                            if (System.Int32.TryParse(retryAfter, out retryAfterSeconds))
+                            {
+                                return System.Math.Max(0, retryAfterSeconds * 1000).ToString();
+                            }
+                            return "60000";
+                        }</value>
+                    </set-header>
+                    <set-header name="x-should-retry" exists-action="override">
+                        <value>true</value>
+                    </set-header>
+                    <set-header name="x-ratelimit-remaining-tokens" exists-action="override">
+                        <value>0</value>
                     </set-header>
                     <set-header name="Content-Type" exists-action="override">
                         <value>application/json</value>
@@ -123,8 +160,8 @@
                         var retryAfter = context.Response.Headers.GetValueOrDefault("Retry-After", "60");
                         return new JObject(
                             new JProperty("error", new JObject(
-                                new JProperty("code", "503"),
-                                new JProperty("message", "Service temporarily unavailable — backend circuit breaker is open. The service is recovering from excessive failures. Retry after the indicated period."),
+                                new JProperty("code", "429"),
+                                new JProperty("message", "Too Many Requests - backend circuit breaker is open. Retry after the indicated period."),
                                 new JProperty("retryAfter", retryAfter),
                                 new JProperty("requestId", context.RequestId.ToString())
                             ))

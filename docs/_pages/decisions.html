@@ -3038,8 +3038,8 @@ module "storage" {
     <ol>
         <li>Backend accumulates failures matching the configured status codes within the failure window.</li>
         <li>When the failure count exceeds the threshold, the circuit <strong>opens</strong> (trips).</li>
-        <li>APIM immediately returns <strong>HTTP 503 Service Unavailable</strong> to all subsequent requests targeting that backend &mdash; requests are <em>not</em> forwarded.</li>
-        <li>The global policy <code>&lt;on-error&gt;</code> handler intercepts the 503 and returns a structured JSON error with a <code>Retry-After</code> header (default: 60 seconds).</li>
+        <li>APIM's native backend circuit breaker enters the <code>&lt;on-error&gt;</code> path with <strong>HTTP 503 Service Unavailable</strong>; requests are <em>not</em> forwarded to the backend while the circuit is open.</li>
+        <li>The shared global policy rewrites that gateway-generated 503 into a client-facing <strong>HTTP 429 Too Many Requests</strong>, preserving <code>Retry-After</code> and adding <code>retry-after-ms</code>, <code>x-should-retry: true</code>, and <code>x-request-id</code> so OpenAI-compatible SDKs back off automatically.</li>
         <li>After the trip duration (or the backend&rsquo;s <code>Retry-After</code> value if <code>accept_retry_after_enabled = true</code>), the circuit <strong>resets</strong> and traffic resumes.</li>
     </ol>
 
@@ -3047,21 +3047,21 @@ module "storage" {
         <strong>Azure OpenAI caution:</strong> When Azure OpenAI returns <code>429</code>, the <code>Retry-After</code> header can be very large (e.g., 86,400 seconds = 1 day). With <code>accept_retry_after_enabled = true</code>, the circuit stays open for that duration. This is intentional &mdash; the backend cannot serve requests during that period anyway.
     </div>
 
-    <h4>Client-facing error response (503)</h4>
-    <pre style="background: var(--bg-light); padding: 1rem; border-radius: 8px; font-size: 0.85rem; overflow-x: auto;">{
-  "error": {
-    "code": "503",
-    "message": "Service temporarily unavailable — backend circuit breaker is open. The service is recovering from excessive failures. Retry after the indicated period.",
-    "retryAfter": "60",
-    "requestId": "abc-123-def-456"
-  }
+        <h4>Client-facing error response (429)</h4>
+        <pre style="background: var(--bg-light); padding: 1rem; border-radius: 8px; font-size: 0.85rem; overflow-x: auto;">{
+    "error": {
+        "code": "429",
+        "message": "Too Many Requests - backend circuit breaker is open. Retry after the indicated period.",
+        "retryAfter": "60",
+        "requestId": "abc-123-def-456"
+    }
 }</pre>
 
     <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
     <ul>
-        <li><strong>Fast failure:</strong> Clients get an immediate 503 instead of waiting for backend timeouts (up to 300 seconds).</li>
+        <li><strong>Fast failure:</strong> Clients get an immediate 429 instead of waiting for backend timeouts (up to 300 seconds).</li>
         <li><strong>Backend protection:</strong> Prevents overwhelming a struggling backend with additional requests.</li>
-        <li><strong>Native support:</strong> Uses <code>azurerm_api_management_backend.circuit_breaker_rule</code> &mdash; no custom policy logic required.</li>
+        <li><strong>Native support:</strong> Uses <code>azurerm_api_management_backend.circuit_breaker_rule</code> for breaker state, with a single shared <code>&lt;on-error&gt;</code> rewrite to keep the client contract OpenAI-compatible.</li>
         <li><strong>Retry-After propagation:</strong> Passes backend throttle signals directly to clients for proper backoff.</li>
         <li><strong>Event Grid integration:</strong> APIM emits Event Grid events on circuit trip/reset for monitoring and alerting.</li>
     </ul>
@@ -3069,17 +3069,17 @@ module "storage" {
     <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Consequences</h3>
     <h4>Positive</h4>
     <ul>
-        <li>Reduced latency during backend outages (instant 503 vs. timeout).</li>
+        <li>Reduced latency during backend outages (instant 429 vs. timeout).</li>
         <li>Backend services get breathing room to recover.</li>
         <li>Consistent error format with <code>Retry-After</code> enables client-side retry logic.</li>
-        <li>Zero policy-level code &mdash; purely infrastructure configuration.</li>
+        <li>A single shared policy rewrite keeps retry behavior consistent across SDK-based clients.</li>
     </ul>
 
     <h4>Negative</h4>
     <ul>
         <li><strong>Approximate tripping:</strong> APIM gateway instances do not synchronize circuit breaker state. Each instance tracks failures independently, so tripping is approximate in multi-instance deployments.</li>
         <li><strong>Single rule per backend:</strong> Only one circuit breaker rule per backend is currently supported by the Azure API.</li>
-        <li><strong>503 during recovery:</strong> Legitimate requests during the trip window will be rejected even if the backend has recovered before the trip duration expires.</li>
+        <li><strong>429 during recovery:</strong> Legitimate requests during the trip window will be rejected even if the backend has recovered before the trip duration expires.</li>
     </ul>
 
     <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">References</h3>

@@ -37,9 +37,49 @@
                     }
                     return &quot;unknown&quot;;
                 }" />
+                <set-variable name="isStream" value="@{
+                    try {
+                        var body = context.Request.Body.As&lt;JObject&gt;(preserveContent: true);
+                        var streamVal = body?[&quot;stream&quot;];
+                        if (streamVal != null) { return streamVal.Value&lt;bool&gt;(); }
+                        return false;
+                    } catch { return false; }
+                }" />
                 <choose>
 %{ for model in model_deployments ~}
                     <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;deploymentName&quot;, &quot;&quot;) == &quot;${model.name}&quot;)">
+%{ if model.token_limit_strategy == "response_weighted_actual_tokens" ~}
+                        <choose>
+                            <when condition="@(context.Variables.GetValueOrDefault&lt;bool&gt;(&quot;isStream&quot;, false))">
+                                <!-- Streaming fallback for ${model.name}: ${model.apim_raw_tokens_per_minute} raw TPM -->
+                                <llm-token-limit
+                                    counter-key="@(context.Subscription.Id + &quot;-${model.name}&quot;)"
+                                    tokens-per-minute="${model.apim_raw_tokens_per_minute}"
+                                    estimate-prompt-tokens="true"
+                                    remaining-tokens-variable-name="remainingTokens"
+                                    remaining-tokens-header-name="x-ratelimit-remaining-tokens"
+                                    tokens-consumed-variable-name="tokensConsumed" />
+                            </when>
+                            <otherwise>
+                                <!-- Weighted rate limit for ${model.name}: ${model.weighted_tokens_per_minute} weighted TPM -->
+                                <rate-limit-by-key
+                                    counter-key="@(context.Subscription.Id + &quot;-${model.name}-weighted&quot;)"
+                                    calls="${model.weighted_tokens_per_minute}"
+                                    renewal-period="60"
+                                    increment-condition="@(context.Response != null &amp;&amp; context.Response.StatusCode == 200)"
+                                    increment-count="@{
+                                        try {
+                                            var rb = context.Response.Body.As&lt;JObject&gt;(preserveContent: true);
+                                            var p = rb?[&quot;usage&quot;]?[&quot;prompt_tokens&quot;]?.Value&lt;int&gt;() ?? 0;
+                                            var c = rb?[&quot;usage&quot;]?[&quot;completion_tokens&quot;]?.Value&lt;int&gt;() ?? 0;
+                                            return Math.Max(0, (p * ${model.prompt_tokens_weight}) + (c * ${model.completion_tokens_weight}));
+                                        } catch { return 0; }
+                                    }"
+                                    remaining-calls-variable-name="remainingTokens"
+                                    remaining-calls-header-name="x-ratelimit-remaining-weighted-tokens" />
+                            </otherwise>
+                        </choose>
+%{ else ~}
                         <!-- Rate limit for ${model.name}: ${model.apim_raw_tokens_per_minute} raw TPM -->
                         <llm-token-limit
                             counter-key="@(context.Subscription.Id + &quot;-${model.name}&quot;)"
@@ -48,6 +88,7 @@
                             remaining-tokens-variable-name="remainingTokens"
                             remaining-tokens-header-name="x-ratelimit-remaining-tokens"
                             tokens-consumed-variable-name="tokensConsumed" />
+%{ endif ~}
                     </when>
 %{ endfor ~}
                     <otherwise>
@@ -234,6 +275,10 @@
     capacity_k_tpm                     = m.capacity_k_tpm
     input_tpm_per_ptu                  = m.input_tpm_per_ptu
     output_tokens_to_input_ratio       = m.output_tokens_to_input_ratio
+    token_limit_strategy               = m.token_limit_strategy
+    prompt_tokens_weight               = m.prompt_tokens_weight
+    completion_tokens_weight           = m.completion_tokens_weight
+    weighted_tokens_per_minute         = m.weighted_tokens_per_minute
     apim_raw_tokens_per_minute         = m.apim_raw_tokens_per_minute
     input_equivalent_tokens_per_minute = m.input_equivalent_tokens_per_minute
     tokens_per_minute                  = m.tokens_per_minute
@@ -301,7 +346,49 @@
             <!-- Deployment names on Hub are prefixed with tenant name (e.g., wlrs-gpt-4.1-mini) -->
             <!-- Supports both /deployments/ URL format and /v1/ body format -->
             <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;))">
-                <set-backend-service backend-id="${tenant_name}-openai" />
+                <set-variable name="deploymentName" value="@{
+                    var existing = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;deploymentName&quot;, &quot;&quot;);
+                    if (!string.IsNullOrEmpty(existing) &amp;&amp; existing != &quot;unknown&quot;) { return existing; }
+                    var path = context.Request.Url.Path;
+                    var match = System.Text.RegularExpressions.Regex.Match(path, @&quot;/deployments/([^/]+)/&quot;);
+                    if (match.Success) { return match.Groups[1].Value; }
+                    if (path.ToLower().Contains(&quot;/v1/&quot;)) {
+                        try {
+                            var body = context.Request.Body.As&lt;JObject&gt;(preserveContent: true);
+                            var model = body?[&quot;model&quot;]?.ToString();
+                            if (!string.IsNullOrEmpty(model)) { return model; }
+                        } catch { }
+                    }
+                    return &quot;unknown&quot;;
+                }" />
+                <choose>
+%{ for model in model_deployments ~}
+                    <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;deploymentName&quot;, &quot;&quot;) == &quot;${model.name}&quot;)">
+                        <set-backend-service backend-id="${model.openai_backend_id}" />
+                        <set-variable name="backendId" value="@(&quot;${model.openai_backend_id}&quot;)" />
+                        <set-variable name="routeLocation" value="@(&quot;canadaeast&quot;)" />
+%{ if model.token_limit_strategy == "response_weighted_actual_tokens" ~}
+                        <set-variable name="routeName" value="@(&quot;ptu-dedicated&quot;)" />
+%{ else ~}
+                        <set-variable name="routeName" value="@(&quot;primary&quot;)" />
+%{ endif ~}
+                        <set-variable name="tokenLimitStrategy" value="@(&quot;${model.token_limit_strategy}&quot;)" />
+                        <set-variable name="promptTokensWeight" value="@(${model.prompt_tokens_weight})" />
+                        <set-variable name="completionTokensWeight" value="@(${model.completion_tokens_weight})" />
+                        <set-variable name="weightedTokensPerMinute" value="@(${model.weighted_tokens_per_minute})" />
+                    </when>
+%{ endfor ~}
+                    <otherwise>
+                        <set-backend-service backend-id="${tenant_name}-openai" />
+                        <set-variable name="backendId" value="@(&quot;${tenant_name}-openai&quot;)" />
+                        <set-variable name="routeLocation" value="@(&quot;canadaeast&quot;)" />
+                        <set-variable name="routeName" value="@(&quot;primary&quot;)" />
+                        <set-variable name="tokenLimitStrategy" value="@(&quot;raw_tokens_per_minute&quot;)" />
+                        <set-variable name="promptTokensWeight" value="@(1)" />
+                        <set-variable name="completionTokensWeight" value="@(1)" />
+                        <set-variable name="weightedTokensPerMinute" value="@(${tokens_per_minute})" />
+                    </otherwise>
+                </choose>
                 <!-- Validate /v1/ requests: must have valid JSON body with model field -->
                 <choose>
                     <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;/v1/&quot;))">
@@ -377,12 +464,11 @@
                 }" />
                 <rewrite-uri template="@((string)context.Variables[&quot;rewrittenPath&quot;])" copy-unmatched-params="true" />
                 <!-- Detect streaming requests: stream:true in body means SSE response (not JSON) -->
-                <!-- Read body as string first (preserveContent:true) to guarantee raw bytes are cached, -->
-                <!-- then parse in-memory. The PII fragment re-reads the preserved body directly. -->
+                <!-- Reuse rate-limiting isStream if already set; otherwise parse for standalone routing -->
                 <set-variable name="isStream" value="@{
+                    if (context.Variables.ContainsKey(&quot;isStream&quot;)) { return context.Variables.GetValueOrDefault&lt;bool&gt;(&quot;isStream&quot;, false); }
                     try {
-                        var bodyStr = context.Request.Body.As&lt;string&gt;(preserveContent: true);
-                        var body = JObject.Parse(bodyStr);
+                        var body = context.Request.Body.As&lt;JObject&gt;(preserveContent: true);
                         var streamVal = body?[&quot;stream&quot;];
                         if (streamVal != null) { return streamVal.Value&lt;bool&gt;(); }
                         return false;
@@ -729,10 +815,6 @@
         <choose>
             <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;) &amp;&amp; !context.Variables.GetValueOrDefault&lt;bool&gt;(&quot;isStream&quot;, false))">
                 <set-variable name="responseBody" value="@(context.Response.Body.As&lt;JObject&gt;(preserveContent: true))" />
-                <!-- Set routing metadata for usage logging (single-backend for now) -->
-                <set-variable name="backendId" value="@(&quot;${tenant_name}-openai&quot;)" />
-                <set-variable name="routeLocation" value="@(&quot;canadaeast&quot;)" />
-                <set-variable name="routeName" value="@(&quot;primary&quot;)" />
                 <set-variable name="deploymentName" value="@{
                     // Prefer the inbound-extracted deploymentName (handles both /deployments/ and /v1/ formats)
                     var existing = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;deploymentName&quot;, &quot;&quot;);
@@ -742,6 +824,18 @@
                     var match = System.Text.RegularExpressions.Regex.Match(path, @&quot;/deployments/([^/]+)/&quot;);
                     return match.Success ? match.Groups[1].Value : &quot;unknown&quot;;
                 }" />
+                <set-variable name="weightedTokensConsumed" value="@{
+                    try {
+                        var responseBody = (JObject)context.Variables[&quot;responseBody&quot;];
+                        var promptTokens = responseBody?[&quot;usage&quot;]?[&quot;prompt_tokens&quot;]?.Value&lt;int&gt;() ?? 0;
+                        var completionTokens = responseBody?[&quot;usage&quot;]?[&quot;completion_tokens&quot;]?.Value&lt;int&gt;() ?? 0;
+                        var promptWeight = context.Variables.GetValueOrDefault&lt;int&gt;(&quot;promptTokensWeight&quot;, 1);
+                        var completionWeight = context.Variables.GetValueOrDefault&lt;int&gt;(&quot;completionTokensWeight&quot;, 1);
+                        return (promptTokens * promptWeight) + (completionTokens * completionWeight);
+                    } catch {
+                        return 0;
+                    }
+                }" />
                 <include-fragment fragment-id="openai-usage-logging" />
             </when>
         </choose>
@@ -750,9 +844,6 @@
         <!-- This trace logs request metadata to App Insights for streaming calls -->
         <choose>
             <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;) &amp;&amp; context.Variables.GetValueOrDefault&lt;bool&gt;(&quot;isStream&quot;, false))">
-                <set-variable name="backendId" value="@(&quot;${tenant_name}-openai&quot;)" />
-                <set-variable name="routeLocation" value="@(&quot;canadaeast&quot;)" />
-                <set-variable name="routeName" value="@(&quot;primary&quot;)" />
                 <set-variable name="deploymentName" value="@{
                     var existing = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;deploymentName&quot;, &quot;&quot;);
                     if (!string.IsNullOrEmpty(existing) &amp;&amp; existing != &quot;unknown&quot;) { return existing; }
@@ -770,6 +861,8 @@
                     <metadata name="backend-id" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;backendId&quot;, &quot;unknown&quot;))" />
                     <metadata name="deployment-name" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;deploymentName&quot;, &quot;unknown&quot;))" />
                     <metadata name="route-location" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;routeLocation&quot;, &quot;unknown&quot;))" />
+                    <metadata name="route-name" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;routeName&quot;, &quot;unknown&quot;))" />
+                    <metadata name="token-limit-strategy" value="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;tokenLimitStrategy&quot;, &quot;raw_tokens_per_minute&quot;))" />
                     <metadata name="is-streaming" value="true" />
                 </trace>
             </when>

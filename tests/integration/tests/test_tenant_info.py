@@ -54,6 +54,10 @@ def test_tenant_info_models_have_all_required_fields(tenant_info_payload: dict) 
         assert model["model_name"]
         assert model["model_version"]
         assert model["scale_type"]
+        assert model["token_limit_strategy"] in ("raw_tokens_per_minute", "response_weighted_actual_tokens")
+        assert isinstance(model["prompt_tokens_weight"], int) and model["prompt_tokens_weight"] > 0
+        assert isinstance(model["completion_tokens_weight"], int) and model["completion_tokens_weight"] > 0
+        assert isinstance(model["weighted_tokens_per_minute"], int) and model["weighted_tokens_per_minute"] > 0
         assert model["tokens_per_minute"] is not None
         assert model["apim_raw_tokens_per_minute"] is not None
         assert model["input_equivalent_tokens_per_minute"] is not None
@@ -71,11 +75,19 @@ def test_tenant_info_rate_limit_metadata_matches_capacity_metadata(tenant_info_p
         if model["capacity_unit"] == "PTU":
             expected_input = model["capacity"] * model["input_tpm_per_ptu"]
             expected_raw = math.floor(expected_input / model["output_tokens_to_input_ratio"])
+            assert model["token_limit_strategy"] == "response_weighted_actual_tokens"
+            assert model["prompt_tokens_weight"] == 1
+            assert model["completion_tokens_weight"] == model["output_tokens_to_input_ratio"]
+            assert model["weighted_tokens_per_minute"] == expected_input
             assert model["input_equivalent_tokens_per_minute"] == expected_input
             assert model["apim_raw_tokens_per_minute"] == expected_raw
             assert model["tokens_per_minute"] == expected_raw
         else:
             expected = model["capacity_k_tpm"] * 1000
+            assert model["token_limit_strategy"] == "raw_tokens_per_minute"
+            assert model["prompt_tokens_weight"] == 1
+            assert model["completion_tokens_weight"] == 1
+            assert model["weighted_tokens_per_minute"] == expected
             assert model["tokens_per_minute"] == expected
             assert model["apim_raw_tokens_per_minute"] == expected
             assert model["input_equivalent_tokens_per_minute"] == expected

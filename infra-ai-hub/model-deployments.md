@@ -83,12 +83,12 @@ The table below covers the quota-based **GlobalStandard** deployments. Provision
 
 ### TEST Provisioned Deployments
 
-| Tenant | Deployment | Model | Scale Type | Capacity | Input TPM per PTU | Output Weight | Effective input-equivalent TPM | Conservative APIM raw TPM cap |
-|-------|------------|-------|------------|---------:|------------------:|--------------:|-------------------------------:|------------------------------:|
+| Tenant | Deployment | Model | Scale Type | Capacity | Input TPM per PTU | Output Weight | Effective input-equivalent TPM | Raw fallback TPM |
+|-------|------------|-------|------------|---------:|------------------:|--------------:|-------------------------------:|-----------------:|
 | wlrs | gpt-5.1 | gpt-5.1 | GlobalProvisionedManaged | 15 PTU | 4,750 | 8x | 71,250 | 8,906 |
 
-The conservative APIM raw token cap is calculated as `floor(input_equivalent_tokens_per_minute / output_tokens_to_input_ratio)`.
-For GPT-5.1, APIM cannot enforce Foundry's output-weighted PTU accounting directly, so it uses `floor(71,250 / 8) = 8,906` raw tokens per minute to avoid Foundry accepting less traffic than APIM.
+The raw fallback cap is still calculated as `floor(input_equivalent_tokens_per_minute / output_tokens_to_input_ratio)`.
+For GPT-5.1, APIM now enforces non-streaming traffic with response-weighted actual usage on a dedicated PTU backend using `prompt_tokens * 1 + completion_tokens * 8` against the `71,250` weighted TPM budget. The `8,906` raw TPM value remains published as a fallback ceiling for streaming requests, where APIM cannot reliably read final SSE usage before the stream is returned.
 
 ### Cohere Models (ai-hub-admin only)
 

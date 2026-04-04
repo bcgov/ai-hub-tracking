@@ -550,8 +550,21 @@ export class AppController {
       model.apim_raw_tokens_per_minute ?? model.tokens_per_minute ?? undefined;
     const inputEquivalentTokensPerMinute =
       model.input_equivalent_tokens_per_minute ?? model.tokens_per_minute ?? undefined;
+    const weightedTokensPerMinute =
+      model.weighted_tokens_per_minute ?? inputEquivalentTokensPerMinute ?? undefined;
+    const promptTokensWeight = model.prompt_tokens_weight ?? 1;
+    const completionTokensWeight =
+      model.completion_tokens_weight ?? model.output_tokens_to_input_ratio ?? 1;
 
     if (model.capacity_unit === 'PTU' && typeof model.capacity === 'number') {
+      if (
+        model.token_limit_strategy === 'response_weighted_actual_tokens' &&
+        typeof weightedTokensPerMinute === 'number' &&
+        typeof apimRawTokensPerMinute === 'number'
+      ) {
+        return `${formatter.format(model.capacity)} PTU (${formatter.format(weightedTokensPerMinute)} weighted TPM, prompt x${promptTokensWeight} / completion x${completionTokensWeight}, raw fallback ${formatter.format(apimRawTokensPerMinute)} TPM)`;
+      }
+
       if (
         typeof inputEquivalentTokensPerMinute === 'number' &&
         typeof apimRawTokensPerMinute === 'number'
