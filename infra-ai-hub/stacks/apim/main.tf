@@ -169,38 +169,6 @@ resource "azurerm_api_management_named_value" "pii_service_url" {
   secret              = false
 }
 
-resource "azurerm_api_management_backend" "ai_foundry" {
-  count = local.apim_config.enabled ? 1 : 0
-
-  name                = "ai-foundry-hub"
-  resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
-  api_management_name = module.apim[0].name
-  protocol            = "http"
-  url                 = data.terraform_remote_state.shared.outputs.ai_foundry_hub_endpoint
-  description         = "Shared AI Foundry Hub backend for all tenant model deployments"
-
-  circuit_breaker_rule {
-    name                       = "ai-foundry-breaker"
-    trip_duration              = "PT1M"
-    accept_retry_after_enabled = true
-
-    failure_condition {
-      count             = 3
-      interval_duration = "PT1M"
-
-      status_code_range {
-        min = 429
-        max = 429
-      }
-
-      status_code_range {
-        min = 500
-        max = 599
-      }
-    }
-  }
-}
-
 resource "azurerm_api_management_backend" "openai" {
   for_each = {
     for key, config in local.enabled_tenants : key => config
@@ -222,11 +190,6 @@ resource "azurerm_api_management_backend" "openai" {
     failure_condition {
       count             = 3
       interval_duration = "PT1M"
-
-      status_code_range {
-        min = 429
-        max = 429
-      }
 
       status_code_range {
         min = 500
@@ -262,11 +225,6 @@ resource "azurerm_api_management_backend" "openai_ptu" {
       interval_duration = "PT1M"
 
       status_code_range {
-        min = 429
-        max = 429
-      }
-
-      status_code_range {
         min = 500
         max = 599
       }
@@ -297,11 +255,6 @@ resource "azurerm_api_management_backend" "docint" {
       interval_duration = "PT1M"
 
       status_code_range {
-        min = 429
-        max = 429
-      }
-
-      status_code_range {
         min = 500
         max = 599
       }
@@ -322,6 +275,9 @@ resource "azurerm_api_management_backend" "storage" {
   url                 = data.terraform_remote_state.tenant[each.key].outputs.tenant_storage_accounts[each.key].blob_endpoint
   description         = "Storage backend for ${each.value.display_name}"
 
+  # Storage uses count=5 (vs 3 for AI backends): transient 5xx errors during
+  # Azure Blob Storage capacity events are more common than for AI services;
+  # 5 failures before tripping avoids spurious trips on brief storage hiccups.
   circuit_breaker_rule {
     name                       = "storage-breaker"
     trip_duration              = "PT1M"
@@ -330,11 +286,6 @@ resource "azurerm_api_management_backend" "storage" {
     failure_condition {
       count             = 5
       interval_duration = "PT1M"
-
-      status_code_range {
-        min = 429
-        max = 429
-      }
 
       status_code_range {
         min = 500
@@ -367,11 +318,6 @@ resource "azurerm_api_management_backend" "ai_search" {
       interval_duration = "PT1M"
 
       status_code_range {
-        min = 429
-        max = 429
-      }
-
-      status_code_range {
         min = 500
         max = 599
       }
@@ -402,11 +348,6 @@ resource "azurerm_api_management_backend" "speech_services_stt" {
       interval_duration = "PT1M"
 
       status_code_range {
-        min = 429
-        max = 429
-      }
-
-      status_code_range {
         min = 500
         max = 599
       }
@@ -435,11 +376,6 @@ resource "azurerm_api_management_backend" "speech_services_tts" {
     failure_condition {
       count             = 3
       interval_duration = "PT1M"
-
-      status_code_range {
-        min = 429
-        max = 429
-      }
 
       status_code_range {
         min = 500
@@ -676,7 +612,6 @@ resource "azurerm_api_management_api_policy" "tenant" {
     azurerm_api_management_policy_fragment.pii_anonymization,
     azurerm_api_management_policy_fragment.intelligent_routing,
     azurerm_api_management_policy_fragment.tracking_dimensions,
-    azurerm_api_management_backend.ai_foundry,
     azurerm_api_management_backend.openai,
     azurerm_api_management_backend.openai_ptu,
     azurerm_api_management_backend.docint,

@@ -65,12 +65,37 @@
         <set-header name="x-ratelimit-remaining-tokens" exists-action="override">
             <value>@(context.Variables.ContainsKey("remainingTokens") ? ((int)context.Variables["remainingTokens"]).ToString() : "N/A")</value>
         </set-header>
+        <!-- ================================================================== -->
+        <!-- BACKEND 429 PASS-THROUGH SIGNALS                                  -->
+        <!-- Backend rate-limit responses pass through outbound directly.       -->
+        <!-- The backend Retry-After is preserved; add retry signals for SDKs. -->
+        <!-- Circuit breaker does NOT trip on 429 — only on 5xx failures.      -->
+        <!-- ================================================================== -->
+        <choose>
+            <when condition="@(context.Response.StatusCode == 429)">
+                <set-header name="x-should-retry" exists-action="override">
+                    <value>true</value>
+                </set-header>
+                <set-header name="retry-after-ms" exists-action="override">
+                    <value>@{
+                        var retryAfter = context.Response.Headers.GetValueOrDefault("Retry-After", "30");
+                        int retryAfterSeconds;
+                        if (System.Int32.TryParse(retryAfter, out retryAfterSeconds))
+                        {
+                            return System.Math.Max(0, retryAfterSeconds * 1000).ToString();
+                        }
+                        return "30000";
+                    }</value>
+                </set-header>
+            </when>
+        </choose>
     </outbound>
     <on-error>
         <!-- ================================================================== -->
-        <!-- THROTTLING HANDLING                                               -->
-        <!-- Preserve Retry-After headers from backend for 429 responses       -->
-        <!-- Helps clients implement proper backoff strategies                 -->
+        <!-- APIM-INTERNAL RATE LIMIT HANDLING                                 -->
+        <!-- Fires when llm-token-limit or rate-limit-by-key trips in inbound. -->
+        <!-- Backend 429s pass through <outbound> — they do NOT reach on-error.-->
+        <!-- Sets Retry-After + retry signals for OpenAI SDK compatibility.    -->
         <!-- ================================================================== -->
         <choose>
             <when condition="@(context.Response.StatusCode == 429)">
@@ -121,12 +146,14 @@
             <!-- ================================================================== -->
             <!-- CIRCUIT BREAKER HANDLING                                           -->
             <!-- APIM's native backend circuit breaker enters on-error with 503.    -->
-            <!-- Rewrite the client-facing response to 429 so OpenAI SDK retries    -->
-            <!-- honor Retry-After automatically. See ADR-016 for design context.   -->
+            <!-- 503 is semantically correct (backend unavailable) — not rewritten. -->
+            <!-- Add diagnostic headers so clients know the circuit is open and     -->
+            <!-- can back off. Backend 429s (rate limits) go through <outbound>     -->
+            <!-- and never reach on-error. See ADR-016 for design context.          -->
             <!-- ================================================================== -->
             <when condition="@(context.Response.StatusCode == 503)">
                 <return-response>
-                    <set-status code="429" reason="Too Many Requests" />
+                    <set-status code="503" reason="Service Unavailable" />
                     <set-header name="x-request-id" exists-action="override">
                         <value>@(context.RequestId.ToString())</value>
                     </set-header>
@@ -150,8 +177,8 @@
                     <set-header name="x-should-retry" exists-action="override">
                         <value>true</value>
                     </set-header>
-                    <set-header name="x-ratelimit-remaining-tokens" exists-action="override">
-                        <value>0</value>
+                    <set-header name="x-circuit-breaker-open" exists-action="override">
+                        <value>true</value>
                     </set-header>
                     <set-header name="Content-Type" exists-action="override">
                         <value>application/json</value>
@@ -160,8 +187,8 @@
                         var retryAfter = context.Response.Headers.GetValueOrDefault("Retry-After", "60");
                         return new JObject(
                             new JProperty("error", new JObject(
-                                new JProperty("code", "429"),
-                                new JProperty("message", "Too Many Requests - backend circuit breaker is open. Retry after the indicated period."),
+                                new JProperty("code", "503"),
+                                new JProperty("message", "Service Unavailable - backend circuit breaker is open. Retry after the indicated period."),
                                 new JProperty("retryAfter", retryAfter),
                                 new JProperty("requestId", context.RequestId.ToString())
                             ))

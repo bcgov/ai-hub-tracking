@@ -111,6 +111,7 @@ Always:
 - Key rotation endpoint returns 405 for non-GET methods and 502 with detail if Key Vault reads fail.
 - `/v1/` requests with invalid JSON body return 400 with `InvalidRequestBody` error code.
 - `/v1/` requests missing the `model` field return 400 with `MissingModel` error code.
+- Circuit breaker trips on **5xx backend failures only** (never 429). When the circuit opens, APIM emits **503 Service Unavailable** with `x-circuit-breaker-open: true`, `Retry-After`, `retry-after-ms`, and `x-should-retry: true`. 503 is semantically correct per [RFC 7231 §6.6.4](https://www.rfc-editor.org/rfc/rfc7231#section-6.6.4) (server-scoped unavailability) — it is not rewritten to 429. Backend 429s pass through `<outbound>` directly with the real `Retry-After` from the backend. The OpenAI Python SDK auto-retries 503 as `openai.InternalServerError`; use `x-circuit-breaker-open: true` to distinguish from real backend faults. See ADR-016.
 
 ## Change Checklist
 - Add new backends to the **shared template** `params/apim/api_policy.xml.tftpl` behind a feature flag; expose the flag as a `templatefile()` variable in `stacks/apim/locals.tf`.
@@ -131,6 +132,7 @@ Always:
 4. OpenAI check: deployment rewrite + rate limit scope remain OpenAI-only.
 5. Error-path check: unmatched paths and key rotation failures still return structured errors.
 6. No-normalization check: APIM policies must not contain subscription key normalization logic.
+7. Circuit breaker check: (a) circuit breaker `failure_condition` must only include 5xx status codes — never 429; (b) the global `on-error` 503 handler must keep status 503 (not rewrite it) and set `x-circuit-breaker-open: true`, `x-should-retry: true`, `Retry-After`, and `retry-after-ms`; (c) the global `outbound` 429 handler must set `x-should-retry: true` and `retry-after-ms` for backend rate-limit pass-through.
 
 ## Detailed References
 
