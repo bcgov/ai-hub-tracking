@@ -189,7 +189,7 @@ Use this table for every APIM change review/runbook:
 | `/openai/v1/chat/completions` | `openai_enabled` | `${tenant_name}-openai` | MSI (`cognitiveservices`) | 2xx/4xx; model field tenant-prefixed in body |
 | `/providers/mistral/models/Mistral-Large-3/chat/completions` | `openai_enabled` | none | n/a | 400 `InvalidMistralRoute`; instruct client to use `/openai/v1/chat/completions` |
 | `/providers/mistral/azure/ocr` | `openai_enabled` | `${tenant_name}-openai` | MSI (`cognitiveservices`) | 2xx/4xx from Mistral OCR backend |
-| `/documentintelligence/...` | `document_intelligence_enabled` | `${tenant_name}-document-intelligence` | MSI (`cognitiveservices`) | 2xx/202 with rewritten `Operation-Location` |
+| `/documentintelligence/...` | `document_intelligence_enabled` | `${tenant_name}-docint` | MSI (`cognitiveservices`) | 2xx/202 with rewritten `Operation-Location` |
 | `/speech/recognition...` | `speech_services_enabled` | `${tenant_name}-speech-stt` | backend credential | 2xx/4xx from speech backend |
 | `/cognitiveservices/voices...` | `speech_services_enabled` | `${tenant_name}-speech-tts` | backend credential | 2xx/4xx from speech backend |
 | `/ai-search/...` | `ai_search_enabled` | `${tenant_name}-ai-search` | MSI (`search.azure.com`) | 2xx/4xx from search backend |
@@ -217,3 +217,10 @@ Use this table for every APIM change review/runbook:
 - Check the Container App Job logs (Log Stream in Azure Portal or Log Analytics) for authentication or SDK errors.
 - Verify hub Key Vault exists and the Container App Job's managed identity has `Key Vault Secrets Officer` role.
 - If a rotation is stuck, check `{tenant}-apim-rotation-metadata` for `last_rotated_slot` and manually verify which APIM slot is active.
+
+### Circuit breaker tripped (clients receiving 429 with `x-circuit-breaker-open: true`)
+- Confirm it is a circuit breaker trip by checking the `x-circuit-breaker-open: true` header (absent on real 429 rate-limit responses from Azure OpenAI).
+- The circuit auto-recovers after the `trip_duration` (PT1M = 60 seconds). Clients should respect the `Retry-After` header.
+- Check APIM Event Grid events for `Microsoft.ApiManagement.BackendCircuitBreakerOpened` / `BackendCircuitBreakerClosed` to correlate when tripping occurred.
+- If the circuit trips repeatedly, investigate the underlying backend health in the Azure Portal (OpenAI / Document Intelligence / AI Search / Storage / Speech Services).
+- The failure thresholds are: 3 errors/minute for AI service backends (OpenAI, DocInt, AI Search, Speech) and 5 errors/minute for Storage. A sustained trip indicates a backend incident, not a transient glitch.

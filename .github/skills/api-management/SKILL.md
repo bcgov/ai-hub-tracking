@@ -111,6 +111,7 @@ Always:
 - Key rotation endpoint returns 405 for non-GET methods and 502 with detail if Key Vault reads fail.
 - `/v1/` requests with invalid JSON body return 400 with `InvalidRequestBody` error code.
 - `/v1/` requests missing the `model` field return 400 with `MissingModel` error code.
+- Circuit breaker trips (backend circuit open → APIM emits 503) are rewritten by the global policy to **429** with `x-circuit-breaker-open: true`, `Retry-After`, `retry-after-ms`, and `x-should-retry: true` so OpenAI-compatible SDKs back off automatically. See ADR-016 for the design rationale.
 
 ## Change Checklist
 - Add new backends to the **shared template** `params/apim/api_policy.xml.tftpl` behind a feature flag; expose the flag as a `templatefile()` variable in `stacks/apim/locals.tf`.
@@ -131,6 +132,7 @@ Always:
 4. OpenAI check: deployment rewrite + rate limit scope remain OpenAI-only.
 5. Error-path check: unmatched paths and key rotation failures still return structured errors.
 6. No-normalization check: APIM policies must not contain subscription key normalization logic.
+7. Circuit breaker check: the global policy `on-error` 503 handler still rewrites to 429 with `x-circuit-breaker-open: true`, `Retry-After` propagated, and `x-should-retry: true`. Do not remove or bypass this rewrite.
 
 ## Detailed References
 

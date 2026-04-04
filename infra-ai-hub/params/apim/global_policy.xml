@@ -150,6 +150,9 @@
                     <set-header name="x-should-retry" exists-action="override">
                         <value>true</value>
                     </set-header>
+                    <set-header name="x-circuit-breaker-open" exists-action="override">
+                        <value>true</value>
+                    </set-header>
                     <set-header name="x-ratelimit-remaining-tokens" exists-action="override">
                         <value>0</value>
                     </set-header>
