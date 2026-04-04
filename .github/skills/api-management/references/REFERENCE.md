@@ -218,10 +218,12 @@ Use this table for every APIM change review/runbook:
 - Verify hub Key Vault exists and the Container App Job's managed identity has `Key Vault Secrets Officer` role.
 - If a rotation is stuck, check `{tenant}-apim-rotation-metadata` for `last_rotated_slot` and manually verify which APIM slot is active.
 
-### Circuit breaker tripped (clients receiving 503 with `x-circuit-breaker-open: true`)
-- Confirm it is a circuit breaker trip by checking the `x-circuit-breaker-open: true` header (absent on real 429 rate-limit pass-throughs from Azure OpenAI).
-- 503 is the correct status — it means the backend is unavailable (circuit open), not a rate limit. The response is **not** rewritten to 429.
-- The circuit auto-recovers after the `trip_duration` (PT1M = 60 seconds). Clients should respect the `Retry-After` header.
+### Circuit breaker tripped (clients receiving `503` with `x-circuit-breaker-open: true`)
+- Confirm it is a circuit breaker trip by checking the `x-circuit-breaker-open: true` response header (absent on backend 429 rate-limit pass-throughs from Azure OpenAI).
+- The circuit trips on **5xx server errors only** — not on backend 429s. Failure thresholds: 3 errors/minute for AI service backends (OpenAI, DocInt, AI Search, Speech); 5 errors/minute for Storage.
+- Backend 429s pass through `<outbound>` directly with the real `Retry-After` from Azure OpenAI — they do not open the circuit. This is correct for a single-backend-per-tenant deployment: unlike a [backend pool design](https://techcommunity.microsoft.com/blog/fasttrackforazureblog/using-azure-api-management-circuit-breaker-and-load-balancing-with-azure-openai-/4041003) where tripping on 429 routes to a healthy replica, there is no failover target here.
+- 503 is semantically correct per [RFC 7231 §6.6.4](https://www.rfc-editor.org/rfc/rfc7231#section-6.6.4) (server-scoped unavailability). [RFC 6585 §4](https://www.rfc-editor.org/rfc/rfc6585#section-4) defines 429 as a client-scoped rate limit — a different condition.
+- **SDK exception type:** The OpenAI Python SDK retries 503 automatically as `openai.InternalServerError` (not `RateLimitError`). Application code branching on `RateLimitError` will miss circuit-breaker trips. Rely on `x-circuit-breaker-open: true` to distinguish. See [openai-python retry logic](https://deepwiki.com/openai/openai-python/3.4-error-handling-and-retry-logic).
+- The circuit auto-recovers after the `trip_duration` (PT1M = 60 seconds). Clients should respect the `Retry-After: 60` header.
 - Check APIM Event Grid events for `Microsoft.ApiManagement.BackendCircuitBreakerOpened` / `BackendCircuitBreakerClosed` to correlate when tripping occurred.
 - If the circuit trips repeatedly, investigate the underlying backend health in the Azure Portal (OpenAI / Document Intelligence / AI Search / Storage / Speech Services).
-- The circuit breaker trips on **5xx errors only** (not 429). Failure thresholds: 3 server errors/minute for AI service backends (OpenAI, DocInt, AI Search, Speech), 5 for Storage. Backend 429s pass through directly with the real `Retry-After` from the backend service — they do not open the circuit.

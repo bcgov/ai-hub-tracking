@@ -4065,8 +4065,8 @@ module "storage" {
     </table>
 
     <h3 id="context-15" style="color: var(--bc-blue); margin-top: 1.5rem;">Context</h3>
-    <p>The APIM gateway proxies requests to multiple backend services: Azure OpenAI, Document Intelligence, AI Search, Speech Services, and Storage. When a backend experiences failures (overload, outages, throttling), continued request forwarding wastes resources and degrades the client experience with slow timeouts instead of fast failures.</p>
-    <p>Azure OpenAI specifically returns <code>429 Too Many Requests</code> with large <code>Retry-After</code> values (up to 86,400 seconds / 1 day) when quota is exhausted. Without circuit breaking, APIM would continue sending requests to a backend that cannot serve them.</p>
+    <p>The APIM gateway proxies requests to multiple backend services: Azure OpenAI, Document Intelligence, AI Search, Speech Services, and Storage. When a backend experiences failures (overload, outages, degraded availability), continued request forwarding wastes resources and degrades the client experience with slow timeouts instead of fast failures.</p>
+    <p>Azure OpenAI returns <code>429 Too Many Requests</code> for per-model token rate limits (TPM/RPM) and <code>5xx</code> errors for actual service faults. Only <code>5xx</code> responses indicate the backend is unhealthy and cannot serve requests — <code>429</code> signals a healthy backend enforcing quotas. This distinction drives the failure condition design below.</p>
 
     <h3 id="decision-12" style="color: var(--bc-blue); margin-top: 1.5rem;">Decision</h3>
     <p>Implement the <strong>circuit breaker pattern</strong> on all APIM backend entities using the native <code>circuit_breaker_rule</code> in <code>azurerm_api_management_backend</code>.</p>
@@ -4087,8 +4087,8 @@ module "storage" {
 
     <h4>Backends covered</h4>
     <ul>
-        <li><code>ai_foundry</code> &mdash; AI Foundry Hub endpoint</li>
-        <li><code>openai</code> &mdash; Azure OpenAI endpoint</li>
+        <li><code>openai</code> &mdash; Azure OpenAI (standard deployment)</li>
+        <li><code>openai_ptu</code> &mdash; Azure OpenAI (provisioned throughput)</li>
         <li><code>docint</code> &mdash; Document Intelligence</li>
         <li><code>ai_search</code> &mdash; Azure AI Search</li>
         <li><code>speech_services_stt</code> &mdash; Speech-to-Text</li>
@@ -4115,19 +4115,23 @@ module "storage" {
     }
 }</pre>
 
+    <h4>SDK behaviour when circuit is open</h4>
+    <p>The OpenAI Python SDK automatically retries both <code>429</code> and <code>503</code> responses using exponential backoff. When the circuit is open, clients receive <strong>503</strong>, which the SDK surfaces as <code>openai.InternalServerError</code> — not <code>RateLimitError</code>. Both exception types trigger automatic retries; however, application code that branches specifically on <code>RateLimitError</code> will not catch circuit-breaker trips. Use the <code>x-circuit-breaker-open: true</code> response header as the reliable signal regardless of status code. See <a href="https://deepwiki.com/openai/openai-python/3.4-error-handling-and-retry-logic">openai-python error handling &amp; retry logic</a>.</p>
+
     <h3 id="rationale-8" style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
     <ul>
-        <li><strong>Fast failure:</strong> Clients get an immediate 503 instead of waiting for backend timeouts (up to 300 seconds).</li>
-        <li><strong>Backend protection:</strong> Prevents overwhelming a struggling backend with additional requests.</li>
-        <li><strong>Native support:</strong> Uses <code>azurerm_api_management_backend.circuit_breaker_rule</code> for breaker state, with a single shared <code>&lt;on-error&gt;</code> rewrite to keep the client contract OpenAI-compatible.</li>
-        <li><strong>Retry-After propagation:</strong> Passes backend throttle signals directly to clients for proper backoff.</li>
-        <li><strong>Event Grid integration:</strong> APIM emits Event Grid events on circuit trip/reset for monitoring and alerting.</li>
+        <li><strong>Fast failure:</strong> Clients get an immediate <code>503</code> instead of waiting for backend timeouts (up to 300 seconds).</li>
+        <li><strong>Backend protection:</strong> Prevents overwhelming a struggling backend with additional requests during fault conditions.</li>
+        <li><strong>429 excluded from failure conditions — single-backend architecture:</strong> This deployment uses one backend per tenant per service (no backend pool). In a multi-backend pool, tripping on 429 routes traffic to a healthy replica — a valid design. <a href="https://techcommunity.microsoft.com/blog/fasttrackforazureblog/using-azure-api-management-circuit-breaker-and-load-balancing-with-azure-openai-/4041003">Microsoft FastTrack's APIM + OpenAI reference</a> uses this pool-based 429 tripping pattern. Without a failover target, tripping on 429 here would block <em>all</em> requests for 60&nbsp;s even if most would not have been rate-limited. The inbound <code>llm-token-limit</code> policy already enforces per-model quotas proactively, so backend 429s should be rare edge cases handled by outbound pass-through.</li>
+        <li><strong>503 not rewritten to 429 — RFC semantics:</strong> <a href="https://www.rfc-editor.org/rfc/rfc6585#section-4">RFC&nbsp;6585&nbsp;&sect;4</a> defines 429 as a <em>client-scoped</em> error (&ldquo;the user has sent too many requests&rdquo;). <a href="https://www.rfc-editor.org/rfc/rfc7231#section-6.6.4">RFC&nbsp;7231&nbsp;&sect;6.6.4</a> defines 503 as a <em>server-scoped</em> condition (&ldquo;the server is currently unable to handle the request&rdquo;). A circuit breaker affects all clients globally — 503 is definitionally correct. Rewriting to 429 implied a client-side rate-limit error, which is misleading and conflicts with the accurate 429 pass-through from the backend.</li>
+        <li><strong>Retry-After propagation:</strong> Backend 429 responses pass through <code>&lt;outbound&gt;</code> unchanged, preserving the accurate <code>Retry-After</code> from Azure OpenAI (often 1–3&nbsp;s for TPM limits). Circuit breaker 503 responses carry a fixed <code>Retry-After: 60</code> matching the trip duration.</li>
+        <li><strong>Event Grid integration:</strong> APIM emits Event Grid events on circuit trip/reset (<code>BackendCircuitBreakerOpened</code> / <code>BackendCircuitBreakerClosed</code>) for monitoring and alerting.</li>
     </ul>
 
     <h3 id="consequences-15" style="color: var(--bc-blue); margin-top: 1.5rem;">Consequences</h3>
     <h4>Positive</h4>
     <ul>
-        <li>Reduced latency during backend outages (instant 429 vs. timeout).</li>
+        <li>Reduced latency during backend outages (instant 503 vs. timeout).</li>
         <li>Backend services get breathing room to recover.</li>
         <li>Consistent error format with <code>Retry-After</code> enables client-side retry logic.</li>
         <li>A single shared policy rewrite keeps retry behavior consistent across SDK-based clients.</li>
@@ -4137,13 +4141,18 @@ module "storage" {
     <ul>
         <li><strong>Approximate tripping:</strong> APIM gateway instances do not synchronize circuit breaker state. Each instance tracks failures independently, so tripping is approximate in multi-instance deployments.</li>
         <li><strong>Single rule per backend:</strong> Only one circuit breaker rule per backend is currently supported by the Azure API.</li>
-        <li><strong>429 during recovery:</strong> Legitimate requests during the trip window will be rejected even if the backend has recovered before the trip duration expires.</li>
+        <li><strong>503 during recovery:</strong> Legitimate requests during the trip window are rejected as 503 even if the backend has recovered before the trip duration expires.</li>
+        <li><strong>SDK exception type:</strong> The OpenAI Python SDK surfaces circuit-breaker 503s as <code>openai.InternalServerError</code>, not <code>openai.RateLimitError</code>. Application code that branches on <code>RateLimitError</code> will miss circuit-breaker trips. Use <code>x-circuit-breaker-open: true</code> header to distinguish. See <a href="https://deepwiki.com/openai/openai-python/3.4-error-handling-and-retry-logic">openai-python retry logic</a>.</li>
     </ul>
 
     <h3 id="references-13" style="color: var(--bc-blue); margin-top: 1.5rem;">References</h3>
     <ul>
-        <li><a href="https://learn.microsoft.com/en-us/azure/api-management/backends?tabs=bicep#circuit-breaker">Azure APIM Backends &mdash; Circuit Breaker</a></li>
-        <li><a href="https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker">Circuit Breaker Pattern (Azure Architecture)</a></li>
+        <li><a href="https://learn.microsoft.com/en-us/azure/api-management/backends?tabs=bicep#circuit-breaker">Azure APIM Backends &mdash; Circuit Breaker (Microsoft Learn)</a></li>
+        <li><a href="https://learn.microsoft.com/en-us/azure/architecture/patterns/circuit-breaker">Circuit Breaker Pattern (Azure Architecture Center)</a></li>
+        <li><a href="https://techcommunity.microsoft.com/blog/fasttrackforazureblog/using-azure-api-management-circuit-breaker-and-load-balancing-with-azure-openai-/4041003">Microsoft FastTrack: APIM Circuit Breaker + Load Balancing with Azure OpenAI</a> &mdash; reference for pool-based 429 tripping pattern</li>
+        <li><a href="https://www.rfc-editor.org/rfc/rfc7231#section-6.6.4">RFC 7231 &sect;6.6.4 &mdash; 503 Service Unavailable</a></li>
+        <li><a href="https://www.rfc-editor.org/rfc/rfc6585#section-4">RFC 6585 &sect;4 &mdash; 429 Too Many Requests</a></li>
+        <li><a href="https://deepwiki.com/openai/openai-python/3.4-error-handling-and-retry-logic">openai-python: Error Handling &amp; Retry Logic</a> &mdash; SDK exception types for 429 vs 503</li>
         <li><a href="https://learn.microsoft.com/en-us/azure/event-grid/event-schema-api-management">APIM Event Grid Events</a> &mdash; circuit breaker trip/reset events</li>
         <li><a href="https://github.com/bcgov/ai-hub-tracking/issues/98">Issue #98: AI Gateway Gap Analysis</a></li>
     </ul>

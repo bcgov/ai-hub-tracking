@@ -111,7 +111,7 @@ Always:
 - Key rotation endpoint returns 405 for non-GET methods and 502 with detail if Key Vault reads fail.
 - `/v1/` requests with invalid JSON body return 400 with `InvalidRequestBody` error code.
 - `/v1/` requests missing the `model` field return 400 with `MissingModel` error code.
-- Circuit breaker trips on **5xx backend failures only** (not 429). When the circuit opens, APIM emits **503** with `x-circuit-breaker-open: true`, `Retry-After`, `retry-after-ms`, and `x-should-retry: true` — 503 is semantically correct (backend unavailable) and is not rewritten. Backend 429s (rate-limit responses) pass through `<outbound>` directly with the real backend `Retry-After` — the global outbound adds `x-should-retry: true` and `retry-after-ms` for SDK compatibility. See ADR-016.
+- Circuit breaker trips on **5xx backend failures only** (never 429). When the circuit opens, APIM emits **503 Service Unavailable** with `x-circuit-breaker-open: true`, `Retry-After`, `retry-after-ms`, and `x-should-retry: true`. 503 is semantically correct per [RFC 7231 §6.6.4](https://www.rfc-editor.org/rfc/rfc7231#section-6.6.4) (server-scoped unavailability) — it is not rewritten to 429. Backend 429s pass through `<outbound>` directly with the real `Retry-After` from the backend. The OpenAI Python SDK auto-retries 503 as `openai.InternalServerError`; use `x-circuit-breaker-open: true` to distinguish from real backend faults. See ADR-016.
 
 ## Change Checklist
 - Add new backends to the **shared template** `params/apim/api_policy.xml.tftpl` behind a feature flag; expose the flag as a `templatefile()` variable in `stacks/apim/locals.tf`.
