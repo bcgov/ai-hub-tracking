@@ -62,8 +62,7 @@ Reasoning:
 ## Outbound Policies
 
 - **Document Intelligence** (`document_intelligence_enabled`): rewrites the `Operation-Location` response header to replace the backend `cognitiveservices.azure.com` URL with the App Gateway URL. This is required for async (202) polling to work through the gateway.
-- **OpenAI usage logging — non-streaming** (`usage_logging_enabled`): reuses the inbound `deploymentName` variable (handles both `/deployments/` and `/v1/` formats) and calls the `openai-usage-logging` fragment. Guarded by `!isStream` to avoid parsing SSE responses as `JObject`.
-- **OpenAI usage logging — streaming**: when `isStream == true`, an inline `<trace source="openai-streaming">` block logs request metadata (deployment-name, tenant-id, backend-id, route-location, is-streaming) to App Insights. Token metrics are already emitted by the global policy's `azure-openai-emit-token-metric` in inbound — the outbound trace provides request-level observability only.
+- **OpenAI usage logging — unified** (`usage_logging_enabled`): A single `<choose>` block fires for all OpenAI paths (streaming and non-streaming). It calls `openai-token-extraction` then `openai-usage-logging` fragments in sequence. Token extraction reads actual counts from the JSON response body (non-streaming) or from the SSE usage chunk (streaming, enabled by `stream_options.include_usage` injected inbound). Both modes emit a single `openai-usage` App Insights event with an `is-streaming` dimension for LAW query filtering.
 
 ### Streaming Detection
 The `isStream` context variable is set in inbound for OpenAI requests:
@@ -71,9 +70,20 @@ The `isStream` context variable is set in inbound for OpenAI requests:
 var streamVal = body?["stream"];
 if (streamVal != null) { return streamVal.Value<bool>(); }
 ```
-This variable gates outbound behavior:
-- `isStream == false` → parse response as `JObject`, call `openai-usage-logging` fragment
-- `isStream == true` → skip JObject parse (SSE can't be parsed as JSON), emit `<trace>` instead
+This variable gates token extraction behavior inside `openai-token-extraction`:
+- `isStream == false` → parse response as `JObject`, extract `usage.prompt_tokens` / `usage.completion_tokens` / `usage.total_tokens`
+- `isStream == true` → read response body as string, regex-match `"prompt_tokens"\s*:\s*(\d+)` from the SSE usage chunk appended by `stream_options.include_usage`
+
+### `stream_options.include_usage` Injection
+For streaming requests, APIM injects `"stream_options": {"include_usage": true}` into the request body (inbound, after PII redaction and `/v1/` model-field rewrite). This causes Azure OpenAI to include a final SSE chunk before `[DONE]` with actual token counts:
+```
+data: {"choices":[],"usage":{"prompt_tokens":N,"completion_tokens":M,"total_tokens":P}}
+data: [DONE]
+```
+The injection is guarded: if the client already sent `stream_options`, APIM skips injection to avoid overwriting. Supported by all API versions from `2024-08-01-preview` onward (current version: `2025-03-01-preview`).
+
+### PTU Streaming 429 Pass-Through
+PTU backends are deployed per-tenant (`{tenant_name}-openai-ptu`). If concurrent streaming requests exceed the tenant's PTU slice, Azure Foundry returns `429 Too Many Requests`. APIM's global outbound 429 handler passes this through with `Retry-After` and `x-should-retry: true`. Clients should implement retry logic using the `Retry-After` header. APIM does **not** perform pessimistic token reservation for streaming — Foundry enforces the hard cap natively.
 
 ## Document Intelligence: Model Performance
 

@@ -557,12 +557,12 @@ resource "azurerm_api_management_policy_fragment" "openai_usage_logging" {
   value             = file("${path.root}/../../params/apim/fragments/openai-usage-logging.xml")
 }
 
-resource "azurerm_api_management_policy_fragment" "openai_streaming_metrics" {
+resource "azurerm_api_management_policy_fragment" "openai_token_extraction" {
   count             = local.apim_config.enabled ? 1 : 0
   api_management_id = module.apim[0].id
-  name              = "openai-streaming-metrics"
+  name              = "openai-token-extraction"
   format            = "rawxml"
-  value             = file("${path.root}/../../params/apim/fragments/openai-streaming-metrics.xml")
+  value             = file("${path.root}/../../params/apim/fragments/openai-token-extraction.xml")
 }
 
 resource "azurerm_api_management_policy_fragment" "pii_anonymization" {
@@ -608,7 +608,7 @@ resource "azurerm_api_management_api_policy" "tenant" {
     azurerm_api_management_policy_fragment.storage_auth,
     azurerm_api_management_policy_fragment.keyvault_auth,
     azurerm_api_management_policy_fragment.openai_usage_logging,
-    azurerm_api_management_policy_fragment.openai_streaming_metrics,
+    azurerm_api_management_policy_fragment.openai_token_extraction,
     azurerm_api_management_policy_fragment.pii_anonymization,
     azurerm_api_management_policy_fragment.intelligent_routing,
     azurerm_api_management_policy_fragment.tracking_dimensions,

@@ -14,8 +14,8 @@ params/apim/
 │   ├── storage-auth.xml                   # Managed identity for Blob Storage
 │   ├── keyvault-auth.xml                  # Managed identity for Key Vault
 │   ├── pii-anonymization.xml              # Azure Language Service PII detection
-│   ├── openai-usage-logging.xml           # OpenAI token usage tracking
-│   ├── openai-streaming-metrics.xml       # Streaming response metrics
+│   ├── openai-usage-logging.xml           # OpenAI token usage tracking (streaming + non-streaming)
+│   ├── openai-token-extraction.xml       # Centralized token extraction from JSON/SSE responses
 │   ├── tracking-dimensions.xml            # Analytics dimension extraction
 │   ├── intelligent-routing.xml            # Multi-backend routing (future)
 │   └── ... (other authentication fragments)
@@ -114,8 +114,7 @@ Example error response:
 No global policies are enforced by default. All policies are **tenant-opt-in** via the `apim_policies` config:
 - **Token Rate Limiting**: Protect backends from token exhaustion (enabled by default, disable per-tenant if needed)
 - **PII Anonymization**: Azure Language Service-based entity detection and redaction (enable per-tenant)
-- **Usage Logging**: Log OpenAI token consumption to Application Insights (enabled by default)
-- **Streaming Metrics**: Emit token metrics for streaming responses (enabled by default)
+- **Usage Logging**: Log OpenAI token consumption to Application Insights for both streaming and non-streaming requests (enabled by default)
 - **Tracking Dimensions**: Extract custom dimensions from headers for analytics (enabled by default)
 
 ### Request/Response Processing
@@ -151,8 +150,7 @@ The template receives these variables from `locals.tf`:
 | `storage_enabled` | `tenant.storage_account.enabled` | Routes `/storage/*` paths |
 | `rate_limiting_enabled` | `apim_policies.rate_limiting.enabled` | Wraps `llm-token-limit` policy |
 | `pii_redaction_enabled` | `apim_policies.pii_redaction.enabled` AND language service enabled | Wraps PII anonymization fragment |
-| `usage_logging_enabled` | `apim_policies.usage_logging.enabled` | Wraps OpenAI usage logging fragment |
-| `streaming_metrics_enabled` | `apim_policies.streaming_metrics.enabled` | Wraps streaming metrics fragment |
+| `usage_logging_enabled` | `apim_policies.usage_logging.enabled` | Wraps OpenAI usage logging fragment (streaming + non-streaming) |
 | `tracking_dimensions_enabled` | `apim_policies.tracking_dimensions.enabled` | Wraps tracking dimensions fragment |
 
 ### Conditional Policy Inclusion
@@ -268,8 +266,8 @@ Reusable fragments in `fragments/` directory enable code reuse across tenant pol
 
 | Fragment | Purpose | Use Case |
 |----------|---------|----------|
-| `openai-usage-logging.xml` | Logs detailed OpenAI usage to Application Insights | Cost allocation, chargeback, audit trails |
-| `openai-streaming-metrics.xml` | Emits token metrics for streaming requests | Accurate streaming token counting, real-time monitoring |
+| `openai-usage-logging.xml` | Logs detailed OpenAI usage to Application Insights (streaming + non-streaming) | Cost allocation, chargeback, audit trails |
+| `openai-token-extraction.xml` | Extracts actual token counts from JSON responses (non-streaming) or SSE usage chunks (streaming) | Unified token tracking for both modes |
 | `tracking-dimensions.xml` | Extracts session/user/app IDs from headers | Per-user analytics, debugging, chargeback |
 
 These fragments log:
@@ -428,7 +426,7 @@ If `piiAnonymizationEnabled != "true"`, the fragment sets `piiAnonymizedContent`
 
 Tenant API policies are generated dynamically from `api_policy.xml.tftpl` using tenant configuration:
 - Routing blocks are generated only for services enabled for that tenant (for example OpenAI, Document Intelligence, AI Search, Storage)
-- APIM policy features are included only when enabled by per-tenant flags (for example rate limiting, PII redaction, usage logging, streaming metrics, tracking dimensions)
+- APIM policy features are included only when enabled by per-tenant flags (for example rate limiting, PII redaction, usage logging, tracking dimensions)
 
 **PII Redaction Flow (OpenAI Requests):**
 When PII redaction is enabled (`apim_policies.pii_redaction.enabled` is true AND `shared_config.language_service.enabled` is true), the tenant policy template:
@@ -541,9 +539,6 @@ When adding a new tenant with APIM support:
        usage_logging = {
          enabled = true
        }
-       streaming_metrics = {
-         enabled = true
-       }
        tracking_dimensions = {
          enabled = true
        }
@@ -600,13 +595,9 @@ apim_policies = {
   }
   
   # OpenAI token usage logging to Application Insights
+  # Covers both streaming and non-streaming requests via unified extraction
   usage_logging = {
     enabled = true  # Set to false to disable usage tracking
-  }
-  
-  # Streaming response metrics
-  streaming_metrics = {
-    enabled = true  # Set to false to disable streaming metrics
   }
   
   # Analytics dimension extraction from headers

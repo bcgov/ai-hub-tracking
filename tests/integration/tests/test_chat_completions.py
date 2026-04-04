@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 import pytest
 
 from ai_hub_integration.client import ApimClient
@@ -232,3 +234,30 @@ def test_nr_dap_all_deployed_chat_models_connectivity(
 
     assert not failed, f"Unexpected NR-DAP model failures: {', '.join(failed)}"
     assert passed > 0
+
+
+def test_ai_hub_admin_streaming_deployment_response_has_usage_chunk(
+    client: ApimClient, integration_config: IntegrationConfig
+) -> None:
+    """Verify that streaming /deployments/ responses include a usage chunk with non-zero token counts.
+
+    APIM injects stream_options.include_usage=true for all streaming requests so that
+    actual token counts are available for unified logging regardless of endpoint format.
+    """
+    require_key(integration_config, PRIMARY_TENANT)
+
+    response = client.chat_completion(PRIMARY_TENANT, integration_config.default_model, "Say hello", 10, stream=True)
+
+    lines = [line.strip() for line in response.text.replace("\r", "").splitlines() if line.strip()]
+    data_lines = [line for line in lines if line.startswith("data: ")]
+
+    assert_status(response, 200)
+    assert any(line == "data: [DONE]" for line in data_lines)
+
+    chunks = [json.loads(line.removeprefix("data: ")) for line in data_lines if line.startswith("data: {")]
+    usage_chunks = [chunk for chunk in chunks if chunk.get("usage") is not None]
+    assert usage_chunks, "Expected a usage chunk in the SSE stream from the /deployments/ route"
+    usage = usage_chunks[0]["usage"]
+    assert usage.get("prompt_tokens", 0) > 0
+    assert usage.get("completion_tokens", 0) > 0
+    assert usage.get("total_tokens", 0) > 0

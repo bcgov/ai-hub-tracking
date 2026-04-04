@@ -1,0 +1,89 @@
+<fragment>
+    <!-- ================================================================== -->
+    <!-- OpenAI Token Extraction (Streaming + Non-Streaming)                -->
+    <!-- Centralises token count extraction regardless of streaming mode.   -->
+    <!-- Non-streaming: parses JSON response body.                          -->
+    <!-- Streaming: regex-parses the SSE body for the usage chunk emitted   -->
+    <!-- when stream_options.include_usage=true is injected in inbound.     -->
+    <!--                                                                    -->
+    <!-- Prerequisites (must be set before including this fragment):        -->
+    <!-- - isStream              : bool   – true when stream=true           -->
+    <!-- - promptTokensWeight    : int    – 1 for PAYG, 1 for PTU           -->
+    <!-- - completionTokensWeight: int    – 1 for PAYG, N for PTU           -->
+    <!--                                                                    -->
+    <!-- Output variables set by this fragment:                             -->
+    <!-- - promptTokens          : int    – actual prompt tokens            -->
+    <!-- - completionTokens      : int    – actual completion tokens        -->
+    <!-- - totalTokens           : int    – actual total tokens             -->
+    <!-- - weightedTokensConsumed: int    – (prompt×pw) + (completion×cw)  -->
+    <!--                                                                    -->
+    <!-- Usage: Include in outbound after stream_options injection inbound  -->
+    <!--   <include-fragment fragment-id="openai-token-extraction" />       -->
+    <!-- ================================================================== -->
+    <choose>
+        <when condition="@(!context.Variables.GetValueOrDefault&lt;bool&gt;(&quot;isStream&quot;, false))">
+            <!-- Non-streaming: parse token counts from JSON response body -->
+            <set-variable name="responseBody" value="@(context.Response.Body.As&lt;JObject&gt;(preserveContent: true))" />
+            <set-variable name="promptTokens" value="@{
+                try {
+                    var rb = (JObject)context.Variables[&quot;responseBody&quot;];
+                    return rb?[&quot;usage&quot;]?[&quot;prompt_tokens&quot;]?.Value&lt;int&gt;() ?? 0;
+                } catch { return 0; }
+            }" />
+            <set-variable name="completionTokens" value="@{
+                try {
+                    var rb = (JObject)context.Variables[&quot;responseBody&quot;];
+                    return rb?[&quot;usage&quot;]?[&quot;completion_tokens&quot;]?.Value&lt;int&gt;() ?? 0;
+                } catch { return 0; }
+            }" />
+            <set-variable name="totalTokens" value="@{
+                try {
+                    var rb = (JObject)context.Variables[&quot;responseBody&quot;];
+                    return rb?[&quot;usage&quot;]?[&quot;total_tokens&quot;]?.Value&lt;int&gt;() ?? 0;
+                } catch { return 0; }
+            }" />
+        </when>
+        <otherwise>
+            <!-- Streaming: parse token counts from SSE body.                        -->
+            <!-- stream_options.include_usage=true (injected inbound) causes Azure   -->
+            <!-- OpenAI to append a usage chunk before [DONE]:                       -->
+            <!--   data: {...,"usage":{"prompt_tokens":N,"completion_tokens":M,...}} -->
+            <!-- context.Response.Body.As&lt;string&gt;() buffers the full SSE text after  -->
+            <!-- the stream completes, making it safe to regex-parse here.           -->
+            <set-variable name="sseBody" value="@(context.Response.Body.As&lt;string&gt;(preserveContent: true))" />
+            <set-variable name="promptTokens" value="@{
+                try {
+                    var sse = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;sseBody&quot;, &quot;&quot;);
+                    var m = System.Text.RegularExpressions.Regex.Match(sse, @&quot;&quot;&quot;prompt_tokens&quot;&quot;\s*:\s*(\d+)&quot;);
+                    return m.Success ? int.Parse(m.Groups[1].Value) : 0;
+                } catch { return 0; }
+            }" />
+            <set-variable name="completionTokens" value="@{
+                try {
+                    var sse = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;sseBody&quot;, &quot;&quot;);
+                    var m = System.Text.RegularExpressions.Regex.Match(sse, @&quot;&quot;&quot;completion_tokens&quot;&quot;\s*:\s*(\d+)&quot;);
+                    return m.Success ? int.Parse(m.Groups[1].Value) : 0;
+                } catch { return 0; }
+            }" />
+            <set-variable name="totalTokens" value="@{
+                try {
+                    var sse = context.Variables.GetValueOrDefault&lt;string&gt;(&quot;sseBody&quot;, &quot;&quot;);
+                    var m = System.Text.RegularExpressions.Regex.Match(sse, @&quot;&quot;&quot;total_tokens&quot;&quot;\s*:\s*(\d+)&quot;);
+                    return m.Success ? int.Parse(m.Groups[1].Value) : 0;
+                } catch { return 0; }
+            }" />
+        </otherwise>
+    </choose>
+    <!-- Compute weighted tokens: prompt×promptWeight + completion×completionWeight -->
+    <!-- PAYG:  both weights = 1 (raw 1:1 accounting)                              -->
+    <!-- PTU:   completionTokensWeight = output_tokens_to_input_ratio (e.g. 8)     -->
+    <set-variable name="weightedTokensConsumed" value="@{
+        try {
+            var p  = context.Variables.GetValueOrDefault&lt;int&gt;(&quot;promptTokens&quot;, 0);
+            var c  = context.Variables.GetValueOrDefault&lt;int&gt;(&quot;completionTokens&quot;, 0);
+            var pw = context.Variables.GetValueOrDefault&lt;int&gt;(&quot;promptTokensWeight&quot;, 1);
+            var cw = context.Variables.GetValueOrDefault&lt;int&gt;(&quot;completionTokensWeight&quot;, 1);
+            return (p * pw) + (c * cw);
+        } catch { return 0; }
+    }" />
+</fragment>
