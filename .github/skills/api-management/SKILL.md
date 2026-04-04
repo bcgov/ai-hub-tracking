@@ -105,6 +105,18 @@ Always:
 - Controlled by `rate_limiting_enabled` flag.
 - **Rate limiting MUST be scoped to OpenAI paths only** (wrapped in `<when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;))">"`). Token counting is meaningless for DocInt/Speech/Search/Storage, and `estimate-prompt-tokens="true"` on large binary payloads (e.g., 500KB base64 images) causes APIM to hang reading/estimating the body before forwarding — resulting in curl timeouts (status 28) on the upstream caller.
 
+### PTU Backend Isolation and Concurrency
+
+PTU capacity is deployed **per-tenant with isolated backends** rather than shared across tenants. For example, a 75 PTU pool is provisioned as 5 separate Azure Foundry/OpenAI deployments of 15 PTUs each — one per tenant (`{tenant_name}-openai-ptu` backend, set in `stacks/apim/locals.tf`). This has two key consequences for rate limiting and concurrency:
+
+1. **Foundry is the authoritative enforcer**: When a tenant's concurrent streaming requests exceed their PTU slice, Azure Foundry returns `429 Too Many Requests`. APIM's existing 429 pass-through (`global_policy.xml` outbound) forwards these to clients with `Retry-After` and `x-should-retry: true`. No APIM-level pessimistic reservation or `max_tokens` deduction is needed.
+
+2. **APIM rate limits are lightweight client-side guards**: `llm-token-limit` and `rate-limit-by-key` prevent obviously runaway requests from hitting the backend, but are not the authoritative concurrency cap. For concurrent spike scenarios, Foundry's native per-deployment quota enforcement is the safety net.
+
+3. **PAYG follows the same pattern**: Azure OpenAI PAYG quota is per-resource. If a tenant's PAYG resource hits its TPM quota, Azure returns 429; APIM passes it through unchanged.
+
+**Do not add pessimistic token reservation** (pre-deducting `max_tokens` from APIM counters before a response is returned). This trades real throughput for marginal protection that Foundry already provides, and was explicitly rejected in the architecture review.
+
 ## Error Handling
 - For unmatched paths, return structured JSON errors with HTTP 404.
 - Keep error messages consistent across tenants.

@@ -95,7 +95,7 @@ def test_ai_hub_admin_all_deployed_chat_models_work_via_v1(
 def test_ai_hub_admin_streaming_v1_response_contains_sse_chunks(
     client: ApimClient, integration_config: IntegrationConfig
 ) -> None:
-    """Verify that streaming `/v1` responses emit valid SSE chat chunks."""
+    """Verify that streaming `/v1` responses emit valid SSE chat chunks and a usage chunk."""
     require_key(integration_config, PRIMARY_TENANT)
 
     response = client.request(
@@ -117,6 +117,46 @@ def test_ai_hub_admin_streaming_v1_response_contains_sse_chunks(
     assert chat_chunks
     assert chat_chunks[0].get("model")
     assert "ai-hub-admin-ai-hub-admin" not in chat_chunks[0].get("model", "")
+
+    # Verify APIM-injected stream_options.include_usage produced a usage chunk
+    usage_chunks = [chunk for chunk in chunks if chunk.get("usage") is not None]
+    assert usage_chunks, "Expected a usage chunk in the SSE stream (APIM injects stream_options.include_usage)"
+    usage = usage_chunks[0]["usage"]
+    assert usage.get("prompt_tokens", 0) > 0
+    assert usage.get("completion_tokens", 0) > 0
+    assert usage.get("total_tokens", 0) > 0
+
+
+def test_ai_hub_admin_streaming_v1_usage_chunk_is_idempotent_when_client_sends_stream_options(
+    client: ApimClient, integration_config: IntegrationConfig
+) -> None:
+    """Verify that explicitly sending stream_options.include_usage=true is idempotent with APIM injection.
+
+    APIM only injects stream_options when the client has not already set the key, so this
+    request should behave identically to APIM-injected usage and still return a usage chunk.
+    """
+    require_key(integration_config, PRIMARY_TENANT)
+
+    body = _v1_body("gpt-4.1-mini", "Say hello", 10, stream=True)
+    body["stream_options"] = {"include_usage": True}
+
+    response = client.request(
+        "POST",
+        PRIMARY_TENANT,
+        "/openai/v1/chat/completions",
+        json_body=body,
+        retry=True,
+    )
+    lines = [line.strip() for line in response.text.replace("\r", "").splitlines() if line.strip()]
+    data_lines = [line for line in lines if line.startswith("data: ")]
+
+    assert_status(response, 200)
+    chunks = [json.loads(line.removeprefix("data: ")) for line in data_lines if line.startswith("data: {")]
+    usage_chunks = [chunk for chunk in chunks if chunk.get("usage") is not None]
+    assert usage_chunks, "Expected usage chunk even when client sends stream_options explicitly"
+    usage = usage_chunks[0]["usage"]
+    assert usage.get("prompt_tokens", 0) > 0
+    assert usage.get("completion_tokens", 0) > 0
 
 
 def test_ai_hub_admin_missing_model_field_returns_400(

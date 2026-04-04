@@ -188,7 +188,6 @@ locals {
         non_openai_requests_per_minute = try(config.apim_policies.rate_limiting.non_openai_requests_per_minute, 300)
         pii_redaction_enabled          = try(config.apim_policies.pii_redaction.enabled, true) && var.shared_config.language_service.enabled
         usage_logging_enabled          = try(config.apim_policies.usage_logging.enabled, true)
-        streaming_metrics_enabled      = try(config.apim_policies.streaming_metrics.enabled, true)
         tracking_dimensions_enabled    = try(config.apim_policies.tracking_dimensions.enabled, true)
         backend_timeout_seconds        = try(config.apim_policies.backend_timeout_seconds, 300)
         pii_excluded_categories        = try(config.apim_policies.pii_redaction.excluded_categories, [])

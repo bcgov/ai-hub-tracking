@@ -4,82 +4,90 @@
     <!-- Logs detailed token usage, routing info, and metadata for          -->
     <!-- cost allocation, chargeback, and analytics                         -->
     <!-- ================================================================== -->
-    <!-- 
-        Prerequisites: Set these variables before including this fragment:
-        - responseBody: The response body as JObject (for non-streaming)
-        - backendId: The backend service ID used
-        - routeLocation: The Azure region of the backend
-        - routeName: The name of the route used
-        - deploymentName: The OpenAI deployment name
-        - tokenLimitStrategy (optional): "raw_tokens_per_minute" or "response_weighted_actual_tokens"
-        - promptTokensWeight (optional): Multiplier for prompt tokens (default 1)
-        - completionTokensWeight (optional): Multiplier for completion tokens (default 1)
-        - weightedTokensPerMinute (optional): Weighted TPM budget (default 0)
-        - weightedTokensConsumed (optional): Weighted tokens used by this request (default 0)
-        
-        Usage: Include in outbound section after setting responseBody:
-        <set-variable name="responseBody" value="@(context.Response.Body.As<JObject>(preserveContent: true))" />
+    <!--
+        Prerequisites: Call openai-token-extraction fragment first to set:
+        - promptTokens          : int    – actual prompt tokens
+        - completionTokens      : int    – actual completion tokens
+        - totalTokens           : int    – actual total tokens
+        - weightedTokensConsumed: int    – weighted token cost for PTU/PAYG
+        Also set before including:
+        - backendId             : string – APIM backend service ID
+        - routeLocation         : string – Azure region of the backend
+        - routeName             : string – "primary", "ptu-dedicated", etc.
+        - deploymentName        : string – OpenAI deployment name
+        - isStream              : bool   – true when stream=true
+        - tokenLimitStrategy    : string (optional) – "raw_tokens_per_minute" | "response_weighted_actual_tokens"
+        - promptTokensWeight    : int    (optional, default 1)
+        - completionTokensWeight: int    (optional, default 1)
+        - weightedTokensPerMinute: int   (optional, default 0)
+
+        Usage: Include in outbound after openai-token-extraction fragment:
+        <include-fragment fragment-id="openai-token-extraction" />
         <include-fragment fragment-id="openai-usage-logging" />
     -->
     <choose>
-        <when condition="@(context.Response.StatusCode == 200 && context.Variables.ContainsKey("responseBody"))">
+        <when condition="@(context.Response.StatusCode == 200)">
             <trace source="openai-usage" severity="information">
                 <message>OpenAI Token Usage</message>
                 <metadata name="event-type" value="openai-usage" />
                 <metadata name="request-id" value="@(context.RequestId.ToString())" />
-                <metadata name="timestamp" value="@(DateTime.UtcNow.ToString("o"))" />
+                <metadata name="timestamp" value="@(DateTime.UtcNow.ToString(&quot;o&quot;))" />
                 <!-- Subscription & Product Info -->
-                <metadata name="subscription-id" value="@(context.Subscription?.Id ?? "Portal-Admin")" />
-                <metadata name="subscription-name" value="@(context.Subscription?.Name ?? "Portal-Admin")" />
-                <metadata name="product-name" value="@(context.Product?.Name ?? "Portal-Admin")" />
+                <metadata name="subscription-id" value="@(context.Subscription?.Id ?? &quot;Portal-Admin&quot;)" />
+                <metadata name="subscription-name" value="@(context.Subscription?.Name ?? &quot;Portal-Admin&quot;)" />
+                <metadata name="product-name" value="@(context.Product?.Name ?? &quot;Portal-Admin&quot;)" />
                 <!-- Tenant Info -->
-                <metadata name="tenant-id" value="@(context.Request.Headers.GetValueOrDefault("X-Tenant-Id", "unknown"))" />
-                <metadata name="api-id" value="@(context.Api?.Id ?? "unknown")" />
-                <metadata name="api-name" value="@(context.Api?.Name ?? "unknown")" />
+                <metadata name="tenant-id" value="@(context.Request.Headers.GetValueOrDefault(&quot;X-Tenant-Id&quot;, &quot;unknown&quot;))" />
+                <metadata name="api-id" value="@(context.Api?.Id ?? &quot;unknown&quot;)" />
+                <metadata name="api-name" value="@(context.Api?.Name ?? &quot;unknown&quot;)" />
                 <!-- Operation Info -->
-                <metadata name="operation-id" value="@(context.Operation?.Id ?? "unknown")" />
-                <metadata name="operation-name" value="@(context.Operation?.Name ?? "unknown")" />
+                <metadata name="operation-id" value="@(context.Operation?.Id ?? &quot;unknown&quot;)" />
+                <metadata name="operation-name" value="@(context.Operation?.Name ?? &quot;unknown&quot;)" />
                 <!-- Routing Info -->
-                <metadata name="backend-id" value="@(context.Variables.GetValueOrDefault<string>("backendId", "unknown"))" />
-                <metadata name="route-location" value="@(context.Variables.GetValueOrDefault<string>("routeLocation", "unknown"))" />
-                <metadata name="route-name" value="@(context.Variables.GetValueOrDefault<string>("routeName", "unknown"))" />
-                <metadata name="deployment-name" value="@(context.Variables.GetValueOrDefault<string>("deploymentName", "unknown"))" />
+                <metadata name="backend-id" value="@(context.Variables.GetValueOrDefault<string>(&quot;backendId&quot;, &quot;unknown&quot;))" />
+                <metadata name="route-location" value="@(context.Variables.GetValueOrDefault<string>(&quot;routeLocation&quot;, &quot;unknown&quot;))" />
+                <metadata name="route-name" value="@(context.Variables.GetValueOrDefault<string>(&quot;routeName&quot;, &quot;unknown&quot;))" />
+                <metadata name="deployment-name" value="@(context.Variables.GetValueOrDefault<string>(&quot;deploymentName&quot;, &quot;unknown&quot;))" />
                 <!-- Gateway Info -->
-                <metadata name="gateway-name" value="@(context.Deployment?.ServiceName ?? "unknown")" />
-                <metadata name="gateway-region" value="@(context.Deployment?.Region ?? "unknown")" />
+                <metadata name="gateway-name" value="@(context.Deployment?.ServiceName ?? &quot;unknown&quot;)" />
+                <metadata name="gateway-region" value="@(context.Deployment?.Region ?? &quot;unknown&quot;)" />
                 <!-- Client Info -->
                 <metadata name="client-ip" value="@(context.Request.IpAddress)" />
-                <!-- Model & Token Usage -->
+                <!-- Stream Mode -->
+                <metadata name="is-streaming" value="@(context.Variables.GetValueOrDefault<bool>(&quot;isStream&quot;, false).ToString().ToLower())" />
+                <!-- Model (from response body for non-streaming; from deploymentName for streaming) -->
                 <metadata name="model" value="@{
-                    var responseBody = (JObject)context.Variables["responseBody"];
-                    return responseBody?["model"]?.ToString() ?? "unknown";
+                    if (!context.Variables.GetValueOrDefault<bool>(&quot;isStream&quot;, false) &amp;&amp; context.Variables.ContainsKey(&quot;responseBody&quot;)) {
+                        var rb = (JObject)context.Variables[&quot;responseBody&quot;];
+                        var model = rb?[&quot;model&quot;]?.ToString();
+                        if (!string.IsNullOrEmpty(model)) { return model; }
+                    }
+                    return context.Variables.GetValueOrDefault<string>(&quot;deploymentName&quot;, &quot;unknown&quot;);
                 }" />
                 <metadata name="target-service" value="@{
-                    var responseBody = (JObject)context.Variables["responseBody"];
-                    return responseBody?["object"]?.ToString() ?? "unknown";
+                    if (!context.Variables.GetValueOrDefault<bool>(&quot;isStream&quot;, false) &amp;&amp; context.Variables.ContainsKey(&quot;responseBody&quot;)) {
+                        var rb = (JObject)context.Variables[&quot;responseBody&quot;];
+                        var obj = rb?[&quot;object&quot;]?.ToString();
+                        if (!string.IsNullOrEmpty(obj)) { return obj; }
+                    }
+                    return &quot;chat.completion&quot;;
                 }" />
-                <metadata name="prompt-tokens" value="@{
-                    var responseBody = (JObject)context.Variables["responseBody"];
-                    return responseBody?["usage"]?["prompt_tokens"]?.Value<int>().ToString() ?? "0";
-                }" />
-                <metadata name="completion-tokens" value="@{
-                    var responseBody = (JObject)context.Variables["responseBody"];
-                    return responseBody?["usage"]?["completion_tokens"]?.Value<int>().ToString() ?? "0";
-                }" />
-                <metadata name="total-tokens" value="@{
-                    var responseBody = (JObject)context.Variables["responseBody"];
-                    return responseBody?["usage"]?["total_tokens"]?.Value<int>().ToString() ?? "0";
-                }" />
-                <metadata name="token-limit-strategy" value="@(context.Variables.GetValueOrDefault<string>("tokenLimitStrategy", "raw_tokens_per_minute"))" />
-                <metadata name="prompt-tokens-weight" value="@(context.Variables.GetValueOrDefault<int>("promptTokensWeight", 1).ToString())" />
-                <metadata name="completion-tokens-weight" value="@(context.Variables.GetValueOrDefault<int>("completionTokensWeight", 1).ToString())" />
-                <metadata name="weighted-tokens-per-minute" value="@(context.Variables.GetValueOrDefault<int>("weightedTokensPerMinute", 0).ToString())" />
-                <metadata name="weighted-tokens-consumed" value="@(context.Variables.GetValueOrDefault<int>("weightedTokensConsumed", 0).ToString())" />
+                <!-- Token Usage — sourced from openai-token-extraction fragment variables -->
+                <!-- Both streaming and non-streaming paths set these variables.            -->
+                <metadata name="prompt-tokens" value="@(context.Variables.GetValueOrDefault<int>(&quot;promptTokens&quot;, 0).ToString())" />
+                <metadata name="completion-tokens" value="@(context.Variables.GetValueOrDefault<int>(&quot;completionTokens&quot;, 0).ToString())" />
+                <metadata name="total-tokens" value="@(context.Variables.GetValueOrDefault<int>(&quot;totalTokens&quot;, 0).ToString())" />
+                <metadata name="token-limit-strategy" value="@(context.Variables.GetValueOrDefault<string>(&quot;tokenLimitStrategy&quot;, &quot;raw_tokens_per_minute&quot;))" />
+                <metadata name="prompt-tokens-weight" value="@(context.Variables.GetValueOrDefault<int>(&quot;promptTokensWeight&quot;, 1).ToString())" />
+                <metadata name="completion-tokens-weight" value="@(context.Variables.GetValueOrDefault<int>(&quot;completionTokensWeight&quot;, 1).ToString())" />
+                <metadata name="weighted-tokens-per-minute" value="@(context.Variables.GetValueOrDefault<int>(&quot;weightedTokensPerMinute&quot;, 0).ToString())" />
+                <metadata name="weighted-tokens-consumed" value="@(context.Variables.GetValueOrDefault<int>(&quot;weightedTokensConsumed&quot;, 0).ToString())" />
                 <!-- Session/User tracking (if provided by client) -->
-                <metadata name="session-id" value="@(context.Request.Headers.GetValueOrDefault("X-Session-Id", "N/A"))" />
-                <metadata name="end-user-id" value="@(context.Request.Headers.GetValueOrDefault("X-End-User-Id", "N/A"))" />
-                <metadata name="app-id" value="@(context.Request.Headers.GetValueOrDefault("X-App-Id", "N/A"))" />
+                <metadata name="session-id" value="@(context.Request.Headers.GetValueOrDefault(&quot;X-Session-Id&quot;, &quot;N/A&quot;))" />
+                <metadata name="end-user-id" value="@(context.Request.Headers.GetValueOrDefault(&quot;X-End-User-Id&quot;, &quot;N/A&quot;))" />
+                <metadata name="app-id" value="@(context.Request.Headers.GetValueOrDefault(&quot;X-App-Id&quot;, &quot;N/A&quot;))" />
             </trace>
         </when>
     </choose>
 </fragment>
+
