@@ -1147,6 +1147,18 @@ details.adr.pending summary {
 details.adr.pending[open] summary {
     background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
 }
+
+.adr-code-light {
+    background: var(--bg-light);
+    color: var(--text-primary);
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    box-shadow: none;
+    padding: 1rem;
+    overflow-x: auto;
+    font-size: 0.85rem;
+}
+
 .go-to-top {
     position: fixed;
     bottom: 2rem;
@@ -4106,7 +4118,7 @@ module "storage" {
     </ol>
 
         <h4>Client-facing error response (503)</h4>
-        <pre style="background: var(--bg-light); padding: 1rem; border-radius: 8px; font-size: 0.85rem; overflow-x: auto;">{
+        <pre class="adr-code-light">{
     "error": {
         "code": "503",
         "message": "Service Unavailable - backend circuit breaker is open. Retry after the indicated period.",
