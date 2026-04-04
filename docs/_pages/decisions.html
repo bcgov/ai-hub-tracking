@@ -3039,19 +3039,15 @@ module "storage" {
         <li>Backend accumulates <strong>5xx failures</strong> (HTTP 500–599) within the failure window; 429 responses are not counted as failures and pass through the outbound section directly.</li>
         <li>When the failure count exceeds the threshold, the circuit <strong>opens</strong> (trips).</li>
         <li>APIM's native backend circuit breaker enters the <code>&lt;on-error&gt;</code> path with <strong>HTTP 503 Service Unavailable</strong>; requests are <em>not</em> forwarded to the backend while the circuit is open.</li>
-        <li>The shared global policy rewrites that gateway-generated 503 into a client-facing <strong>HTTP 429 Too Many Requests</strong>, preserving <code>Retry-After</code> and adding <code>retry-after-ms</code>, <code>x-should-retry: true</code>, and <code>x-request-id</code> so OpenAI-compatible SDKs back off automatically.</li>
+        <li>The shared global policy <strong>preserves the 503</strong> status and adds diagnostic headers — <code>x-circuit-breaker-open: true</code>, <code>Retry-After</code>, <code>retry-after-ms</code>, <code>x-should-retry: true</code>, and <code>x-request-id</code> — so clients can detect the circuit state and back off. 503 is semantically correct (backend unavailable) and is not rewritten to 429.</li>
         <li>After the trip duration (or the backend&rsquo;s <code>Retry-After</code> value if <code>accept_retry_after_enabled = true</code>), the circuit <strong>resets</strong> and traffic resumes.</li>
     </ol>
 
-    <div class="alert alert-warning">
-        <strong>Azure OpenAI caution:</strong> When Azure OpenAI returns <code>429</code>, the <code>Retry-After</code> header can be very large (e.g., 86,400 seconds = 1 day). With <code>accept_retry_after_enabled = true</code>, the circuit stays open for that duration. This is intentional &mdash; the backend cannot serve requests during that period anyway.
-    </div>
-
-        <h4>Client-facing error response (429)</h4>
+        <h4>Client-facing error response (503)</h4>
         <pre style="background: var(--bg-light); padding: 1rem; border-radius: 8px; font-size: 0.85rem; overflow-x: auto;">{
     "error": {
-        "code": "429",
-        "message": "Too Many Requests - backend circuit breaker is open. Retry after the indicated period.",
+        "code": "503",
+        "message": "Service Unavailable - backend circuit breaker is open. Retry after the indicated period.",
         "retryAfter": "60",
         "requestId": "abc-123-def-456"
     }
@@ -3059,7 +3055,7 @@ module "storage" {
 
     <h3 style="color: var(--bc-blue); margin-top: 1.5rem;">Rationale</h3>
     <ul>
-        <li><strong>Fast failure:</strong> Clients get an immediate 429 instead of waiting for backend timeouts (up to 300 seconds).</li>
+        <li><strong>Fast failure:</strong> Clients get an immediate 503 instead of waiting for backend timeouts (up to 300 seconds).</li>
         <li><strong>Backend protection:</strong> Prevents overwhelming a struggling backend with additional requests.</li>
         <li><strong>Native support:</strong> Uses <code>azurerm_api_management_backend.circuit_breaker_rule</code> for breaker state, with a single shared <code>&lt;on-error&gt;</code> rewrite to keep the client contract OpenAI-compatible.</li>
         <li><strong>Retry-After propagation:</strong> Passes backend throttle signals directly to clients for proper backoff.</li>

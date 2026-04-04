@@ -12,7 +12,7 @@ The global policy applies to all APIs before the per-tenant API policy runs:
 | Correlation ID | Sets `x-ms-correlation-request-id` for distributed tracing |
 | Token metrics | `azure-openai-emit-token-metric` scoped to `/openai/` paths only (**inbound-only policy** — cannot be used in outbound/on-error) |
 | Outbound headers | `x-ms-request-id` and `x-ratelimit-remaining-tokens` on every response |
-| Error handling | Structured JSON for 429 (rate limit), 503 (circuit breaker), and generic errors; scrubs internal Azure hostnames from error messages |
+| Error handling | Structured JSON for 429 (rate limit), 503 (circuit breaker — not rewritten), and generic errors; scrubs internal Azure hostnames from error messages |
 
 **What the global policy does NOT contain:**
 - No subscription key normalization (handled by App Gateway rewrite rules)
@@ -218,8 +218,9 @@ Use this table for every APIM change review/runbook:
 - Verify hub Key Vault exists and the Container App Job's managed identity has `Key Vault Secrets Officer` role.
 - If a rotation is stuck, check `{tenant}-apim-rotation-metadata` for `last_rotated_slot` and manually verify which APIM slot is active.
 
-### Circuit breaker tripped (clients receiving 429 with `x-circuit-breaker-open: true`)
-- Confirm it is a circuit breaker trip by checking the `x-circuit-breaker-open: true` header (absent on real 429 rate-limit responses from Azure OpenAI).
+### Circuit breaker tripped (clients receiving 503 with `x-circuit-breaker-open: true`)
+- Confirm it is a circuit breaker trip by checking the `x-circuit-breaker-open: true` header (absent on real 429 rate-limit pass-throughs from Azure OpenAI).
+- 503 is the correct status — it means the backend is unavailable (circuit open), not a rate limit. The response is **not** rewritten to 429.
 - The circuit auto-recovers after the `trip_duration` (PT1M = 60 seconds). Clients should respect the `Retry-After` header.
 - Check APIM Event Grid events for `Microsoft.ApiManagement.BackendCircuitBreakerOpened` / `BackendCircuitBreakerClosed` to correlate when tripping occurred.
 - If the circuit trips repeatedly, investigate the underlying backend health in the Azure Portal (OpenAI / Document Intelligence / AI Search / Storage / Speech Services).
