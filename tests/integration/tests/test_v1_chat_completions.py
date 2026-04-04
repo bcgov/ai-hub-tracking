@@ -12,6 +12,15 @@ from .support import PRIMARY_TENANT, assert_status, deployed_chat_models, requir
 
 pytestmark = [pytest.mark.live]
 
+RATE_LIMIT_TARGET_MODELS = (
+    "gpt-5.1-chat",
+    "o1",
+    "o3-mini",
+    "gpt-5-mini",
+    "gpt-5.1-codex-mini",
+    "o4-mini",
+)
+
 
 def _v1_body(model: str, message: str, max_tokens: int = 10, *, stream: bool = False) -> dict:
     """Build a request body for the OpenAI-compatible `/openai/v1` route."""
@@ -32,6 +41,27 @@ def _v1_body(model: str, message: str, max_tokens: int = 10, *, stream: bool = F
 def _deployment_path(config: IntegrationConfig) -> str:
     """Build the default deployment-route path used for parity checks."""
     return f"/openai/deployments/gpt-4.1-mini/chat/completions?api-version={config.openai_api_version}"
+
+
+def _rate_limit_target_model(config: IntegrationConfig) -> str:
+    """Return a low-quota `ai-hub-admin` model suitable for deterministic 429 coverage."""
+    models = set(deployed_chat_models(config, PRIMARY_TENANT))
+    for model in RATE_LIMIT_TARGET_MODELS:
+        if model in models:
+            return model
+    pytest.skip("No low-quota ai-hub-admin chat model is deployed for deterministic 429 coverage")
+
+
+def _rate_limit_message(limit_tokens: int) -> str:
+    """Build a large prompt that can exhaust a small TPM budget in a few calls."""
+    word_count = max(1500, min(limit_tokens // 4, 16000))
+    return " ".join(["token"] * word_count)
+
+
+def _rate_limit_attempts(limit_tokens: int) -> int:
+    """Return a bounded number of burst attempts needed to exhaust the model TPM window."""
+    estimated_prompt_tokens = max(1500, min(limit_tokens // 4, 16000))
+    return max(4, min(8, (limit_tokens // estimated_prompt_tokens) + 2))
 
 
 def test_ai_hub_admin_v1_chat_completion_returns_200(client: ApimClient, integration_config: IntegrationConfig) -> None:
@@ -250,3 +280,56 @@ def test_ai_hub_admin_v1_and_deployments_report_identical_token_limits(
 
     assert deployments_limit > 1000
     assert v1_limit == deployments_limit
+
+
+def test_ai_hub_admin_v1_eventually_returns_429_when_token_budget_is_exhausted(
+    client: ApimClient, integration_config: IntegrationConfig
+) -> None:
+    """Verify that ai-hub-admin can trigger an APIM 429 with retry guidance on a low-quota model.
+
+    The test deliberately targets a low-TPM admin model so it can exhaust the shared
+    budget with a few large prompts and assert the OpenAI-compatible retry headers.
+    """
+    require_key(integration_config, PRIMARY_TENANT)
+
+    model = _rate_limit_target_model(integration_config)
+    probe_response = client.request(
+        "POST",
+        PRIMARY_TENANT,
+        "/openai/v1/chat/completions",
+        json_body=_v1_body(model, "rate limit probe", 64),
+        retry=False,
+    )
+
+    assert_status(probe_response, 200)
+    limit_header = probe_response.headers.get("x-ratelimit-limit-tokens")
+    if not limit_header or not limit_header.isdigit():
+        pytest.skip(f"No x-ratelimit-limit-tokens header exposed for {model}")
+
+    limit_tokens = int(limit_header)
+    if limit_tokens > 120000:
+        pytest.skip(f"Selected model {model} exposes {limit_tokens} TPM; forcing 429 would be too noisy")
+
+    burst_body = _v1_body(model, _rate_limit_message(limit_tokens), 64)
+    statuses: list[int] = []
+    for _ in range(_rate_limit_attempts(limit_tokens)):
+        response = client.request(
+            "POST",
+            PRIMARY_TENANT,
+            "/openai/v1/chat/completions",
+            json_body=burst_body,
+            retry=False,
+        )
+        statuses.append(response.status_code)
+
+        if response.status_code == 429:
+            payload = response_json(response)
+            assert response.headers.get("Retry-After")
+            assert response.headers.get("retry-after-ms")
+            assert response.headers.get("x-should-retry") == "true"
+            assert (payload.get("error") or {}).get("code") in {"429", "too_many_requests"}
+            return
+
+        assert response.status_code == 200, response.text
+
+    pytest.fail(f"Expected a 429 for ai-hub-admin model {model} after exhausting {limit_tokens} TPM; saw {statuses}")
