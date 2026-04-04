@@ -192,11 +192,6 @@ resource "azurerm_api_management_backend" "openai" {
       interval_duration = "PT1M"
 
       status_code_range {
-        min = 429
-        max = 429
-      }
-
-      status_code_range {
         min = 500
         max = 599
       }
@@ -230,11 +225,6 @@ resource "azurerm_api_management_backend" "openai_ptu" {
       interval_duration = "PT1M"
 
       status_code_range {
-        min = 429
-        max = 429
-      }
-
-      status_code_range {
         min = 500
         max = 599
       }
@@ -265,11 +255,6 @@ resource "azurerm_api_management_backend" "docint" {
       interval_duration = "PT1M"
 
       status_code_range {
-        min = 429
-        max = 429
-      }
-
-      status_code_range {
         min = 500
         max = 599
       }
@@ -290,10 +275,9 @@ resource "azurerm_api_management_backend" "storage" {
   url                 = data.terraform_remote_state.tenant[each.key].outputs.tenant_storage_accounts[each.key].blob_endpoint
   description         = "Storage backend for ${each.value.display_name}"
 
-  # Storage uses a higher failure threshold (5 vs 3) because Azure Blob Storage
-  # transiently returns 429/5xx more frequently under bursty load patterns than
-  # AI backends. A threshold of 3 would cause the breaker to trip on normal
-  # multi-part upload retries, unnecessarily blocking tenant storage access.
+  # Storage uses count=5 (vs 3 for AI backends): transient 5xx errors during
+  # Azure Blob Storage capacity events are more common than for AI services;
+  # 5 failures before tripping avoids spurious trips on brief storage hiccups.
   circuit_breaker_rule {
     name                       = "storage-breaker"
     trip_duration              = "PT1M"
@@ -302,11 +286,6 @@ resource "azurerm_api_management_backend" "storage" {
     failure_condition {
       count             = 5
       interval_duration = "PT1M"
-
-      status_code_range {
-        min = 429
-        max = 429
-      }
 
       status_code_range {
         min = 500
@@ -339,11 +318,6 @@ resource "azurerm_api_management_backend" "ai_search" {
       interval_duration = "PT1M"
 
       status_code_range {
-        min = 429
-        max = 429
-      }
-
-      status_code_range {
         min = 500
         max = 599
       }
@@ -374,11 +348,6 @@ resource "azurerm_api_management_backend" "speech_services_stt" {
       interval_duration = "PT1M"
 
       status_code_range {
-        min = 429
-        max = 429
-      }
-
-      status_code_range {
         min = 500
         max = 599
       }
@@ -407,11 +376,6 @@ resource "azurerm_api_management_backend" "speech_services_tts" {
     failure_condition {
       count             = 3
       interval_duration = "PT1M"
-
-      status_code_range {
-        min = 429
-        max = 429
-      }
 
       status_code_range {
         min = 500

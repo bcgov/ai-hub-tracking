@@ -223,4 +223,4 @@ Use this table for every APIM change review/runbook:
 - The circuit auto-recovers after the `trip_duration` (PT1M = 60 seconds). Clients should respect the `Retry-After` header.
 - Check APIM Event Grid events for `Microsoft.ApiManagement.BackendCircuitBreakerOpened` / `BackendCircuitBreakerClosed` to correlate when tripping occurred.
 - If the circuit trips repeatedly, investigate the underlying backend health in the Azure Portal (OpenAI / Document Intelligence / AI Search / Storage / Speech Services).
-- The failure thresholds are: 3 errors/minute for AI service backends (OpenAI, DocInt, AI Search, Speech) and 5 errors/minute for Storage. A sustained trip indicates a backend incident, not a transient glitch.
+- The circuit breaker trips on **5xx errors only** (not 429). Failure thresholds: 3 server errors/minute for AI service backends (OpenAI, DocInt, AI Search, Speech), 5 for Storage. Backend 429s pass through directly with the real `Retry-After` from the backend service — they do not open the circuit.

@@ -65,12 +65,37 @@
         <set-header name="x-ratelimit-remaining-tokens" exists-action="override">
             <value>@(context.Variables.ContainsKey("remainingTokens") ? ((int)context.Variables["remainingTokens"]).ToString() : "N/A")</value>
         </set-header>
+        <!-- ================================================================== -->
+        <!-- BACKEND 429 PASS-THROUGH SIGNALS                                  -->
+        <!-- Backend rate-limit responses pass through outbound directly.       -->
+        <!-- The backend Retry-After is preserved; add retry signals for SDKs. -->
+        <!-- Circuit breaker does NOT trip on 429 — only on 5xx failures.      -->
+        <!-- ================================================================== -->
+        <choose>
+            <when condition="@(context.Response.StatusCode == 429)">
+                <set-header name="x-should-retry" exists-action="override">
+                    <value>true</value>
+                </set-header>
+                <set-header name="retry-after-ms" exists-action="override">
+                    <value>@{
+                        var retryAfter = context.Response.Headers.GetValueOrDefault("Retry-After", "30");
+                        int retryAfterSeconds;
+                        if (System.Int32.TryParse(retryAfter, out retryAfterSeconds))
+                        {
+                            return System.Math.Max(0, retryAfterSeconds * 1000).ToString();
+                        }
+                        return "30000";
+                    }</value>
+                </set-header>
+            </when>
+        </choose>
     </outbound>
     <on-error>
         <!-- ================================================================== -->
-        <!-- THROTTLING HANDLING                                               -->
-        <!-- Preserve Retry-After headers from backend for 429 responses       -->
-        <!-- Helps clients implement proper backoff strategies                 -->
+        <!-- APIM-INTERNAL RATE LIMIT HANDLING                                 -->
+        <!-- Fires when llm-token-limit or rate-limit-by-key trips in inbound. -->
+        <!-- Backend 429s pass through <outbound> — they do NOT reach on-error.-->
+        <!-- Sets Retry-After + retry signals for OpenAI SDK compatibility.    -->
         <!-- ================================================================== -->
         <choose>
             <when condition="@(context.Response.StatusCode == 429)">

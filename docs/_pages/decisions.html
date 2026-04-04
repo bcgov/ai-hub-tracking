@@ -3019,7 +3019,7 @@ module "storage" {
             <tr><td>Failure window</td><td>1 minute (<code>PT1M</code>)</td><td>1 minute (<code>PT1M</code>)</td></tr>
             <tr><td>Trip duration</td><td>1 minute (<code>PT1M</code>)</td><td>1 minute (<code>PT1M</code>)</td></tr>
             <tr><td>Accept Retry-After</td><td>Yes</td><td>Yes</td></tr>
-            <tr><td>Trigger status codes</td><td><code>429</code>, <code>500&ndash;599</code></td><td><code>429</code>, <code>500&ndash;599</code></td></tr>
+            <tr><td>Trigger status codes</td><td><code>500&ndash;599</code> only</td><td><code>500&ndash;599</code> only</td></tr>
         </tbody>
     </table>
 
@@ -3036,7 +3036,7 @@ module "storage" {
 
     <h4>What happens when the circuit trips</h4>
     <ol>
-        <li>Backend accumulates failures matching the configured status codes within the failure window.</li>
+        <li>Backend accumulates <strong>5xx failures</strong> (HTTP 500–599) within the failure window; 429 responses are not counted as failures and pass through the outbound section directly.</li>
         <li>When the failure count exceeds the threshold, the circuit <strong>opens</strong> (trips).</li>
         <li>APIM's native backend circuit breaker enters the <code>&lt;on-error&gt;</code> path with <strong>HTTP 503 Service Unavailable</strong>; requests are <em>not</em> forwarded to the backend while the circuit is open.</li>
         <li>The shared global policy rewrites that gateway-generated 503 into a client-facing <strong>HTTP 429 Too Many Requests</strong>, preserving <code>Retry-After</code> and adding <code>retry-after-ms</code>, <code>x-should-retry: true</code>, and <code>x-request-id</code> so OpenAI-compatible SDKs back off automatically.</li>
