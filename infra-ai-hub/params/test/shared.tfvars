@@ -78,11 +78,11 @@ shared_config = {
 
     sku_name = "WAF_v2"
     sku_tier = "WAF_v2"
-    capacity = 1
+    #capacity = 1
 
     # Autoscale for test environment
     autoscale = {
-      min_capacity = 1
+      min_capacity = 0
       max_capacity = 2
     }
 
