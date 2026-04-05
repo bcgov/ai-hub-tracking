@@ -38,6 +38,10 @@ Every change should deliver:
 ## External Documentation
 - Use [External Docs Research](../external-docs/SKILL.md) as the single source of truth for external package manager, advisory, and version guidance when repository files are not sufficient.
 
+## Documentation Sync
+- If the change adds, removes, renames, or materially reorganizes tracked files or directories, update the root `README.md` `Folder Structure` section in the same change. Do not add gitignored or local-only artifacts to that tree.
+- Review the documentation sync matrix in [../../copilot-instructions.md](../../copilot-instructions.md) and update any area-specific README or docs pages it calls out for the touched subtree.
+
 ## Scope
 - Python dependency projects:
   - `jobs/apim-key-rotation/pyproject.toml`

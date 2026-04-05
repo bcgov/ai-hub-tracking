@@ -37,6 +37,10 @@ Research output should include:
 4. **Conflict handling**: prefer official versioned docs over memory or unofficial sources.
 5. **Fallback approval requirement**: if no documentation is found in Context7, identify an alternate source of truth and ask the user for explicit approval before using it, or ask the user to provide the alternate source directly.
 
+## Documentation Sync
+- If implementation work adds, removes, renames, or materially reorganizes tracked files or directories, the resulting change should update the root `README.md` `Folder Structure` section in the same change. Do not add gitignored or local-only artifacts to that tree.
+- Review the documentation sync matrix in [../../copilot-instructions.md](../../copilot-instructions.md) and update any area-specific README or docs pages it calls out for the touched subtree.
+
 ## Context7 Workflow
 1. Resolve library ID with `mcp_context7_resolve-library-id`.
 2. Query docs with `mcp_context7_get-library-docs` using a specific, version-aware topic.
