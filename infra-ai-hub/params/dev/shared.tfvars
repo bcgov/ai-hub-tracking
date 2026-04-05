@@ -91,13 +91,12 @@ shared_config = {
     # WAF_v2 provides Web Application Firewall capabilities
     sku_name = "WAF_v2"
     sku_tier = "WAF_v2"
-    capacity = 1 # Fixed capacity (no autoscale in dev)
+    #capacity = 1 # Fixed capacity (no autoscale in dev)
 
-    # Autoscale (optional) - set to null to use fixed capacity
-    # autoscale = {
-    #   min_capacity = 1
-    #   max_capacity = 3
-    # }
+    autoscale = {
+      min_capacity = 0
+      max_capacity = 1
+    }
 
     waf_enabled = true
     waf_mode    = "Detection" # Detection only in dev; Prevention in prod
