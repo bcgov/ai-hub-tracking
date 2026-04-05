@@ -49,6 +49,31 @@ Every recommendation, configuration value, or behavioral claim **must** be backe
 
 ---
 
+## Documentation Sync (Non-Negotiable)
+
+- When a change adds, removes, renames, or materially reorganizes tracked files or directories, update the root `README.md` `Folder Structure` section in the same change.
+- The root tree must describe tracked repository content only. Do not list gitignored or local-only artifacts.
+- If a touched subtree has its own tracked `README.md`, treat it as the default local source of truth for that subtree and update it when its documented structure, workflow, interface, or operator steps change.
+- For docs-site content, update both the source page under `docs/_pages/` and the published page under `docs/` in the same change when the published docs are tracked.
+
+Review and update the matching documents below before handoff:
+
+| Changed area | Documentation to review/update |
+|---|---|
+| Repo top-level layout or shared folder layout | `README.md` |
+| `.github/` hooks, skills, scripts, or workflows | `README.md`, `docs/_pages/workflows.html`, `docs/workflows.html`, `docs/README.md` |
+| `docs/` site pages, partials, assets, or build scripts | `docs/README.md` and the affected `docs/_pages/*.html` + published `docs/*.html` pages |
+| `infra-ai-hub/` modules, params, scripts, stacks, deployment topology, or tenant-visible service availability | `infra-ai-hub/README.md`, `infra-ai-hub/model-deployments.md`, `README.md`, `docs/_pages/services.html`, `docs/services.html`, and any affected docs under `docs/_pages/terraform*.html` + `docs/terraform*.html` |
+| `initial-setup/` bootstrap flow or foundational infra layout | `initial-setup/README.md`, `README.md`, and any affected OIDC/setup docs under `docs/` |
+| `tenant-onboarding-portal/` app layout, local run flow, or deployment behavior | `tenant-onboarding-portal/README.md`, `README.md`, and any affected workflow docs |
+| `tests/integration/` layout, suite map, runner behavior, or datasets | `tests/integration/README.md`, `README.md` |
+| `jobs/apim-key-rotation/` runtime, container, or workflow | `jobs/apim-key-rotation/README.md`, `README.md` |
+| `pii-redaction-service/` runtime, API behavior, or deployment wiring | `pii-redaction-service/README.md`, `README.md`, and affected PII docs under `docs/` when user-visible behavior changes |
+| `azure-proxy/` tunnel or proxy containers/scripts | `azure-proxy/chisel/README.md`, `azure-proxy/privoxy/README.md`, `README.md` |
+| `ssl_certs/` certificate scripts or operational process | `ssl_certs/README.md`, `README.md` |
+
+---
+
 ## Brief Status Format
 
 Use this format for task completion:

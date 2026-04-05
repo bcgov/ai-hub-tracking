@@ -52,181 +52,96 @@ The configured Terraform hook runs:
 
 ## Folder Structure
 
-```
-ai-hub-tracking/
-│
-├── initial-setup/                      # One-time setup for Azure infrastructure & GitHub Actions OIDC
-│   ├── initial-azure-setup.sh          # Main setup script (auto-installs missing tools + manages OIDC setup)
-│   ├── README.md                       # Setup instructions, tool installation details, and flow documentation
-│   │
-│   └── infra/                          # Terraform configurations for foundational infrastructure
-│       ├── deploy-terraform.sh         # Deployment wrapper script (init, plan, apply, destroy)
-│       ├── main.tf                     # Root module - resource group and module orchestration
+This tree lists tracked repository content only. Local or gitignored artifacts such as `sensitive/`, `temp/`, `_tmp/`, `_bkp/`, `*.http`, `*.tfstate*`, and `terraform.tfvars` are intentionally omitted.
+
+```text
+ai-hub-tracking/                        # Repository root
+├── .env.example                       # Example environment variables for local setup
+├── .gitattributes                     # Git attributes and line-ending rules
+├── .github/                           # Repo automation, guardrails, and Copilot guidance
+│   ├── copilot-instructions.md         # Repo-wide Copilot operating rules
+│   ├── hooks/                          # Pre/post-tool guardrails and automation
+│   ├── scripts/                        # CI helper scripts
+│   ├── skills/                         # Domain-specific Copilot skill profiles
+│   └── workflows/                      # GitHub Actions workflows
+├── .gitignore                         # Ignore rules for local and generated artifacts
+├── .pre-commit-config.yaml            # Pre-commit hook configuration
+├── azure-proxy/                       # Secure tunnel container definitions for local access
+│   ├── chisel/                         # Chisel tunnel container and startup script
+│   └── privoxy/                        # Privoxy container and entrypoint
+├── docker-compose.yml                 # Local multi-container orchestration
+├── docs/                              # Static documentation site source and published output
+│   ├── _pages/                         # Source page templates
+│   ├── _partials/                      # Shared header/footer templates
+│   ├── assets/                         # Published static assets
+│   ├── plans/                          # Documentation working notes
+│   ├── README.md                       # Docs build and maintenance guide
+│   ├── build.sh                        # Static site generator
+│   ├── generate-search-index.js        # Search index generator
+│   ├── generate-tf-docs.sh             # Terraform reference generator
+│   └── [published HTML pages]          # Built site content committed to the repo
+├── infra-ai-hub/                      # Main AI Hub Terraform workspace
+│   ├── README.md                       # Infrastructure architecture and deployment guide
+│   ├── model-deployments.md            # Tenant model inventory and quota notes
+│   ├── modules/                        # Reusable Terraform modules
+│   ├── params/                         # Environment config, tenant tfvars, and APIM templates
+│   ├── scripts/                        # Deployment and recovery helpers
+│   └── stacks/                         # Stack-based Terraform roots
+├── initial-setup/                     # Bootstrap tooling and foundational infra setup
+│   ├── initial-azure-setup.sh          # Bootstrap script for OIDC and foundational infra
+│   ├── README.md                       # First-time setup guide
+│   └── infra/                          # Foundational Terraform configuration
+│       ├── backend.tf                  # Remote Terraform backend configuration
+│       ├── deploy-terraform.sh         # Foundational infra deployment wrapper
+│       ├── main.tf                     # Root bootstrap resources and module wiring
+│       ├── modules/                    # Reusable bootstrap Terraform modules
+│       ├── outputs.tf                  # Foundational infra outputs
+│       ├── providers.tf                # Provider configuration
+│       ├── scripts/                    # Bootstrap helper scripts
 │       ├── variables.tf                # Input variable definitions
-│       ├── outputs.tf                  # Output values (resource IDs, endpoints)
-│       ├── providers.tf                # Provider versions and features
-│       ├── backend.tf                  # Remote state configuration
-│       ├── terraform.tfvars            # Variable values (not committed, create locally)
-│       │
-│       └── modules/                    # Reusable Terraform modules
-│           ├── network/                # Virtual Network, subnets, NSGs
-│           ├── bastion/                # Azure Bastion for secure access
-│           ├── jumpbox/                # Development VM with CLI tools
-│           ├── github-runners-aca/     # Self-hosted GitHub runners on Container Apps
-│           ├── azure-proxy/            # Secure tunnel (chisel) deployment used for proxying
-│           └── monitoring/             # Log Analytics & Application Insights for observability
-│
-├── infra-ai-hub/                       # AI Hub project infrastructure (multi-tenant AI services)
-│   ├── main.tf                         # Root module orchestration
-│   ├── variables.tf                    # Input variable definitions
-│   ├── outputs.tf                      # Output values
-│   ├── providers.tf                    # Provider configuration
-│   ├── backend.tf                      # Remote state configuration
-│   ├── locals.tf                       # Tenant config processing and policy generation
-│   ├── terraform.tfvars                # Shared variable values
-│   ├── README.md                       # Deployment guide and module documentation
-│   │
-│   ├── modules/                        # Terraform modules for AI Hub infrastructure
-│   │   ├── ai-foundry-hub/             # Azure AI Foundry Hub (central AI workspace)
-│   │   ├── apim/                       # API Management (StandardV2, multi-tenant gateway)
-│   │   ├── app-configuration/          # Azure App Configuration
-│   │   ├── app-gateway/                # Application Gateway (WAF v2, SSL termination)
-│   │   ├── container-app-environment/  # Container App Environment
-│   │   ├── container-registry/         # Azure Container Registry
-│   │   ├── dashboard/                  # Azure Dashboard
-│   │   ├── defender/                   # Microsoft Defender for Cloud
-│   │   ├── dns-zone/                   # Azure DNS Zone management
-│   │   ├── foundry-project/            # AI Foundry tenant projects
-│   │   ├── key-rotation-function/      # Automated APIM subscription key rotation
-│   │   ├── network/                    # Virtual Network, subnets, private endpoints
-│   │   ├── storage-account/            # Azure Storage Account
-│   │   ├── tenant/                     # Per-tenant resources (AI Search, CosmosDB, Doc Intel, etc.)
-│   │   ├── tenant-user-management/     # Entra ID user/group assignments per tenant
-│   │   └── waf-policy/                 # Web Application Firewall custom rules
-│   │
-│   ├── params/                         # Environment and tenant configuration
-│   │   ├── apim/                       # APIM policies and fragments
-│   │   │   ├── api_policy.xml.tftpl    # Per-tenant API policy template
-│   │   │   ├── global_policy.xml       # Global APIM policy
-│   │   │   ├── landing_page_policy.xml # Landing page policy
-│   │   │   └── fragments/              # Policy fragments (PII, auth, logging, routing)
-│   │   ├── dev/                        # Dev environment config
-│   │   ├── test/                       # Test environment config
-│   │   └── prod/                       # Production environment config
-│   │
-│   ├── scripts/                        # Deployment and utility scripts
-│   │   ├── deploy-terraform.sh         # Stack-based deployment (init, plan, apply with auto-recovery)
-│   │   ├── extract-import-target.sh    # Extract Terraform import targets from errors
-│   │   ├── purge-ai-foundry.sh         # Purge AI Foundry soft-deleted resources
-│   │   └── wait-for-dns-zone.sh        # Wait for DNS zone propagation
-│   │
-│   ├── stacks/                         # Isolated Terraform root modules (one state file each)
-│   │   ├── shared/                     # VNet, AI Foundry Hub, App GW, WAF, monitoring
-│   │   ├── tenant/                     # Per-tenant resources (template, runs per tenant)
-│   │   ├── foundry/                    # AI Foundry projects per tenant
-│   │   ├── apim/                       # API Management gateway and policies
-│   │   └── tenant-user-mgmt/          # Entra ID user/group assignments
-│   │
-│   └── modules/key-rotation-function/  # Terraform module for the key rotation Container App Job
-│
-├── jobs/                               # Container App Jobs
-│   └── apim-key-rotation/             # APIM subscription key rotation (Python, custom container)
-│       └── Dockerfile                 # Multi-stage build (uv + python:3.13-slim)
-│
-├── tenant-onboarding-portal/          # Tenant intake application workspace
-│   ├── infra/                         # Terraform for the portal App Service and related Azure resources
-│   ├── backend/                       # NestJS API, tests, deployment tooling, and portal docs
-│   ├── frontend/                      # React/Vite single-page application
-│   └── README.md                      # Portal architecture, local dev, and deployment notes
-│
-├── tests/                              # Integration test suite
-│   └── integration/                    # Python/pytest integration and evaluation project
-│       ├── src/ai_hub_integration/     # Shared config loader, APIM client, evaluation helpers
-│       ├── tests/                      # Live pytest suites for APIM, App Gateway, DocInt, and AI eval
-│       ├── eval_datasets/              # Azure AI Evaluation datasets
-│       ├── run-tests.py                # Pytest runner with suite aliases and group selection
-│       ├── run-evaluation.py           # Azure AI Evaluation CLI entrypoint
-│       ├── run-tests.sh                # Shell wrapper around the Python runner
-│       └── README.md                   # Test documentation
-│
-├── azure-proxy/                        # Docker configurations for secure proxy tunnel
-│   ├── chisel/                         # Chisel tunnel server/client
-│   └── privoxy/                        # Privoxy HTTP proxy
-│
-├── ssl_certs/                          # SSL certificate management scripts
-│   ├── create-pfx.sh                   # Create PFX from cert+key
-│   ├── csr-gen.sh                      # Generate certificate signing requests
-│   ├── upload-cert-direct.sh           # Upload cert directly to App Gateway
-│   ├── upload-cert-keyvault.sh         # Upload cert to Key Vault
-│   ├── README.md                       # SSL certificate procedures
-│   ├── test/                           # Test environment certificates
-│   └── prod/                           # Production environment certificates
-│
-├── docs/                               # Static HTML documentation (GitHub Pages)
-│   ├── build.sh                        # Script to generate HTML from templates
-│   ├── generate-tf-docs.sh             # Auto-generate Terraform module docs
-│   ├── index.html                      # Home page
-│   ├── terraform.html                  # Terraform modules and deployment guide
-│   ├── workflows.html                  # GitHub Actions workflows documentation
-│   ├── oidc-setup.html                 # OIDC authentication setup guide
-│   ├── terraform-reference.html        # Auto-generated module reference
-│   ├── decisions.html                  # Architectural decision records
-│   ├── diagrams.html                   # Architecture diagrams
-│   ├── playbooks.html                  # Operational playbooks
-│   ├── faq.html                        # Frequently asked questions
-│   ├── cost.html                       # Cost analysis and optimization
-│   ├── document-intelligence.html      # Document Intelligence setup and usage
-│   ├── language-service-pii.html       # PII anonymization documentation
-│   ├── technical-deep-dive.html        # Architecture deep dive
-│   │
-│   ├── _pages/                         # Source templates for HTML generation
-│   │   ├── _template.html              # Base HTML template
-│   │   └── [various .html files]       # Source files for each page
-│   │
-│   ├── _partials/                      # Shared HTML snippets
-│   │   ├── header.html
-│   │   └── footer.html
-│   │
-│   └── assets/                         # Images, CSS, JavaScript
-│
-├── .github/                            # GitHub Actions workflows and configuration
-│   ├── workflows/                      # CI/CD automation
-│   │   ├── .deployer.yml               # Reusable Terraform deployment workflow
-│   │   ├── .deployer-using-secure-tunnel.yml # Deployment via Chisel tunnel
-│   │   ├── .builds.yml                 # Reusable build workflow (chisel, privoxy, key-rotation)
-│   │   ├── .lint.yml                   # Reusable Terraform lint workflow (pre-commit)
-│   │   ├── add-or-remove-module.yml    # Toggle infrastructure modules
-│   │   ├── merge-main.yml              # Auto-apply to test on merge to main (semantic version + changelog)
-│   │   ├── manual-dispatch.yml         # Manual deployment trigger
-│   │   ├── pages.yml                   # Documentation deployment to GitHub Pages
-│   │   ├── pr-open.yml                 # Pull request validation
-│   │   └── schedule.yml                # Scheduled cleanup tasks
-│   │
-│   ├── instructions/                   # Coding guidelines and preferences
-│   │   ├── copilot.instructions.md     # GitHub Copilot preferences and patterns
-│   │   └── code-review.instructions.md # Code review guidelines for PRs
-│   │
-│   ├── skills/                         # Copilot skill profiles for specialized tasks
-│   │   ├── iac-coder/                  # Infrastructure as Code authoring skills
-│   │   ├── iac-code-reviewer/          # IaC code review skills
-│   │   ├── api-management/             # APIM policy and routing skills
-│   │   ├── key-rotation-function/      # Key rotation Container App Job skills
-│   │   ├── integration-testing/        # Python/pytest integration testing skills
-│   │   ├── ai-evaluation/              # Azure AI Evaluation SDK skills
-│   │   ├── network/                    # Network module and subnet skills
-│   │   └── documentation/              # Documentation authoring skills
-│   │
-│   └── appmod/                         # Application modernization configs
-│       └── appcat/                     # App CAT assessment configuration
-│
-├── sensitive/                          # Local credentials and secrets (git ignored)
-│   └── [credentials, keys, tokens]     # Never commit to repository
-│
-├── renovate.json                       # Automated dependency updates configuration
-├── test.http                           # HTTP request samples for API testing
-├── .gitattributes                      # Git file handling rules (line endings, binary)
+│       └── versions.tf                 # Terraform and provider version constraints
+├── jobs/                              # Container App jobs source code
+│   └── apim-key-rotation/             # APIM subscription key rotation job
+│       ├── README.md                   # Developer guide for the rotation job
+│       ├── Dockerfile                  # Container image build definition
+│       ├── main.py                     # CLI entrypoint
+│       ├── pyproject.toml              # Project metadata and dependencies
+│       ├── rotation/                   # Rotation runtime package
+│       ├── tests/                      # Unit tests
+│       └── uv.lock                     # Resolved dependency lockfile
 ├── LICENSE                             # Repository license
-├── README.md                           # This file
+├── pii-redaction-service/             # FastAPI service for PII redaction via Azure AI Language
+│   ├── README.md                       # Service guide and operator notes
+│   ├── Dockerfile                      # Container image build definition
+│   ├── app/                            # FastAPI application package
+│   ├── pyproject.toml                  # Project metadata and dependencies
+│   └── tests/                          # Unit and service tests
+├── README.md                           # Repository overview and operator guide
+├── renovate.json                       # Dependency automation configuration
+├── ssl_certs/                         # Certificate scripts and environment-specific material
+│   ├── README.md                       # Certificate operations guide
+│   ├── create-pfx.sh                   # Build PFX bundles from cert and key files
+│   ├── csr-gen.sh                      # Generate CSRs and private keys
+│   ├── upload-cert-direct.sh           # Upload certificates directly to App Gateway
+│   ├── upload-cert-keyvault.sh         # Upload certificates through Key Vault
+│   ├── prod/                           # Production certificate directory
+│   └── test/                           # Test certificate directory
+├── tenant-onboarding-portal/          # Tenant onboarding application workspace
+│   ├── README.md                       # Portal architecture and local run guide
+│   ├── backend/                        # NestJS API, tests, and deployment tooling
+│   ├── frontend/                       # React/Vite single-page application
+│   └── infra/                          # Portal Terraform configuration
+└── tests/                             # Shared automated test workspace
+    └── integration/                   # Python integration and evaluation project
+        ├── README.md                   # Integration test documentation
+        ├── eval_datasets/              # Evaluation datasets
+        ├── pyproject.toml              # Project metadata and dependencies
+        ├── run-evaluation.py           # Azure AI Evaluation CLI entrypoint
+        ├── run-tests.py                # Pytest runner with suite aliases and grouping
+        ├── run-tests.sh                # Shell wrapper around the Python runner
+        ├── src/                        # Shared integration runtime modules
+        ├── tests/                      # Live and unit pytest suites
+        └── uv.lock                     # Resolved dependency lockfile
 ```
 
 ## Directory Descriptions
@@ -249,12 +164,16 @@ Bootstrap directory for one-time environment setup. Contains the main setup auto
   - **monitoring**: Log Analytics and Application Insights for observability
 
 ### `infra-ai-hub/`
-Multi-tenant AI Services Hub infrastructure. Manages APIM gateway, AI Foundry, per-tenant resources (AI Search, CosmosDB, Document Intelligence, Speech Services), WAF, and APIM policy fragments (PII anonymization, authentication, usage logging, intelligent routing).
+Multi-tenant AI Services Hub infrastructure. Manages the stack-based Terraform deployment for APIM, AI Foundry, per-tenant resources, networking, WAF, and published model availability.
 
-- **modules/**: 16 Terraform modules for all Azure resources
-- **params/**: Environment configs (dev/test/prod) with per-tenant tfvars and APIM policy templates
-- **scripts/**: Deployment script with stack-based orchestration, import-on-conflict, and retry logic
-- **stacks/**: Isolated Terraform root modules (`shared`, `tenant`, `foundry`, `apim`, `tenant-user-mgmt`) with separate state files
+- **modules/**: Reusable Terraform modules for shared infra, tenant resources, PII redaction, and key rotation
+- **params/**: Environment configs with per-tenant `tenant.tfvars` files plus shared APIM templates and fragments
+- **scripts/**: Deployment helpers, import extraction, DNS wait logic, and Foundry cleanup tooling
+- **stacks/**: Isolated Terraform roots for `shared`, `tenant`, `foundry`, `apim`, `tenant-user-mgmt`, `pii-redaction`, and `key-rotation`
+- **model-deployments.md**: Current tenant model inventory and quota allocation notes
+
+### `pii-redaction-service/`
+Python FastAPI service used by APIM for fail-closed PII redaction via Azure AI Language. Contains the app runtime, tests, container packaging, and service-specific documentation.
 
 ### `tests/`
 Python/pytest-based integration test suite for validating deployed infrastructure. Tests cover chat completions, document intelligence, PII redaction (fail-closed/fail-open), tenant isolation, binary uploads, and user management.
@@ -266,11 +185,13 @@ Container App Jobs source code. Contains the APIM key rotation job (`apim-key-ro
 Tenant onboarding application workspace. The root now stays intentionally thin: `backend/` contains the NestJS API, Playwright and unit tests, Terraform, and deployment helpers; `frontend/` contains the React/Vite SPA; `README.md` explains local development and deployment behavior.
 
 ### `.github/`
-GitHub Actions automation, contribution guidelines, and Copilot skill profiles.
+GitHub Actions automation, Copilot guidance, and repository guardrails.
 
-- **workflows/**: CI/CD pipelines including reusable deployers, PR validation, scheduled tasks, and GitHub Pages publishing
-- **instructions/**: Coding guidelines for Copilot and code review standards
-- **skills/**: Specialized Copilot skill profiles for IaC authoring, code review, APIM policy management, key rotation function, integration testing, network, and documentation
+- **copilot-instructions.md**: Repo-wide operating rules for Copilot, including documentation sync requirements
+- **hooks/**: Guard scripts for destructive-command checks and post-tool validation
+- **scripts/**: CI helper scripts used by workflows
+- **skills/**: Specialized Copilot skill profiles for infrastructure, docs, APIM, testing, and application work
+- **workflows/**: CI/CD pipelines for Terraform, docs publishing, the portal app, container builds, and integration tests
 
 ### `docs/`
 Static HTML documentation generated from templates and scripts.
