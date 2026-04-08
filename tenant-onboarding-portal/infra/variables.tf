@@ -71,7 +71,7 @@ variable "common_tags" {
 variable "sku_name" {
   description = "App Service Plan SKU (e.g. B1, S1). Use F1 for free-tier dev; set enable_always_on = false accordingly."
   type        = string
-  default     = "B1"
+  default     = "B2"
 }
 
 variable "enable_always_on" {
