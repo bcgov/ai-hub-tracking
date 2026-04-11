@@ -296,6 +296,25 @@ class IntegrationConfig:
         """Return tenant models that are valid on the deployments chat route."""
         return filter_deployments_chat_models(self.get_tenant_models(tenant))
 
+    def get_tenant_vllm_models(self, tenant: str) -> list[str]:
+        """Return vLLM model IDs configured for a tenant, from tfvars or VLLM_MODEL_ID env var."""
+        env_model = os.getenv("VLLM_MODEL_ID")
+        if env_model and os.getenv("VLLM_ENABLED", "").lower() in {"1", "true", "yes"}:
+            return [env_model]
+
+        tenant_file = self.infra_dir / "params" / self.environment / "tenants" / tenant / "tenant.tfvars"
+        if not tenant_file.exists():
+            return []
+
+        text = tenant_file.read_text(encoding="utf-8")
+        vllm_block = _extract_named_block(text, "vllm")
+        if not vllm_block:
+            return []
+        enabled_match = re.search(r"^\s*enabled\s*=\s*(true|false)\b", vllm_block, flags=re.MULTILINE)
+        if not enabled_match or enabled_match.group(1).lower() != "true":
+            return []
+        return re.findall(r'model_id\s*=\s*"([^"]+)"', vllm_block)
+
     def is_apim_key_rotation_enabled(self) -> bool:
         """Determine whether APIM key rotation is enabled in shared tfvars."""
         shared_tfvars = self.infra_dir / "params" / self.environment / "shared.tfvars"

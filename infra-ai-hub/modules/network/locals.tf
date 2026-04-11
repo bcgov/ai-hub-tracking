@@ -19,10 +19,11 @@ locals {
   # ENABLED FLAGS — derived from subnet name presence
   # =============================================================================
 
-  pe_enabled    = contains(keys(local.subnet_cidrs), "privateendpoints-subnet")
-  apim_enabled  = contains(keys(local.subnet_cidrs), "apim-subnet")
-  appgw_enabled = contains(keys(local.subnet_cidrs), "appgw-subnet")
-  aca_enabled   = contains(keys(local.subnet_cidrs), "aca-subnet")
+  pe_enabled       = contains(keys(local.subnet_cidrs), "privateendpoints-subnet")
+  apim_enabled     = contains(keys(local.subnet_cidrs), "apim-subnet")
+  appgw_enabled    = contains(keys(local.subnet_cidrs), "appgw-subnet")
+  aca_enabled      = contains(keys(local.subnet_cidrs), "aca-subnet")
+  vllm_aca_enabled = contains(keys(local.subnet_cidrs), "vllm-aca-subnet")
 
   # =============================================================================
   # PE SUBNET POOL
@@ -60,4 +61,5 @@ locals {
   apim_subnet_cidr             = local.apim_enabled ? local.subnet_cidrs["apim-subnet"] : null
   appgw_subnet_cidr            = local.appgw_enabled ? local.subnet_cidrs["appgw-subnet"] : null
   aca_subnet_cidr              = local.aca_enabled ? local.subnet_cidrs["aca-subnet"] : null
+  vllm_aca_subnet_cidr         = local.vllm_aca_enabled ? local.subnet_cidrs["vllm-aca-subnet"] : null
 }

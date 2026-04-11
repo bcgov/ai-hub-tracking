@@ -49,6 +49,11 @@ output "aca_subnet_id" {
   value       = module.network.aca_subnet_id
 }
 
+output "vllm_aca_subnet_id" {
+  description = "vLLM ACA subnet ID for the GPU-backed Container Apps Environment (null if not enabled)"
+  value       = module.network.vllm_aca_subnet_id
+}
+
 output "container_app_environment_id" {
   description = "Container App Environment resource ID (null if not enabled)"
   value       = length(module.container_app_environment) > 0 ? module.container_app_environment[0].resource_id : null

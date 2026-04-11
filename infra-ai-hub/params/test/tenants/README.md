@@ -119,6 +119,20 @@ tenant = {
     ]
   }
 
+  # vLLM — opt-in to GPU-backed open-source models (shared hub infrastructure).
+  # Each model entry can override tokens_per_minute independently; if omitted the
+  # tenant-level rate_limiting.tokens_per_minute is used as the per-model default.
+  # Requires the vllm stack to be deployed for this environment first.
+  # vllm = {
+  #   enabled = true
+  #   models = [
+  #     {
+  #       model_id          = "google/gemma-4-31B-it"
+  #       tokens_per_minute = 50000  # optional; defaults to rate_limiting.tokens_per_minute
+  #     },
+  #   ]
+  # }
+
   apim_auth = {
     mode                 = "subscription_key"
     key_rotation_enabled = false  # Per-tenant opt-in for APIM key rotation
@@ -218,6 +232,17 @@ Each service can be independently enabled/disabled via the `enabled` flag (JSON 
 - `Session` - Recommended for most use cases
 - `BoundedStaleness`
 - `Strong` - Most restrictive
+
+### vLLM Model IDs
+
+The `model_id` field must exactly match the model ID on the shared vLLM Container App. The default model deployed in each environment is listed in `infra-ai-hub/model-deployments.md`.
+
+**Token limits:**
+- `tokens_per_minute` (per model, optional) — rate cap applied by APIM for this specific model. Defaults to the tenant-level `rate_limiting.tokens_per_minute` when omitted.
+- Models that share the same `tokens_per_minute` still receive **independent counters** keyed by `{subscription-id}-vllm-{model-id}`, so a high-usage model does not consume another model's quota.
+
+**Namespace collision rule:**
+`model_id` values must not share a prefix (text before the first `/`) with any Foundry deployment `name` in the same tenant. Terraform validates this at plan time.
 
 ### OpenAI Model Names
 Common models available in Azure OpenAI:

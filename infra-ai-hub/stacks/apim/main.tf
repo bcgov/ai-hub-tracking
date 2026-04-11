@@ -44,6 +44,25 @@ data "terraform_remote_state" "pii_redaction" {
   }
 }
 
+# The azurerm backend returns empty state (not an error) when the state blob does not
+# yet exist. When the vllm_service output is absent, local.vllm_state_available = false
+# and no vLLM backends or policy routing are created — APIM plans cleanly without vLLM.
+# On first full deployment, vllm apply (phase 3) runs before apim apply (phase 3b),
+# so the state blob exists by the time APIM apply runs.
+data "terraform_remote_state" "vllm" {
+  backend = "azurerm"
+  config = {
+    resource_group_name  = var.backend_resource_group
+    storage_account_name = var.backend_storage_account
+    container_name       = var.backend_container_name
+    key                  = "ai-services-hub/${var.app_env}/vllm.tfstate"
+    subscription_id      = var.subscription_id
+    tenant_id            = var.tenant_id
+    client_id            = var.client_id
+    use_oidc             = var.use_oidc
+  }
+}
+
 module "apim" {
   source = "../../modules/apim"
   count  = local.apim_config.enabled ? 1 : 0
@@ -228,6 +247,57 @@ resource "azurerm_api_management_backend" "openai_ptu" {
         min = 500
         max = 599
       }
+    }
+  }
+}
+
+resource "azurerm_api_management_backend" "vllm" {
+  for_each = {
+    for key, config in local.enabled_tenants : key => config
+    if try(config.vllm.enabled, false) && local.apim_config.enabled && local.vllm_state_available
+  }
+
+  name                = "${each.key}-vllm"
+  resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
+  api_management_name = module.apim[0].name
+  protocol            = "http"
+  url                 = "https://${data.terraform_remote_state.vllm.outputs.vllm_service.container_app_fqdn}"
+  description         = "vLLM open-source model backend for ${each.value.display_name}"
+
+  # Circuit breaker: trip on persistent hard errors only.
+  # 503 is intentionally excluded — vLLM returns 503 during normal GPU cold-start
+  # (scale-to-zero, 5–10 min warm-up). Tripping on 503 would block all cold-start
+  # traffic. Tenants with latency SLAs should use min_replicas = 1 to avoid cold start.
+  circuit_breaker_rule {
+    name                       = "vllm-breaker"
+    trip_duration              = "PT2M"
+    accept_retry_after_enabled = true
+
+    failure_condition {
+      count             = 5
+      interval_duration = "PT2M"
+
+      # 500–502: server errors (not model loading)
+      status_code_range {
+        min = 500
+        max = 502
+      }
+
+      # 504–599: timeouts and other hard failures (not 503 model-loading unavailability)
+      status_code_range {
+        min = 504
+        max = 599
+      }
+    }
+  }
+
+  lifecycle {
+    precondition {
+      condition = length([
+        for vllm_model in try(each.value.vllm.models, []) : vllm_model.model_id
+        if contains([for m in try(each.value.openai.model_deployments, []) : m.name], vllm_model.model_id)
+      ]) == 0
+      error_message = "vLLM model_id conflicts with a Foundry deployment name in tenant '${each.key}'. Model IDs must be unique per tenant to avoid routing ambiguity."
     }
   }
 }
@@ -619,6 +689,7 @@ resource "azurerm_api_management_api_policy" "tenant" {
     azurerm_api_management_backend.ai_search,
     azurerm_api_management_backend.speech_services_stt,
     azurerm_api_management_backend.speech_services_tts,
+    azurerm_api_management_backend.vllm,
     azurerm_api_management_named_value.ai_foundry_endpoint,
     azurerm_api_management_named_value.openai_endpoint,
     azurerm_api_management_named_value.docint_endpoint,

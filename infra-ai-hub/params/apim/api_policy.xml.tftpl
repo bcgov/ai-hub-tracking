@@ -1,6 +1,11 @@
 <policies>
     <inbound>
         <base />
+        <!-- Scrub credential query parameters before forwarding to any backend.       -->
+        <!-- Prevents api-key/subscription-key from leaking to backend logs when       -->
+        <!-- clients use query-string auth and rewrite-uri copy-unmatched-params=true. -->
+        <set-query-parameter name="api-key" exists-action="delete" />
+        <set-query-parameter name="subscription-key" exists-action="delete" />
 %{ if tracking_dimensions_enabled ~}
         <!-- Extract tracking dimensions from headers -->
         <include-fragment fragment-id="tracking-dimensions" />
@@ -91,6 +96,22 @@
 %{ endif ~}
                     </when>
 %{ endfor ~}
+%{ if vllm_enabled ~}
+%{ for model in vllm_models ~}
+                    <!-- Rate limit for vLLM model ${model.model_id}: ${model.tokens_per_minute} TPM -->
+                    <!-- counter-key: "/" is replaced with "-"; model IDs that differ only by slash/hyphen placement
+                         would share a counter. In practice this is impossible for well-formed HuggingFace IDs. -->
+                    <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;deploymentName&quot;, &quot;&quot;) == &quot;${model.model_id}&quot;)">
+                        <llm-token-limit
+                            counter-key="@(context.Subscription.Id + &quot;-vllm-${replace(model.model_id, "/", "-")}&quot;)"
+                            tokens-per-minute="${model.tokens_per_minute}"
+                            estimate-prompt-tokens="true"
+                            remaining-tokens-variable-name="remainingTokens"
+                            remaining-tokens-header-name="x-ratelimit-remaining-tokens"
+                            tokens-consumed-variable-name="tokensConsumed" />
+                    </when>
+%{ endfor ~}
+%{ endif ~}
                     <otherwise>
                         <!-- Fallback rate limit for unknown models: ${tokens_per_minute} TPM -->
                         <llm-token-limit
@@ -295,11 +316,24 @@
       }
     }
   }]
+  vllm_models = [for m in vllm_models : {
+    model_id = m.model_id
+    backend  = "vllm"
+    endpoints = {
+      openai_compatible = {
+        base_url = "${base_url}/${tenant_name}/openai/v1"
+        model    = m.model_id
+        url      = "${base_url}/${tenant_name}/openai/v1/chat/completions"
+      }
+    }
+  }]
   services = {
     openai = {
-      enabled   = openai_enabled
+      enabled         = openai_enabled
+      foundry_enabled = foundry_enabled
+      vllm_enabled    = vllm_enabled
       endpoints = openai_enabled ? {
-        azure_openai      = "${base_url}/${tenant_name}"
+        azure_openai      = foundry_enabled ? "${base_url}/${tenant_name}" : null
         openai_compatible = "${base_url}/${tenant_name}/openai/v1"
         api_version       = "2025-03-01-preview"
       } : null
@@ -362,6 +396,24 @@
                     return &quot;unknown&quot;;
                 }" />
                 <choose>
+%{ if vllm_enabled ~}
+%{ for model in vllm_models ~}
+%{ if length(regexall("/", model.model_id)) > 0 ~}
+                    <!-- Reject ${model.model_id} via /deployments/ URL: slash in model ID means the path -->
+                    <!-- segment would be only "${split("/", model.model_id)[0]}", not the full model ID. -->
+                    <!-- Return 400 so clients get a clear error instead of a Foundry 404. -->
+                    <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;/deployments/${split("/", model.model_id)[0]}/&quot;))">
+                        <return-response>
+                            <set-status code="400" reason="Bad Request" />
+                            <set-header name="Content-Type" exists-action="override">
+                                <value>application/json</value>
+                            </set-header>
+                            <set-body>{"error":{"code":"UnsupportedRoute","message":"Model '${model.model_id}' cannot be called via the /deployments/ URL format. Use /openai/v1/chat/completions with the 'model' field in the request body."}}</set-body>
+                        </return-response>
+                    </when>
+%{ endif ~}
+%{ endfor ~}
+%{ endif ~}
 %{ for model in model_deployments ~}
                     <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;deploymentName&quot;, &quot;&quot;) == &quot;${model.name}&quot;)">
                         <set-backend-service backend-id="${model.openai_backend_id}" />
@@ -378,7 +430,25 @@
                         <set-variable name="weightedTokensPerMinute" value="@(${model.weighted_tokens_per_minute})" />
                     </when>
 %{ endfor ~}
+%{ if vllm_enabled ~}
+%{ for model in vllm_models ~}
+                    <!-- vLLM dispatch for ${model.model_id}: only matches /v1/ paths -->
+                    <!-- Model IDs containing "/" cannot be expressed in /deployments/ URL format -->
+                    <when condition="@(context.Variables.GetValueOrDefault&lt;string&gt;(&quot;deploymentName&quot;, &quot;&quot;) == &quot;${model.model_id}&quot; &amp;&amp; context.Request.Url.Path.ToLower().Contains(&quot;/v1/&quot;))">
+                        <set-backend-service backend-id="${tenant_name}-vllm" />
+                        <set-variable name="isVllmModel" value="@(true)" />
+                        <set-variable name="backendId" value="@(&quot;${tenant_name}-vllm&quot;)" />
+                        <set-variable name="routeLocation" value="@(&quot;local&quot;)" />
+                        <set-variable name="routeName" value="@(&quot;vllm&quot;)" />
+                        <set-variable name="tokenLimitStrategy" value="@(&quot;raw_tokens_per_minute&quot;)" />
+                        <set-variable name="promptTokensWeight" value="@(1)" />
+                        <set-variable name="completionTokensWeight" value="@(1)" />
+                        <set-variable name="weightedTokensPerMinute" value="@(${model.tokens_per_minute})" />
+                    </when>
+%{ endfor ~}
+%{ endif ~}
                     <otherwise>
+%{ if foundry_enabled ~}
                         <set-backend-service backend-id="${tenant_name}-openai" />
                         <set-variable name="backendId" value="@(&quot;${tenant_name}-openai&quot;)" />
                         <set-variable name="routeLocation" value="@(&quot;canadaeast&quot;)" />
@@ -387,6 +457,16 @@
                         <set-variable name="promptTokensWeight" value="@(1)" />
                         <set-variable name="completionTokensWeight" value="@(1)" />
                         <set-variable name="weightedTokensPerMinute" value="@(${tokens_per_minute})" />
+%{ else ~}
+                        <!-- vLLM-only tenant: no Foundry backend — reject unrecognized model with 400 -->
+                        <return-response>
+                            <set-status code="400" reason="Bad Request" />
+                            <set-header name="Content-Type" exists-action="override">
+                                <value>application/json</value>
+                            </set-header>
+                            <set-body>{"error":{"code":"UnknownModel","message":"The requested model is not available for this tenant. Use /internal/tenant-info to discover supported models."}}</set-body>
+                        </return-response>
+%{ endif ~}
                     </otherwise>
                 </choose>
                 <!-- Validate /v1/ requests: must have valid JSON body with model field -->
@@ -459,6 +539,11 @@
                         var rest = match.Groups[2].Value;
                         return &quot;/openai/deployments/${tenant_name}-&quot; + deploymentName + &quot;/&quot; + rest;
                     }
+                    // vLLM /v1/ paths: strip /openai prefix (vLLM native endpoint is /v1/*)
+                    if (context.Variables.GetValueOrDefault&lt;bool&gt;(&quot;isVllmModel&quot;, false)) {
+                        var vllmMatch = System.Text.RegularExpressions.Regex.Match(path, @&quot;/?openai(/v1/.*)&quot;);
+                        if (vllmMatch.Success) { return vllmMatch.Groups[1].Value; }
+                    }
                     // /v1/ paths: forward as-is (Azure OpenAI handles /openai/v1/ natively)
                     return &quot;/&quot; + path;
                 }" />
@@ -496,7 +581,7 @@
                 <!-- Placed AFTER PII redaction set-body to avoid being overwritten -->
                 <!-- Uses StartsWith guard to prevent double-prefixing -->
                 <choose>
-                    <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;/v1/&quot;))">
+                    <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;/v1/&quot;) &amp;&amp; !context.Variables.GetValueOrDefault&lt;bool&gt;(&quot;isVllmModel&quot;, false))">
                         <set-body>@{
                             var body = context.Request.Body.As<JObject>(preserveContent: true);
                             var model = body["model"]?.ToString();
@@ -530,11 +615,28 @@
                         }</set-body>
                     </when>
                 </choose>
+%{ if vllm_enabled ~}
+                <choose>
+                    <when condition="@(!context.Variables.GetValueOrDefault&lt;bool&gt;(&quot;isVllmModel&quot;, false))">
+                        <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
+                        <set-header name="Authorization" exists-action="override">
+                            <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
+                        </set-header>
+                        <set-header name="api-key" exists-action="delete" />
+                    </when>
+                    <otherwise>
+                        <!-- vLLM: private network access only; strip auth headers before forwarding -->
+                        <set-header name="Authorization" exists-action="delete" />
+                        <set-header name="api-key" exists-action="delete" />
+                    </otherwise>
+                </choose>
+%{ else ~}
                 <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
                 <set-header name="Authorization" exists-action="override">
                     <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
                 </set-header>
                 <set-header name="api-key" exists-action="delete" />
+%{ endif ~}
             </when>
 %{ endif ~}
 %{ if openai_enabled ~}

@@ -72,7 +72,9 @@ temp/
 *.db
 *.http
 tfplan
+tfplan-*
 **/*.tfplan
+**/tfplan-*
 **/tfplan/**
 *.csr
 *.bak

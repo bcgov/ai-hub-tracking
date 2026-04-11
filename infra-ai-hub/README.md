@@ -1279,7 +1279,9 @@ infra-ai-hub/
 │   ├── shared/                        # Phase 1: VNet, subnets, AI Foundry Hub, App GW, WAF, KV, ACR, monitoring
 │   ├── tenant/                        # Phase 2: Per-tenant resources (AI Search, CosmosDB, DI, Storage, KV)
 │   ├── foundry/                       # Phase 3: AI Foundry projects per tenant (parallelism=1)
-│   ├── apim/                          # Phase 3: API Management gateway, policies, tenant subscriptions
+│   ├── apim/                          # Phase 3b: API Management gateway, policies, tenant subscriptions
+│   ├── pii-redaction/                 # Phase 3: PII redaction Container App (optional)
+│   ├── vllm/                          # Phase 3: GPU-backed vLLM open-source model service (optional)
 │   └── tenant-user-mgmt/             # Phase 3: Entra ID user/group assignments (requires Graph API)
 │
 ├── modules/
@@ -1291,7 +1293,10 @@ infra-ai-hub/
 │   ├── waf-policy/            # WAF rules
 │   ├── container-registry/    # Shared ACR
 │   ├── container-app-environment/  # ACA
-│   └── app-configuration/     # Feature flags
+│   ├── app-configuration/     # Feature flags
+│   ├── key-rotation-function/ # APIM key rotation Container App Job
+│   ├── pii-redaction/         # PII redaction Container App service
+│   └── vllm-service/          # vLLM GPU Container App (open-source models via OpenAI-compatible API)
 │
 ├── scripts/
 │   ├── deploy-terraform.sh    # Public entrypoint for all Terraform operations
@@ -1334,7 +1339,8 @@ infra-ai-hub/
 ✅ **Deployment Process**: Stack-based engine validated
 - Phase 1: `shared` stack (network, AI Foundry Hub, App GW, WAF, KV, monitoring)
 - Phase 2: `tenant` stacks in parallel (per-tenant fan-out with isolated state)
-- Phase 3: `foundry` + `apim` + `tenant-user-mgmt` in parallel
+- Phase 3: `foundry` + `pii-redaction` + `vllm` + `tenant-user-mgmt` in parallel
+- Phase 3b: `apim` (sequential, after phase 3 — reads pii-redaction and vllm FQDNs via remote state)
 - Auto-recovery: deposed object cleanup, import-on-conflict, transient error retry
 
 ✅ **Resource Import**: Tested and working
@@ -1684,7 +1690,8 @@ BACKEND_STORAGE_ACCOUNT="${BACKEND_STORAGE_ACCOUNT}" \
 Apply order is deterministic:
 1. `shared`
 2. `tenant` (per tenant, parallel)
-3. `foundry` + `apim` + `tenant-user-mgmt` (all in parallel)
+3. `foundry` + `pii-redaction` + `vllm` + `tenant-user-mgmt` (all in parallel)
+4. `apim` (after phase 3 — reads pii-redaction and vllm FQDNs via remote state)
 
 ```mermaid
 flowchart TD
@@ -1699,9 +1706,12 @@ flowchart TD
 
     subgraph P3["3 parallel stacks"]
       F["foundry stack - foundry.tfstate - parallelism 1"]
-      A["apim stack - apim.tfstate"]
+      P["pii-redaction stack - pii-redaction.tfstate"]
+      V["vllm stack - vllm.tfstate"]
       U["tenant-user-mgmt stack - tenant-user-management.tfstate - runs only with Graph User.Read.All"]
     end
+
+    A["4 apim stack - apim.tfstate"]
   end
 
   S --> T1
@@ -1719,6 +1729,9 @@ flowchart TD
   T1 --> U
   T2 --> U
   TN --> U
+
+  P --> A
+  V --> A
 ```
 
 Recommendation: use `apply` as the primary deployment path.
@@ -1726,9 +1739,10 @@ Recommendation: use `apply` as the primary deployment path.
 Dependency details in this flow:
 - `tenant` reads from `shared` (`private_endpoint_subnet_id`, `log_analytics_workspace_id`, `ai_foundry_hub_id`)
 - `foundry` reads from `shared` (`ai_foundry_hub_id`) and all `tenant-*` states
-- `apim` reads from `shared` (network + AI + observability + key vault outputs) and all `tenant-*` states
+- `apim` reads from `shared` (network + AI + observability + key vault outputs), all `tenant-*` states, `pii-redaction`, and `vllm`
 - `tenant-user-mgmt` reads from all `tenant-*` states and is conditionally skipped if Graph permissions are missing
-- Phase 3 stacks (`foundry`, `apim`, `tenant-user-mgmt`) have no cross-dependencies and run concurrently
+- Phase 3 stacks (`foundry`, `pii-redaction`, `vllm`, `tenant-user-mgmt`) have no cross-dependencies and run concurrently
+- `pii-redaction` and `vllm` are optional — APIM degrades gracefully when their remote states are empty
 
 ---
 

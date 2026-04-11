@@ -12,6 +12,10 @@ locals {
 
   key_rotation_config = local.apim_config.key_rotation
 
+  # Whether the vLLM remote state has been initialised with a vllm_service output.
+  # Guards vLLM backend resource creation; avoids plan failure if vLLM stack not yet applied.
+  vllm_state_available = try(data.terraform_remote_state.vllm.outputs.vllm_service, null) != null
+
   # ---------------------------------------------------------------------------
   # PE subnet resolution for APIM
   # APIM is pinned — null key uses primary; explicit key must exist in PE pool.
@@ -176,10 +180,20 @@ locals {
     for key, config in local.enabled_tenants : key => templatefile(
       "${path.root}/../../params/apim/api_policy.xml.tftpl",
       {
-        tenant_name                    = key
-        tokens_per_minute              = try(config.apim_policies.rate_limiting.tokens_per_minute, 10000)
-        model_deployments              = local.tenant_model_deployments[key]
-        openai_enabled                 = length(try(config.openai.model_deployments, [])) > 0
+        tenant_name       = key
+        tokens_per_minute = try(config.apim_policies.rate_limiting.tokens_per_minute, 10000)
+        model_deployments = local.tenant_model_deployments[key]
+        openai_enabled    = length(try(config.openai.model_deployments, [])) > 0 || (try(config.vllm.enabled, false) && local.vllm_state_available)
+        foundry_enabled   = length(try(config.openai.model_deployments, [])) > 0
+        vllm_enabled      = try(config.vllm.enabled, false) && local.vllm_state_available
+        # Each vLLM model entry gets a default tokens_per_minute equal to the tenant's
+        # overall rate-limit cap when not explicitly set per model.
+        vllm_models = [
+          for m in try(config.vllm.models, []) : merge(
+            { tokens_per_minute = try(config.apim_policies.rate_limiting.tokens_per_minute, 10000) },
+            m
+          )
+        ]
         document_intelligence_enabled  = try(config.document_intelligence.enabled, false)
         ai_search_enabled              = try(config.ai_search.enabled, false)
         speech_services_enabled        = try(config.speech_services.enabled, false)
@@ -279,5 +293,49 @@ check "provisioned_backend_routing_alignment" {
   assert {
     condition     = alltrue(values(local.tenant_backend_routing_is_valid))
     error_message = "One or more OpenAI deployments render with the wrong APIM backend id. PTU deployments must use <tenant>-openai-ptu and non-PTU deployments must use <tenant>-openai."
+  }
+}
+
+# Guard: if a Foundry deployment name equals the namespace prefix of a slash-containing
+# vLLM model ID (e.g. deployment "google" and vLLM model "google/gemma-4-31B-it"),
+# the /deployments/ 400-guard in the API policy would incorrectly block that Foundry path.
+check "vllm_foundry_namespace_collision" {
+  assert {
+    condition = !anytrue(flatten([
+      for key, config in local.enabled_tenants : [
+        for vllm_model in(try(config.vllm.enabled, false) && local.vllm_state_available ? try(config.vllm.models, []) : []) : [
+          for deployment in local.tenant_model_deployments[key] :
+          length(regexall("/", vllm_model.model_id)) > 0 &&
+          deployment.name == split("/", vllm_model.model_id)[0]
+        ]
+      ]
+    ]))
+    error_message = "A Foundry deployment name collides with a vLLM model ID namespace prefix (e.g. deployment 'google' and vLLM model 'google/gemma-4-31B-it'). The /deployments/ 400-guard would incorrectly block valid Foundry requests. Rename the conflicting deployment or change the vLLM model ID."
+  }
+}
+
+# Guard: a vLLM-enabled tenant must declare at least one model — empty models list
+# produces a backend with no routing rules or rate limits (silently inert or 400-only).
+check "vllm_enabled_requires_models" {
+  assert {
+    condition = alltrue([
+      for key, config in local.enabled_tenants :
+      !try(config.vllm.enabled, false) || length(try(config.vllm.models, [])) > 0
+    ])
+    error_message = "One or more tenants have vllm.enabled = true but vllm.models is empty or missing. Each vLLM-enabled tenant must declare at least one model in vllm.models[*].model_id."
+  }
+}
+
+# Guard: each tenant's vLLM model_id must match the model actually deployed on the shared
+# vLLM service. When vllm_state_available is false, skip this check (vLLM not yet deployed).
+check "vllm_model_id_matches_deployed_model" {
+  assert {
+    condition = !local.vllm_state_available || alltrue([
+      for key, config in local.enabled_tenants : alltrue([
+        for model in(try(config.vllm.enabled, false) ? try(config.vllm.models, []) : []) :
+        model.model_id == try(data.terraform_remote_state.vllm.outputs.vllm_service.model_id, model.model_id)
+      ])
+    ])
+    error_message = "One or more tenants reference a vLLM model_id that does not match the deployed vLLM service model ('${try(data.terraform_remote_state.vllm.outputs.vllm_service.model_id, "unknown")}'). Update vllm.models[*].model_id in the affected tenant configs."
   }
 }

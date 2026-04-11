@@ -174,6 +174,15 @@ variable "enable_jumpbox" {
   default     = false
 }
 
+variable "private_endpoint_dns_wait" {
+  description = "Configuration for waiting on policy-managed private endpoint DNS zone groups"
+  type = object({
+    timeout       = optional(string, "15m")
+    poll_interval = optional(string, "30s")
+  })
+  default = {}
+}
+
 variable "enable_entra_login" {
   description = "Enable Microsoft Entra ID (AAD) SSH login on the jumpbox VM"
   type        = bool

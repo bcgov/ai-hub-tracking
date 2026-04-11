@@ -200,6 +200,62 @@ shared_config = {
     alert_emails = ["omprakash.2.mishra@gov.bc.ca"]
   }
 
+  # ---------------------------------------------------------------------------
+  # vLLM Open-Source Model Service
+  # ---------------------------------------------------------------------------
+  # GPU-backed vLLM deployment on a dedicated Container Apps Environment.
+  # Uses a /27 subnet with Microsoft.App/environments delegation.
+  # The stack serves ONE model per environment — pick one of the examples below.
+  # When model_id changes, update all tenant vllm.models[*].model_id values to match.
+  #
+  # ---- Option A: Phi-4 14B (MIT licence, recommended for low cold-start latency) ----
+  # 14B BF16 weights ≈ 28 GB; KV budget ≈ 44 GB; cold-start ~2–3 min; no HF token.
+  # vllm = {
+  #   enabled                    = true
+  #   model_id                   = "microsoft/phi-4"
+  #   image                      = "vllm/vllm-openai:latest"
+  #   max_model_len              = 32768
+  #   gpu_memory_utilization     = 0.9
+  #   workload_profile_type      = "Consumption-GPU-NC24-A100"
+  #   registry_sku               = "Basic"
+  #   min_replicas               = 0
+  #   max_replicas               = 1
+  #   model_cache_share_quota_gb = 40
+  # }
+
+  # ---- Option B: Qwen3-32B-AWQ (Apache 2.0, 32B INT4, full 32K context) ----
+  # AWQ 4-bit weights ≈ 16 GB; KV budget ≈ 56 GB; cold-start ~5–8 min; no HF token.
+  # Verify the HF repo exists before deploying: https://huggingface.co/Qwen/Qwen3-32B-AWQ
+  # vllm = {
+  #   enabled                    = true
+  #   model_id                   = "Qwen/Qwen3-32B-AWQ"
+  #   quantization               = "awq"
+  #   image                      = "vllm/vllm-openai:latest"
+  #   max_model_len              = 32768
+  #   gpu_memory_utilization     = 0.9
+  #   workload_profile_type      = "Consumption-GPU-NC24-A100"
+  #   registry_sku               = "Basic"
+  #   min_replicas               = 0
+  #   max_replicas               = 1
+  #   model_cache_share_quota_gb = 24
+  # }
+
+  # ---- Option C: Gemma 4 31B-it (Gemma ToU, gated — requires HF token) ----
+  # 31B BF16 weights ≈ 62 GB; cold-start ~5–10 min; aca_proxy.py SSE workaround active.
+  # vllm = {
+  #   enabled                    = true
+  #   model_id                   = "google/gemma-4-31B-it"
+  #   image                      = "vllm/vllm-openai:latest"
+  #   max_model_len              = 32768
+  #   gpu_memory_utilization     = 0.9
+  #   workload_profile_type      = "Consumption-GPU-NC24-A100"
+  #   registry_sku               = "Basic"
+  #   min_replicas               = 0
+  #   max_replicas               = 1
+  #   model_cache_share_quota_gb = 64
+  #   huggingface_secret_name    = "huggingface-token"
+  # }
+
 }
 
 # =============================================================================

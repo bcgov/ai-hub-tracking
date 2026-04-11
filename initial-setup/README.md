@@ -111,11 +111,11 @@ If your system uses a different package manager, the script will exit with a lin
 
 # Application Configuration
 app_env  = "tools"
-app_name = "ai-hub-deploy-utils"
+app_name = "myapp"
 
 # Azure Resource Configuration
 location            = "Canada Central"
-resource_group_name = "ai-hub-deploy-utils-tools"
+resource_group_name = "myapp-tools"
 # Virtual Network Configuration (existing VNet from platform team)
 vnet_name                = "$licenseplate-tools-vwan-spoke" # Set via TF_VAR_vnet_name or GitHub secret
 vnet_resource_group_name = "$licenseplate-tools-networking" # Set via TF_VAR_vnet_resource_group_name or GitHub secret
@@ -123,9 +123,11 @@ vnet_address_space       = "$address-space"          # Set via TF_VAR_vnet_addre
 
 # Common Tags
 common_tags = {
-  Environment = "tools"
-  Project     = "ai-hub-deploy-utils"
-  ManagedBy   = "Terraform"
+  environment = "tools"
+  app_env     = "tools"
+  repo_name   = "ai-hub-tracking"
+  project     = "myapp"
+  managed_by  = "Terraform"
 }
 
 
@@ -143,8 +145,9 @@ github_organization             = "bcgov"                                    # S
 github_repository               = "ai-hub-tracking"                          # Set via TF_VAR_github_repository
 github_runner_pat               = "$github_pat" # Set via TF_VAR_github_runner_pat (sensitive)
 ```
----
 
+When you reuse an existing remote state, keep `app_name`, `resource_group_name`, tags, and feature toggles aligned with the already-deployed environment. Changing those values against an existing backend can turn a targeted apply into a broad replacement plan.
+---
 ## Manual Terraform Deployment
 
 If you skipped the infrastructure deployment during setup, or need to run it separately:
@@ -197,7 +200,7 @@ initial-setup/infra/
     ├── bastion/            # Azure Bastion host
     ├── github-runners-aca/ # Self-hosted GitHub runners
     ├── jumpbox/            # Development VM
-    ├── azure-proxy/            # The Secure tunnel deployment using chisel
+    ├── azure-proxy/        # The secure tunnel deployment using chisel
     └── network/            # Subnets and NSGs
 ```
 

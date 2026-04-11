@@ -159,6 +159,7 @@ Bootstrap directory for one-time environment setup. Contains the main setup auto
   - **network**: VNet subnets, NSGs, security boundaries
   - **bastion**: Azure Bastion host for secure access (optional via `enable_bastion`)
   - **jumpbox**: Development VM with Azure/Kubernetes CLI tools (optional via `enable_jumpbox`)
+  - **gpu-vllm-aca**: Bootstrap module that deploys a private vLLM-based Gemma 4 endpoint on Azure Container Apps with a GPU consumption profile, mirrored ACR image, persistent Azure Files-backed Hugging Face cache, optional cache-only offline startup, and private endpoint (optional via `enable_gpu_vllm_aca`)
   - **github-runners-aca**: Self-hosted GitHub runners on Container Apps (optional via `github_runners_aca_enabled`)
   - **azure-proxy**: Secure tunnel (chisel) deployment used for proxying (optional via `enable_azure_proxy`)
   - **monitoring**: Log Analytics and Application Insights for observability
@@ -166,11 +167,11 @@ Bootstrap directory for one-time environment setup. Contains the main setup auto
 ### `infra-ai-hub/`
 Multi-tenant AI Services Hub infrastructure. Manages the stack-based Terraform deployment for APIM, AI Foundry, per-tenant resources, networking, WAF, and published model availability.
 
-- **modules/**: Reusable Terraform modules for shared infra, tenant resources, PII redaction, and key rotation
+- **modules/**: Reusable Terraform modules for shared infra, tenant resources, PII redaction, vLLM service, and key rotation
 - **params/**: Environment configs with per-tenant `tenant.tfvars` files plus shared APIM templates and fragments
 - **scripts/**: Deployment helpers, import extraction, DNS wait logic, and Foundry cleanup tooling
-- **stacks/**: Isolated Terraform roots for `shared`, `tenant`, `foundry`, `apim`, `tenant-user-mgmt`, `pii-redaction`, and `key-rotation`
-- **model-deployments.md**: Current tenant model inventory and quota allocation notes
+- **stacks/**: Isolated Terraform roots for `shared`, `tenant`, `foundry`, `apim`, `tenant-user-mgmt`, `pii-redaction`, `vllm`, and `key-rotation`
+- **model-deployments.md**: Current tenant model inventory, quota allocation notes, and vLLM pathway documentation
 
 ### `pii-redaction-service/`
 Python FastAPI service used by APIM for fail-closed PII redaction via Azure AI Language. Contains the app runtime, tests, container packaging, and service-specific documentation.

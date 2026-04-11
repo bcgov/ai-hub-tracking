@@ -1,5 +1,5 @@
 locals {
-  resource_group_name = var.app_name_override != "" ? "${var.app_name_override}-rg" : "ai-hub-portal-rg"
+  resource_group_name       = var.app_name_override != "" ? "${var.app_name_override}-rg" : "ai-hub-portal-rg"
   app_service_plan_name     = var.app_name_override != "" ? "${var.app_name_override}-asp" : "ai-hub-portal-asp"
   portal_node_major_version = trimspace(file("${path.module}/../.node-version"))
   portal_node_version       = var.node_version != "" ? var.node_version : "${local.portal_node_major_version}-lts"

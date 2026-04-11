@@ -5,8 +5,8 @@
 # Executes Terraform across isolated stack roots in dependency order:
 #   Phase 1: shared
 #   Phase 2: tenant (per-tenant, parallel)
-#   Phase 3: foundry + tenant-user-mgmt + pii-redaction (in parallel)
-#   Phase 3b: apim (after pii-redaction — reads its FQDN via remote state)
+#   Phase 3: foundry + tenant-user-mgmt + pii-redaction + vllm (in parallel)
+#   Phase 3b: apim (after pii-redaction and vllm — reads their FQDNs via remote state)
 #   Phase 4:  key-rotation (depends on APIM outputs from phase 3b)
 # For destroy, execution is reversed.
 #
@@ -588,6 +588,7 @@ stack_state_key() {
     tenant-user-mgmt) echo "ai-services-hub/${ENVIRONMENT}/tenant-user-management.tfstate" ;;
     key-rotation) echo "ai-services-hub/${ENVIRONMENT}/key-rotation.tfstate" ;;
     pii-redaction) echo "ai-services-hub/${ENVIRONMENT}/pii-redaction.tfstate" ;;
+    vllm) echo "ai-services-hub/${ENVIRONMENT}/vllm.tfstate" ;;
     *) echo "" ;;
   esac
 }
@@ -861,15 +862,21 @@ run_pii_redaction() {
   tf_run_stack pii-redaction "$1" "${INFRA_DIR}/.tenants-${ENVIRONMENT}.auto.tfvars"
 }
 
+run_vllm() {
+  tf_init_stack vllm
+  tf_run_stack vllm "$1" "${INFRA_DIR}/params/${ENVIRONMENT}/shared.tfvars"
+}
+
 # ---------------------------------------------------------------------------
-# Phase 3 parallel runner — foundry + tenant-user-mgmt + pii-redaction run
-# concurrently once shared+tenant are done.  APIM is NOT included here because
-# the APIM stack reads pii-redaction FQDN via remote state (Phase 3b, sequential).
+# Phase 3 parallel runner — foundry + tenant-user-mgmt + pii-redaction + vllm
+# run concurrently once shared+tenant are done.  APIM is NOT included here
+# because the APIM stack reads pii-redaction and vllm FQDNs via remote state
+# (Phase 3b, sequential).
 # ---------------------------------------------------------------------------
 run_phase3_parallel() {
   local action="$1"
-  local names=("foundry" "tenant-user-mgmt" "pii-redaction")
-  local runners=("run_foundry" "run_tenant_user_mgmt" "run_pii_redaction")
+  local names=("foundry" "tenant-user-mgmt" "pii-redaction" "vllm")
+  local runners=("run_foundry" "run_tenant_user_mgmt" "run_pii_redaction" "run_vllm")
   local pids=()
   local logs=()
 

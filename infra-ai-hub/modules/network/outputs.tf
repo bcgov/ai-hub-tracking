@@ -92,6 +92,24 @@ output "aca_nsg_id" {
   value       = local.aca_enabled ? azurerm_network_security_group.aca[0].id : null
 }
 
+# -----------------------------------------------------------------------------
+# GPU vLLM Container Apps Environment Subnet Outputs
+# -----------------------------------------------------------------------------
+output "vllm_aca_subnet_id" {
+  description = "Resource ID of the vLLM ACA subnet (null if not enabled)"
+  value       = local.vllm_aca_enabled ? azapi_resource.vllm_aca_subnet[0].id : null
+}
+
+output "vllm_aca_subnet_cidr" {
+  description = "CIDR of the vLLM ACA subnet (null if not enabled)"
+  value       = local.vllm_aca_subnet_cidr
+}
+
+output "vllm_aca_nsg_id" {
+  description = "Resource ID of the vLLM ACA NSG (null if not enabled)"
+  value       = local.vllm_aca_enabled ? azurerm_network_security_group.vllm_aca[0].id : null
+}
+
 
 # -----------------------------------------------------------------------------
 # VNet Information

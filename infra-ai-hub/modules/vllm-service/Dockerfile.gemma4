@@ -1,0 +1,6 @@
+ARG VLLM_BASE_IMAGE=vllm/vllm-openai:latest
+FROM ${VLLM_BASE_IMAGE}
+
+COPY aca_proxy.py /opt/aca_proxy.py
+
+RUN python3 -m pip install --no-cache-dir --upgrade "transformers==5.5.3"

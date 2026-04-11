@@ -633,3 +633,164 @@ resource "azapi_resource" "aca_subnet" {
     azapi_resource.appgw_subnet
   ]
 }
+
+# =============================================================================
+# GPU vLLM CONTAINER APPS ENVIRONMENT SUBNET (optional — enabled when "vllm-aca-subnet" exists)
+# Dedicated /27 subnet for the GPU-backed vLLM Container Apps Environment.
+# Must be separate from "aca-subnet" (Consumption-only) because GPU workload
+# profiles require a dedicated CAE which cannot share a Consumption-only subnet.
+# Zone redundancy must be disabled for GPU CAEs — /27 is sufficient.
+#
+# NSG rules mirror the aca-subnet rules plus:
+#   - Outbound: Internet (Docker Hub pull for ACR import, HuggingFace model cache)
+#   - Inbound: APIM subnet (APIM calls vLLM via private endpoint)
+# =============================================================================
+
+# NSG for vLLM ACA subnet
+resource "azurerm_network_security_group" "vllm_aca" {
+  count = local.vllm_aca_enabled ? 1 : 0
+
+  name                = "${var.name_prefix}-vllm-aca-nsg"
+  location            = var.location
+  resource_group_name = var.vnet_resource_group_name
+
+  # --- Outbound: Azure Container Registry (pull vLLM container image) ---
+  security_rule {
+    name                       = "AllowAcrOutbound"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "AzureContainerRegistry"
+  }
+
+  # --- Outbound: Azure Monitor (logs, metrics, diagnostics) ---
+  security_rule {
+    name                       = "AllowMonitorOutbound"
+    priority                   = 110
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "AzureMonitor"
+  }
+
+  # --- Outbound: Azure AD (managed identity token acquisition) ---
+  security_rule {
+    name                       = "AllowAadOutbound"
+    priority                   = 120
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "AzureActiveDirectory"
+  }
+
+  # --- Outbound: Azure Storage (model cache Azure Files share) ---
+  security_rule {
+    name                       = "AllowStorageOutbound"
+    priority                   = 125
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_ranges    = ["443", "445"]
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "Storage"
+  }
+
+  # --- Outbound: VirtualNetwork (PE-backed services) ---
+  security_rule {
+    name                       = "AllowVirtualNetworkOutbound"
+    priority                   = 130
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "VirtualNetwork"
+  }
+
+  # --- Outbound: Internet (HuggingFace model download, ACR build context) ---
+  # Required for initial model weight download and az acr build/import provisioners.
+  security_rule {
+    name                       = "AllowInternetOutbound"
+    priority                   = 140
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "Internet"
+  }
+
+  # --- Inbound: allow each address space in the allocation map → vLLM ACA subnet ---
+  dynamic "security_rule" {
+    for_each = local.address_spaces
+    content {
+      name                       = "AllowVnetInbound-${replace(replace(security_rule.value, ".", "-"), "/", "-")}"
+      priority                   = 200 + index(local.address_spaces, security_rule.value)
+      direction                  = "Inbound"
+      access                     = "Allow"
+      protocol                   = "*"
+      source_address_prefix      = security_rule.value
+      destination_address_prefix = "VirtualNetwork"
+      source_port_range          = "*"
+      destination_port_range     = "*"
+    }
+  }
+
+  tags = var.common_tags
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
+}
+
+# vLLM ACA subnet with delegation — dedicated for GPU Container Apps Environment
+resource "azapi_resource" "vllm_aca_subnet" {
+  count = local.vllm_aca_enabled ? 1 : 0
+
+  type      = "Microsoft.Network/virtualNetworks/subnets@2023-04-01"
+  name      = "vllm-aca-subnet"
+  parent_id = data.azurerm_virtual_network.target.id
+  locks     = [data.azurerm_virtual_network.target.id]
+
+  body = {
+    properties = {
+      addressPrefix = local.vllm_aca_subnet_cidr
+
+      networkSecurityGroup = {
+        id = azurerm_network_security_group.vllm_aca[0].id
+      }
+
+      # GPU Container Apps Environment requires delegation to Microsoft.App/environments
+      delegations = [
+        {
+          name = "Microsoft.App.environments"
+          properties = {
+            serviceName = "Microsoft.App/environments"
+          }
+        }
+      ]
+    }
+  }
+
+  response_export_values = ["*"]
+
+  depends_on = [
+    azapi_resource.pe_subnets,
+    azapi_resource.apim_subnet,
+    azapi_resource.appgw_subnet,
+    azapi_resource.aca_subnet
+  ]
+}

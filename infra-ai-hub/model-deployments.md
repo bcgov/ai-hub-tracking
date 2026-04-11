@@ -3,10 +3,41 @@
 > **IMPORTANT:** This file must be updated whenever tenants are added, removed, or their model deployments are modified.
 > See [IaC Coder Skills](../.github/skills/iac-coder/SKILL.md) for the mandatory update rule.
 
-This document tracks the OpenAI model capacity allocated to each tenant across all environments.
-Capacity values for **GlobalStandard** deployments are in **thousands of Tokens Per Minute (TPM)**.
-Provisioned deployments use **PTU** instead, and their effective input TPM depends on the model-specific PTU throughput table published by Microsoft Learn.
-Percentage values show the share of the regional quota limit consumed by each tenant.
+This document tracks model capacity allocated to each tenant across all environments. The hub supports two AI backend pathways:
+
+- **Azure AI Foundry** — Managed OpenAI and third-party models; capacity in TPM or PTU. Foundry tenants share a regional quota pool.
+- **vLLM (open-source)** — GPU-backed Container App running open-source models (e.g. Gemma 4 31B). Shared GPU infrastructure per environment; no regional quota — capacity is bounded by the GPU workload profile. Tenants opt in via `vllm = { enabled = true, models = [{model_id = "...", tokens_per_minute = N}] }` in `tenant.tfvars`. `tokens_per_minute` is per-model and defaults to the tenant's `rate_limiting.tokens_per_minute` when omitted.
+
+Both pathways use the same APIM base URL (`{apim}/{tenant}/openai/v1`). The `model=` field in the request body selects the backend — no URL change required.
+
+### vLLM Cold-Start Warning
+
+`min_replicas = 0` (scale-to-zero) is the default for the vllm stack to control GPU cost. Gemma 4 31B cold start is **5–10 minutes**. Tenants with latency SLAs should request `min_replicas = 1` from the platform operator.
+
+## vLLM Model Catalogue
+
+The vLLM stack serves **one model per hub environment**. The operator selects the model in
+`params/{env}/shared.tfvars`. When the model changes, all tenant `vllm.models[*].model_id`
+values must be updated to match — the `check "vllm_model_id_matches_deployed_model"` block
+will warn at plan time if they diverge.
+
+> **Memory note:** VRAM budget at `gpu_memory_utilization = 0.9` on an A100 80 GB GPU is
+> **72 GB**. BF16 weight size ≈ `params_B × 2 GB`. The remainder is available for KV cache
+> and CUDA runtime overhead. Larger models (≥ 30 B BF16) leave little KV headroom on a
+> single A100 — use a pre-quantized AWQ variant unless the model fits comfortably.
+
+| Model | HF ID | Licence | BF16 weight | Effective KV budget | `max_model_len` | `quantization` | HF token | Cold start |
+|---|---|---|---|---|---|---|---|---|
+| **Phi-4** | `microsoft/phi-4` | MIT | ~28 GB | ~44 GB | 32 768 | — | No | ~2–3 min |
+| **Qwen3-32B (AWQ)** | `Qwen/Qwen3-32B-AWQ` | Apache 2.0 | ~16 GB (INT4) | ~56 GB | 32 768 | `awq` | No | ~5–8 min |
+| **Gemma 4 31B-it** | `google/gemma-4-31B-it` | Gemma ToU | ~62 GB | ~10 GB ¹ | 32 768 | — | Yes (gated) | ~5–10 min |
+
+> ¹ Tight KV headroom; suitable for low-concurrency workloads. Model requires the `aca_proxy.py`
+> SSE streaming workaround — handled automatically by the module when `model_id` contains `gemma-4`.
+>
+> **Qwen3-32B-AWQ:** Verify the HF repo is available before deploying:
+> `https://huggingface.co/Qwen/Qwen3-32B-AWQ`. The tenant `vllm.models[*].model_id` must
+> be set to `Qwen/Qwen3-32B-AWQ` (the AWQ repo), not `Qwen/Qwen3-32B`.
 
 ## Regional Quota Limits (Canada East)
 
