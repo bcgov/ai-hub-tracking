@@ -42,12 +42,27 @@ it must complete before APIM is planned.
 
 The `deploy-scaled.sh` engine enforces this ordering automatically.
 
-## Cold Start
+## Cold Start / Availability
 
 `min_replicas = 0` (scale-to-zero) is the default to avoid continuous GPU billing.
 Gemma 4 31B cold start is **5–10 minutes** after the first request. Operators can
-override with `min_replicas = 1` in `params/{env}/shared.tfvars` when latency SLA
-is required.
+override with `min_replicas = 1` in `params/{env}/shared.tfvars` when lower
+first-token latency is required.
+
+**Single-replica SLA note** - Azure Container Apps' published service-level
+commitment for Container Apps is **99.95%** uptime. However, keeping one replica
+warm only removes the scale-from-zero cold start; it does **not** make this vLLM
+path zone-redundant or multi-replica. The current module creates the Container
+Apps environment with `zone_redundancy_enabled = false`, and Microsoft guidance
+for zone-redundant Container Apps requires a zone-redundant environment plus a
+minimum replica count of at least two to distribute replicas across availability
+zones.
+
+**Sources**
+- [SLA for Azure Container Apps](https://azure.microsoft.com/en-us/support/legal/sla/container-apps/v1_0/)
+- [Service Level Agreements for Online Services (Microsoft Licensing)](https://www.microsoft.com/licensing/docs/view/service-level-agreements-sla-for-online-services?lang=1)
+- [Reliability in Azure Container Apps - zone redundancy requirements](https://learn.microsoft.com/en-us/azure/reliability/reliability-azure-container-apps#requirements)
+- [`../../modules/vllm-service/main.tf`](../../modules/vllm-service/main.tf) (`zone_redundancy_enabled = false`)
 
 ## Configuration
 

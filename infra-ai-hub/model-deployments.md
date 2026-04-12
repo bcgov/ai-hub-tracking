@@ -12,7 +12,7 @@ Both pathways use the same APIM base URL (`{apim}/{tenant}/openai/v1`). The `mod
 
 ### vLLM Cold-Start Warning
 
-`min_replicas = 0` (scale-to-zero) is the default for the vllm stack to control GPU cost. Gemma 4 31B cold start is **5–10 minutes**. Tenants with latency SLAs should request `min_replicas = 1` from the platform operator.
+`min_replicas = 0` (scale-to-zero) is the default for the vllm stack to control GPU cost. Gemma 4 31B cold start is **5–10 minutes**. Tenants that need lower first-token latency should request `min_replicas = 1` from the platform operator, but that only keeps one replica warm. It does not add zone redundancy or change the current vLLM deployment topology: the stack still creates a non-zone-redundant Container Apps environment (`modules/vllm-service/main.tf`) and Azure's Container Apps reliability guidance requires at least two replicas in a zone-redundant environment to spread traffic across availability zones. The published Azure Container Apps service-level commitment remains **99.95%**. Sources: [Azure Container Apps SLA](https://azure.microsoft.com/en-us/support/legal/sla/container-apps/v1_0/), [Microsoft Licensing SLA index](https://www.microsoft.com/licensing/docs/view/service-level-agreements-sla-for-online-services?lang=1), and [Reliability in Azure Container Apps](https://learn.microsoft.com/en-us/azure/reliability/reliability-azure-container-apps#requirements).
 
 ## vLLM Model Catalogue
 
