@@ -2956,6 +2956,68 @@
 </tr>
 </table>
 </div>
+<h3 id="stack-pii-redaction">pii-redaction</h3>
+<div class="card" style="border-left-color: #0078d4;">
+<p><strong>Location:</strong> <code>infra-ai-hub/stacks/pii-redaction/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (6)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>backend.tf</code></li>
+<li><code>locals.tf</code></li>
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>providers.tf</code></li>
+<li><code>variables.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr><td><code>app_env</code></td><td><code>string</code></td><td><code>required</code></td><td>Application environment (dev, test, prod)</td></tr>
+<tr><td><code>app_name</code></td><td><code>string</code></td><td><code>required</code></td><td>Application name prefix for resource naming</td></tr>
+<tr><td><code>location</code></td><td><code>string</code></td><td><code>canadacentral</code></td><td>Azure region for resources</td></tr>
+<tr><td><code>shared_config</code></td><td><code>any</code></td><td><code>required</code></td><td>Shared configuration passed from shared stack</td></tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr><td><code>pii_redaction_service</code></td><td>PII redaction service Container App FQDN, endpoint, and name</td></tr>
+</table>
+</div>
+<h3 id="stack-vllm">vllm</h3>
+<div class="card" style="border-left-color: #0078d4;">
+<p><strong>Location:</strong> <code>infra-ai-hub/stacks/vllm/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (7)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>backend.tf</code></li>
+<li><code>locals.tf</code></li>
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>providers.tf</code></li>
+<li><code>README.md</code></li>
+<li><code>variables.tf</code></li>
+</ul>
+</details>
+<p>Deploys GPU-backed vLLM Container Apps for serving open-source models. Reads the <code>vllm_aca_subnet_id</code> from shared remote state and provisions a dedicated GPU Container App Environment with an A100 workload profile. The APIM stack reads vLLM outputs via remote state to wire model-based routing.</p>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr><td><code>app_env</code></td><td><code>string</code></td><td><code>required</code></td><td>Application environment (dev, test, prod)</td></tr>
+<tr><td><code>app_name</code></td><td><code>string</code></td><td><code>required</code></td><td>Application name prefix for resource naming</td></tr>
+<tr><td><code>location</code></td><td><code>string</code></td><td><code>canadacentral</code></td><td>Azure region for resources</td></tr>
+<tr><td><code>shared_config</code></td><td><code>any</code></td><td><code>required</code></td><td>Shared configuration including vllm block with model_id, model_source, image, GPU config</td></tr>
+<tr><td><code>subscription_id</code></td><td><code>string</code></td><td><code>required</code></td><td>Azure subscription ID</td></tr>
+<tr><td><code>tenant_id</code></td><td><code>string</code></td><td><code>required</code></td><td>Azure tenant ID</td></tr>
+<tr><td><code>client_id</code></td><td><code>string</code></td><td><code>required</code></td><td>Azure client ID for the service principal (OIDC)</td></tr>
+<tr><td><code>use_oidc</code></td><td><code>bool</code></td><td><code>true</code></td><td>Use OIDC for authentication</td></tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr><td><code>vllm_service</code></td><td>Object containing: container_app_name, container_app_fqdn, openai_endpoint, private_endpoint_name, model_id</td></tr>
+</table>
+</div>
 <h2 id="ai-hub-modules">Modules</h2>
 <p>Reusable modules consumed by the stacks above. Each module wraps Azure Verified Modules (AVM) or native <code>azurerm</code>/<code>azapi</code> resources.</p>
 <h3 id="hub-ai-foundry-hub">ai-foundry-hub</h3>
@@ -4567,13 +4629,13 @@
 <td><code>subnet_allocation</code></td>
 <td><code>map(map(string))</code></td>
 <td><code>required</code></td>
-<td><em>No description</em></td>
+<td>Explicit subnet allocation map. Outer key = address space CIDR, inner key = subnet name, inner value = full subnet CIDR. Supported keys: <code>privateendpoints-subnet</code>, <code>privateendpoints-subnet-&lt;n&gt;</code>, <code>apim-subnet</code>, <code>appgw-subnet</code>, <code>aca-subnet</code>, <code>vllm-aca-subnet</code>.</td>
 </tr>
 <tr>
 <td><code>external_peered_projects</code></td>
 <td><code>map(object({</code></td>
 <td><code>{}</code></td>
-<td><em>No description</em></td>
+<td>Map of external project names to their peered VNet config for direct APIM access (bypasses App Gateway). Key = project name, value = { cidrs = [...], priority = 4xx }.</td>
 </tr>
 </table>
 <h4>Outputs</h4>
@@ -5226,6 +5288,45 @@
 <li><code>null_resource (wait_for_dns_document_intelligence)</code></li>
 <li><code>null_resource (wait_for_dns_speech_services)</code></li>
 </ul>
+</div>
+<h3 id="hub-vllm-service">vllm-service</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>GPU vLLM Container App Module</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/vllm-service/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (7)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+<li><code>Dockerfile.gemma4</code> — Gemma 4 compatibility image (Content-Type fix for SSE)</li>
+<li><code>Dockerfile.azureml-init</code> — AzureML registry model-fetch init container</li>
+<li><code>aca_proxy.py</code> — Reverse proxy sidecar for Gemma 4 SSE compatibility</li>
+</ul>
+</details>
+<p>Provisions a dedicated GPU Container App Environment, ACR (with image mirroring and optional Gemma 4 / AzureML-init builds), Azure Files storage for model caching, a private endpoint for APIM connectivity, and the GPU Container App itself. Supports two model sources: HuggingFace (default) and AzureML Registry (init-container download with managed identity).</p>
+<h4>Key Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr><td><code>model_id</code></td><td><code>string</code></td><td><code>google/gemma-4-31B-it</code></td><td>Model identifier exposed via the OpenAI-compatible API. This is what tenants pass as the <code>model</code> field.</td></tr>
+<tr><td><code>model_source</code></td><td><code>string</code></td><td><code>huggingface</code></td><td>Where to source model weights: <code>huggingface</code> (pull from HF Hub) or <code>azureml_registry</code> (staged via init container).</td></tr>
+<tr><td><code>azureml_registry</code></td><td><code>object</code></td><td><code>null</code></td><td>AzureML registry configuration. Required when <code>model_source = "azureml_registry"</code>. Includes registry_name, model_name, model_version, registry_resource_id.</td></tr>
+<tr><td><code>image</code></td><td><code>string</code></td><td><code>vllm/vllm-openai:latest</code></td><td>vLLM container image (mirrored into the module's ACR).</td></tr>
+<tr><td><code>workload_profile_type</code></td><td><code>string</code></td><td><code>Consumption-GPU-NC24-A100</code></td><td>GPU workload profile for the Container App Environment.</td></tr>
+<tr><td><code>quantization</code></td><td><code>string</code></td><td><code>null</code></td><td>vLLM quantization backend (awq, gptq, fp8). Requires a matching pre-quantized model.</td></tr>
+<tr><td><code>infrastructure_subnet_id</code></td><td><code>string</code></td><td><code>required</code></td><td>Subnet ID for the GPU Container App Environment (dedicated <code>/27</code>, delegation: <code>Microsoft.App/environments</code>).</td></tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr><td><code>private_endpoint_name</code></td><td>Name of the private endpoint connecting the vLLM CAE to the hub VNet</td></tr>
+<tr><td><code>container_app_name</code></td><td>Name of the GPU Container App</td></tr>
+<tr><td><code>container_app_fqdn</code></td><td>FQDN of the Container App (private DNS)</td></tr>
+<tr><td><code>openai_endpoint</code></td><td>Full OpenAI-compatible base URL (<code>https://{fqdn}</code>)</td></tr>
+<tr><td><code>model_id</code></td><td>The model identifier used for APIM routing</td></tr>
+<tr><td><code>azureml_downloader_principal_id</code></td><td>Principal ID of the AzureML downloader identity (null when not using AzureML source)</td></tr>
+</table>
 </div>
 <h3 id="hub-waf-policy">waf-policy</h3>
 <div class="card" style="border-left-color: #22c55e;">

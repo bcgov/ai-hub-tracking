@@ -32,7 +32,9 @@ Every network module change should deliver:
 - NSG resource + subnet resource in `modules/network/main.tf` (if new subnet type)
 - Outputs in `modules/network/outputs.tf`
 - Shared stack wiring in `stacks/shared/main.tf` + `stacks/shared/outputs.tf`
-- `terraform fmt -recursive` on `modules/network/` and `stacks/shared/`
+- Consumer wiring in downstream stacks that read the new subnet outputs (for example, `infra-ai-hub/stacks/vllm/main.tf` for `vllm_aca_subnet_id`)
+- Documentation updates in `infra-ai-hub/README.md` and `.github/skills/network/references/REFERENCE.md`; when the public contract changes, update `docs/_pages/terraform-reference.html` + `docs/terraform-reference.html`, and when secret/local-run guidance changes update `docs/_pages/workflows.html` + `docs/workflows.html`
+- Repo quality gate from `infra-ai-hub/`: `terraform fmt -check -recursive && tflint --recursive`
 
 ## External Documentation
 - Use [External Docs Research](../external-docs/SKILL.md) as the single source of truth for external documentation workflow and fallback approval requirements.
@@ -40,6 +42,9 @@ Every network module change should deliver:
 ## Documentation Sync
 - If the change adds, removes, renames, or materially reorganizes tracked files or directories, update the root `README.md` `Folder Structure` section in the same change. Do not add gitignored or local-only artifacts to that tree.
 - Review the documentation sync matrix in [../../copilot-instructions.md](../../copilot-instructions.md) and update any area-specific README or docs pages it calls out for the touched subtree.
+- For any `infra-ai-hub/modules/network` contract change, update `infra-ai-hub/README.md` (network allocations + module outputs) and `.github/skills/network/references/REFERENCE.md` in the same change.
+- If the change affects the GPU Container Apps subnet contract (`vllm-aca-subnet`) or its downstream consumer, review `infra-ai-hub/stacks/vllm/README.md`.
+- If the change affects the published Terraform contract or GitHub secret/local-run instructions, update both tracked docs-site source and published pages: `docs/_pages/terraform-reference.html` + `docs/terraform-reference.html` and/or `docs/_pages/workflows.html` + `docs/workflows.html`.
 
 ## Code Locations
 
@@ -52,6 +57,7 @@ Every network module change should deliver:
 | Shared stack wiring | `infra-ai-hub/stacks/shared/main.tf` → `module "network"` | Passes `subnet_allocation` to module |
 | Shared stack outputs | `infra-ai-hub/stacks/shared/outputs.tf` | PE pool pass-through + backward-compat outputs |
 | Per-env config | `infra-ai-hub/params/{env}/shared.tfvars` → `subnet_allocation` | Full CIDRs per subnet per address space |
+| vLLM consumer | `infra-ai-hub/stacks/vllm/main.tf` | Reads `vllm_aca_subnet_id` and primary PE subnet from shared state |
 | Tenant PE selection | `infra-ai-hub/stacks/tenant/locals.tf` | PE subnet resolution with 3-tier precedence |
 | APIM PE selection | `infra-ai-hub/stacks/apim/locals.tf` | Pinned PE subnet resolution with fallback |
 
@@ -79,6 +85,7 @@ There is **no offset computation** — all CIDRs are explicit in tfvars. The mod
 | `apim-subnet` | `Microsoft.Web/serverFarms` | APIM VNet injection |
 | `appgw-subnet` | None (dedicated, no delegation) | Application Gateway |
 | `aca-subnet` | `Microsoft.App/environments` | Container Apps Environment |
+| `vllm-aca-subnet` | `Microsoft.App/environments` | Dedicated GPU vLLM Container Apps Environment |
 
 ### External VNet Peered Projects (`external_peered_projects`)
 
@@ -106,6 +113,7 @@ Priorities are caller-assigned (400–499) so adding/removing a project never sh
 | `privateendpoints-subnet` | `10.x.x.0/27` | 32 IPs |
 | `apim-subnet` | `10.x.x.32/27` | 32 IPs |
 | `aca-subnet` | `10.x.x.64/27` | 32 IPs |
+| `vllm-aca-subnet` | `10.x.x.96/27` | 32 IPs |
 | `appgw-subnet` | Not deployed | App Gateway disabled |
 
 **Test** — 2 address spaces:
@@ -115,6 +123,7 @@ Priorities are caller-assigned (400–499) so adding/removing a project never sh
 | Workload /24 | `apim-subnet` | `10.x.x.0/27` | 32 IPs |
 | Workload /24 | `appgw-subnet` | `10.x.x.32/27` | 32 IPs |
 | Workload /24 | `aca-subnet` | `10.x.x.64/27` | 32 IPs |
+| Workload /24 | `vllm-aca-subnet` | `10.x.x.96/27` | 32 IPs |
 
 **Prod** — 4 address spaces (placeholder CIDRs, not yet deployed):
 | Space | Subnet | CIDR | Notes |
@@ -122,7 +131,10 @@ Priorities are caller-assigned (400–499) so adding/removing a project never sh
 | Space 1 | `privateendpoints-subnet` | TBD /24 | PE pool space 1 |
 | Space 2 | `privateendpoints-subnet-1` | TBD /24 | PE pool space 2 |
 | Space 3 | `privateendpoints-subnet-2` | TBD /24 | PE pool space 3 |
-| Space 4 | `apim-subnet`, `appgw-subnet`, `aca-subnet` | TBD /27s | Workload space |
+| Space 4 | `apim-subnet` | `10.x.x.0/25` | Workload space |
+| Space 4 | `appgw-subnet` | `10.x.x.128/26` | Workload space |
+| Space 4 | `aca-subnet` | `10.x.x.192/27` | Shared Container Apps Environment |
+| Space 4 | `vllm-aca-subnet` | `10.x.x.224/27` | Dedicated GPU vLLM Container Apps Environment |
 
 ## PE Subnet Pool
 
@@ -178,7 +190,8 @@ pe_subnet_key = "privateendpoints-subnet"    # or "privateendpoints-subnet-1", e
 5. **NSG + Subnet** (`modules/network/main.tf`): NSG with `count`, `azapi_resource` with delegation + `depends_on` all preceding subnets
 6. **Outputs** (`modules/network/outputs.tf`): `xxx_subnet_id`, `xxx_subnet_cidr`, `xxx_nsg_id`
 7. **Shared stack** (`stacks/shared/main.tf` + `outputs.tf`): Wire variable + expose output
-8. **Downstream stack**: Reference via `try(data.terraform_remote_state.shared.outputs.xxx_subnet_id, null)`
+8. **Downstream stacks**: Reference via `try(data.terraform_remote_state.shared.outputs.xxx_subnet_id, null)` and update any consuming stacks such as `stacks/vllm`
+9. **Docs**: Update `infra-ai-hub/README.md`, `.github/skills/network/references/REFERENCE.md`, and any affected `docs/_pages/*.html` + published `docs/*.html` pages
 
 ## Validation Gates (Required)
 1. **CIDR validity:** All values in `subnet_allocation` must be valid CIDRs (`can(cidrhost(cidr, 0))`)
@@ -189,7 +202,8 @@ pe_subnet_key = "privateendpoints-subnet"    # or "privateendpoints-subnet-1", e
 6. **depends_on chain:** New subnet depends on ALL preceding subnets
 7. **NSG at creation:** Included in `azapi_resource` body, not a separate association
 8. **Shared stack output:** Subnet ID exposed for cross-stack consumption
-9. **Format:** `terraform fmt -recursive` on `modules/network/` and `stacks/shared/`
+9. **Docs:** Skill/reference docs and any affected public docs are updated alongside the code change
+10. **Quality gate:** `terraform fmt -check -recursive && tflint --recursive` from `infra-ai-hub/`
 
 ## Detailed References
 

@@ -44,6 +44,7 @@ variable "subnet_allocation" {
     - "apim-subnet"                — APIM VNet injection (delegation: Microsoft.Web/serverFarms)
     - "appgw-subnet"               — Application Gateway (no delegation, dedicated)
     - "aca-subnet"                 — Container Apps Environment (delegation: Microsoft.App/environments)
+    - "vllm-aca-subnet"            — GPU vLLM Container Apps Environment (delegation: Microsoft.App/environments)
 
     Each subnet CIDR must fall within its parent address space.
     Subnets are independent — changing one does not recompute others.
@@ -51,14 +52,14 @@ variable "subnet_allocation" {
     Example (2 address spaces):
       subnet_allocation = {
         "10.x.x.0/24" = { "privateendpoints-subnet" = "10.x.x.0/24" }
-        "10.x.x.0/24"  = { "apim-subnet" = "10.x.x.0/27", "appgw-subnet" = "10.x.x.32/27", "aca-subnet" = "10.x.x.64/27" }
+        "10.x.x.0/24"  = { "apim-subnet" = "10.x.x.0/27", "appgw-subnet" = "10.x.x.32/27", "aca-subnet" = "10.x.x.64/27", "vllm-aca-subnet" = "10.x.x.96/27" }
       }
     Example (4 address spaces):
       subnet_allocation = {
         "10.x.x.0/24" = { "privateendpoints-subnet" = "10.x.x.0/24" }
         "10.x.x.0/24"  = { "privateendpoints-subnet-1" = "10.x.x.0/24" }
         "10.x.x.0/24"  = { "privateendpoints-subnet-2" = "10.x.x.0/24" }
-        "10.x.x.0/24"  = { "apim-subnet" = "10.x.x.0/25", "appgw-subnet" = "10.x.x.128/26", "aca-subnet" = "10.x.x.192/27" }
+        "10.x.x.0/24"  = { "apim-subnet" = "10.x.x.0/25", "appgw-subnet" = "10.x.x.128/26", "aca-subnet" = "10.x.x.192/27", "vllm-aca-subnet" = "10.x.x.224/27" }
       }
     Future Growth:
     - To add more PE subnets, simply add new "privateendpoints-subnet-<n>" entries with unique <n> suffixes.
@@ -84,11 +85,11 @@ variable "subnet_allocation" {
     condition = alltrue(flatten([
       for space_cidr, subnets in var.subnet_allocation : [
         for name, _ in subnets : contains([
-          "privateendpoints-subnet", "apim-subnet", "appgw-subnet", "aca-subnet"
+          "privateendpoints-subnet", "apim-subnet", "appgw-subnet", "aca-subnet", "vllm-aca-subnet"
         ], name) || can(regex("^privateendpoints-subnet-[1-9]\\d*$", name))
       ]
     ]))
-    error_message = "Subnet names must be one of: privateendpoints-subnet, privateendpoints-subnet-<n> (n starts at 1), apim-subnet, appgw-subnet, aca-subnet."
+    error_message = "Subnet names must be one of: privateendpoints-subnet, privateendpoints-subnet-<n> (n starts at 1), apim-subnet, appgw-subnet, aca-subnet, vllm-aca-subnet."
   }
 
   validation {
@@ -170,5 +171,4 @@ variable "external_peered_projects" {
     error_message = "Each project must have a unique priority value."
   }
 }
-
 

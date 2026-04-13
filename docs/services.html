@@ -1105,6 +1105,15 @@
             <p style="font-size: 0.85rem; margin: 0.5rem 0 0; color: var(--text-secondary);">OpenAI baseline plus tenant-specific Cohere and Mistral</p>
         </div>
     </a>
+    <a href="#open-source-models" class="card-link">
+        <div class="card" style="border-left-color: #f59e0b; text-align: center;">
+            <div class="feature-icon" style="margin: 0 auto 0.5rem; background: #fef3c7; color: #92400e;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/></svg>
+            </div>
+            <strong>Open-Source Models</strong>
+            <p style="font-size: 0.85rem; margin: 0.5rem 0 0; color: var(--text-secondary);">GPU-backed vLLM models (Gemma, Phi, Qwen)</p>
+        </div>
+    </a>
     <a href="#cognitive-services" class="card-link">
         <div class="card" style="border-left-color: #7c3aed; text-align: center;">
             <div class="feature-icon purple" style="margin: 0 auto 0.5rem;">
@@ -1301,6 +1310,60 @@
         </tr>
     </tbody>
 </table>
+
+<h2 id="open-source-models">Open-Source Models (vLLM)</h2>
+
+<p>In addition to the managed Foundry pathway, the hub can serve <strong>open-source models</strong> on dedicated GPU Container Apps via <a href="https://docs.vllm.ai/" rel="noopener noreferrer" target="_blank">vLLM</a>. Tenants access these models through the <strong>same base URL and API key</strong> as Foundry models — only the <code>model</code> field in the request body differs.</p>
+
+<div class="card" style="border-left-color: #f59e0b; margin: 1rem 0;">
+    <h3 id="how-it-works" style="margin-top: 0;">How It Works</h3>
+    <ul>
+        <li><strong>Same endpoint:</strong> <code>{apim_base}/{tenant}/openai/v1/chat/completions</code></li>
+        <li><strong>Model dispatch:</strong> set <code>"model": "google/gemma-4-31B-it"</code> in the request body — APIM routes to the vLLM backend instead of Foundry</li>
+        <li><strong>No SDK changes:</strong> the vLLM backend exposes an OpenAI-compatible API, so the standard OpenAI Python/JS SDK works unchanged</li>
+        <li><strong>Authentication:</strong> same APIM subscription key — no separate credential needed</li>
+    </ul>
+</div>
+
+<h3 id="available-open-source-models">Available Open-Source Models</h3>
+
+<table>
+    <thead>
+        <tr><th>Model</th><th>Model ID</th><th>Size</th><th>GPU Profile</th><th>Source</th></tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Google Gemma 4 31B-IT</td>
+            <td><code>google/gemma-4-31B-it</code></td>
+            <td>31B params</td>
+            <td>NC24-A100</td>
+            <td>HuggingFace / AzureML Registry</td>
+        </tr>
+        <tr>
+            <td>Microsoft Phi-4 (14B)</td>
+            <td><code>microsoft/phi-4</code></td>
+            <td>14B params</td>
+            <td>NC24-A100</td>
+            <td>HuggingFace / AzureML Registry</td>
+        </tr>
+        <tr>
+            <td>Qwen3 32B AWQ</td>
+            <td><code>Qwen/Qwen3-32B-AWQ</code></td>
+            <td>32B params (4-bit)</td>
+            <td>NC24-A100</td>
+            <td>HuggingFace</td>
+        </tr>
+    </tbody>
+</table>
+
+<div class="alert alert-warning" style="margin-top: 1rem;">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div>
+        <strong>Cold-start warning:</strong> GPU models with <code>min_replicas = 0</code> (scale-to-zero) may take 5–10 minutes to start on first request while model weights load into GPU memory. Tenants for whom latency is critical can request a <code>min_replicas = 1</code> override.
+    </div>
+</div>
 
 <h2 id="cognitive-services">Cognitive Services</h2>
 

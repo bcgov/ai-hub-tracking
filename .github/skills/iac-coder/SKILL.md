@@ -55,8 +55,8 @@ Stacks are deployed in dependency order by `scripts/deploy-scaled.sh`. When addi
 |---|---|---|---|
 | 1 | `shared` | Serial | Shared infra: network, CAE, KV, DNS, App Gateway |
 | 2 | `tenant` (× N) | Parallel | Per-tenant Foundry project + KV, runs once per tenant |
-| 3 | `foundry`, `tenant-user-mgmt`, `pii-redaction` | Parallel | Independent services with no cross-stack deps at deploy time |
-| 3b | `apim` | Serial (after Phase 3) | Reads pii-redaction FQDN via remote state — must run after `pii-redaction` |
+| 3 | `foundry`, `tenant-user-mgmt`, `pii-redaction`, `vllm` | Parallel | Independent services with no cross-stack deps at deploy time |
+| 3b | `apim` | Serial (after Phase 3) | Reads pii-redaction + vllm FQDNs via remote state — must run after Phase 3 |
 | 4 | `key-rotation` | Serial (after Phase 3b) | Reads APIM principal ID via remote state — must run after `apim` |
 
 > **Skill maintenance**: When changing the deploy sequence (adding phases, reordering stacks, or adding new serial/parallel constraints), update both `scripts/deploy-scaled.sh` **and** this skill profile.

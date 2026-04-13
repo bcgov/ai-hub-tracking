@@ -903,6 +903,10 @@ on:
     <div><strong>Format rule:</strong> Paste raw JSON in GitHub secrets (single line is safest). Do not use HCL syntax (for example, <code>subnet_allocation = { ... }</code> or <code>external_peered_projects = { ... }</code>) and do not paste escaped JSON with backslashes.</div>
 </div>
 
+<div class="alert alert-info">
+    <div><strong>Supported subnet keys:</strong> <code>privateendpoints-subnet</code>, <code>privateendpoints-subnet-&lt;n&gt;</code>, <code>apim-subnet</code>, <code>appgw-subnet</code>, <code>aca-subnet</code>, and <code>vllm-aca-subnet</code>. Keep the JSON aligned with the network module contract in <code>infra-ai-hub/modules/network/variables.tf</code>.</div>
+</div>
+
 <h3>How JSON Flows into Terraform</h3>
 
 <ol>

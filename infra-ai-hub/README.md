@@ -168,9 +168,9 @@ flowchart TB
 
 | Environment | Address Spaces | PE Pool | Workload Subnets |
 |---|---|---|---|
-| Dev | 1 × /24 | 1 × /27 | APIM /27 + ACA /27 |
-| Test | 2 × /24 | 1 × /24 (dedicated) | APIM /27 + AppGW /27 + ACA /27 |
-| Prod | 4 × /24 (target) | 3 × /24 PE pool | APIM /27 + AppGW /27 + ACA /27 |
+| Dev | 1 × /24 | 1 × /27 | APIM /27 + ACA /27 + vLLM ACA /27 |
+| Test | 2 × /24 | 1 × /24 (dedicated) | APIM /27 + AppGW /27 + ACA /27 + vLLM ACA /27 |
+| Prod | 4 × /24 (target) | 3 × /24 PE pool | APIM /25 + AppGW /26 + ACA /27 + vLLM ACA /27 |
 
 ### PE Subnet Pool
 
@@ -258,6 +258,7 @@ Creates subnet infrastructure with NSGs for the Landing Zone VNet. Uses `azapi_r
 | `apim_subnet_id` | APIM subnet ID (null if not allocated) |
 | `appgw_subnet_id` | App Gateway subnet ID (null if not allocated) |
 | `aca_subnet_id` | ACA subnet ID (null if not allocated) |
+| `vllm_aca_subnet_id` | GPU vLLM ACA subnet ID (null if not allocated) |
 | `vnet_id` | VNet resource ID |
 
 ---
@@ -1873,4 +1874,3 @@ Each environment has:
 - **Separate Azure resources** - Deployed to environment-specific resource groups
 - **Separate configuration** - Using environment-specific `params/{env}/` files
 - **Separate access controls** - RBAC permissions per environment
-
