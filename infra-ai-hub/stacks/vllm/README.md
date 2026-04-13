@@ -173,3 +173,72 @@ plaintext in the state blob. Restrict state-blob read access to the deployment
 service principal and platform operators. A future iteration should use managed
 identity for ACR pulls (replacing admin creds) and use a Key Vault-backed
 Container App secret reference to avoid materialising the HF token in state.
+
+## AzureML Registry Source
+
+You can stage model weights from an Azure Machine Learning registry instead of
+HuggingFace Hub. This avoids HF token management and keeps model assets inside
+the Azure tenant. It is recommended when:
+- The model is available in the [Azure AI model catalogue](https://ai.azure.com/explore/models)
+  and you want to avoid coupling the hub to Hugging Face rate limits or gating.
+- You need to store a fine-tuned or internally registered model version alongside
+  standard open-source models.
+
+### How it works
+
+1. The module creates a **user-assigned managed identity** (`azureml-downloader`).
+2. The stack assigns the `AzureML Registry User` built-in role to that identity at
+   the registry scope (see `azurerm_role_assignment.azureml_registry_user` in
+   `stacks/vllm/main.tf`).
+3. On the first Container App start, an **init container** (`azureml-init`) runs:
+   - Logs in with the UA identity via `az login --identity --client-id`.
+   - Downloads `{model_name}:{model_version}` from the registry to a temp dir.
+   - Validates `config.json` presence (HuggingFace snapshot format required).
+   - Atomically moves the download to `{download_parent}/{model_name}`.
+   - Writes a `.download-complete` marker so subsequent starts skip the download.
+4. The vLLM container starts with `--model {staged_path}` and
+   `--served-model-name {var.model_id}` so the APIM-facing model name is unchanged.
+
+### Requirements
+
+- **AzureML registry** must exist and be accessible from the hub subscription.
+  Community registries (e.g. `azureml`, `HuggingFace`) are available without
+  setup. For internal registries, ensure the hub service principal has at least
+  `Reader` on the registry resource.
+- **Model format:** the registered model must be in **HuggingFace snapshot format**
+  (contains `config.json` at the root). If the registry asset was uploaded from a
+  non-HF source, the init script will abort with a validation error.
+- **Expected staging time:** 5–20 minutes on first deploy, depending on model
+  weight size. The Container App `timeouts.create = 90m` covers this.
+
+### tfvars example
+
+```hcl
+vllm = {
+  enabled      = true
+  model_id     = "microsoft/phi-4"   # canonical API-facing name
+  model_source = "azureml_registry"
+  azureml_registry = {
+    registry_name       = "azureml"                           # or "HuggingFace", or your own
+    model_name          = "phi-4"
+    model_version       = "1"
+    registry_resource_id = "/subscriptions/{sub}/resourceGroups/{rg}/providers/Microsoft.MachineLearningServices/registries/azureml"
+    subscription_id     = "{subscription_id}"                 # optional; defaults to current
+  }
+  model_cache_share_quota_gb = 40
+}
+```
+
+### RBAC wiring
+
+The `azurerm_role_assignment.azureml_registry_user` resource in `stacks/vllm/main.tf`
+assigns `AzureML Registry User` at the registry scope to the module-managed UA identity.
+The role assignment is created automatically at deploy time — no manual step needed.
+
+For **community registries** (`azureml`, `HuggingFace`), the role assignment is still
+required but the registry resource ID follows the pattern:
+```
+/subscriptions/{pub-sub}/resourceGroups/{rg}/providers/Microsoft.MachineLearningServices/registries/{name}
+```
+The subscription ID for community registries belongs to Microsoft, not your tenant.
+To get the exact ARM ID: `az ml registry show --name azureml --query id -o tsv`.

@@ -1,0 +1,16 @@
+# Azure CLI init container for Azure ML registry model staging.
+# Pre-installs the Azure ML CLI extension to avoid runtime extension install
+# delays and outbound-network dependency brittleness.
+#
+# To update the Azure CLI version: change AZURE_CLI_VERSION, commit, and
+# the null_resource.build_azureml_init_image trigger (filemd5) will force a
+# rebuild on next tf apply.
+ARG AZURE_CLI_VERSION=2.67.0
+FROM mcr.microsoft.com/azure-cli:${AZURE_CLI_VERSION}
+
+RUN az extension add -n ml --yes --only-show-errors
+
+COPY azureml-init.sh /usr/local/bin/azureml-init.sh
+RUN chmod +x /usr/local/bin/azureml-init.sh
+
+CMD ["/usr/local/bin/azureml-init.sh"]

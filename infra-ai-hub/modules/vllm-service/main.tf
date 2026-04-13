@@ -39,6 +39,17 @@ locals {
   model_cache_root       = "/model-cache"
   huggingface_home       = "/model-cache/huggingface"
   huggingface_hub_path   = "/model-cache/huggingface/hub"
+
+  use_azureml_registry_source = var.model_source == "azureml_registry"
+  # az ml model download creates {download_path}/{model_name}/... so the actual model root
+  # is one level deeper than the path passed to --download-path.
+  azureml_download_parent = local.use_azureml_registry_source ? "/model-cache/azureml/${var.azureml_registry.registry_name}/${var.azureml_registry.model_name}/${var.azureml_registry.model_version}" : null
+  azureml_model_root      = local.use_azureml_registry_source ? "${local.azureml_download_parent}/${var.azureml_registry.model_name}" : null
+  # For HF source: pass the HF repo ID directly to vllm serve --model.
+  # For AML registry source: pass the local staged path; add --served-model-name var.model_id
+  # in args so the API surface stays consistent with APIM routing.
+  vllm_model_arg     = local.use_azureml_registry_source ? local.azureml_model_root : var.model_id
+  azureml_init_image = local.use_azureml_registry_source ? "${azurerm_container_registry.vllm.login_server}/azureml-init/azure-cli:latest" : null
 }
 
 resource "random_string" "resource_suffix" {
@@ -133,6 +144,48 @@ resource "null_resource" "build_gemma4_image" {
       "",
       "cd '${self.triggers.context_path}'",
       "az acr build --registry ${self.triggers.registry_name} --image ${self.triggers.target_image} --build-arg VLLM_BASE_IMAGE=${self.triggers.source_image} --file Dockerfile.gemma4 . --no-logs --output none --only-show-errors",
+    ])
+  }
+
+  depends_on = [azurerm_container_registry.vllm]
+}
+
+# User-assigned managed identity for AzureML registry model downloads.
+# Created before the Container App so the calling stack can assign AzureML Registry User
+# RBAC at plan time, eliminating the RBAC propagation race inherent in system-assigned
+# identities (which only exist after the Container App resource is created).
+resource "azurerm_user_assigned_identity" "azureml_downloader" {
+  count               = local.use_azureml_registry_source ? 1 : 0
+  name                = "${var.app_name}-azureml-downloader"
+  resource_group_name = var.resource_group_name
+  location            = var.location
+  tags                = var.common_tags
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
+}
+
+# Build the AzureML init container image into the module-managed ACR.
+# Uses Dockerfile.azureml-init (Azure CLI + ml extension pre-baked) to avoid
+# runtime extension installs. Rebuilds automatically when either the Dockerfile
+# or the init script changes (filemd5 trigger).
+resource "null_resource" "build_azureml_init_image" {
+  count = local.use_azureml_registry_source ? 1 : 0
+
+  triggers = {
+    registry_name   = azurerm_container_registry.vllm.name
+    dockerfile_hash = filemd5("${path.module}/Dockerfile.azureml-init")
+    script_hash     = filemd5("${path.module}/azureml-init.sh")
+    context_path    = local.module_dir
+  }
+
+  provisioner "local-exec" {
+    interpreter = ["bash", "-c"]
+    command = join("\n", [
+      "set -euo pipefail",
+      "cd '${self.triggers.context_path}'",
+      "az acr build --registry ${self.triggers.registry_name} --image azureml-init/azure-cli:latest --file Dockerfile.azureml-init . --no-logs --output none --only-show-errors",
     ])
   }
 
@@ -300,6 +353,14 @@ resource "azurerm_container_app" "vllm" {
   revision_mode                = "Single"
   workload_profile_name        = var.workload_profile_name
 
+  dynamic "identity" {
+    for_each = local.use_azureml_registry_source ? [1] : []
+    content {
+      type         = "UserAssigned"
+      identity_ids = [azurerm_user_assigned_identity.azureml_downloader[0].id]
+    }
+  }
+
   registry {
     server               = azurerm_container_registry.vllm.login_server
     username             = azurerm_container_registry.vllm.admin_username
@@ -312,7 +373,7 @@ resource "azurerm_container_app" "vllm" {
   }
 
   dynamic "secret" {
-    for_each = !var.offline_mode && var.huggingface_token != "" ? [var.huggingface_token] : []
+    for_each = var.model_source == "huggingface" && !var.offline_mode && var.huggingface_token != "" ? [var.huggingface_token] : []
 
     content {
       name  = "huggingface-token"
@@ -352,7 +413,7 @@ resource "azurerm_container_app" "vllm" {
 
       args = concat(
         [
-          var.model_id,
+          local.vllm_model_arg,
           "--host",
           local.vllm_backend_host,
           "--port",
@@ -362,8 +423,12 @@ resource "azurerm_container_app" "vllm" {
           "--gpu-memory-utilization",
           tostring(var.gpu_memory_utilization),
         ],
+        # For azureml_registry source, expose the model under its canonical API name.
+        # vLLM's --model arg is the local staged path; --served-model-name keeps the
+        # tenant-facing model ID consistent with APIM routing.
+        local.use_azureml_registry_source ? ["--served-model-name", var.model_id] : [],
         # Append --quantization only when a backend is explicitly set. Requires a matching
-        # pre-quantized HuggingFace model repo — vLLM does not quantize BF16 weights on the fly.
+        # pre-quantized model — vLLM does not quantize weights on the fly.
         var.quantization != null ? ["--quantization", var.quantization] : []
       )
 
@@ -383,7 +448,7 @@ resource "azurerm_container_app" "vllm" {
       }
 
       dynamic "env" {
-        for_each = var.offline_mode ? {
+        for_each = var.model_source == "huggingface" && var.offline_mode ? {
           HF_HUB_OFFLINE       = "1"
           TRANSFORMERS_OFFLINE = "1"
         } : {}
@@ -414,7 +479,7 @@ resource "azurerm_container_app" "vllm" {
       }
 
       dynamic "env" {
-        for_each = !var.offline_mode && var.huggingface_token != "" ? [1] : []
+        for_each = var.model_source == "huggingface" && !var.offline_mode && var.huggingface_token != "" ? [1] : []
 
         content {
           name        = "HF_TOKEN"
@@ -455,6 +520,57 @@ resource "azurerm_container_app" "vllm" {
       }
     }
 
+    dynamic "init_container" {
+      for_each = local.use_azureml_registry_source ? [1] : []
+
+      content {
+        name   = "azureml-model-fetch"
+        image  = local.azureml_init_image
+        cpu    = 2
+        memory = "4Gi"
+
+        env {
+          name  = "AZUREML_REGISTRY_NAME"
+          value = var.azureml_registry.registry_name
+        }
+
+        env {
+          name  = "AZUREML_MODEL_NAME"
+          value = var.azureml_registry.model_name
+        }
+
+        env {
+          name  = "AZUREML_MODEL_VERSION"
+          value = var.azureml_registry.model_version
+        }
+
+        env {
+          name  = "AZUREML_DOWNLOAD_PARENT"
+          value = local.azureml_download_parent
+        }
+
+        env {
+          name  = "AZUREML_MODEL_ROOT"
+          value = local.azureml_model_root
+        }
+
+        env {
+          name  = "AZUREML_CLIENT_ID"
+          value = azurerm_user_assigned_identity.azureml_downloader[0].client_id
+        }
+
+        env {
+          name  = "AZUREML_SUBSCRIPTION_ID"
+          value = try(var.azureml_registry.subscription_id, "")
+        }
+
+        volume_mounts {
+          name = "model-cache"
+          path = local.model_cache_root
+        }
+      }
+    }
+
     volume {
       name         = "model-cache"
       storage_name = azurerm_container_app_environment_storage.model_cache.name
@@ -473,6 +589,7 @@ resource "azurerm_container_app" "vllm" {
     null_resource.gpu_workload_profile,
     null_resource.build_gemma4_image,
     null_resource.import_vllm_image,
+    null_resource.build_azureml_init_image,
     azurerm_monitor_diagnostic_setting.vllm_environment,
   ]
 
@@ -480,5 +597,12 @@ resource "azurerm_container_app" "vllm" {
     create = "90m"
     update = "90m"
     delete = "90m"
+  }
+}
+
+check "azureml_registry_config_required" {
+  assert {
+    condition     = var.model_source != "azureml_registry" || var.azureml_registry != null
+    error_message = "var.azureml_registry must be set when model_source is \"azureml_registry\"."
   }
 }

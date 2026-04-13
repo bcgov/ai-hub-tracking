@@ -39,6 +39,37 @@ will warn at plan time if they diverge.
 > `https://huggingface.co/Qwen/Qwen3-32B-AWQ`. The tenant `vllm.models[*].model_id` must
 > be set to `Qwen/Qwen3-32B-AWQ` (the AWQ repo), not `Qwen/Qwen3-32B`.
 
+### AzureML Registry Source
+
+The vLLM module supports downloading model weights directly from an **Azure Machine Learning
+registry** instead of Hugging Face Hub. This is the recommended source when the model is
+available in the [Azure AI model catalogue](https://ai.azure.com/explore/models), when you
+need to avoid HF token management, or when serving an internally fine-tuned model.
+
+**Registration steps:**
+
+1. Find the model in the Azure AI catalogue: `az ml model list --registry-name azureml`.
+2. Get the ARM ID of the registry: `az ml registry show --name azureml --query id -o tsv`.
+3. Set `model_source = "azureml_registry"` and populate `azureml_registry` in `shared.tfvars`
+   (see [stacks/vllm/README.md](stacks/vllm/README.md#azureml-registry-source) for the full schema).
+4. No `huggingface_secret_name` needed — the UA identity authenticates with managed identity.
+
+**Format requirement:** the model asset in the registry must be in **HuggingFace snapshot
+format** (must contain `config.json` at the downloaded root). Community registries
+(`azureml`, `HuggingFace`) meet this requirement for all models listed in the catalogue.
+Custom or fine-tuned registrations must include `config.json`.
+
+**Model source comparison:**
+
+| Attribute | `huggingface` (default) | `azureml_registry` |
+|---|---|---|
+| Weight origin | Hugging Face Hub | AzureML registry (community or internal) |
+| Auth | HF token (Key Vault secret) | UA managed identity (automatic RBAC) |
+| Gated models | Yes, with token | Via registry copy (gate bypassed) |
+| Internal models | No | Yes — register first, then deploy |
+| Download path | `/model-cache/huggingface/hub/` | `/model-cache/azureml/{registry}/{model}/{version}/{model}/` |
+| Offline mode | `offline_mode = true` after first cache | Same — marker file prevents re-download |
+
 ## Regional Quota Limits (Canada East)
 
 These are the maximum TPM quotas available per model across the entire subscription.

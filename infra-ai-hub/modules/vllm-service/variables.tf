@@ -51,13 +51,62 @@ variable "image" {
 }
 
 variable "model_id" {
-  description = "Exact Hugging Face model ID served by the vLLM container"
+  description = <<-EOT
+    Canonical API-facing model identifier. For model_source = "huggingface": the Hugging Face
+    repo ID passed directly to vllm serve as the --model argument (e.g. "google/gemma-4-31B-it").
+    For model_source = "azureml_registry": the name exposed via --served-model-name so tenants
+    can use the same model= value regardless of the underlying source. In both cases this is the
+    value tenants set in the model= field when calling the API.
+  EOT
   type        = string
   default     = "google/gemma-4-31B-it"
 }
 
+variable "model_source" {
+  description = <<-EOT
+    Source for the model weights served by vLLM. Valid values:
+    - "huggingface"      : Download model weights from Hugging Face Hub at container startup
+                           (default). Set huggingface_token for gated models. Toggle offline_mode
+                           after initial download to prevent repeated HF Hub calls.
+    - "azureml_registry" : Stage model weights from an Azure ML registry using a user-assigned
+                           managed identity and az ml model download in an init container.
+                           Requires azureml_registry to be configured. The model asset must be in
+                           HuggingFace snapshot format — it must contain config.json at the root of
+                           the downloaded directory for vLLM to load it.
+  EOT
+  type        = string
+  default     = "huggingface"
+
+  validation {
+    condition     = contains(["huggingface", "azureml_registry"], var.model_source)
+    error_message = "model_source must be either \"huggingface\" or \"azureml_registry\"."
+  }
+}
+
+variable "azureml_registry" {
+  description = <<-EOT
+    Azure Machine Learning registry configuration. Required when model_source = "azureml_registry".
+    - registry_name        : Short name of the AML registry (e.g. "my-ml-registry").
+    - model_name           : Name of the model asset in the registry. Must match exactly the asset
+                             name used when registering with az ml model create.
+    - model_version        : Version label of the model asset (e.g. "1", "2024-11-01").
+    - registry_resource_id : Full ARM resource ID of the AML registry. Used by the calling stack to
+                             create the AzureML Registry User RBAC assignment scoped to this registry.
+    - subscription_id      : Optional. Azure subscription containing the AML registry. Defaults to
+                             the current deployment subscription when omitted or empty.
+  EOT
+  type = object({
+    registry_name        = string
+    model_name           = string
+    model_version        = string
+    registry_resource_id = string
+    subscription_id      = optional(string, "")
+  })
+  default = null
+}
+
 variable "offline_mode" {
-  description = "Whether to force Hugging Face and Transformers into cache-only offline mode so startup uses only files already present on the mounted Azure Files share"
+  description = "For model_source = \"huggingface\": whether to force Hugging Face and Transformers into cache-only offline mode so startup uses only files already present on the mounted Azure Files share. Has no effect when model_source = \"azureml_registry\"."
   type        = bool
   default     = false
 }
@@ -96,7 +145,7 @@ variable "quantization" {
 }
 
 variable "huggingface_token" {
-  description = "Optional Hugging Face access token injected into the container as HF_TOKEN for higher rate limits or gated models. In hub deployments, source this from the hub Key Vault (data.azurerm_key_vault_secret) in the calling stack rather than storing in tfvars."
+  description = "Optional Hugging Face access token injected into the container as HF_TOKEN for higher rate limits or gated models. Only used when model_source = \"huggingface\". In hub deployments, source this from the hub Key Vault (data.azurerm_key_vault_secret) in the calling stack rather than storing in tfvars."
   type        = string
   default     = ""
   sensitive   = true
@@ -114,7 +163,7 @@ variable "registry_sku" {
 }
 
 variable "model_cache_share_quota_gb" {
-  description = "Quota in GiB for the Azure Files share that persists Hugging Face model cache data across revisions and replica restarts"
+  description = "Quota in GiB for the Azure Files share that persists model cache data across revisions and replica restarts. For huggingface source this holds HF Hub files; for azureml_registry source this holds the staged model directory."
   type        = number
   default     = 64
 

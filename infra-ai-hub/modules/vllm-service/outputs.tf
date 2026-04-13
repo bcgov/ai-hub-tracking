@@ -53,7 +53,7 @@ output "container_image" {
 }
 
 output "model_id" {
-  description = "Hugging Face model ID configured for the vLLM Container App"
+  description = "Canonical model ID configured for the vLLM Container App (used as the APIM-facing model name)"
   value       = var.model_id
 }
 
@@ -63,16 +63,21 @@ output "max_model_len" {
 }
 
 output "model_cache_storage_account_name" {
-  description = "Storage account name backing the persistent Hugging Face model cache"
+  description = "Storage account name backing the persistent model cache"
   value       = azurerm_storage_account.model_cache.name
 }
 
 output "model_cache_share_name" {
-  description = "Azure Files share name backing the persistent Hugging Face model cache"
+  description = "Azure Files share name backing the persistent model cache"
   value       = azurerm_storage_share.model_cache.name
 }
 
 output "workload_profile_type" {
   description = "GPU workload profile type used by the Container App"
   value       = var.workload_profile_type
+}
+
+output "azureml_downloader_principal_id" {
+  description = "Principal ID of the user-assigned managed identity used to download models from AzureML registry. Null when model_source is not azureml_registry."
+  value       = local.use_azureml_registry_source ? azurerm_user_assigned_identity.azureml_downloader[0].principal_id : null
 }

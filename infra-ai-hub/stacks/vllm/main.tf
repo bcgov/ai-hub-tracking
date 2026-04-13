@@ -39,6 +39,8 @@ module "vllm_service" {
   model_id               = try(local.vllm_config.model_id, "google/gemma-4-31B-it")
   image                  = try(local.vllm_config.image, "vllm/vllm-openai:latest")
   offline_mode           = try(local.vllm_config.offline_mode, false)
+  model_source           = try(local.vllm_config.model_source, "huggingface")
+  azureml_registry       = try(local.vllm_config.azureml_registry, null)
   quantization           = try(local.vllm_config.quantization, null)
   max_model_len          = try(local.vllm_config.max_model_len, 32768)
   gpu_memory_utilization = try(local.vllm_config.gpu_memory_utilization, 0.9)
@@ -55,4 +57,19 @@ module "vllm_service" {
 
   private_endpoint_dns_wait                = try(var.shared_config.private_endpoint_dns_wait, {})
   wait_for_private_endpoint_dns_zone_group = try(local.vllm_config.wait_for_private_endpoint_dns_zone_group, false)
+}
+
+# Grants the module's user-assigned identity permission to download model assets from
+# the AzureML registry. Assigned at the registry scope so the identity can list and
+# download any model version registered there. The role assignment must exist before the
+# Container App's init container first runs; creating the identity in the module and the
+# role assignment here (in the stack) ensures the correct sequencing — the module output
+# is only available after the identity resource is created, guaranteeing the assignment
+# happens before the Container App is provisioned.
+resource "azurerm_role_assignment" "azureml_registry_user" {
+  count = local.use_azureml_source ? 1 : 0
+
+  scope                = local.vllm_config.azureml_registry.registry_resource_id
+  role_definition_name = "AzureML Registry User"
+  principal_id         = module.vllm_service[0].azureml_downloader_principal_id
 }
