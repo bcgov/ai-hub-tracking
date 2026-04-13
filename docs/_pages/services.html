@@ -291,6 +291,11 @@
     </div>
 </div>
 
+<div class="card" style="border-left-color: #22c55e; margin: 1rem 0;">
+    <h3 style="margin-top: 0;">Model Caching</h3>
+    <p>Model weights are persisted on a <strong>dedicated Azure Files share</strong> mounted on every container instance. Downloads happen <strong>once</strong> via an init container; subsequent restarts, scale events, and revision updates reuse the cached weights with no network calls (<code>HF_HUB_OFFLINE=1</code>). This applies to both HuggingFace and AzureML Registry model sources.</p>
+</div>
+
 <!-- ============================== -->
 <h2 id="cognitive-services">Cognitive Services</h2>
 <!-- ============================== -->

@@ -49,6 +49,30 @@ Gemma 4 31B cold start is **5–10 minutes** after the first request. Operators 
 override with `min_replicas = 1` in `params/{env}/shared.tfvars` when lower
 first-token latency is required.
 
+## Model Caching & Offline Mode
+
+Model weights are persisted on a **dedicated Azure Files share** mounted at
+`/model-cache` on every container instance. This share survives container restarts,
+scale-to-zero events, and revision updates — models are downloaded once and reused
+indefinitely.
+
+`offline_mode = true` (the default) ensures **zero re-downloads on restart**:
+
+- **HuggingFace source:** An init container pre-downloads the model to Azure Files
+  and writes a `.download-complete` marker. The main vLLM container starts with
+  `HF_HUB_OFFLINE=1` and `TRANSFORMERS_OFFLINE=1`, using only cached files.
+- **AzureML registry source:** The AzureML init container stages the model to
+  Azure Files with its own `.download-complete` marker (always active regardless
+  of `offline_mode`). `offline_mode` additionally sets `HF_HUB_OFFLINE=1` on the
+  main container to prevent spurious tokenizer fetch calls.
+
+To force a model re-download (e.g. after an upstream update), delete the
+`.download-complete` marker from the Azure Files share and restart the container.
+
+Setting `offline_mode = false` reverts to legacy behaviour: the main vLLM process
+downloads the model inline during its startup probe window, and each restart
+performs a network check against the HuggingFace Hub to verify model freshness.
+
 **Single-replica SLA note** - Azure Container Apps' published service-level
 commitment for Container Apps is **99.95%** uptime. However, keeping one replica
 warm only removes the scale-from-zero cold start; it does **not** make this vLLM

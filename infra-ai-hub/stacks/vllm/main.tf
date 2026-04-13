@@ -38,7 +38,7 @@ module "vllm_service" {
 
   model_id               = try(local.vllm_config.model_id, "google/gemma-4-31B-it")
   image                  = try(local.vllm_config.image, "vllm/vllm-openai:latest")
-  offline_mode           = try(local.vllm_config.offline_mode, false)
+  offline_mode           = try(local.vllm_config.offline_mode, true)
   model_source           = try(local.vllm_config.model_source, "huggingface")
   azureml_registry       = try(local.vllm_config.azureml_registry, null)
   quantization           = try(local.vllm_config.quantization, null)

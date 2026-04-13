@@ -5305,12 +5305,13 @@
 <li><code>aca_proxy.py</code> — Reverse proxy sidecar for Gemma 4 SSE compatibility</li>
 </ul>
 </details>
-<p>Provisions a dedicated GPU Container App Environment, ACR (with image mirroring and optional Gemma 4 / AzureML-init builds), Azure Files storage for model caching, a private endpoint for APIM connectivity, and the GPU Container App itself. Supports two model sources: HuggingFace (default) and AzureML Registry (init-container download with managed identity).</p>
+<p>Provisions a dedicated GPU Container App Environment, ACR (with image mirroring and optional Gemma 4 / AzureML-init builds), Azure Files storage for model caching, a private endpoint for APIM connectivity, and the GPU Container App itself. Supports two model sources: HuggingFace (default) and AzureML Registry (init-container download with managed identity). By default, <code>offline_mode = true</code> pre-downloads models via an init container and runs the main container with <code>HF_HUB_OFFLINE=1</code>, guaranteeing zero re-downloads on restart.</p>
 <h4>Key Variables</h4>
 <table>
 <tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
 <tr><td><code>model_id</code></td><td><code>string</code></td><td><code>google/gemma-4-31B-it</code></td><td>Model identifier exposed via the OpenAI-compatible API. This is what tenants pass as the <code>model</code> field.</td></tr>
 <tr><td><code>model_source</code></td><td><code>string</code></td><td><code>huggingface</code></td><td>Where to source model weights: <code>huggingface</code> (pull from HF Hub) or <code>azureml_registry</code> (staged via init container).</td></tr>
+<tr><td><code>offline_mode</code></td><td><code>bool</code></td><td><code>true</code></td><td>When true, an init container pre-downloads the model to Azure Files and the main container runs fully offline. When false, vLLM downloads inline during startup.</td></tr>
 <tr><td><code>azureml_registry</code></td><td><code>object</code></td><td><code>null</code></td><td>AzureML registry configuration. Required when <code>model_source = "azureml_registry"</code>. Includes registry_name, model_name, model_version, registry_resource_id.</td></tr>
 <tr><td><code>image</code></td><td><code>string</code></td><td><code>vllm/vllm-openai:latest</code></td><td>vLLM container image (mirrored into the module's ACR).</td></tr>
 <tr><td><code>workload_profile_type</code></td><td><code>string</code></td><td><code>Consumption-GPU-NC24-A100</code></td><td>GPU workload profile for the Container App Environment.</td></tr>

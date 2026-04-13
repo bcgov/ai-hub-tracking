@@ -52,6 +52,22 @@ if [ ! -f "$DOWNLOADED/config.json" ]; then
   exit 1
 fi
 
+# Validate tokenizer assets — required for offline operation since HF_HUB_OFFLINE=1
+# prevents fallback downloads at vLLM runtime.
+if [ ! -f "$DOWNLOADED/tokenizer_config.json" ]; then
+  echo "ERROR: Downloaded model is missing tokenizer_config.json." >&2
+  echo "Tokenizer assets are required for offline mode. Check the registry model packaging." >&2
+  rm -rf "$TEMP_DIR"
+  exit 1
+fi
+
+if [ ! -f "$DOWNLOADED/tokenizer.json" ] && [ ! -f "$DOWNLOADED/tokenizer.model" ]; then
+  echo "ERROR: Downloaded model has no tokenizer.json or tokenizer.model." >&2
+  echo "At least one tokenizer implementation file is required for offline mode." >&2
+  rm -rf "$TEMP_DIR"
+  exit 1
+fi
+
 touch "$DOWNLOADED/.download-complete"
 mkdir -p "$AZUREML_DOWNLOAD_PARENT"
 mv "$DOWNLOADED" "$AZUREML_MODEL_ROOT"

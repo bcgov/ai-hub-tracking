@@ -41,6 +41,9 @@ locals {
   huggingface_hub_path   = "/model-cache/huggingface/hub"
 
   use_azureml_registry_source = var.model_source == "azureml_registry"
+  use_hf_init_container       = var.model_source == "huggingface" && var.offline_mode
+  # HuggingFace Hub caches model repos in a directory named models--{org}--{repo}.
+  huggingface_model_cache_dir = "${local.huggingface_hub_path}/models--${replace(var.model_id, "/", "--")}"
   # az ml model download creates {download_path}/{model_name}/... so the actual model root
   # is one level deeper than the path passed to --download-path.
   azureml_download_parent = local.use_azureml_registry_source ? "/model-cache/azureml/${var.azureml_registry.registry_name}/${var.azureml_registry.model_name}/${var.azureml_registry.model_version}" : null
@@ -385,7 +388,7 @@ resource "azurerm_container_app" "vllm" {
   }
 
   dynamic "secret" {
-    for_each = var.model_source == "huggingface" && !var.offline_mode && var.huggingface_token != "" ? [var.huggingface_token] : []
+    for_each = var.model_source == "huggingface" && var.huggingface_token != "" ? [var.huggingface_token] : []
 
     content {
       name  = "huggingface-token"
@@ -460,7 +463,7 @@ resource "azurerm_container_app" "vllm" {
       }
 
       dynamic "env" {
-        for_each = var.model_source == "huggingface" && var.offline_mode ? {
+        for_each = var.offline_mode ? {
           HF_HUB_OFFLINE       = "1"
           TRANSFORMERS_OFFLINE = "1"
         } : {}
@@ -574,6 +577,63 @@ resource "azurerm_container_app" "vllm" {
         env {
           name  = "AZUREML_SUBSCRIPTION_ID"
           value = try(var.azureml_registry.subscription_id, "")
+        }
+
+        volume_mounts {
+          name = "model-cache"
+          path = local.model_cache_root
+        }
+      }
+    }
+
+    # HuggingFace model pre-download init container.
+    # When offline_mode = true (default), this init container downloads the model
+    # to the persistent Azure Files cache before vLLM starts. A .download-complete
+    # marker skips re-download on subsequent restarts. The main container then runs
+    # with HF_HUB_OFFLINE=1, guaranteeing zero network calls at runtime.
+    dynamic "init_container" {
+      for_each = local.use_hf_init_container ? [1] : []
+
+      content {
+        name   = "hf-model-download"
+        image  = local.mirrored_image
+        cpu    = 2
+        memory = "4Gi"
+
+        command = ["/bin/sh", "-c", join("\n", [
+          "set -euo pipefail",
+          "MARKER='${local.huggingface_model_cache_dir}/.download-complete'",
+          "if [ -f \"$MARKER\" ]; then",
+          "  echo \"Model ${var.model_id} already cached — skipping download.\"",
+          "  exit 0",
+          "fi",
+          "echo \"Pre-downloading ${var.model_id} to persistent Azure Files cache...\"",
+          "if command -v huggingface-cli >/dev/null 2>&1; then",
+          "  huggingface-cli download '${var.model_id}' --cache-dir '${local.huggingface_hub_path}'",
+          "else",
+          "  python3 -c \"from huggingface_hub import snapshot_download; snapshot_download('${var.model_id}', cache_dir='${local.huggingface_hub_path}')\"",
+          "fi",
+          "touch \"$MARKER\"",
+          "echo \"Model cached successfully.\"",
+        ])]
+
+        env {
+          name  = "HF_HUB_CACHE"
+          value = local.huggingface_hub_path
+        }
+
+        env {
+          name  = "HF_HOME"
+          value = local.huggingface_home
+        }
+
+        dynamic "env" {
+          for_each = var.huggingface_token != "" ? [1] : []
+
+          content {
+            name        = "HF_TOKEN"
+            secret_name = "huggingface-token"
+          }
         }
 
         volume_mounts {

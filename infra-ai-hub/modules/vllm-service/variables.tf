@@ -106,9 +106,27 @@ variable "azureml_registry" {
 }
 
 variable "offline_mode" {
-  description = "For model_source = \"huggingface\": whether to force Hugging Face and Transformers into cache-only offline mode so startup uses only files already present on the mounted Azure Files share. Has no effect when model_source = \"azureml_registry\"."
+  description = <<-EOT
+    Controls whether the vLLM container runs in offline mode (no network calls to
+    model registries at runtime).
+
+    When true (default): for HuggingFace source, an init container pre-downloads
+    the model to the persistent Azure Files cache on first deployment and writes a
+    .download-complete marker. Subsequent container restarts skip the download. The
+    main container always starts with HF_HUB_OFFLINE=1 and TRANSFORMERS_OFFLINE=1,
+    guaranteeing zero re-downloads on restart regardless of network availability.
+
+    When false: vLLM downloads the model inline during startup. The HuggingFace
+    library caches to Azure Files, but each restart performs a network check against
+    the HuggingFace Hub to verify model freshness.
+
+    For model_source = "azureml_registry", the AzureML init container always handles
+    the download regardless of this setting. offline_mode controls whether
+    HF_HUB_OFFLINE is set on the main container — recommended to prevent spurious
+    tokenizer fetch calls.
+  EOT
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "max_model_len" {
