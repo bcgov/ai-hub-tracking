@@ -151,9 +151,9 @@ resource "null_resource" "build_gemma4_image" {
 }
 
 # User-assigned managed identity for AzureML registry model downloads.
-# Created before the Container App so the calling stack can assign AzureML Registry User
-# RBAC at plan time, eliminating the RBAC propagation race inherent in system-assigned
-# identities (which only exist after the Container App resource is created).
+# Created before the Container App and role assignment so the identity exists
+# before RBAC is configured, which prevents the propagation race that affects
+# system-assigned identities (those only exist after the Container App is created).
 resource "azurerm_user_assigned_identity" "azureml_downloader" {
   count               = local.use_azureml_registry_source ? 1 : 0
   name                = "${var.app_name}-azureml-downloader"
@@ -164,6 +164,18 @@ resource "azurerm_user_assigned_identity" "azureml_downloader" {
   lifecycle {
     ignore_changes = [tags]
   }
+}
+
+# Grants the user-assigned identity permission to download model assets from
+# the AzureML registry. Placing this role assignment inside the module (rather
+# than the calling stack) allows it to be listed in the Container App depends_on,
+# ensuring RBAC has propagated before the init container starts.
+resource "azurerm_role_assignment" "azureml_registry_user" {
+  count = local.use_azureml_registry_source ? 1 : 0
+
+  scope                = try(var.azureml_registry.registry_resource_id, "")
+  role_definition_name = "AzureML Registry User"
+  principal_id         = azurerm_user_assigned_identity.azureml_downloader[0].principal_id
 }
 
 # Build the AzureML init container image into the module-managed ACR.
@@ -590,6 +602,7 @@ resource "azurerm_container_app" "vllm" {
     null_resource.build_gemma4_image,
     null_resource.import_vllm_image,
     null_resource.build_azureml_init_image,
+    azurerm_role_assignment.azureml_registry_user,
     azurerm_monitor_diagnostic_setting.vllm_environment,
   ]
 

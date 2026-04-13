@@ -643,7 +643,10 @@ resource "azapi_resource" "aca_subnet" {
 #
 # NSG rules mirror the aca-subnet rules plus:
 #   - Outbound: Internet (Docker Hub pull for ACR import, HuggingFace model cache)
-#   - Inbound: APIM subnet (APIM calls vLLM via private endpoint)
+#   - Inbound:  AzureLoadBalancer (ACA health probes)
+#   - Inbound:  PE subnet CIDR (APIM calls vLLM via its private endpoint NIC)
+#   - Inbound:  APIM subnet CIDR (direct calls before PE DNS propagation)
+# Broad VNet inbound is NOT permitted — only APIM and platform health probes reach vLLM.
 # =============================================================================
 
 # NSG for vLLM ACA subnet
@@ -733,19 +736,50 @@ resource "azurerm_network_security_group" "vllm_aca" {
     destination_address_prefix = "Internet"
   }
 
-  # --- Inbound: allow each address space in the allocation map → vLLM ACA subnet ---
+  # --- Inbound: Azure Load Balancer (ACA health probes and control-plane operations) ---
+  security_rule {
+    name                       = "AllowAzureLoadBalancerInbound"
+    priority                   = 200
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "*"
+    source_port_range          = "*"
+    destination_port_range     = "*"
+    source_address_prefix      = "AzureLoadBalancer"
+    destination_address_prefix = "*"
+  }
+
+  # --- Inbound: PE subnet (APIM backend calls routed through the vLLM private endpoint) ---
+  # APIM resolves the Container App FQDN to the PE NIC IP (in privateendpoints-subnet) via
+  # private DNS, so the source address on the vllm-aca-subnet side is the PE subnet CIDR.
   dynamic "security_rule" {
-    for_each = local.address_spaces
+    for_each = local.pe_enabled ? [local.private_endpoint_subnet_cidr] : []
     content {
-      name                       = "AllowVnetInbound-${replace(replace(security_rule.value, ".", "-"), "/", "-")}"
-      priority                   = 200 + index(local.address_spaces, security_rule.value)
+      name                       = "AllowPeSubnetInbound"
+      priority                   = 210
       direction                  = "Inbound"
       access                     = "Allow"
-      protocol                   = "*"
-      source_address_prefix      = security_rule.value
-      destination_address_prefix = "VirtualNetwork"
+      protocol                   = "Tcp"
       source_port_range          = "*"
-      destination_port_range     = "*"
+      destination_port_range     = "443"
+      source_address_prefix      = security_rule.value
+      destination_address_prefix = "*"
+    }
+  }
+
+  # --- Inbound: APIM subnet (direct APIM calls before PE DNS propagation is complete) ---
+  dynamic "security_rule" {
+    for_each = local.apim_enabled ? [local.apim_subnet_cidr] : []
+    content {
+      name                       = "AllowApimSubnetInbound"
+      priority                   = 220
+      direction                  = "Inbound"
+      access                     = "Allow"
+      protocol                   = "Tcp"
+      source_port_range          = "*"
+      destination_port_range     = "443"
+      source_address_prefix      = security_rule.value
+      destination_address_prefix = "*"
     }
   }
 

@@ -38,13 +38,14 @@ pe_enabled    = contains(keys(local.subnet_cidrs), "privateendpoints-subnet")
 apim_enabled  = contains(keys(local.subnet_cidrs), "apim-subnet")
 appgw_enabled = contains(keys(local.subnet_cidrs), "appgw-subnet")
 aca_enabled   = contains(keys(local.subnet_cidrs), "aca-subnet")
+vllm_aca_enabled = contains(keys(local.subnet_cidrs), "vllm-aca-subnet")
 ```
 
 ### Validation Rules (in variables.tf)
 
 1. `subnet_allocation` must contain at least one address space
 2. All values must be valid CIDR notation (tested via `can(cidrhost(cidr, 0))`)
-3. Subnet names must be one of: `privateendpoints-subnet`, `privateendpoints-subnet-<n>` (where `<n>` starts at 1), `apim-subnet`, `appgw-subnet`, `aca-subnet`
+3. Subnet names must be one of: `privateendpoints-subnet`, `privateendpoints-subnet-<n>` (where `<n>` starts at 1), `apim-subnet`, `appgw-subnet`, `aca-subnet`, `vllm-aca-subnet`
 4. At least one `privateendpoints-subnet` must exist
 5. Each subnet name appears in exactly one address space (no duplicates)
 
@@ -91,7 +92,8 @@ Key behaviors:
 ├── 10.x.x.0/27   (privateendpoints-subnet)  27 usable IPs
 ├── 10.x.x.32/27  (apim-subnet)              27 usable IPs
 ├── 10.x.x.64/27  (aca-subnet)               27 usable IPs
-└── 10.x.x.96–255 (unused — reserved for appgw-subnet growth)
+├── 10.x.x.96/27  (vllm-aca-subnet)          27 usable IPs
+└── 10.x.x.128–255 (unused — reserved for appgw-subnet or future growth)
 ```
 
 ### Test — 2 × /24s (Current)
@@ -104,7 +106,8 @@ Key behaviors:
 ├── 10.x.x.0/27   (apim-subnet)              27 usable IPs
 ├── 10.x.x.32/27  (appgw-subnet)             27 usable IPs
 ├── 10.x.x.64/27  (aca-subnet)               27 usable IPs
-└── 10.x.x.96–255 (unused)
+├── 10.x.x.96/27  (vllm-aca-subnet)          27 usable IPs
+└── 10.x.x.128–255 (unused)
 ```
 
 ### Prod — 4 × /24s (Target Contract)
@@ -120,9 +123,10 @@ Key behaviors:
 └── (privateendpoints-subnet-2)  256 IPs
 
 10.x.x.0/24 — Workload space
-├── (apim-subnet)   /27  32 IPs
-├── (appgw-subnet)  /27  32 IPs
-└── (aca-subnet)    /27  32 IPs
+├── 10.x.x.0/25    (apim-subnet)       128 IPs
+├── 10.x.x.128/26  (appgw-subnet)       64 IPs
+├── 10.x.x.192/27  (aca-subnet)         32 IPs
+└── 10.x.x.224/27  (vllm-aca-subnet)    32 IPs
 ```
 
 ---
@@ -201,6 +205,19 @@ HTTP (80) intentionally blocked — no redirect provided.
 | 130 | Outbound | VirtualNetwork (443, PE access) |
 | 200+ | Inbound | Allow from each target VNet address space (dynamic) |
 
+### vLLM ACA Subnet NSG (`{prefix}-vllm-aca-nsg`)
+| Priority | Direction | Purpose |
+|---|---|---|
+| 100 | Outbound | AzureContainerRegistry (443) |
+| 110 | Outbound | AzureMonitor (443) |
+| 120 | Outbound | AzureActiveDirectory (443) |
+| 125 | Outbound | Storage (443, 445) |
+| 130 | Outbound | VirtualNetwork (443, PE access) |
+| 140 | Outbound | Internet (443, Hugging Face / ACR build context) |
+| 200 | Inbound | AzureLoadBalancer (ACA health probes and control-plane, all ports) |
+| 210 | Inbound | PE subnet CIDR (APIM backend calls routed through vLLM PE NIC, TCP 443) — dynamic, only when PE subnet exists |
+| 220 | Inbound | APIM subnet CIDR (direct APIM calls before PE DNS propagation, TCP 443) — dynamic, only when APIM subnet exists |
+
 ---
 
 ## Subnet Resource Pattern Details
@@ -221,6 +238,7 @@ azapi_resource.private_endpoints_subnet
   └── azapi_resource.apim_subnet  (depends_on: [private_endpoints_subnet])
        └── azapi_resource.appgw_subnet  (depends_on: [private_endpoints_subnet, apim_subnet])
             └── azapi_resource.aca_subnet  (depends_on: [private_endpoints_subnet, apim_subnet, appgw_subnet])
+                 └── azapi_resource.vllm_aca_subnet  (depends_on: [private_endpoints_subnet, apim_subnet, appgw_subnet, aca_subnet])
 ```
 
 Every subnet also includes `locks = [data.azurerm_virtual_network.target.id]`.
@@ -231,6 +249,7 @@ Every subnet also includes `locks = [data.azurerm_virtual_network.target.id]`.
 shared stack (creates subnets, exposes PE pool outputs)
   ├── tenant stack   → PE subnet (via resolved_pe_subnet_id per tenant)
   ├── apim stack     → PE subnet (via resolved_apim_pe_subnet_id), APIM subnet
+  ├── vllm stack     → vLLM ACA subnet + primary PE subnet
   ├── foundry stack  → Does not consume PE subnet
   └── key-rotation   → Does not consume PE subnet
 ```
@@ -258,6 +277,7 @@ No other subnet currently requires a route table.
 | CIDR not within parent address space | Plan fails validation | Ensure inner CIDR falls within outer map key |
 | Duplicate subnet name across address spaces | Terraform validation fails | Each name must appear exactly once |
 | Missing `depends_on` in subnet chain | ARM conflict on VNet, intermittent failures | Include ALL preceding subnets in `depends_on` |
+| Updating subnet code but not docs | Operators copy stale `SUBNET_ALLOCATION` JSON or miss new keys | Update `variables.tf`, `infra-ai-hub/README.md`, this reference, and any affected docs-site pages together |
 | Using `azurerm_subnet` instead of `azapi_resource` | Landing Zone policy violation | Always use `azapi_resource` |
 | Forgetting shared stack output | Downstream stack can't access subnet ID | Add output in `stacks/shared/outputs.tf` |
 | Setting delegation on AppGW subnet | App Gateway rejects delegated subnets | AppGW subnet must have NO delegation |

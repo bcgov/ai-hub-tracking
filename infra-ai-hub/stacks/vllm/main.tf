@@ -59,17 +59,3 @@ module "vllm_service" {
   wait_for_private_endpoint_dns_zone_group = try(local.vllm_config.wait_for_private_endpoint_dns_zone_group, false)
 }
 
-# Grants the module's user-assigned identity permission to download model assets from
-# the AzureML registry. Assigned at the registry scope so the identity can list and
-# download any model version registered there. The role assignment must exist before the
-# Container App's init container first runs; creating the identity in the module and the
-# role assignment here (in the stack) ensures the correct sequencing — the module output
-# is only available after the identity resource is created, guaranteeing the assignment
-# happens before the Container App is provisioned.
-resource "azurerm_role_assignment" "azureml_registry_user" {
-  count = local.use_azureml_source ? 1 : 0
-
-  scope                = local.vllm_config.azureml_registry.registry_resource_id
-  role_definition_name = "AzureML Registry User"
-  principal_id         = module.vllm_service[0].azureml_downloader_principal_id
-}

@@ -187,9 +187,11 @@ the Azure tenant. It is recommended when:
 ### How it works
 
 1. The module creates a **user-assigned managed identity** (`azureml-downloader`).
-2. The stack assigns the `AzureML Registry User` built-in role to that identity at
+2. The module assigns the `AzureML Registry User` built-in role to that identity at
    the registry scope (see `azurerm_role_assignment.azureml_registry_user` in
-   `stacks/vllm/main.tf`).
+   `modules/vllm-service/main.tf`). The role assignment is in the module's
+   `depends_on` chain for the Container App, preventing the init container from
+   starting before RBAC has propagated.
 3. On the first Container App start, an **init container** (`azureml-init`) runs:
    - Logs in with the UA identity via `az login --identity --client-id`.
    - Downloads `{model_name}:{model_version}` from the registry to a temp dir.
@@ -231,9 +233,11 @@ vllm = {
 
 ### RBAC wiring
 
-The `azurerm_role_assignment.azureml_registry_user` resource in `stacks/vllm/main.tf`
+The `azurerm_role_assignment.azureml_registry_user` resource in `modules/vllm-service/main.tf`
 assigns `AzureML Registry User` at the registry scope to the module-managed UA identity.
 The role assignment is created automatically at deploy time — no manual step needed.
+It is also listed in the Container App's `depends_on` block, ensuring the init container
+cannot start before RBAC is effective (eliminates the propagation race at provision time).
 
 For **community registries** (`azureml`, `HuggingFace`), the role assignment is still
 required but the registry resource ID follows the pattern:
