@@ -147,7 +147,7 @@ variable "gpu_memory_utilization" {
 
   validation {
     condition     = var.gpu_memory_utilization >= 0.5 && var.gpu_memory_utilization < 1
-    error_message = "gpu_memory_utilization must be between 0.5 and 1.0."
+    error_message = "gpu_memory_utilization must be at least 0.5 and strictly less than 1.0."
   }
 }
 

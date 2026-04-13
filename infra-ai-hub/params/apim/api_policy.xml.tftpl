@@ -316,7 +316,7 @@
       }
     }
   }]
-  vllm_models = [for m in vllm_models : {
+  vllm_models = vllm_enabled ? [for m in vllm_models : {
     model_id = m.model_id
     backend  = "vllm"
     endpoints = {
@@ -326,7 +326,7 @@
         url      = "${base_url}/${tenant_name}/openai/v1/chat/completions"
       }
     }
-  }]
+  }] : []
   services = {
     openai = {
       enabled         = openai_enabled

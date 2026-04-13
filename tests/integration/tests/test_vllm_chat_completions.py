@@ -118,6 +118,7 @@ def test_vllm_streaming_returns_sse_chunks_with_usage(
     assert usage_chunks, "Expected usage chunk in SSE stream (APIM injects stream_options.include_usage)"
     usage = usage_chunks[0]["usage"]
     assert usage.get("prompt_tokens", 0) > 0
+    assert usage.get("completion_tokens", 0) > 0
 
 
 def test_vllm_rate_limit_headers_present(client: ApimClient, integration_config: IntegrationConfig) -> None:

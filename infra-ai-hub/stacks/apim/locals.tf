@@ -326,6 +326,18 @@ check "vllm_enabled_requires_models" {
   }
 }
 
+# Guard: if any tenant enables vLLM but the vLLM stack remote state is unavailable,
+# vLLM routing is silently skipped. Warn operators so they know to deploy stacks/vllm first.
+check "vllm_enabled_requires_deployed_state" {
+  assert {
+    condition = local.vllm_state_available || !anytrue([
+      for key, config in local.enabled_tenants :
+      try(config.vllm.enabled, false)
+    ])
+    error_message = "One or more tenants have vllm.enabled = true but the vLLM stack remote state is not available. Deploy infra-ai-hub/stacks/vllm before enabling vLLM on tenants."
+  }
+}
+
 # Guard: each tenant's vLLM model_id must match the model actually deployed on the shared
 # vLLM service. When vllm_state_available is false, skip this check (vLLM not yet deployed).
 check "vllm_model_id_matches_deployed_model" {
