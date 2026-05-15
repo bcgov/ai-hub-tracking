@@ -74,17 +74,31 @@ jobs:
           - jobs/apim-key-rotation
           - pii-redaction-service
     steps:
+      - name: Prepare tags
+        id: prepare_tags
+        run: |
+          # Build a newline-separated tag list but avoid empty entries
+          tags=()
+          if [[ -n "${{ needs.semantic-version.outputs.semanticVersion }}" ]]; then
+            tags+=("${{ needs.semantic-version.outputs.semanticVersion }}")
+          fi
+          if [[ -n "${{ needs.semantic-version.outputs.tag }}" ]]; then
+            tags+=("${{ needs.semantic-version.outputs.tag }}")
+          fi
+          # Join with newlines for the action input
+          joined=$(printf '%s\n' "${tags[@]}" | sed '/^$/d' | paste -sd '\n' -)
+          echo "tags<<EOF" >> "$GITHUB_OUTPUT"
+          echo "$joined" >> "$GITHUB_OUTPUT"
+          echo "EOF" >> "$GITHUB_OUTPUT"
+
       - name: Tag image with semver
         uses: shrink/actions-docker-registry-tag@f04afd0559f66b288586792eb150f45136a927fa # v4
         with:
           registry: ghcr.io
           repository: ${{ github.repository }}/${{ matrix.package }}
           target: latest
-          # Join the two possible tags into a newline-separated string while
-          # avoiding accidental blank lines which can result in invalid tag
-          # lookups (manifest requests to GHCR with an empty tag). Using
-          # an expression keeps the input tidy and predictable.
-          tags: ${{ join(fromJson(format('["%s","%s"]', needs.semantic-version.outputs.semanticVersion, needs.semantic-version.outputs.tag)), '\n') }}
+          tags: |
+            ${{ steps.prepare_tags.outputs.tags }}
 
   detect-infra-changes:
     name: Detect infra/test changes
