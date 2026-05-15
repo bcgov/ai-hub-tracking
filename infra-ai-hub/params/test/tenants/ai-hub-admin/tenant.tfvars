@@ -342,7 +342,11 @@ tenant = {
   }
 
   # Tenant user management (applies across environments)
-  user_management = {}
+  user_management = {
+    seed_members = {
+      admin = []
+    }
+  }
 
   # APIM Policies Configuration
   # Consolidates all APIM policy settings for this tenant
