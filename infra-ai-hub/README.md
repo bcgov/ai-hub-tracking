@@ -1728,6 +1728,7 @@ Dependency details in this flow:
 - `foundry` reads from `shared` (`ai_foundry_hub_id`) and all `tenant-*` states
 - `apim` reads from `shared` (network + AI + observability + key vault outputs) and all `tenant-*` states
 - `tenant-user-mgmt` reads from all `tenant-*` states and is conditionally skipped if Graph permissions are missing
+- During `plan`, `foundry`, `apim`, and `tenant-user-mgmt` skip tenant-specific resources that require tenant state outputs or resource groups when a newly added tenant has not been applied yet
 - Phase 3 stacks (`foundry`, `apim`, `tenant-user-mgmt`) have no cross-dependencies and run concurrently
 
 ---

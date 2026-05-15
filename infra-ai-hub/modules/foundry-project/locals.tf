@@ -5,6 +5,20 @@
 locals {
   name_prefix = var.tenant_name
 
+  key_vault_role_assignment_enabled = var.key_vault.enabled && try(var.key_vault.resource_id, null) != null
+
+  storage_role_assignment_enabled = var.storage_account.enabled && try(var.storage_account.resource_id, null) != null
+  storage_connection_enabled      = local.storage_role_assignment_enabled && try(var.storage_account.name, null) != null && try(var.storage_account.blob_endpoint_url, null) != null && try(var.project_connections.storage, true)
+
+  ai_search_role_assignment_enabled = var.ai_search.enabled && try(var.ai_search.resource_id, null) != null
+  ai_search_connection_enabled      = local.ai_search_role_assignment_enabled && try(var.project_connections.ai_search, true)
+
+  cosmos_role_assignment_enabled = var.cosmos_db.enabled && try(var.cosmos_db.resource_id, null) != null
+  cosmos_connection_enabled      = local.cosmos_role_assignment_enabled && try(var.cosmos_db.database_name, null) != null && try(var.project_connections.cosmos_db, true)
+
+  document_intelligence_role_assignment_enabled = var.document_intelligence.enabled && try(var.document_intelligence.resource_id, null) != null
+  document_intelligence_connection_enabled      = local.document_intelligence_role_assignment_enabled && try(var.document_intelligence.endpoint, null) != null && try(var.project_connections.document_intelligence, true)
+
   # Canonical ordering to match Azure RAI API normalization and avoid perpetual
   # in-place drift when contentFilters are semantically identical.
   #

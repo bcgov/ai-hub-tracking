@@ -103,58 +103,46 @@ resource "azurerm_api_management_named_value" "openai_endpoint" {
 }
 
 resource "azurerm_api_management_named_value" "docint_endpoint" {
-  for_each = {
-    for key, config in local.enabled_tenants : key => config
-    if config.document_intelligence.enabled && local.apim_config.enabled
-  }
+  for_each = local.tenants_with_document_intelligence
 
   name                = "${each.key}-docint-endpoint"
   resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
   api_management_name = module.apim[0].name
   display_name        = "${local.sanitized_display_names[each.key]}_Document_Intelligence_Endpoint"
-  value               = data.terraform_remote_state.tenant[each.key].outputs.tenant_document_intelligence[each.key].endpoint
+  value               = local.tenant_document_intelligence_outputs[each.key].endpoint
   secret              = false
 }
 
 resource "azurerm_api_management_named_value" "storage_endpoint" {
-  for_each = {
-    for key, config in local.enabled_tenants : key => config
-    if config.storage_account.enabled && local.apim_config.enabled
-  }
+  for_each = local.tenants_with_storage_account
 
   name                = "${each.key}-storage-endpoint"
   resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
   api_management_name = module.apim[0].name
   display_name        = "${local.sanitized_display_names[each.key]}_Storage_Endpoint"
-  value               = data.terraform_remote_state.tenant[each.key].outputs.tenant_storage_accounts[each.key].blob_endpoint
+  value               = local.tenant_storage_account_outputs[each.key].blob_endpoint
   secret              = false
 }
 
 resource "azurerm_api_management_named_value" "ai_search_endpoint" {
-  for_each = {
-    for key, config in local.enabled_tenants : key => config
-    if config.ai_search.enabled && local.apim_config.enabled
-  }
+  for_each = local.tenants_with_ai_search
 
   name                = "${each.key}-ai-search-endpoint"
   resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
   api_management_name = module.apim[0].name
   display_name        = "${local.sanitized_display_names[each.key]}_AI_Search_Endpoint"
-  value               = data.terraform_remote_state.tenant[each.key].outputs.tenant_ai_search[each.key].endpoint
+  value               = local.tenant_ai_search_outputs[each.key].endpoint
   secret              = false
 }
 
 resource "azurerm_api_management_named_value" "speech_services_endpoint" {
-  for_each = {
-    for key, config in local.enabled_tenants : key => config
-    if config.speech_services.enabled && local.apim_config.enabled
-  }
+  for_each = local.tenants_with_speech_services
 
   name                = "${each.key}-speech-endpoint"
   resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
   api_management_name = module.apim[0].name
   display_name        = "${local.sanitized_display_names[each.key]}_Speech_Services_Endpoint"
-  value               = data.terraform_remote_state.tenant[each.key].outputs.tenant_speech_services[each.key].endpoint
+  value               = local.tenant_speech_service_outputs[each.key].endpoint
   secret              = false
 }
 
@@ -233,16 +221,13 @@ resource "azurerm_api_management_backend" "openai_ptu" {
 }
 
 resource "azurerm_api_management_backend" "docint" {
-  for_each = {
-    for key, config in local.enabled_tenants : key => config
-    if config.document_intelligence.enabled && local.apim_config.enabled
-  }
+  for_each = local.tenants_with_document_intelligence
 
   name                = "${each.key}-docint"
   resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
   api_management_name = module.apim[0].name
   protocol            = "http"
-  url                 = data.terraform_remote_state.tenant[each.key].outputs.tenant_document_intelligence[each.key].endpoint
+  url                 = local.tenant_document_intelligence_outputs[each.key].endpoint
   description         = "Document Intelligence backend for ${each.value.display_name}"
 
   circuit_breaker_rule {
@@ -263,16 +248,13 @@ resource "azurerm_api_management_backend" "docint" {
 }
 
 resource "azurerm_api_management_backend" "storage" {
-  for_each = {
-    for key, config in local.enabled_tenants : key => config
-    if config.storage_account.enabled && local.apim_config.enabled
-  }
+  for_each = local.tenants_with_storage_account
 
   name                = "${each.key}-storage"
   resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
   api_management_name = module.apim[0].name
   protocol            = "http"
-  url                 = data.terraform_remote_state.tenant[each.key].outputs.tenant_storage_accounts[each.key].blob_endpoint
+  url                 = local.tenant_storage_account_outputs[each.key].blob_endpoint
   description         = "Storage backend for ${each.value.display_name}"
 
   # Storage uses count=5 (vs 3 for AI backends): transient 5xx errors during
@@ -296,16 +278,13 @@ resource "azurerm_api_management_backend" "storage" {
 }
 
 resource "azurerm_api_management_backend" "ai_search" {
-  for_each = {
-    for key, config in local.enabled_tenants : key => config
-    if config.ai_search.enabled && local.apim_config.enabled
-  }
+  for_each = local.tenants_with_ai_search
 
   name                = "${each.key}-ai-search"
   resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
   api_management_name = module.apim[0].name
   protocol            = "http"
-  url                 = data.terraform_remote_state.tenant[each.key].outputs.tenant_ai_search[each.key].endpoint
+  url                 = local.tenant_ai_search_outputs[each.key].endpoint
   description         = "AI Search backend for ${each.value.display_name}"
 
   circuit_breaker_rule {
@@ -326,16 +305,13 @@ resource "azurerm_api_management_backend" "ai_search" {
 }
 
 resource "azurerm_api_management_backend" "speech_services_stt" {
-  for_each = {
-    for key, config in local.enabled_tenants : key => config
-    if config.speech_services.enabled && local.apim_config.enabled
-  }
+  for_each = local.tenants_with_speech_services
 
   name                = "${each.key}-speech-stt"
   resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
   api_management_name = module.apim[0].name
   protocol            = "http"
-  url                 = data.terraform_remote_state.tenant[each.key].outputs.tenant_speech_services[each.key].endpoint
+  url                 = local.tenant_speech_service_outputs[each.key].endpoint
   description         = "Speech-to-text backend for ${each.value.display_name}"
 
   circuit_breaker_rule {
@@ -356,16 +332,13 @@ resource "azurerm_api_management_backend" "speech_services_stt" {
 }
 
 resource "azurerm_api_management_backend" "speech_services_tts" {
-  for_each = {
-    for key, config in local.enabled_tenants : key => config
-    if config.speech_services.enabled && local.apim_config.enabled
-  }
+  for_each = local.tenants_with_speech_services
 
   name                = "${each.key}-speech-tts"
   resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
   api_management_name = module.apim[0].name
   protocol            = "http"
-  url                 = data.terraform_remote_state.tenant[each.key].outputs.tenant_speech_services[each.key].endpoint
+  url                 = local.tenant_speech_service_outputs[each.key].endpoint
   description         = "Text-to-speech backend for ${each.value.display_name}"
 
   circuit_breaker_rule {
@@ -386,16 +359,13 @@ resource "azurerm_api_management_backend" "speech_services_tts" {
 }
 
 resource "azurerm_api_management_named_value" "speech_services_key" {
-  for_each = {
-    for key, config in local.enabled_tenants : key => config
-    if config.speech_services.enabled && local.apim_config.enabled
-  }
+  for_each = local.tenants_with_speech_services
 
   name                = "${each.key}-speech-key"
   resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
   api_management_name = module.apim[0].name
   display_name        = "${replace(local.sanitized_display_names[each.key], "-", "_")}_Speech_Services_Key"
-  value               = data.terraform_remote_state.tenant[each.key].outputs.tenant_speech_services[each.key].primary_key
+  value               = local.tenant_speech_service_outputs[each.key].primary_key
   secret              = true
 }
 
@@ -448,17 +418,14 @@ resource "azurerm_api_management_diagnostic" "app_insights" {
 }
 
 resource "azurerm_api_management_logger" "tenant_app_insights" {
-  for_each = {
-    for key, config in local.enabled_tenants : key => config
-    if local.apim_config.enabled && lookup(config.log_analytics, "enabled", false)
-  }
+  for_each = local.tenants_with_app_insights_logger
 
   name                = "${module.apim[0].name}-${each.key}-appinsights"
   api_management_name = module.apim[0].name
   resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
 
   application_insights {
-    instrumentation_key = data.terraform_remote_state.tenant[each.key].outputs.tenant_log_analytics[each.key].instrumentation_key
+    instrumentation_key = local.tenant_log_analytics_outputs[each.key].instrumentation_key
   }
 }
 
@@ -472,7 +439,7 @@ resource "azurerm_api_management_api_diagnostic" "tenant" {
   resource_group_name      = data.terraform_remote_state.shared.outputs.resource_group_name
   api_management_name      = module.apim[0].name
   api_name                 = each.key
-  api_management_logger_id = lookup(each.value.log_analytics, "enabled", false) ? azurerm_api_management_logger.tenant_app_insights[each.key].id : (local.application_insights_enabled ? azurerm_api_management_logger.app_insights[0].id : null)
+  api_management_logger_id = contains(keys(local.tenants_with_app_insights_logger), each.key) ? azurerm_api_management_logger.tenant_app_insights[each.key].id : (local.application_insights_enabled ? azurerm_api_management_logger.app_insights[0].id : null)
 
   sampling_percentage       = try(each.value.apim_diagnostics.sampling_percentage, local.default_apim_diagnostics.sampling_percentage)
   always_log_errors         = try(each.value.apim_diagnostics.always_log_errors, local.default_apim_diagnostics.always_log_errors)
@@ -646,56 +613,41 @@ resource "azurerm_role_assignment" "apim_openai_user" {
 }
 
 resource "azurerm_role_assignment" "apim_docint_user" {
-  for_each = {
-    for key, config in local.enabled_tenants : key => config
-    if config.document_intelligence.enabled && local.apim_config.enabled
-  }
+  for_each = local.tenants_with_document_intelligence
 
-  scope                = data.terraform_remote_state.tenant[each.key].outputs.tenant_document_intelligence[each.key].id
+  scope                = local.tenant_document_intelligence_outputs[each.key].id
   role_definition_name = "Cognitive Services User"
   principal_id         = module.apim[0].principal_id
 }
 
 resource "azurerm_role_assignment" "apim_storage_reader" {
-  for_each = {
-    for key, config in local.enabled_tenants : key => config
-    if config.storage_account.enabled && local.apim_config.enabled
-  }
+  for_each = local.tenants_with_storage_account
 
-  scope                = data.terraform_remote_state.tenant[each.key].outputs.tenant_storage_accounts[each.key].id
+  scope                = local.tenant_storage_account_outputs[each.key].id
   role_definition_name = "Storage Blob Data Reader"
   principal_id         = module.apim[0].principal_id
 }
 
 resource "azurerm_role_assignment" "apim_search_contributor" {
-  for_each = {
-    for key, config in local.enabled_tenants : key => config
-    if config.ai_search.enabled && local.apim_config.enabled
-  }
+  for_each = local.tenants_with_ai_search
 
-  scope                = data.terraform_remote_state.tenant[each.key].outputs.tenant_ai_search[each.key].id
+  scope                = local.tenant_ai_search_outputs[each.key].id
   role_definition_name = "Search Index Data Contributor"
   principal_id         = module.apim[0].principal_id
 }
 
 resource "azurerm_role_assignment" "apim_search_service_contributor" {
-  for_each = {
-    for key, config in local.enabled_tenants : key => config
-    if config.ai_search.enabled && local.apim_config.enabled
-  }
+  for_each = local.tenants_with_ai_search
 
-  scope                = data.terraform_remote_state.tenant[each.key].outputs.tenant_ai_search[each.key].id
+  scope                = local.tenant_ai_search_outputs[each.key].id
   role_definition_name = "Search Service Contributor"
   principal_id         = module.apim[0].principal_id
 }
 
 resource "azurerm_role_assignment" "apim_speech_services_user" {
-  for_each = {
-    for key, config in local.enabled_tenants : key => config
-    if config.speech_services.enabled && local.apim_config.enabled
-  }
+  for_each = local.tenants_with_speech_services
 
-  scope                = data.terraform_remote_state.tenant[each.key].outputs.tenant_speech_services[each.key].id
+  scope                = local.tenant_speech_service_outputs[each.key].id
   role_definition_name = "Cognitive Services User"
   principal_id         = module.apim[0].principal_id
 }

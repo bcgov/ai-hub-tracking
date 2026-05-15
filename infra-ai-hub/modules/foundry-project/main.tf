@@ -56,7 +56,7 @@ resource "azapi_resource" "project" {
 
 # Key Vault access for AI Foundry Project
 resource "azurerm_role_assignment" "project_to_keyvault" {
-  count = var.key_vault.enabled ? 1 : 0
+  count = local.key_vault_role_assignment_enabled ? 1 : 0
 
   scope                = var.key_vault.resource_id
   role_definition_name = "Key Vault Secrets User"
@@ -65,7 +65,7 @@ resource "azurerm_role_assignment" "project_to_keyvault" {
 
 # Storage access for AI Foundry Project
 resource "azurerm_role_assignment" "project_to_storage" {
-  count = var.storage_account.enabled ? 1 : 0
+  count = local.storage_role_assignment_enabled ? 1 : 0
 
   scope                = var.storage_account.resource_id
   role_definition_name = "Storage Blob Data Contributor"
@@ -74,7 +74,7 @@ resource "azurerm_role_assignment" "project_to_storage" {
 
 # AI Search access for AI Foundry Project
 resource "azurerm_role_assignment" "project_to_search" {
-  count = var.ai_search.enabled ? 1 : 0
+  count = local.ai_search_role_assignment_enabled ? 1 : 0
 
   scope                = var.ai_search.resource_id
   role_definition_name = "Search Index Data Contributor"
@@ -83,7 +83,7 @@ resource "azurerm_role_assignment" "project_to_search" {
 
 # Cosmos DB access for AI Foundry Project
 resource "azurerm_role_assignment" "project_to_cosmos" {
-  count = var.cosmos_db.enabled ? 1 : 0
+  count = local.cosmos_role_assignment_enabled ? 1 : 0
 
   scope                = var.cosmos_db.resource_id
   role_definition_name = "Cosmos DB Account Reader Role"
@@ -92,7 +92,7 @@ resource "azurerm_role_assignment" "project_to_cosmos" {
 
 # Document Intelligence access for AI Foundry Project
 resource "azurerm_role_assignment" "project_to_docint" {
-  count = var.document_intelligence.enabled ? 1 : 0
+  count = local.document_intelligence_role_assignment_enabled ? 1 : 0
 
   scope                = var.document_intelligence.resource_id
   role_definition_name = "Cognitive Services User"
@@ -116,7 +116,7 @@ resource "azurerm_role_assignment" "project_to_docint" {
 
 # Connection to Storage Account
 resource "azapi_resource" "connection_storage" {
-  count = var.storage_account.enabled && var.project_connections.storage ? 1 : 0
+  count = local.storage_connection_enabled ? 1 : 0
 
   type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-12-01"
   name      = "storage-${local.name_prefix}"
@@ -144,7 +144,7 @@ resource "azapi_resource" "connection_storage" {
 
 # Connection to AI Search
 resource "azapi_resource" "connection_ai_search" {
-  count = var.ai_search.enabled && var.project_connections.ai_search ? 1 : 0
+  count = local.ai_search_connection_enabled ? 1 : 0
 
   type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-12-01"
   name      = "aisearch-${local.name_prefix}"
@@ -173,7 +173,7 @@ resource "azapi_resource" "connection_ai_search" {
 
 # Connection to Cosmos DB
 resource "azapi_resource" "connection_cosmos" {
-  count = var.cosmos_db.enabled && var.project_connections.cosmos_db ? 1 : 0
+  count = local.cosmos_connection_enabled ? 1 : 0
 
   type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-12-01"
   name      = "cosmosdb-${local.name_prefix}"
@@ -280,7 +280,7 @@ resource "azapi_resource" "ai_model_deployment" {
 
 # Connection to Document Intelligence
 resource "azapi_resource" "connection_docint" {
-  count = var.document_intelligence.enabled && var.project_connections.document_intelligence ? 1 : 0
+  count = local.document_intelligence_connection_enabled ? 1 : 0
 
   type      = "Microsoft.CognitiveServices/accounts/projects/connections@2025-12-01"
   name      = "docint-${local.name_prefix}"

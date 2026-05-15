@@ -4,6 +4,56 @@ locals {
     if try(config.enabled, false)
   }
 
+  tenant_document_intelligence_outputs = {
+    for key, _config in local.enabled_tenants :
+    key => try(data.terraform_remote_state.tenant[key].outputs.tenant_document_intelligence[key], null)
+  }
+
+  tenant_storage_account_outputs = {
+    for key, _config in local.enabled_tenants :
+    key => try(data.terraform_remote_state.tenant[key].outputs.tenant_storage_accounts[key], null)
+  }
+
+  tenant_ai_search_outputs = {
+    for key, _config in local.enabled_tenants :
+    key => try(data.terraform_remote_state.tenant[key].outputs.tenant_ai_search[key], null)
+  }
+
+  tenant_speech_service_outputs = {
+    for key, _config in local.enabled_tenants :
+    key => try(data.terraform_remote_state.tenant[key].outputs.tenant_speech_services[key], null)
+  }
+
+  tenant_log_analytics_outputs = {
+    for key, _config in local.enabled_tenants :
+    key => try(data.terraform_remote_state.tenant[key].outputs.tenant_log_analytics[key], null)
+  }
+
+  tenants_with_document_intelligence = {
+    for key, config in local.enabled_tenants : key => config
+    if local.apim_config.enabled && try(config.document_intelligence.enabled, false) && local.tenant_document_intelligence_outputs[key] != null
+  }
+
+  tenants_with_storage_account = {
+    for key, config in local.enabled_tenants : key => config
+    if local.apim_config.enabled && try(config.storage_account.enabled, false) && local.tenant_storage_account_outputs[key] != null
+  }
+
+  tenants_with_ai_search = {
+    for key, config in local.enabled_tenants : key => config
+    if local.apim_config.enabled && try(config.ai_search.enabled, false) && local.tenant_ai_search_outputs[key] != null
+  }
+
+  tenants_with_speech_services = {
+    for key, config in local.enabled_tenants : key => config
+    if local.apim_config.enabled && try(config.speech_services.enabled, false) && local.tenant_speech_service_outputs[key] != null
+  }
+
+  tenants_with_app_insights_logger = {
+    for key, config in local.enabled_tenants : key => config
+    if local.apim_config.enabled && lookup(lookup(config, "log_analytics", {}), "enabled", false) && try(local.tenant_log_analytics_outputs[key].instrumentation_key, null) != null
+  }
+
   sanitized_display_names = {
     for key, config in local.enabled_tenants : key => replace(config.display_name, " ", "_")
   }
@@ -180,10 +230,10 @@ locals {
         tokens_per_minute              = try(config.apim_policies.rate_limiting.tokens_per_minute, 10000)
         model_deployments              = local.tenant_model_deployments[key]
         openai_enabled                 = length(try(config.openai.model_deployments, [])) > 0
-        document_intelligence_enabled  = try(config.document_intelligence.enabled, false)
-        ai_search_enabled              = try(config.ai_search.enabled, false)
-        speech_services_enabled        = try(config.speech_services.enabled, false)
-        storage_enabled                = try(config.storage_account.enabled, false)
+        document_intelligence_enabled  = contains(keys(local.tenants_with_document_intelligence), key)
+        ai_search_enabled              = contains(keys(local.tenants_with_ai_search), key)
+        speech_services_enabled        = contains(keys(local.tenants_with_speech_services), key)
+        storage_enabled                = contains(keys(local.tenants_with_storage_account), key)
         rate_limiting_enabled          = try(config.apim_policies.rate_limiting.enabled, true)
         non_openai_requests_per_minute = try(config.apim_policies.rate_limiting.non_openai_requests_per_minute, 300)
         pii_redaction_enabled          = try(config.apim_policies.pii_redaction.enabled, true) && var.shared_config.language_service.enabled
