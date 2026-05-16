@@ -1,6 +1,4 @@
-data "azurerm_resources" "tenant_resource_group" {
+data "azurerm_resource_group" "tenant" {
   for_each = local.enabled_tenants
-
-  type = "Microsoft.Resources/resourceGroups"
-  name = local.tenant_resource_group_names[each.key]
+  name     = "${each.value.tenant_name}-rg"
 }
