@@ -572,6 +572,153 @@ build_single_tenant_tfvars() {
   echo "$out_file"
 }
 
+tenant_attribute_from_tfvars() {
+  local tenant_file="$1"
+  local attribute_name="$2"
+
+  sed -nE "s/^[[:space:]]*${attribute_name}[[:space:]]*=[[:space:]]*\"([^\"]+)\"[[:space:]]*$/\1/p" "$tenant_file" | tr -d '\r' | head -n 1
+}
+
+tenant_resource_group_name_from_file() {
+  local tenant_file="$1"
+  local tenant_key
+  tenant_key="$(basename "$(dirname "$tenant_file")")"
+
+  local tenant_name
+  tenant_name="$(tenant_attribute_from_tfvars "$tenant_file" "tenant_name")"
+  if [[ -z "$tenant_name" ]]; then
+    tenant_name="$tenant_key"
+  fi
+
+  local resource_group_name
+  resource_group_name="$(tenant_attribute_from_tfvars "$tenant_file" "resource_group_name")"
+  if [[ -n "$resource_group_name" ]]; then
+    printf '%s\n' "$resource_group_name"
+    return 0
+  fi
+
+  printf '%s-rg\n' "$tenant_name"
+}
+
+azure_resource_group_exists() {
+  local resource_group_name="$1"
+  local subscription_id="${ARM_SUBSCRIPTION_ID:-${TF_VAR_subscription_id:-}}"
+  local exists
+
+  local az_args=(group exists --name "$resource_group_name" --only-show-errors --output tsv)
+  if [[ -n "$subscription_id" ]]; then
+    az_args+=(--subscription "$subscription_id")
+  fi
+
+  if ! exists="$(az "${az_args[@]}" 2>/dev/null)"; then
+    return 2
+  fi
+
+  [[ "${exists,,}" == "true" ]]
+}
+
+list_current_tenant_user_mgmt_tenants() {
+  local stack_dir_path
+  stack_dir_path="$(stack_dir tenant-user-mgmt)"
+  local output_json
+
+  if ! output_json="$(cd "$stack_dir_path" && terraform output -json tenant_user_management 2>/dev/null)"; then
+    return 0
+  fi
+
+  jq -r 'keys[]?' <<< "$output_json"
+}
+
+build_tenant_user_mgmt_plan_tfvars() {
+  local out_file
+  out_file="$(mktemp "${INFRA_DIR}/.tenant-user-mgmt-plan-${ENVIRONMENT}-XXXXXX.auto.tfvars")"
+
+  local -A existing_tenant_keys=()
+  local current_tenant_key
+  while IFS= read -r current_tenant_key; do
+    [[ -n "$current_tenant_key" ]] || continue
+    existing_tenant_keys["$current_tenant_key"]=1
+  done < <(list_current_tenant_user_mgmt_tenants)
+
+  local selected_tenant_files=()
+  local tenant_file
+  while IFS= read -r tenant_file; do
+    [[ -n "$tenant_file" ]] || continue
+
+    local tenant_key
+    tenant_key="$(basename "$(dirname "$tenant_file")")"
+
+    local resource_group_name
+    resource_group_name="$(tenant_resource_group_name_from_file "$tenant_file")"
+
+    if azure_resource_group_exists "$resource_group_name"; then
+      selected_tenant_files+=("$tenant_file")
+      continue
+    fi
+
+    local rg_check_exit=$?
+    if [[ -n "${existing_tenant_keys[$tenant_key]:-}" ]]; then
+      log_warning "Keeping tenant-user-mgmt plan for tenant ${tenant_key} even though parent resource group ${resource_group_name} was not found, because the tenant already exists in tenant-user-mgmt state"
+      selected_tenant_files+=("$tenant_file")
+      continue
+    fi
+
+    if [[ $rg_check_exit -eq 1 ]]; then
+      log_warning "Skipping tenant-user-mgmt plan for tenant ${tenant_key} because parent resource group ${resource_group_name} does not exist yet"
+      continue
+    fi
+
+    log_warning "Skipping tenant-user-mgmt plan for tenant ${tenant_key} because parent resource group ${resource_group_name} could not be verified"
+    continue
+  done < <(list_tenants)
+
+  if [[ ${#selected_tenant_files[@]} -eq 0 ]]; then
+    rm -f "$out_file"
+    return 0
+  fi
+
+  {
+    echo "# Auto-generated"
+    echo "tenants = {"
+  } > "$out_file"
+
+  for tenant_file in "${selected_tenant_files[@]}"; do
+    local tenant_name
+    tenant_name="$(basename "$(dirname "$tenant_file")")"
+    local block_content
+    block_content=$(awk '/^tenant[[:space:]]*=[[:space:]]*\{/,/^\}$/' "$tenant_file" | \
+      sed 's/^tenant[[:space:]]*=[[:space:]]*//' | \
+      awk '/^[[:space:]]*tags[[:space:]]*=[[:space:]]*\{/{skip=1;next} skip&&/^[[:space:]]*\}/{skip=0;next} skip{next} {print}')
+    echo "  \"${tenant_name}\" = ${block_content}" >> "$out_file"
+  done
+
+  {
+    echo "}"
+    echo ""
+    echo "tenant_tags = {"
+  } >> "$out_file"
+
+  for tenant_file in "${selected_tenant_files[@]}"; do
+    local tenant_name
+    tenant_name="$(basename "$(dirname "$tenant_file")")"
+    local tags_content
+    tags_content=$(awk '
+      /^[[:space:]]*tags[[:space:]]*=[[:space:]]*\{/ { in_tags=1; next }
+      in_tags && /^[[:space:]]*\}/ { in_tags=0; next }
+      in_tags { print }
+    ' "$tenant_file")
+    {
+      echo "  \"${tenant_name}\" = {"
+      echo "${tags_content}"
+      echo "  }"
+    } >> "$out_file"
+  done
+
+  echo "}" >> "$out_file"
+
+  printf '%s\n' "$out_file"
+}
+
 stack_dir() {
   local stack="$1"
   echo "${INFRA_DIR}/stacks/${stack}"
@@ -846,6 +993,8 @@ run_apim() {
 
 run_tenant_user_mgmt() {
   local action="$1"
+  local tfvars_file="${INFRA_DIR}/.tenants-${ENVIRONMENT}.auto.tfvars"
+  local filtered_tfvars=""
 
   if ! check_graph_permissions; then
     echo "[WARNING] Skipping tenant-user-mgmt in scaled flow — Graph User.Read.All not available"
@@ -853,7 +1002,24 @@ run_tenant_user_mgmt() {
   fi
 
   tf_init_stack tenant-user-mgmt
-  tf_run_stack tenant-user-mgmt "$action" "${INFRA_DIR}/.tenants-${ENVIRONMENT}.auto.tfvars"
+
+  if [[ "$action" == "plan" ]]; then
+    filtered_tfvars="$(build_tenant_user_mgmt_plan_tfvars)" || return 1
+    if [[ -z "$filtered_tfvars" ]]; then
+      log_warning "Skipping tenant-user-mgmt plan because no tenant parent resource groups exist yet"
+      return 0
+    fi
+    tfvars_file="$filtered_tfvars"
+  fi
+
+  local stack_exit=0
+  tf_run_stack tenant-user-mgmt "$action" "$tfvars_file" || stack_exit=$?
+
+  if [[ -n "$filtered_tfvars" ]]; then
+    rm -f "$filtered_tfvars"
+  fi
+
+  return $stack_exit
 }
 
 run_pii_redaction() {
