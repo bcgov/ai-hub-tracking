@@ -40,6 +40,8 @@ jobs:
           # Bastion + jumpbox are provisioned in the tools subscription.
           backend_storage_account: ${{ vars.STORAGE_ACCOUNT_NAME }}
           backend_resource_group: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          # use the existing backend key so resources are destroyed and recreated according to current state
+          backend_state_key: ai-hub-deploy-utils/tools/terraform.tfstate
           azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
           azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
