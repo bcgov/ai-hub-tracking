@@ -42,7 +42,7 @@ jobs:
           backend_resource_group: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
           azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
           azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          azure_subscription_id: ${{ secrets.TOOLS_SUBSCRIPTION_ID }}
+          azure_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
           vnet_name: ${{ secrets.VNET_NAME }}
           vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
           vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
