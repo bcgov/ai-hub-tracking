@@ -30,12 +30,12 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           fetch-depth: 0
 
       - name: Conventional Changelog Update
-        uses: TriPSs/conventional-changelog-action@v6
+        uses: TriPSs/conventional-changelog-action@952b14bbc4be87e8458a6ac5926fc655608b1b19
         id: changelog
         continue-on-error: true
         with:
@@ -69,7 +69,6 @@ jobs:
     strategy:
       matrix:
         package:
-          - azure-proxy/chisel
           - azure-proxy/privoxy
           - jobs/apim-key-rotation
           - pii-redaction-service
@@ -110,17 +109,13 @@ jobs:
       comparison: push
       default_changed: false
 
-  deploy-proxy-in-tools-environment:
-    name: Deploy Proxy in tools
+  deploy-bastion-in-tools:
+    name: Deploy Bastion in tools
     needs: detect-infra-changes
     if: needs.detect-infra-changes.outputs.changed == 'true'
     uses: ./.github/workflows/.deployer.yml
     with:
-      environment_name: tools
       command: apply
-      target_module: azure_proxy
-      tag: latest
-      terraform_log_level: ERROR
     secrets: inherit
 
   apply-to-test-environment:
@@ -129,14 +124,14 @@ jobs:
       ${{
         always() &&
         needs.detect-infra-changes.outputs.changed == 'true' &&
-        needs.deploy-proxy-in-tools-environment.result == 'success' &&
+        needs.deploy-bastion-in-tools.result == 'success' &&
         needs.semantic-version.result == 'success' &&
         (needs.tag-container-images.result == 'success' || needs.tag-container-images.result == 'skipped')
       }}
     needs:
       [
         "detect-infra-changes",
-        "deploy-proxy-in-tools-environment",
+        "deploy-bastion-in-tools",
         "tag-container-images",
         "semantic-version",
       ]
@@ -144,8 +139,6 @@ jobs:
     with:
       environment_name: test
       command: apply
-      proxy_url: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_url }}
-      proxy_auth: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_auth }}
       tag: ${{ needs.semantic-version.outputs.tag }}
       terraform_log_level: ERROR
     secrets: inherit
@@ -191,10 +184,10 @@ jobs:
       TF_WORKING_DIR: tenant-onboarding-portal/infra
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version-file: ${{ env.PORTAL_NODE_VERSION_FILE }}
           cache: npm
@@ -203,14 +196,14 @@ jobs:
             tenant-onboarding-portal/frontend/package-lock.json
 
       - name: Azure CLI Login (OIDC)
-        uses: azure/login@v2
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v4
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false

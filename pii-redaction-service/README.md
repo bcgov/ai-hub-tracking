@@ -70,7 +70,7 @@ With `PII_ENVIRONMENT=local` the service skips `DefaultAzureCredential` and send
 uv run --env-file .env uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-If you are behind a corporate HTTP proxy (e.g. Privoxy/Chisel on port 8118), set the proxy before running:
+If you are behind a corporate HTTP proxy (e.g. Privoxy on port 8118), set the proxy before running:
 
 ```powershell
 $env:HTTPS_PROXY = "http://localhost:8118"

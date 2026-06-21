@@ -69,7 +69,7 @@ Review and update the matching documents below before handoff:
 | `tests/integration/` layout, suite map, runner behavior, or datasets | `tests/integration/README.md`, `README.md` |
 | `jobs/apim-key-rotation/` runtime, container, or workflow | `jobs/apim-key-rotation/README.md`, `README.md` |
 | `pii-redaction-service/` runtime, API behavior, or deployment wiring | `pii-redaction-service/README.md`, `README.md`, and affected PII docs under `docs/` when user-visible behavior changes |
-| `azure-proxy/` tunnel or proxy containers/scripts | `azure-proxy/chisel/README.md`, `azure-proxy/privoxy/README.md`, `README.md` |
+| `azure-proxy/` proxy bridge containers/scripts | `azure-proxy/privoxy/README.md`, `initial-setup/infra/scripts/bastion-proxy.md`, `README.md` |
 | `ssl_certs/` certificate scripts or operational process | `ssl_certs/README.md`, `README.md` |
 
 ---

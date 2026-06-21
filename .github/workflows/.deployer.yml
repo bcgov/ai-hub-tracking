@@ -1,41 +1,17 @@
-name: .Terraform Deployer
+name: .Bastion Deployer (tools)
 
+# Provisions Azure Bastion + jumpbox into the `tools` environment using the
+# upstream BC Gov reusable action. This replaces the legacy chisel "azure_proxy"
+# App Service: the bastion/jumpbox provide private-endpoint reach for dev/test/prod
+# deployments via native client tunnelling (see .deployer-using-secure-tunnel.yml).
 on:
   workflow_call:
     inputs:
-      environment_name:
-        description: "The name of the environment to deploy to"
-        required: true
-        default: "tools"
-        type: string
       command:
-        description: "The Terraform command to run (init, plan, apply, destroy)"
+        description: "The Terraform command to run (plan, apply, destroy)"
         required: true
         default: "apply"
         type: string
-      target_module:
-        required: true
-        type: string
-        description: "The module to target (e.g., bastion, network, azure_proxy). Mandatory and should not be jumpbox."
-      tag:
-        description: "The container tag to use for deployment"
-        required: false
-        type: string
-      terraform_log_level:
-        description: "The Terraform logging level"
-        required: false
-        default: "ERROR"
-        type: string
-    outputs:
-      proxy_url:
-        description: "The proxy URL output from Terraform"
-        value: ${{ jobs.terraform.outputs.proxy_url }}
-      proxy_auth:
-        description: "The proxy authentication token output from Terraform"
-        value: ${{ jobs.terraform.outputs.proxy_auth }}
-env:
-  TF_VERSION: 1.12.2
-  TF_LOG: ${{ inputs.terraform_log_level }}
 
 permissions:
   id-token: write # Required for OIDC authentication
@@ -43,139 +19,39 @@ permissions:
 
 concurrency:
   cancel-in-progress: false
-  group: "tools" # this is always tools, so hardcoded to tools and avoids race condition for multiple PRs.
+  group: "tools" # bastion lives in the shared tools environment; serialise to avoid state races.
+
 jobs:
-  terraform:
-    if: inputs.target_module != 'jumpbox'
-    environment: ${{ inputs.environment_name }}
-    name: Terraform ${{ inputs.command }} ${{ inputs.target_module && format('({0})', inputs.target_module) || '' }}
+  bastion:
+    name: Bastion ${{ inputs.command }} (tools)
+    environment: tools
     runs-on: ubuntu-24.04
-    outputs:
-      proxy_url: ${{ steps.deploy.outputs.proxy_url }}
-      proxy_auth: ${{ steps.deploy.outputs.proxy_auth }}
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+
+      - name: Deploy Bastion + jumpbox (tools)
+        uses: bcgov/action-deployer-vm-bastion-alz@16c4c9918ad8cd1c3e1f3b026a91e860cbc43675
         with:
-          node-version: 24
-      - name: Azure CLI Login (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v4
-        with:
-          terraform_version: ${{ env.TF_VERSION }}
-      - name: Make deploy script executable
-        shell: bash
-        run: chmod +x ./initial-setup/infra/deploy-terraform.sh
-      - name: ${{ inputs.command }} ${{ inputs.target_module }}
-        id: deploy
-        shell: bash
-        working-directory: ./initial-setup/infra
-        env:
-          CI: "true"
-          ARM_USE_OIDC: "true"
-          # Backend configuration for Terraform state
-          BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
-          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
-          TF_VAR_app_name: "ai-hub"
-          TF_VAR_app_env: ${{ inputs.environment_name }}
-          TF_VAR_location: "Canada Central"
-          TF_VAR_resource_group_name: "ai-hub-${{ inputs.environment_name }}"
-          TF_VAR_common_tags: >-
-            {"environment":"${{ inputs.environment_name }}","app_env":"${{ inputs.environment_name }}","repo_name":"${{ github.event.repository.name }}"}
-          # Sensitive variables from secrets
-          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
-          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
-          TF_VAR_azure_proxy_image: ghcr.io/${{ github.repository }}/azure-proxy/chisel:${{inputs.tag || 'latest'}}
-          TF_VAR_prod_address_spaces: ${{ secrets.PROD_ADDRESS_SPACES }}
-          TF_VAR_test_address_spaces: ${{ secrets.TEST_ADDRESS_SPACES }}
-          TF_VAR_dev_address_spaces: ${{ secrets.DEV_ADDRESS_SPACES }}
-          TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
-          TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
-          TF_VAR_vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
-          TF_VAR_enable_azure_proxy: true
-        run: |
-          set -euo pipefail
-
-          ./deploy-terraform.sh "${{ inputs.command }}" \
-            -target=module."${{ inputs.target_module }}" \
-            -var="subscription_id=${{ secrets.AZURE_SUBSCRIPTION_ID }}" \
-            -var="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
-            -var="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
-            -var="use_oidc=true" \
-            -var="enable_azure_proxy=true" 
-          PROXY_URL_OUTPUT=$(terraform output -raw proxy_url 2>/dev/null || true)
-          PROXY_AUTH_OUTPUT=$(terraform output -raw proxy_auth 2>/dev/null || true)
-
-          if [[ "${{ inputs.target_module }}" == "azure_proxy" ]] && ([[ -z "$PROXY_URL_OUTPUT" ]] || [[ -z "$PROXY_AUTH_OUTPUT" ]]); then
-            echo "proxy_url/proxy_auth outputs are empty after apply; azure_proxy may not have deployed." >&2
-            exit 1
-          fi
-          #print only last 4 char url and auth to validate
-          if [[ -n "$PROXY_URL_OUTPUT" ]]; then
-            echo "Proxy URL: ****${PROXY_URL_OUTPUT: -4}"
-          else
-            echo "Proxy URL output is empty."
-          fi
-          if [[ -n "$PROXY_AUTH_OUTPUT" ]]; then
-            echo "Proxy Auth: ****${PROXY_AUTH_OUTPUT: -4}"
-          else
-            echo "Proxy Auth output is empty."
-          fi
-
-          # Encrypt + base64 encode for passing as workflow outputs.
-          KEY='${{ secrets.GPG_PASSPHRASE }}'
-          if [[ -z "$KEY" ]]; then
-            echo "GPG_PASSPHRASE secret is empty/missing" >&2
-            exit 1
-          fi
-
-          b64() {
-            if base64 --help 2>/dev/null | grep -q -- '-w'; then
-              base64 -w0
-            else
-              base64 | tr -d '\n'
-            fi
-          }
-
-          ENCODED_PROXY_URL=""
-          ENCODED_PROXY_AUTH=""
-          if [[ -n "$PROXY_URL_OUTPUT" ]]; then
-            ENCODED_PROXY_URL=$(printf '%s' "$PROXY_URL_OUTPUT" | gpg --batch --yes --pinentry-mode loopback --passphrase "$KEY" --symmetric --cipher-algo AES256 | b64)
-          fi
-          if [[ -n "$PROXY_AUTH_OUTPUT" ]]; then
-            ENCODED_PROXY_AUTH=$(printf '%s' "$PROXY_AUTH_OUTPUT" | gpg --batch --yes --pinentry-mode loopback --passphrase "$KEY" --symmetric --cipher-algo AES256 | b64)
-          fi
-
-          echo "proxy_url=$ENCODED_PROXY_URL" >> "$GITHUB_OUTPUT"
-          echo "proxy_auth=$ENCODED_PROXY_AUTH" >> "$GITHUB_OUTPUT"
-          #wait for healthz endpoint to be available in a loop
-          if [[ "${{ inputs.command }}" == "apply" && "${{ inputs.target_module }}" == "azure_proxy" ]]; then
-            echo "Waiting for azure proxy healthz endpoint to be available..."
-            MAX_RETRIES=12
-            RETRY_COUNT=0
-            SLEEP_INTERVAL=10
-            while true; do
-              HTTP_STATUS=$(curl -sS -L --connect-timeout 5 --max-time 10 -o /dev/null -w '%{http_code}' "${PROXY_URL_OUTPUT}/healthz" || true)
-              if [[ "$HTTP_STATUS" == "200" ]]; then
-                echo "Azure proxy is healthy."
-                break
-              else
-                ((++RETRY_COUNT))
-                if [[ $RETRY_COUNT -ge $MAX_RETRIES ]]; then
-                  echo "Azure proxy healthz endpoint did not become available after $((MAX_RETRIES * SLEEP_INTERVAL)) seconds." >&2
-                  exit 1
-                fi
-                echo "Healthz endpoint not available yet (status: $HTTP_STATUS). Retrying in $SLEEP_INTERVAL seconds..."
-                sleep $SLEEP_INTERVAL
-              fi
-            done
-          fi
+          app_name: ai-hub
+          app_env: tools
+          terraform_command: ${{ inputs.command }}
+          location: "Canada Central"
+          # Bastion + jumpbox are provisioned in the tools subscription.
+          backend_storage_account: ${{ vars.STORAGE_ACCOUNT_NAME }}
+          backend_resource_group: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          azure_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          azure_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          azure_subscription_id: ${{ secrets.TOOLS_SUBSCRIPTION_ID }}
+          vnet_name: ${{ secrets.VNET_NAME }}
+          vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          vnet_address_space: ${{ secrets.VNET_ADDRESS_SPACE }}
+          bastion_subnet_address_prefix: ${{ secrets.BASTION_SUBNET_ADDRESS_PREFIX }}
+          jumpbox_subnet_address_prefix: ${{ secrets.JUMPBOX_SUBNET_ADDRESS_PREFIX }}
+          # Comma-separated Entra object IDs granted "Virtual Machine Administrator Login".
+          # MUST include the CI service principal so `az network bastion ssh --auth-type AAD` works.
+          vm_admin_login_principal_ids: ${{ secrets.VM_ADMIN_LOGIN_PRINCIPAL_IDS }}
+          bastion_sku: Standard
+          enable_bastion: "true"
+          enable_jumpbox: "true"
+          enable_bastion_automation: "true"

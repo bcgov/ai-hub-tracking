@@ -185,7 +185,7 @@
     <text x="1335" y="370" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" fill="#94a3b8" font-weight="bold">Tools VNet (Source — VWAN Spoke)</text>
     <text x="1335" y="388" text-anchor="middle" font-family="monospace" font-size="9" fill="#64748b">10.x.115.0/24 · Separate resource group</text>
     <g font-family="Arial, sans-serif" font-size="9" fill="#94a3b8">
-      <text x="1170" y="412">Chisel Tunnel (Container App proxy)</text>
+      <text x="1170" y="412">Bastion Tunnel</text>
       <text x="1170" y="430">GitHub Actions → Secure Tunnel → this VNet</text>
       <text x="1170" y="448">NSG rules allow traffic to/from PE subnet</text>
     </g>

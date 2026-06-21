@@ -184,6 +184,6 @@
   <!-- Footer -->
   <rect x="50" y="1195" width="1100" height="40" rx="8" fill="#fef3c7" stroke="#f59e0b" stroke-width="1"/>
   <text x="600" y="1217" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#92400e" text-anchor="middle">💡 Key Takeaway: Most Terraform operations only need control plane access (OIDC works)</text>
-  <text x="600" y="1233" font-family="Segoe UI, Arial" font-size="11" fill="#b45309" text-anchor="middle">Only deploy resources that manage secrets if you have data plane access via VNet (self-hosted runners, Chisel, or Bastion)</text>
+  <text x="600" y="1233" font-family="Segoe UI, Arial" font-size="11" fill="#b45309" text-anchor="middle">Only deploy resources that manage secrets if you have data plane access via VNet (self-hosted runners, Bastion, or Bastion)</text>
 
 </svg>

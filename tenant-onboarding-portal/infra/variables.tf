@@ -2,16 +2,6 @@
 # Variables – Tenant Onboarding Portal Infrastructure
 # -----------------------------------------------------------------------------
 
-variable "app_env" {
-  description = "Environment name used in resource naming and tagging (dev, test, prod, or tools)."
-  type        = string
-
-  validation {
-    condition     = contains(["dev", "test", "prod", "tools"], var.app_env)
-    error_message = "app_env must be one of: dev, test, prod, tools."
-  }
-}
-
 variable "location" {
   description = "Azure region (e.g. canadacentral)."
   type        = string

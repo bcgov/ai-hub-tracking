@@ -172,15 +172,34 @@ az login
 ## Deploy Specific Modules
 
 ```bash
-# Deploy only network module
+# Deploy only the network module
 ./deploy-terraform.sh apply -target=module.network
 
-# Deploy only bastion (for temporary access)
-./deploy-terraform.sh apply -target=module.bastion
-
-# Destroy bastion when done (save costs)
-./deploy-terraform.sh destroy -target=module.bastion
+# Deploy only the GitHub runners module
+./deploy-terraform.sh apply -target=module.github_runners_aca
 ```
+
+> Azure Bastion + jumpbox are managed by the bcgov action, not this root. Use
+> `.github/workflows/add-or-remove-module.yml` (apply/plan/destroy) to manage the Bastion stack.
+
+## Migration: chisel → Azure Bastion (one-time)
+
+The legacy chisel `azure-proxy` App Service and the in-repo `bastion`/`jumpbox` modules (and their
+`AzureBastionSubnet`/jumpbox subnets) have been removed in favour of the
+[`bcgov/action-deployer-vm-bastion-alz`](https://github.com/bcgov/action-deployer-vm-bastion-alz)
+action. Before the action runs against the shared tools VNet for the first time:
+
+1. **New GitHub secrets** (tools environment): `TOOLS_SUBSCRIPTION_ID`,
+   `BASTION_SUBNET_ADDRESS_PREFIX` (≥ /26), `JUMPBOX_SUBNET_ADDRESS_PREFIX`,
+   `VM_ADMIN_LOGIN_PRINCIPAL_IDS` — the last **must include the CI service principal's object id** so
+   `az network bastion ssh --auth-type AAD` works. Reuse the CIDRs previously allocated by the network
+   module (`.144/28` jumpbox, `.192/26` bastion) to avoid re-IP.
+2. **If the old in-repo bastion/jumpbox/subnets were ever applied**, remove them from this root's state
+   first (e.g. `terraform state rm` the old `module.bastion`/`module.jumpbox`/subnet resources, then
+   delete the orphaned Azure subnets) so the action can create its own without an `AzureBastionSubnet`
+   collision. If they were never applied (dormant), there is nothing to migrate.
+3. Run `.github/workflows/.deployer.yml` (via `add-or-remove-module.yml` → apply) once to create the
+   Bastion + jumpbox + subnets fresh in `ai-hub-tools`.
 
 ## Directory Structure
 
@@ -194,12 +213,13 @@ initial-setup/infra/
 ├── backend.tf              # Remote state configuration
 ├── terraform.tfvars        # Variable values (not committed)
 └── modules/
-    ├── bastion/            # Azure Bastion host
     ├── github-runners-aca/ # Self-hosted GitHub runners
-    ├── jumpbox/            # Development VM
-    ├── azure-proxy/            # The Secure tunnel deployment using chisel
     └── network/            # Subnets and NSGs
 ```
+
+> **Azure Bastion + jumpbox** (the private-endpoint tunnel) are no longer in-repo modules. They
+> are provisioned by the [`bcgov/action-deployer-vm-bastion-alz`](https://github.com/bcgov/action-deployer-vm-bastion-alz)
+> action via `.github/workflows/.deployer.yml`. The legacy chisel `azure-proxy` module has been removed.
 
 ## Backend State
 

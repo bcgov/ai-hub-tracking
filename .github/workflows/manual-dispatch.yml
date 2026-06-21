@@ -73,7 +73,7 @@ jobs:
           TAG="${{ inputs.deploy_tag }}"
           REPO="${{ github.repository }}"
           missing=()
-          for pkg in "azure-proxy/chisel" "azure-proxy/privoxy" "jobs/apim-key-rotation"; do
+          for pkg in "azure-proxy/privoxy" "jobs/apim-key-rotation"; do
             # GHCR package name uses the repo path
             IMAGE="ghcr.io/${REPO}/${pkg}:${TAG}"
             echo "Checking ${IMAGE} ..."
@@ -88,26 +88,20 @@ jobs:
           fi
           echo "All container images verified for ${TAG}"
 
-  deploy-proxy-in-tools-environment:
-    name: Deploy to 'tools' Environment
+  deploy-bastion-in-tools:
+    name: Deploy Bastion in 'tools' Environment
     needs: validate-inputs
     uses: ./.github/workflows/.deployer.yml
     with:
-      environment_name: tools
       command: apply
-      target_module: azure_proxy
-      tag: latest
-      terraform_log_level: ${{ inputs.terraform_log_level }}
     secrets: inherit
   run-terraform-on-environment:
     name: "Terraform ${{ inputs.command }} — ${{ inputs.environment }}"
-    needs: deploy-proxy-in-tools-environment
+    needs: deploy-bastion-in-tools
     uses: ./.github/workflows/.deployer-using-secure-tunnel.yml
     with:
       environment_name: ${{ inputs.environment }}
       command: ${{ inputs.command }}
-      proxy_url: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_url }}
-      proxy_auth: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_auth }}
       # Prod uses the semver-tagged image; dev/test use latest
       tag: ${{ inputs.environment == 'prod' && inputs.deploy_tag != '' && inputs.deploy_tag || 'latest' }}
       terraform_log_level: ${{ inputs.terraform_log_level }}
@@ -120,7 +114,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout at tag
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
         with:
           ref: ${{ inputs.deploy_tag }}
 

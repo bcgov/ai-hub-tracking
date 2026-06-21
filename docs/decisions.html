@@ -1032,7 +1032,7 @@
                     </a>
                     <a href="technical-deep-dive.html" class="">
                         Technical Deep Dive
-                        <small>Control/data plane &amp; Chisel architecture</small>
+                        <small>Control/data plane &amp; Bastion tunnel architecture</small>
                     </a>
                 </div>
             </div>
@@ -1289,7 +1289,7 @@ details.adr.pending[open] summary {
     </tr>
     <tr>
         <td><a href="#adr-011">ADR-011</a></td>
-        <td>Control Plane vs Data Plane Access & Chisel Tunnel</td>
+        <td>Control Plane vs Data Plane Access & Bastion Tunnel</td>
         <td><span class="badge badge-blue">Policy</span></td>
         <td><span class="badge badge-gold">Accepted</span></td>
     </tr>
@@ -1362,7 +1362,7 @@ details.adr.pending[open] summary {
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
     </div>
     <div>
-        <strong>This is the foundational ADR.</strong> It explains why we need VNets, Bastion, Jumpbox, and the Chisel tunnel CI/CD approach. All other ADRs build on these concepts.
+        <strong>This is the foundational ADR.</strong> It explains why we need VNets, Bastion, Jumpbox, and the Bastion native tunnel CI/CD approach. All other ADRs build on these concepts.
     </div>
 </div>
 
@@ -1434,9 +1434,9 @@ details.adr.pending[open] summary {
 │   (Public Internet)       │                                             │
 │                           │                                             │
 │   ┌──────────────┐  OIDC  │    ┌──────────────┐    ┌─────────────────┐  │
-│   │ GitHub-Hosted│───────▶│    │ Azure Proxy  │───▶│ Private         │  │
-│   │ Runner       │        │    │ (Chisel App  │    │ Endpoints       │  │
-│   │ ubuntu-24.04 │◀SOCKS5─┘    │  Service)    │    │ (Storage, KV)   │  │
+│   │ GitHub-Hosted│───────▶│    │ Azure Bastion│───▶│ Private         │  │
+│   │ Runner       │        │    │ → jumpbox VM │    │ Endpoints       │  │
+│   │ ubuntu-24.04 │◀SOCKS5─┘    │  (in VNet)   │    │ (Storage, KV)   │  │
 │   └──────────────┘        │    └──────────────┘    └─────────────────┘  │
 │          │                │                                             │
 │          ▼                │                                             │
@@ -1444,7 +1444,7 @@ details.adr.pending[open] summary {
 │   │ terraform    │        │                                             │
 │   │ plan/apply   │        │                                             │
 │   └──────────────┘        │                                             │
-│   (via SOCKS tunnel)      │                                             │
+│   (via Bastion SOCKS)     │                                             │
 └─────────────────────────────────────────────────────────────────────────┘
 </pre>
 </div>
@@ -1453,19 +1453,19 @@ details.adr.pending[open] summary {
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #22c55e;">
-        <h4 style="margin-top: 0;">Option A: Chisel Tunnel with GitHub-Hosted Runners</h4>
-        <p>Standard GitHub-hosted runners (<code>ubuntu-24.04</code>) combined with a <strong>Chisel SOCKS5 proxy</strong> deployed as an Azure App Service inside the VNet. This eliminates the need for persistent self-hosted runner infrastructure.</p>
+        <h4 style="margin-top: 0;">Option A: Bastion Native Tunnel with GitHub-Hosted Runners</h4>
+        <p>Standard GitHub-hosted runners (<code>ubuntu-24.04</code>) combined with <strong>Azure Bastion native client tunnelling</strong> to a jumpbox VM inside the VNet. This eliminates the need for persistent self-hosted runner infrastructure, with no public proxy and no shared password.</p>
         <ul>
             <li>GitHub-hosted runner starts (ephemeral, no maintenance)</li>
-            <li>Workflow deploys/starts the Chisel proxy App Service</li>
-            <li>Runner connects through SOCKS5 tunnel into VNet</li>
+            <li>Workflow ensures the tools Bastion + jumpbox are up</li>
+            <li>Runner opens a SOCKS5 tunnel through Bastion (<code>az network bastion ssh -- -D</code>)</li>
             <li>Terraform traffic routed via tunnel to private endpoints</li>
             <li>No persistent runner pool needed — pay only for workflow minutes</li>
         </ul>
         <div class="alert alert-info" style="margin-top: 1rem;">
             <span class="alert-icon">💡</span>
             <div>
-                <strong>Implementation:</strong> The <code>azure-proxy/chisel</code> container runs on an App Service Plan inside the <code>tools</code> VNet subnet. The <code>.deployer.yml</code> reusable workflow deploys it first, then subsequent steps use it as a SOCKS proxy via <code>ALL_PROXY</code> environment variable.
+                <strong>Implementation:</strong> The Bastion + jumpbox are provisioned by the <code>bcgov/action-deployer-vm-bastion-alz</code> action (<code>.deployer.yml</code>) in the <code>tools</code> subscription. Subsequent steps open the Bastion SOCKS5 tunnel and bridge it to <code>HTTP_PROXY</code> via privoxy.
             </div>
         </div>
         <p style="margin-bottom:0;color:#22c55e;"><strong>Used by this platform for all CI/CD</strong></p>
@@ -1516,8 +1516,8 @@ details.adr.pending[open] summary {
         <td><strong>Yes - shared by admins</strong></td>
     </tr>
     <tr>
-        <td>Azure Proxy (Chisel Server)</td>
-        <td>SOCKS5 tunnel for CI/CD private-endpoint access</td>
+        <td>Azure Bastion + jumpbox</td>
+        <td>Native SOCKS5 tunnel for CI/CD private-endpoint access</td>
         <td><strong>Yes - shared by all stacks</strong></td>
     </tr>
     <tr>
@@ -1564,9 +1564,9 @@ details.adr.pending[open] summary {
     </tr>
     <tr>
         <td><strong>GitHub Actions (CI/CD)</strong></td>
-        <td>GitHub-hosted runner + Chisel SOCKS tunnel → Private Endpoints</td>
+        <td>GitHub-hosted runner + Bastion SOCKS tunnel → Private Endpoints</td>
         <td><span class="badge" style="background:#22c55e;color:white;">None</span></td>
-        <td>GitHub-hosted runners (<code>ubuntu-24.04</code>) route Terraform traffic through a Chisel SOCKS5 proxy (App Service inside the VNet). The runner itself is on the public internet but all data-plane calls are tunnelled privately.</td>
+        <td>GitHub-hosted runners (<code>ubuntu-24.04</code>) route Terraform traffic through an Azure Bastion native SOCKS5 tunnel to a jumpbox inside the VNet. The runner itself is on the public internet but all data-plane calls are tunnelled privately.</td>
     </tr>
 </table>
 
@@ -1664,14 +1664,15 @@ details.adr.pending[open] summary {
 <h4>Negative</h4>
 <ul>
     <li><strong>Initial complexity</strong> - Landing Zone must be built first</li>
-    <li><strong>Proxy dependency</strong> - Chisel App Service must be healthy before Terraform workflows run</li>
+    <li><strong>Bastion dependency</strong> - the tools Bastion + jumpbox must be up before Terraform workflows run (the pipeline ensures this)</li>
     <li><strong>VNet planning</strong> - Must allocate IP ranges carefully</li>
 </ul>
 
 <h3 id="references">References</h3>
 <ul>
     <li><a href="https://learn.microsoft.com/en-us/azure/cloud-adoption-framework/ready/landing-zone/">Azure Landing Zone Concepts</a></li>
-    <li><a href="https://github.com/jpillora/chisel">Chisel - Fast TCP/UDP tunnel over HTTP</a></li>
+    <li><a href="https://learn.microsoft.com/en-us/azure/bastion/native-client">Azure Bastion native client support (tunnelling)</a></li>
+    <li><a href="https://github.com/bcgov/action-deployer-vm-bastion-alz">bcgov/action-deployer-vm-bastion-alz</a></li>
     <li><a href="diagrams.html#network-arch">Network Architecture Diagram</a></li>
     <li><a href="diagrams.html#deployment-pipeline">Deployment Pipeline Diagram</a></li>
 </ul>
@@ -2080,7 +2081,7 @@ details.adr.pending[open] summary {
 
 <h4>Challenges</h4>
 <ul>
-    <li><strong>GitHub Actions cannot reach private endpoints directly</strong> - Requires the Chisel SOCKS tunnel or VNet-internal access (see <a href="#adr-001">ADR-001</a>)</li>
+    <li><strong>GitHub Actions cannot reach private endpoints directly</strong> - Requires the Bastion SOCKS tunnel or VNet-internal access (see <a href="#adr-001">ADR-001</a>)</li>
     <li><strong>Local development complexity</strong> - Developers cannot access resources without VPN/Bastion</li>
     <li><strong>DNS resolution</strong> - Must configure private DNS zones correctly</li>
     <li><strong>Debugging difficulty</strong> - Cannot easily test from outside the network</li>
@@ -2088,9 +2089,9 @@ details.adr.pending[open] summary {
 
 <h4>Workarounds</h4>
 <ul>
-    <li><strong>Terraform State:</strong> Use the Chisel SOCKS tunnel (GitHub-hosted runner + Azure Proxy) to access the private storage endpoint. The <code>use_azuread_auth = true</code> setting enables Azure AD authentication for state access.</li>
+    <li><strong>Terraform State:</strong> Use the Bastion SOCKS tunnel (GitHub-hosted runner + jumpbox) to access the private storage endpoint. The <code>use_azuread_auth = true</code> setting enables Azure AD authentication for state access.</li>
     <li><strong>Development:</strong> Use Bastion + Jumpbox for all Azure resource access (see <a href="#adr-003">ADR-003</a>)</li>
-    <li><strong>CI/CD:</strong> Use the Chisel SOCKS tunnel for full private-endpoint access during Terraform runs (see <a href="#adr-001">ADR-001</a>)</li>
+    <li><strong>CI/CD:</strong> Use the Bastion SOCKS tunnel for full private-endpoint access during Terraform runs (see <a href="#adr-001">ADR-001</a>)</li>
 </ul>
 
 <h3 id="references-3">References</h3>
@@ -2206,7 +2207,7 @@ details.adr.pending[open] summary {
     <li>Idempotent, reviewable changes (pull requests as the change record)</li>
     <li>Policy-driven patterns (private endpoints, NSGs, diagnostics settings)</li>
     <li>Composable modules (prefer Azure Verified Modules where possible)</li>
-    <li>Automation via GitHub Actions using OIDC and Chisel SOCKS tunnel</li>
+    <li>Automation via GitHub Actions using OIDC and the Bastion SOCKS tunnel</li>
 </ul>
 
 <h3 id="options-considered">Options Considered</h3>
@@ -2237,7 +2238,7 @@ details.adr.pending[open] summary {
 <h3 id="rationale-3">Rationale</h3>
 
 <ul>
-    <li><strong>Fits Landing Zone operations:</strong> Terraform runs cleanly on GitHub-hosted runners via the Chisel SOCKS tunnel, providing data-plane access to private endpoints when required.</li>
+    <li><strong>Fits Landing Zone operations:</strong> Terraform runs cleanly on GitHub-hosted runners via the Bastion SOCKS tunnel, providing data-plane access to private endpoints when required.</li>
     <li><strong>Standardization via modules:</strong> We can prefer Azure Verified Modules (AVM) for consistent, policy-aligned deployments.</li>
     <li><strong>Auditable change control:</strong> Plans and applies can be gated by pull request review and CI checks.</li>
     <li><strong>Multi-environment support:</strong> Variables and modules make it straightforward to deploy dev/test/prod consistently.</li>
@@ -2535,7 +2536,7 @@ User Browser (Public Internet)
 <p>All resource provisioning and management must occur through:</p>
 <ul>
     <li><strong>Terraform/AVM modules</strong> - Infrastructure as Code</li>
-    <li><strong>Azure CLI</strong> - Via Chisel tunnel (CI/CD) or Jumpbox (admin only)</li>
+    <li><strong>Azure CLI</strong> - Via the Bastion tunnel (CI/CD) or Jumpbox (admin only)</li>
     <li><strong>REST APIs</strong> - Via APIM with subscription keys</li>
 </ul>
 
@@ -3233,7 +3234,7 @@ module "storage" {
 
 <details class="adr" id="adr-011">
 <summary>
-    <span class="adr-title">ADR-011: Control Plane vs Data Plane Access & Chisel Tunnel</span>
+    <span class="adr-title">ADR-011: Control Plane vs Data Plane Access & Bastion Tunnel</span>
     <span class="adr-status"><span class="badge badge-blue">Pending</span></span>
 </summary>
 <div class="adr-content">
@@ -3250,7 +3251,7 @@ module "storage" {
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
     </div>
     <div>
-        <strong>This ADR explains a fundamental Azure concept</strong> that drives many architecture decisions: the difference between Control Plane and Data Plane access, why OIDC works for one but not the other, and how Chisel provides data plane access for platform maintainers.
+        <strong>This ADR explains a fundamental Azure concept</strong> that drives many architecture decisions: the difference between Control Plane and Data Plane access, why OIDC works for one but not the other, and how the Azure Bastion native tunnel provides data plane access for platform maintainers.
     </div>
 </div>
 
@@ -3320,7 +3321,7 @@ module "storage" {
 │                                                                              │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│   From Inside VNet (Chisel Tunnel, Jumpbox, or Optional Self-hosted Runners):│
+│   From Inside VNet (Bastion Tunnel, Jumpbox, or Optional Self-hosted Runners):│
 │                                                                              │
 │   ✅ CONTROL PLANE → Still works (ARM is public)                             │
 │   ✅ DATA PLANE    → Works via Private Endpoints (network path exists)       │
@@ -3378,12 +3379,12 @@ module "storage" {
 
 <h3 id="decision-multiple-access-methods-for-different-needs">Decision: Multiple Access Methods for Different Needs</h3>
 
-<p>We provide <strong>four toggleable access mechanisms</strong> via Terraform, each serving a different use case:</p>
+<p>We provide <strong>four toggleable access mechanisms</strong>, each serving a different use case:</p>
 
 <table>
     <tr>
         <th>Access Method</th>
-        <th>Terraform Toggle</th>
+        <th>Toggle</th>
         <th>Who Uses It</th>
         <th>Use Case</th>
         <th>Plane Access</th>
@@ -3392,21 +3393,21 @@ module "storage" {
         <td><strong>Self-Hosted Runners</strong></td>
         <td><code>github_runners_aca_enabled</code></td>
         <td>Other tenant repos</td>
-        <td>Optional: persistent VNet compute for CI/CD workloads that can't use Chisel</td>
+        <td>Optional: persistent VNet compute for CI/CD workloads that can't use the Bastion tunnel</td>
         <td>Control + Data</td>
     </tr>
     <tr>
-        <td><strong>Bastion + Jumpbox</strong></td>
-        <td><code>enable_bastion</code>, <code>enable_jumpbox</code></td>
+        <td><strong>Bastion + jumpbox (interactive)</strong></td>
+        <td>bcgov action: <code>enable_bastion</code>, <code>enable_jumpbox</code></td>
         <td>Platform Maintainers</td>
-        <td>Emergency debugging, manual admin tasks</td>
+        <td>Emergency debugging, manual admin tasks (SSH/RDP)</td>
         <td>Control + Data</td>
     </tr>
     <tr>
-        <td><strong>Chisel Tunnel</strong></td>
-        <td><code>enable_azure_proxy</code></td>
-        <td>Platform Maintainers</td>
-        <td>Local dev access to private databases/APIs</td>
+        <td><strong>Bastion native SOCKS tunnel</strong></td>
+        <td>bcgov action (<code>bastion_sku: Standard</code>)</td>
+        <td>CI/CD + Platform Maintainers</td>
+        <td>Terraform / local dev access to private databases/APIs</td>
         <td>Control + Data</td>
     </tr>
     <tr>
@@ -3418,36 +3419,35 @@ module "storage" {
     </tr>
 </table>
 
-<h3 id="chisel-tunnel-data-plane-access-for-platform-maintainers">Chisel Tunnel: Data Plane Access for Platform Maintainers</h3>
+<h3 id="bastion-tunnel-data-plane-access-for-platform-maintainers">Bastion Tunnel: Data Plane Access for Platform Maintainers</h3>
 
 <div class="alert alert-info">
     <span class="alert-icon">🔧</span>
     <div>
-        <strong>Chisel is for Platform Maintainers ONLY</strong> - not for tenant/project developers. Tenants access AI services through APIM/App Gateway (the designed public entry point).
+        <strong>The Bastion tunnel is for Platform Maintainers and CI/CD ONLY</strong> - not for tenant/project developers. Tenants access AI services through APIM/App Gateway (the designed public entry point).
     </div>
 </div>
 
-<p><strong>What is Chisel?</strong> A fast TCP/UDP tunnel over HTTP that creates a secure reverse proxy from your local machine into the Azure VNet.</p>
+<p><strong>What is the Bastion tunnel?</strong> Azure Bastion native client tunnelling (Standard SKU) opens an Entra ID-authenticated SSH session to a jumpbox VM inside the VNet; SSH dynamic port-forwarding (<code>-D</code>) turns it into a SOCKS5 proxy. No public proxy server and no shared password.</p>
 
 <div class="card" style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
 <pre style="background: var(--bc-blue-dark); margin: 0; padding: 1rem; overflow-x: auto; font-size: 11px;">
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                        CHISEL TUNNEL ARCHITECTURE                            │
+│                        BASTION TUNNEL ARCHITECTURE                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│   Platform Maintainer's Laptop                                               │
+│   Runner / Platform Maintainer's Laptop                                      │
 │   ┌─────────────────────────────┐                                            │
-│   │  Chisel Client (Docker)     │                                            │
-│   │  Listens on localhost:5432  │                                            │
+│   │  az network bastion ssh -D  │                                            │
+│   │  SOCKS5 on localhost:1080   │  (privoxy bridges → HTTP_PROXY:8118)       │
 │   └──────────────┬──────────────┘                                            │
-│                  │ HTTPS (encrypted)                                         │
+│                  │ Entra ID auth (no shared password)                        │
 │                  ▼                                                            │
 │   ┌─────────────────────────────────────────────────────────────────────┐    │
-│   │                    Azure App Service (Chisel Server)                │    │
-│   │                    Inside VNet (app-service-subnet)                 │    │
-│   │                    Random auth: tunnel:XXXXXXXX                     │    │
+│   │              Azure Bastion (Standard) → jumpbox VM                  │    │
+│   │              jumpbox inside VNet (jumpbox-subnet, no public IP)      │    │
 │   └──────────────┬──────────────────────────────────────────────────────┘    │
-│                  │ VNet Integration (Private Network)                        │
+│                  │ Inside VNet (Private Network)                             │
 │                  ▼                                                            │
 │   ┌─────────────────────────────────────────────────────────────────────┐    │
 │   │                    Private Endpoints                                │    │
@@ -3457,7 +3457,7 @@ module "storage" {
 │   │  └──────────────┘  └──────────────┘  └──────────────┘              │    │
 │   └─────────────────────────────────────────────────────────────────────┘    │
 │                                                                              │
-│   Result: psql -h localhost -p 5432 → tunnels to private PostgreSQL          │
+│   Result: traffic via SOCKS5 → jumpbox → private PaaS endpoints              │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 </pre>
@@ -3549,11 +3549,11 @@ module "storage" {
 │  │ Method              │ Toggle Variable              │ Use Case          │ │
 │  ├────────────────────────────────────────────────────────────────────────┤ │
 │  │ Self-hosted Runners │ github_runners_aca_enabled   │ Optional tenant CI/CD │ │
-│  │ Bastion + Jumpbox   │ enable_bastion/jumpbox       │ Admin access      │ │
-│  │ Chisel Tunnel       │ enable_azure_proxy           │ Local dev access  │ │
+│  │ Bastion + jumpbox   │ bcgov action (enable_bastion)│ Admin + SOCKS tunnel │ │
+│  │ Public runners      │ (default)                    │ Control plane only │ │
 │  └────────────────────────────────────────────────────────────────────────┘ │
 │                                                                              │
-│  All three provide: Control Plane + Data Plane access                        │
+│  Bastion + jumpbox provide: Control Plane + Data Plane access                │
 │                                                                              │
 └─────────────────────────────────────────────────────────────────────────────┘
 </pre>
@@ -3572,14 +3572,14 @@ module "storage" {
 <h4>Negative</h4>
 <ul>
     <li><strong>Complexity</strong> - Must understand two planes, not just "Azure access"</li>
-    <li><strong>Chisel proxy dependency</strong> - Terraform workflows require the Azure Proxy App Service to be healthy before running</li>
+    <li><strong>Bastion dependency</strong> - Terraform workflows require the tools Bastion + jumpbox to be up before running (the pipeline ensures this, recreating the cost-saved Bastion if needed)</li>
     <li><strong>Portal limitations</strong> - Can't "see" data in Portal even with permissions</li>
 </ul>
 
 <h3 id="references-9">References</h3>
 <ul>
-    <li><a href="playbooks.html#chisel-tunnel">Playbook: Using Chisel Tunnel for Local Development</a></li>
-    <li><a href="terraform-reference.html">Terraform Reference: azure-proxy module (Chisel)</a></li>
+    <li><a href="playbooks.html#bastion-tunnel">Playbook: Using the Bastion Tunnel for Local Development</a></li>
+    <li><a href="https://github.com/bcgov/action-deployer-vm-bastion-alz">bcgov/action-deployer-vm-bastion-alz</a></li>
     <li><a href="#adr-001">ADR-001: Shared Landing Zone</a></li>
     <li><a href="#adr-002">ADR-002: OIDC Authentication</a></li>
     <li><a href="#adr-008">ADR-008: No Azure Portal UI Access</a></li>

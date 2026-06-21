@@ -7,7 +7,7 @@ This is the central repo to track overall project with issues and github project
 Comprehensive guides for OIDC setup, Terraform deployments, and Azure Landing Zone architecture.
 
 **Quick Links**:
-- [Local Development Deployment Guide](infra-ai-hub/README.md#local-development-deployment) - Deploy from your local machine using Chisel tunnel
+- [Local Development Deployment Guide](infra-ai-hub/README.md#local-development-deployment) - Deploy from your local machine using the Bastion tunnel
 - [Operational Playbooks](https://bcgov.github.io/ai-hub-tracking/playbooks.html) - Troubleshooting and runbooks
 - [Terraform Modules](https://bcgov.github.io/ai-hub-tracking/terraform.html) - Terraform modules overview
 - [PII Anonymization](https://bcgov.github.io/ai-hub-tracking/language-service-pii.html) - PII redaction via Azure AI Language PII detection
@@ -66,9 +66,8 @@ ai-hub-tracking/                        # Repository root
 │   └── workflows/                      # GitHub Actions workflows
 ├── .gitignore                         # Ignore rules for local and generated artifacts
 ├── .pre-commit-config.yaml            # Pre-commit hook configuration
-├── azure-proxy/                       # Secure tunnel container definitions for local access
-│   ├── chisel/                         # Chisel tunnel container and startup script
-│   └── privoxy/                        # Privoxy container and entrypoint
+├── azure-proxy/                       # HTTP→SOCKS bridge for the Bastion tunnel (local access)
+│   └── privoxy/                        # Privoxy container and entrypoint (fronts the Bastion SOCKS proxy)
 ├── docker-compose.yml                 # Local multi-container orchestration
 ├── docs/                              # Static documentation site source and published output
 │   ├── _pages/                         # Source page templates
@@ -157,11 +156,9 @@ Bootstrap directory for one-time environment setup. Contains the main setup auto
   
 - **infra/**: Terraform configurations for foundational resources
   - **network**: VNet subnets, NSGs, security boundaries
-  - **bastion**: Azure Bastion host for secure access (optional via `enable_bastion`)
-  - **jumpbox**: Development VM with Azure/Kubernetes CLI tools (optional via `enable_jumpbox`)
   - **github-runners-aca**: Self-hosted GitHub runners on Container Apps (optional via `github_runners_aca_enabled`)
-  - **azure-proxy**: Secure tunnel (chisel) deployment used for proxying (optional via `enable_azure_proxy`)
   - **monitoring**: Log Analytics and Application Insights for observability
+  - _Azure Bastion + jumpbox_ (private-endpoint tunnel) are provisioned separately by the [`bcgov/action-deployer-vm-bastion-alz`](https://github.com/bcgov/action-deployer-vm-bastion-alz) action — see `.github/workflows/.deployer.yml`
 
 ### `infra-ai-hub/`
 Multi-tenant AI Services Hub infrastructure. Manages the stack-based Terraform deployment for APIM, AI Foundry, per-tenant resources, networking, WAF, and published model availability.
@@ -202,7 +199,7 @@ Static HTML documentation generated from templates and scripts.
 - Includes architecture decisions, operational playbooks, cost analysis, PII documentation, and FAQs
 
 ### `azure-proxy/`
-Docker configurations for the secure proxy tunnel used in local development deployments. Contains Chisel (TCP tunnel) and Privoxy (HTTP proxy) containers.
+Docker configuration for the Privoxy HTTP→SOCKS bridge used in local development and CI. Privoxy fronts the Azure Bastion SOCKS5 tunnel (opened by the upstream consumer script — see [`initial-setup/infra/scripts/bastion-proxy.md`](initial-setup/infra/scripts/bastion-proxy.md)) so HTTP-proxy clients like Terraform and the Azure CLI can reach private endpoints.
 
 ### `ssl_certs/`
 SSL certificate management scripts and environment-specific certificate files. Includes CSR generation, PFX creation, and upload utilities for App Gateway and Key Vault.

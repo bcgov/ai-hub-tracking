@@ -127,11 +127,10 @@ All CI/CD follows a reusable workflow chain pattern:
 Trigger workflow (pr-open.yml, merge-main.yml, manual-dispatch.yml)
 ├── .lint.yml (pre-commit, TFLint, conventional commits)
 ├── .builds.yml (Docker images → GHCR)
-├── .deployer.yml (direct deploy for tools env)
-│   └── outputs: proxy_url, proxy_auth (GPG-encrypted)
+├── .deployer.yml (tools env: Bastion + jumpbox via bcgov/action-deployer-vm-bastion-alz)
 └── .deployer-using-secure-tunnel.yml (dev/test/prod)
-    ├── Decrypts proxy_url/proxy_auth via GPG_PASSPHRASE
-    ├── Starts chisel-client (SOCKS5 tunnel) + privoxy (HTTP proxy)
+    ├── Ensures the tools Bastion is up (Create-BastionHost runbook if needed)
+    ├── Opens a Bastion SOCKS5 tunnel (az network bastion ssh -- -D, AAD auth) + privoxy (HTTP proxy)
     ├── Sets HTTP_PROXY/HTTPS_PROXY=http://127.0.0.1:8118
     ├── Runs deploy-terraform.sh through the tunnel
     └── On success: .integration-tests-using-secure-tunnel.yml
@@ -180,7 +179,7 @@ To add a new tenant:
 
 - **SSL certificates**: See `ssl_certs/README.md` for CSR generation, PFX creation, and cert upload workflows
 - **Environment bootstrapping**: See `initial-setup/README.md` for OIDC identity setup and first-time provisioning
-- **Azure proxy (chisel/privoxy)**: See `azure-proxy/` for the secure tunnel used in CI/CD
+- **Bastion tunnel (privoxy bridge)**: See `azure-proxy/privoxy/` and `initial-setup/infra/scripts/bastion-proxy.md` for the Bastion SOCKS tunnel (CI/CD opens it via `.github/scripts/ensure-bastion.sh`; local dev fetches the upstream consumer script)
 
 ## Implementation Checklist
 

@@ -134,7 +134,7 @@
       <text x="105" y="25" text-anchor="middle" font-family="Arial, sans-serif" font-size="12" font-weight="bold" fill="#fcba19">CI/CD Adaptation</text>
       <text x="105" y="48" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#fef08a">OIDC Authentication</text>
       <text x="105" y="65" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#fef08a">GitHub Actions</text>
-      <text x="105" y="82" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">GH-hosted runners + Chisel tunnel</text>
+      <text x="105" y="82" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">GH-hosted runners + Bastion tunnel</text>
       <text x="105" y="99" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#94a3b8">Zero secrets to rotate</text>
     </g>
   </g>

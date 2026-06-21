@@ -13,14 +13,6 @@ on:
         required: true
         default: "apply"
         type: string
-      proxy_url:
-        description: "The proxy URL to use for the secure tunnel"
-        required: true
-        type: string
-      proxy_auth:
-        description: "The proxy authentication token for the secure tunnel"
-        required: true
-        type: string
       tag:
         description: "The container tag to use for deployment"
         required: false
@@ -40,8 +32,6 @@ on:
 env:
   TF_VERSION: 1.12.2
   TF_LOG: ${{ inputs.terraform_log_level }}
-  CHISEL_IMAGE_VERSION: 1.11
-  CHISEL_IMAGE: jpillora/chisel
 permissions:
   id-token: write # Required for OIDC authentication
   contents: write
@@ -58,76 +48,52 @@ jobs:
             echo "Error: Invalid environment name '${{ inputs.environment_name }}'. Valid options are: ${VALID_ENVS[*]}"
             exit 1
           fi
-          # check that proxy_url and proxy_auth are non-empty
-          if [[ -z "${{ inputs.proxy_url }}" || -z "${{ inputs.proxy_auth }}" ]]; then
-            echo "Error: proxy_url and proxy_auth are required inputs."
-            exit 1
-          fi
 
   terraform:
     environment: ${{ inputs.environment_name }}
     name: Terraform ${{ inputs.command }} via Secure Tunnel
     concurrency:
+      # Fixed group across ALL environments: serialises every job that touches the shared
+      # tools Bastion so the resource lock create/delete can never race between GitHub jobs.
+      # (Still prevents same-env Terraform state races — the group is a superset of per-env.)
       cancel-in-progress: false
-      group: ${{ inputs.environment_name }}
+      group: bastion-tunnel
     needs: validate
     runs-on: ubuntu-24.04
     outputs:
       plan_has_changes: ${{ steps.plan_summary.outputs.has_changes }}
+    env:
+      # Bastion + jumpbox live in the tools subscription; all bastion `az` calls target it explicitly.
+      TOOLS_SUBSCRIPTION_ID: ${{ secrets.TOOLS_SUBSCRIPTION_ID }}
+      BASTION_RESOURCE_GROUP: ai-hub-tools
+      SOCKS_PORT: "1080"
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
       - name: Setup Node.js
-        uses: actions/setup-node@v6
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: 24
       - name: Azure CLI Login (OIDC)
-        uses: azure/login@v2
+        uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v4
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
-      - name: Run proxy client
+      # Provision (if needed), lock, and open the SOCKS5 tunnel in one step.
+      # Lock released by bastion-purge.sh in the always() step below.
+      - name: Ensure Bastion (provision → lock → tunnel)
         shell: bash
         run: |
-          set -euo pipefail
-
-          if [[ -z "${{ inputs.proxy_url }}" || -z "${{ inputs.proxy_auth }}" ]]; then
-            echo "proxy_url and proxy_auth are required when use_secure_tunnel=true" >&2
-            exit 1
-          fi
-
-          # Decode the proxy_url and proxy_auth.
-          # Use loopback pinentry to avoid hangs; force stdout output to avoid "handle plaintext failed".
-          KEY='${{ secrets.GPG_PASSPHRASE }}'
-          if [[ -z "$KEY" ]]; then
-            echo "GPG_PASSPHRASE secret is empty/missing" >&2
-            exit 1
-          fi
-
-          decrypt_b64_gpg() {
-            local encoded="$1"
-            printf '%s' "$encoded" \
-              | tr -d '\r\n' \
-              | base64 --decode \
-              | gpg --batch --yes --pinentry-mode loopback --passphrase "$KEY" --decrypt --output -
-          }
-
-          PROXY_URL="$(decrypt_b64_gpg '${{ inputs.proxy_url }}')"
-          PROXY_AUTH="$(decrypt_b64_gpg '${{ inputs.proxy_auth }}')"
-          echo "Proxy URL: ****${PROXY_URL: -4}"
-          echo "Proxy Auth: ****${PROXY_AUTH: -4}"
-          docker network create proxy-net >/dev/null 2>&1 || true
-          docker run -d --name chisel-client --network proxy-net ${CHISEL_IMAGE}:${CHISEL_IMAGE_VERSION} client --auth "$PROXY_AUTH" "$PROXY_URL" 0.0.0.0:1080:socks
-          docker run -d --name privoxy --network proxy-net -p 127.0.0.1:8118:8118 -e SOCKS_HOST=chisel-client -e SOCKS_PORT=1080 ghcr.io/${{ github.repository }}/azure-proxy/privoxy:${{inputs.tag || 'latest'}}
-          docker logs chisel-client
-          docker logs privoxy
+          bash .github/scripts/ensure-bastion.sh \
+            --privoxy-image "ghcr.io/${{ github.repository }}/azure-proxy/privoxy:${{ inputs.tag || 'latest' }}" \
+            --notes "Held by GitHub Actions during deploy"
 
       - name: Validate required network secret
         shell: bash
@@ -230,12 +196,27 @@ jobs:
 
       - name: Upload plan comment artifact
         if: inputs.command == 'plan'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: plan-comment
           path: ${{ runner.temp }}/plan-comment.md
           retention-days: 1
           if-no-files-found: warn
+
+      # Always release the lock so the cost-saving automation isn't permanently blocked.
+      # After 7 PM Pacific, also fire Delete-BastionHost so a late deploy doesn't leave the
+      # Bastion running overnight — but skip it when integration tests will run next and still
+      # need the tunnel (they own the teardown in that case).
+      - name: Release Bastion lock (+ delete after 7 PM PT)
+        if: always()
+        shell: bash
+        run: |
+          integ_follows_flag=""
+          if [[ "${{ inputs.command }}" == "apply" && \
+                ( "${{ inputs.environment_name }}" == "dev" || "${{ inputs.environment_name }}" == "test" ) ]]; then
+            integ_follows_flag="--integ-follows"
+          fi
+          bash .github/scripts/bastion-purge.sh $integ_follows_flag
 
   integration-tests:
     name: Integration Tests via Secure Tunnel
@@ -244,7 +225,5 @@ jobs:
     uses: ./.github/workflows/.integration-tests-using-secure-tunnel.yml
     with:
       environment_name: ${{ inputs.environment_name }}
-      proxy_url: ${{ inputs.proxy_url }}
-      proxy_auth: ${{ inputs.proxy_auth }}
       tag: ${{ inputs.tag }}
     secrets: inherit

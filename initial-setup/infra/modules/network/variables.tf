@@ -63,13 +63,6 @@ variable "vnet_resource_group_name" {
   nullable    = false
 }
 
-variable "web_subnet_name" {
-  description = "Name of the web subnet for APIM deployment"
-  type        = string
-  default     = "web-subnet"
-  nullable    = false
-}
-
 variable "apim_subnet_name" {
   description = "Name of the subnet for API Management"
   type        = string
@@ -77,20 +70,7 @@ variable "apim_subnet_name" {
   nullable    = false
 }
 
-variable "jumpbox_subnet_name" {
-  description = "Name of the subnet for Jumpbox VM"
-  type        = string
-  default     = "jumpbox-subnet"
-  nullable    = false
-}
-
-variable "bastion_subnet_name" {
-  description = "Name of the subnet for Azure Bastion (must be AzureBastionSubnet)"
-  type        = string
-  default     = "AzureBastionSubnet"
-  nullable    = false
-}
-# Environment-specific VNet address spaces for the self hosted runner to have access to, 
+# Environment-specific VNet address spaces for the self hosted runner to have access to,
 # make sure the vnet peering is already done for this to work
 variable "dev_address_spaces" {
   description = "Address space for the dev environment of the vnet peering"

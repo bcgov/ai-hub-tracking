@@ -73,7 +73,7 @@ resource "azurerm_network_security_group" "private_endpoints" {
 
   # --- Inbound: allow source/tools VNet → all PE subnets ---
   # The source VNet (e.g., tools VNet) is a separate peered VNet that needs
-  # to reach PE-backed services for management, testing, and chisel proxy.
+  # to reach PE-backed services for management, testing, and the Bastion tunnel.
   security_rule {
     name                         = "AllowInboundFromSourceVNet"
     priority                     = 300

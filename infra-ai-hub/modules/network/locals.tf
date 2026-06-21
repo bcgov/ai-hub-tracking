@@ -35,9 +35,6 @@ locals {
     if startswith(name, "privateendpoints-subnet")
   ])
 
-  # Primary PE subnet name — "privateendpoints-subnet" sorts before "-1", "-2", etc.
-  pe_subnet_name = length(local.pe_subnet_names) > 0 ? local.pe_subnet_names[0] : "privateendpoints-subnet"
-
   # PE pool map: subnet name → { name, cidr }
   # Keys are the actual Azure subnet names (privateendpoints-subnet, -1, -2, ...)
   pe_subnet_pool = {

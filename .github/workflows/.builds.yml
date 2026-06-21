@@ -19,13 +19,12 @@ jobs:
     strategy:
       matrix:
         package:
-          - azure-proxy/chisel
           - azure-proxy/privoxy
           - jobs/apim-key-rotation
           - pii-redaction-service
     timeout-minutes: 10
     steps:
-      - uses: bcgov/action-builder-ghcr@v4.2.1
+      - uses: bcgov/action-builder-ghcr@2b24ac7f95e6a019064151498660437cca3202c5
         with:
           package: ${{ matrix.package }}
           tags: ${{ inputs.tags }}

@@ -1,16 +1,16 @@
 <!-- TITLE: Technical Deep Dive -->
 <!-- NAV: techdeep -->
 
-<h1>Technical Deep Dive: Management Access, Data Access, and the Chisel Tunnel</h1>
+<h1>Technical Deep Dive: Management Access, Data Access, and the Bastion Tunnel</h1>
 
-<p>This document explains one of the most important ideas in the whole platform: the difference between managing an Azure resource and accessing the private data inside that resource. It then shows why some Terraform operations fail from a public automation runner and how the Chisel tunnel solves that problem.</p>
+<p>This document explains one of the most important ideas in the whole platform: the difference between managing an Azure resource and accessing the private data inside that resource. It then shows why some Terraform operations fail from a public automation runner and how the Azure Bastion native tunnel solves that problem.</p>
 
 <h2>Table of Contents</h2>
 <ol>
     <li><a href="#control-vs-data-plane">Control Plane vs Data Plane: The Fundamental Divide</a></li>
     <li><a href="#keyvault-operations">Key Vault Operations: What Requires Data Plane Access</a></li>
     <li><a href="#terraform-keyvault">Terraform + Key Vault: When Operations Fail</a></li>
-    <li><a href="#chisel-solution">Chisel: How the Tunnel Works</a></li>
+    <li><a href="#bastion-solution">Azure Bastion: How the Tunnel Works</a></li>
     <li><a href="#deployment-scenarios">Deployment Scenarios: Who Needs What</a></li>
 </ol>
 
@@ -75,7 +75,7 @@ data "azurerm_key_vault_secret" "example" {
 
 // When private endpoints are enabled:
 // ✗ FAILS: Cannot reach myvault.vault.azure.net from GitHub runner
-// ✓ WORKS: Can reach myvault.vault.azure.net from within VNet or via Chisel
+// ✓ WORKS: Can reach myvault.vault.azure.net from within VNet or via the Bastion tunnel
 </code></pre>
 
 <h4>Writing Secrets</h4>
@@ -88,7 +88,7 @@ resource "azurerm_key_vault_secret" "example" {
   // Terraform must connect to: myvault.vault.azure.net
   // When private endpoints are enabled:
   // ✗ FAILS: GitHub runner cannot reach myvault.vault.azure.net
-  // ✓ WORKS: Chisel tunnel provides access to myvault.vault.azure.net
+  // ✓ WORKS: Bastion tunnel provides access to myvault.vault.azure.net
 }</code></pre>
 
 <h3>Why These Fail Even When OpenID Connect Works</h3>
@@ -175,7 +175,7 @@ needs to access: myvault.vault.azure.net ✗ BLOCKED
 // ✓ WORKS: After DNS is ready, myvault.vault.azure.net resolves to private IP
 </code></pre>
 
-<h3>Creating Secrets (Data Plane - FAILS without Chisel)</h3>
+<h3>Creating Secrets (Data Plane - FAILS without the Bastion tunnel)</h3>
 <pre><code>resource "azurerm_key_vault_secret" "secret_one" {
   name            = "example-secret-test-one"
   value           = random_password.secret_one.result
@@ -200,14 +200,16 @@ resource "azurerm_key_vault_secret" "secret_two" {
 //
 // ✓ WORKS with:
 //   1. Self-hosted runner inside VNet
-//   2. Bastion + Jumpbox (VPN to VNet)
-//   3. Chisel tunnel (App Service → VNet → *.vault.azure.net)
+//   2. Bastion native tunnel → jumpbox (SOCKS5 into the VNet → *.vault.azure.net)
+//   3. Azure Bastion tunnel from a developer laptop (same path, ad-hoc)
 </code></pre>
 
-<h2 id="chisel-solution">4. Chisel: How the Tunnel Works</h2>
+<h2 id="bastion-solution">4. Azure Bastion: How the Tunnel Works</h2>
 
-<h3>The Problem Chisel Solves</h3>
-<pre><code>BEFORE Chisel:
+<p>The platform reaches private-endpoint data planes through <strong>Azure Bastion native client tunnelling</strong> (Standard SKU) to a small Linux <strong>jumpbox</strong> VM that lives inside the VNet. There is no public proxy server and no shared tunnel password &mdash; access is authenticated with Entra ID and RBAC over the same OIDC login the pipeline already uses. The Bastion + jumpbox are provisioned by the <code>bcgov/action-deployer-vm-bastion-alz</code> action in the <code>tools</code> subscription.</p>
+
+<h3>The Problem Bastion Solves</h3>
+<pre><code>BEFORE the tunnel:
 ┌──────────────┐         ┌──────────────┐
 │ GitHub Runner │ ──OIDC──&gt; │ Azure ARM API │
 │ (Public)      │          │ mgmt.azure.com│
@@ -223,122 +225,88 @@ resource "azurerm_key_vault_secret" "secret_two" {
                           └──────────────┘
 </code></pre>
 
-<pre><code>AFTER Chisel:
+<pre><code>AFTER the tunnel:
 ┌──────────────┐         ┌──────────────┐
 │ GitHub Runner │ ──OIDC──&gt; │ Azure ARM API │
 │ (Public)      │          │ mgmt.azure.com│
 └──────┬───────┘          └──────┬───────┘
        │                          │
-       │ Creates                  │
+       │ az network bastion ssh -D (SOCKS5)
        ↓                          │
 ┌──────▼──────────┐         ┌─────▼──────┐
-│ App Service     │         │ Private    │
-│ (Chisel Server) │────────&gt; │ Endpoint   │
-│ VNet Integrated │         │ *.vault.azure.net │
+│ Azure Bastion   │         │ Private    │
+│ → jumpbox VM    │────────&gt; │ Endpoint   │
+│ (in the VNet)   │         │ *.vault.azure.net │
 └──────┬──────────┘         │ ACCESSIBLE │
        │                          │
-       │ Chisel tunnel            │
-       ↓ (HTTPS/WebSocket)        │
+       │ SOCKS5 (remote DNS)      │
+       ↓                          │
 ┌──────▼──────────┐              │
-│ Local Machine   │ ←────────────┘
-│ (Chisel Client) │
+│ Runner / Laptop │ ←────────────┘
+│ privoxy → SOCKS │
 └─────────────────┘
 </code></pre>
 
-<h3>How Chisel Works (Technical Deep Dive)</h3>
+<h3>How the Bastion Tunnel Works (Technical Deep Dive)</h3>
 
-<h4>Step 1: App Service Deployment (Control Plane - Works with OIDC)</h4>
-<p>From <code>initial-setup/infra/modules/azure-proxy/main.tf</code>:</p>
-<pre><code>resource "azurerm_linux_web_app" "azure_proxy" {
-  name                      = "${var.app_name}-${var.app_env}-azure-proxy-${random_string.proxy_dns_suffix.result}"
-  resource_group_name       = var.resource_group_name
-  location                  = var.location
-  service_plan_id           = azurerm_service_plan.azure_proxy_asp.id
+<h4>Step 1: Bastion + jumpbox deployment (Control Plane - Works with OIDC)</h4>
+<p>The <code>deploy-bastion-in-tools</code> job calls the BC Gov action (<code>.github/workflows/.deployer.yml</code>):</p>
+<pre><code>- uses: bcgov/action-deployer-vm-bastion-alz@v1.0.0
+  with:
+    app_name: ai-hub
+    app_env: tools
+    bastion_sku: Standard                 # Standard SKU = native client tunnelling
+    enable_bastion: "true"
+    enable_jumpbox: "true"
+    # CI service principal must be listed here so AAD bastion SSH works:
+    vm_admin_login_principal_ids: ${{ secrets.VM_ADMIN_LOGIN_PRINCIPAL_IDS }}
 
-  // ✓ KEY: VNet Integration
-  virtual_network_subnet_id = var.app_service_subnet_id
-
-  // ✓ KEY: Managed Identity for Docker pulls
-  identity {
-    type = "SystemAssigned"
-  }
-
-  site_config {
-    application_stack {
-      docker_image_name   = var.azure_proxy_image
-      docker_registry_url = var.container_registry_url
-    }
-  }
-
-  app_settings = {
-    // ✓ KEY: Chisel authentication
-    CHISEL_AUTH = "${random_uuid.proxy_chisel_username.result}:${random_password.proxy_chisel_password.result}"
-  }
-}
-
-// ✓ This WORKS with OIDC because:
-// 1. Creates App Service (management.azure.com) ✓
-// 2. Pulls Docker image (docker.io) ✓
-// 3. Deploys to App Service (management.azure.com) ✓
-// 4. Integrates with VNet (management.azure.com) ✓
+# ✓ This WORKS with OIDC because every step is control plane (management.azure.com):
+# 1. Create the Bastion host + public IP
+# 2. Create the jumpbox VM (no public IP) inside the jumpbox subnet
+# 3. Grant "Virtual Machine Administrator Login" RBAC for Entra ID SSH
 </code></pre>
 
-<h4>Step 2: Chisel Server Runs in App Service</h4>
-<p>From <code>azure-proxy/chisel/start-chisel.sh</code>:</p>
-<pre><code>#!/bin/sh
-set -e
+<h4>Step 2: Open a SOCKS5 tunnel through Bastion</h4>
+<p>The deploy pipeline (<code>.github/workflows/.deployer-using-secure-tunnel.yml</code>) opens a SOCKS5 proxy by SSH dynamic port-forwarding (<code>-D</code>) through Bastion native tunnelling to the jumpbox:</p>
+<pre><code># Native bastion tunnelling — no public proxy, no shared password.
+az network bastion ssh \
+  --name "$BASTION_NAME" -g ai-hub-tools --subscription "$TOOLS_SUBSCRIPTION_ID" \
+  --target-resource-id "$VM_ID" --auth-type AAD \
+  -- -D 1080 -N -q &amp;
 
-# Chisel runs as a server inside the App Service
-# Listens on port 80 (configured by PORT env var)
-
-chisel server \
-  --port $PORT \
-  --auth $CHISEL_AUTH \
-  --socks5 \
-  --reverse
-
-# What this does:
-# --port 80: Listen on HTTP (App Service handles HTTPS termination)
-# --auth: Require authentication (prevents unauthorized access)
-# --socks5: Enable SOCKS5 proxy (for general traffic)
-# --reverse: Enable reverse tunneling (clients can expose local ports)
+# -D 1080  SOCKS5 dynamic port-forward on localhost:1080
+# -N       no remote command (keep the tunnel open)
+# AAD      authenticate with the OIDC service principal (Entra ID + RBAC)
 </code></pre>
 
-<h4>Step 3: Local Machine Connects</h4>
-<p>From <code>azure-proxy/chisel/README.md</code>:</p>
-<pre><code># Developer runs this on their laptop:
+<h4>Step 3: privoxy bridges HTTP(S)_PROXY → SOCKS5</h4>
+<p>Terraform and the Azure CLI speak to an HTTP proxy; privoxy forwards that to the Bastion SOCKS5 proxy with <code>forward-socks5t</code> (remote DNS, so private-endpoint hostnames resolve on the jumpbox side):</p>
+<pre><code>docker run -d --name privoxy --network host \
+  -e SOCKS_HOST=127.0.0.1 -e SOCKS_PORT=1080 \
+  ghcr.io/&lt;org&gt;/ai-hub-tracking/azure-proxy/privoxy:latest
 
-docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
-  --auth "tunnel:XXXXXXX" \
-  https://${azure-proxy-app-service-url} \
-  0.0.0.0:5432:${postgres_hostname}$:5432
-
-# What happens:
-# 1. Chisel client on laptop connects to Chisel server in App Service
-# 2. Connection goes: laptop → Internet → App Service (public)
-# 3. App Service is VNet-integrated
-# 4. Chisel forwards: laptop:5432 → App Service → VNet → postgres:5432
+# Terraform / az then use:
+export HTTP_PROXY=http://127.0.0.1:8118
+export HTTPS_PROXY=http://127.0.0.1:8118
 </code></pre>
 
 <h4>Step 4: Traffic Flow with Private Endpoints</h4>
-<pre><code>┌──────────────┐
-│ Laptop       │
-│ Chisel Client│
-│ Port 5432    │
-└──────┬───────┘
+<pre><code>┌──────────────────┐
+│ Runner / Laptop  │
+│ Terraform / az   │
+│ HTTP_PROXY :8118 │
+└──────┬───────────┘
        │
-       │ 1. Connect to App Service
-       │ HTTPS / WebSocket
+       │ 1. privoxy → SOCKS5 (localhost:1080)
        ↓
 ┌──────▼──────────┐
-│ App Service     │
-│ (Chisel Server) │
-│ Public endpoint │
-│ VNet integrated │
+│ Azure Bastion   │
+│ native tunnel   │
+│ (Entra ID auth) │
 └──────┬──────────┘
        │
-       │ 2. Inside VNet
-       │ Private IPs
+       │ 2. SSH -D to jumpbox (inside VNet)
        ↓
 ┌──────▼──────────────────┐
 │ Private Endpoint        │
@@ -361,7 +329,7 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
 ✓ SUCCESS: Terraform can read/write secrets!
 </code></pre>
 
-<h3>Why Chisel vs Alternatives?</h3>
+<h3>Why Bastion native tunnelling vs Alternatives?</h3>
 
 <table>
     <tr>
@@ -372,11 +340,11 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
         <th>Limitations</th>
     </tr>
     <tr>
-        <td><strong>Bastion + Jumpbox</strong></td>
-        <td>$200-300/mo</td>
-        <td>High</td>
-        <td>Admin access, full VM</td>
-        <td>Expensive, overkill for single developer</td>
+        <td><strong>Bastion + jumpbox (native tunnel)</strong></td>
+        <td>~$140/mo (auto-deleted off-hours)</td>
+        <td>Medium</td>
+        <td>CI/CD + local dev, Entra ID auth, no shared secret</td>
+        <td>Standard SKU required; jumpbox/bastion warm-up on first use</td>
     </tr>
     <tr>
         <td><strong>Self-hosted Runner</strong></td>
@@ -386,11 +354,11 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
         <td>Always running, needs management</td>
     </tr>
     <tr>
-        <td><strong>Chisel + App Service</strong></td>
-        <td>$15/mo</td>
+        <td><strong>Public runner, no tunnel</strong></td>
+        <td>Free</td>
         <td>Low</td>
-        <td>Local dev, on-demand access</td>
-        <td>Manual connection needed</td>
+        <td>Control-plane-only deploys</td>
+        <td>Cannot reach private data planes at all</td>
     </tr>
 </table>
 
@@ -402,8 +370,7 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
 <ul>
     <li>✓ Network (VNets, subnets, NSGs)</li>
     <li>✓ Key Vault + Private Endpoints</li>
-    <li>✓ App Service Plans + Azure Proxy (Chisel)</li>
-    <li>✓ Bastion + Jumpbox (optional)</li>
+    <li>✓ Azure Bastion + jumpbox (native tunnel, via the bcgov action)</li>
     <li>✓ Self-hosted runners (optional)</li>
     <li>✓ API Management, App Gateway</li>
     <li>✓ Azure AI Foundry</li>
@@ -419,9 +386,8 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
 
 <p><strong>Recommended access method:</strong></p>
 <ul>
-    <li><strong>Option 1:</strong> Chisel tunnel ($15/mo) - for most developers</li>
-    <li><strong>Option 2:</strong> Bastion + Jumpbox (~$400-600/mo, Bastion Standard minimum 2 instances) - for admins who need full VM</li>
-    <li><strong>Option 3:</strong> GitHub-hosted runners + Chisel tunnel — for CI/CD (use <code>.deployer-using-secure-tunnel</code>)</li>
+    <li><strong>Option 1:</strong> Bastion native tunnel → jumpbox — for most developers and CI/CD (use <code>.deployer-using-secure-tunnel</code>)</li>
+    <li><strong>Option 2:</strong> SSH/RDP to the jumpbox via Bastion — for interactive admin work inside the VNet</li>
 </ul>
 
 <h3>Scenario 2: Project Teams (Deploy Applications)</h3>
@@ -437,8 +403,7 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
 <p><strong>What they DON'T deploy:</strong></p>
 <ul>
     <li>✗ Network infrastructure (provided by platform)</li>
-    <li>✗ Bastion/Jumpbox (platform team maintains)</li>
-    <li>✗ Chisel (platform team provides endpoint)</li>
+    <li>✗ Bastion/jumpbox (platform team maintains)</li>
     <li>✗ Key Vault (may use shared or create their own)</li>
     <li>✗ Private endpoints (configured by platform)</li>
 </ul>
@@ -452,7 +417,7 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
 
 <p><strong>Recommended access method:</strong></p>
 <ul>
-    <li><strong>Use platform's Chisel endpoint</strong> - provided by platform team</li>
+    <li><strong>Use the platform's Bastion tunnel</strong> - provided by platform team</li>
     <li><strong>Public GitHub runners</strong> - for control plane operations</li>
     <li><strong>No self-hosted needed</strong> - platform provides infrastructure</li>
 </ul>
@@ -467,13 +432,13 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
 
 <p><strong>Recommended setup:</strong></p>
 <ul>
-    <li><strong>Chisel tunnel only ($15/mo)</strong> - connect laptop to VNet</li>
+    <li><strong>Bastion native tunnel</strong> - connect laptop to the VNet via the jumpbox</li>
     <li><strong>Public GitHub runners (free)</strong> - for infrastructure deploys</li>
 </ul>
 
 <p><strong>Skip:</strong></p>
 <ul>
-    <li>✗ Bastion + Jumpbox (~$400-600/mo, Bastion Standard minimum 2 instances) - too expensive</li>
+    <li>✗ A dedicated Bastion + jumpbox - reuse the shared tools Bastion the platform already runs</li>
     <li>✗ Self-hosted runners ($100/mo) - not needed for solo work</li>
 </ul>
 
@@ -522,20 +487,20 @@ docker run --rm -it -p 5462:5432 jpillora/chisel:latest client \
     <li>Even with valid tokens, network access is required</li>
 </ol>
 
-<h3>How Chisel Solves This</h3>
+<h3>How the Bastion Tunnel Solves This</h3>
 <ol>
-    <li>App Service runs in VNet (via VNet integration)</li>
-    <li>Chisel server in App Service bridges public → private</li>
-    <li>Developer connects laptop to App Service via HTTPS</li>
-    <li>Traffic flows: laptop → App Service → VNet → private endpoints</li>
-    <li>Result: Data plane access without exposing services publicly</li>
+    <li>A jumpbox VM runs inside the VNet (no public IP)</li>
+    <li>Azure Bastion (Standard SKU) provides Entra ID-authenticated native tunnelling to it</li>
+    <li>The runner/laptop opens a SOCKS5 tunnel: <code>az network bastion ssh -- -D 1080</code></li>
+    <li>Traffic flows: runner → Bastion → jumpbox → VNet → private endpoints</li>
+    <li>Result: data plane access with no public proxy and no shared password</li>
 </ol>
 
 <h3>When to Use Each Method</h3>
 <ul>
-    <li><strong>Platform Team:</strong> Deploy all, use Chisel or Bastion for access</li>
-    <li><strong>Project Teams:</strong> Deploy apps only, use platform's Chisel</li>
-    <li><strong>Solo Dev:</strong> Deploy minimal, use Chisel only</li>
-    <li><strong>CI/CD with secrets:</strong> Use GitHub-hosted runners + Chisel tunnel (<code>.deployer-using-secure-tunnel</code> workflow)</li>
-    <li><strong>Admin work:</strong> Use Bastion + Jumpbox</li>
+    <li><strong>Platform Team:</strong> Deploy all, use the Bastion tunnel for access</li>
+    <li><strong>Project Teams:</strong> Deploy apps only, use the platform's Bastion tunnel</li>
+    <li><strong>Solo Dev:</strong> Deploy minimal, reuse the shared Bastion tunnel</li>
+    <li><strong>CI/CD with secrets:</strong> Use GitHub-hosted runners + the Bastion tunnel (<code>.deployer-using-secure-tunnel</code> workflow)</li>
+    <li><strong>Admin work:</strong> SSH/RDP to the jumpbox via Bastion</li>
 </ul>

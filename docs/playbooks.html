@@ -1032,7 +1032,7 @@
                     </a>
                     <a href="technical-deep-dive.html" class="">
                         Technical Deep Dive
-                        <small>Control/data plane &amp; Chisel architecture</small>
+                        <small>Control/data plane &amp; Bastion tunnel architecture</small>
                     </a>
                 </div>
             </div>
@@ -1156,12 +1156,12 @@
             <div class="card-arrow">View Playbook →</div>
         </div>
     </a>
-    <a href="#chisel-tunnel" class="card-link">
+    <a href="#bastion-tunnel" class="card-link">
         <div class="card" style="border-left-color: #8b5cf6;">
             <div class="feature-icon purple">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/></svg>
             </div>
-            <h3 id="chisel-tunnel-setup" style="margin-top: 0;">Chisel Tunnel Setup</h3>
+            <h3 id="bastion-tunnel-setup" style="margin-top: 0;">Bastion Tunnel Setup</h3>
             <p>Local access to private Azure resources</p>
             <div class="card-arrow">View Playbook →</div>
         </div>
@@ -1516,10 +1516,10 @@ gh run view &lt;RUN_ID&gt; --log</pre>
 <p>Check <a href="https://www.githubstatus.com/" target="_blank">GitHub Status Page</a> for platform issues.</p>
 
 <!-- ============================================================================
-     PLAYBOOK: CHISEL TUNNEL SETUP
+     PLAYBOOK: BASTION TUNNEL SETUP
      ============================================================================ -->
 
-<h2 id="chisel-tunnel">Playbook: Chisel Tunnel for Local Development</h2>
+<h2 id="bastion-tunnel">Playbook: Bastion Tunnel for Local Development</h2>
 
 <div class="alert alert-info">
     <span class="alert-icon">🔧</span>
@@ -1541,71 +1541,51 @@ gh run view &lt;RUN_ID&gt; --log</pre>
         <li>You need to connect to a private PostgreSQL/CosmosDB database from your laptop</li>
         <li>You need to debug private endpoints locally</li>
         <li>You need to test API calls to private Azure services</li>
-        <li>Bastion/Jumpbox is overkill for quick data plane access</li>
+        <li>You want data-plane access without standing up your own infrastructure</li>
     </ul>
 </div>
 
 <h3 id="prerequisites">Prerequisites</h3>
 
 <ul>
-    <li><strong>Docker</strong> installed on your local machine</li>
-    <li><strong>Chisel credentials</strong> from Terraform output (contact platform team)</li>
-    <li><strong>Azure Proxy deployed</strong> (<code>enable_azure_proxy = true</code> in Terraform)</li>
+    <li><strong>Azure CLI</strong> (<code>az</code>) installed and signed in (<code>az login</code>)</li>
+    <li><strong>Bastion + ssh CLI extensions</strong> — the script installs them on first use</li>
+    <li><strong>"Virtual Machine Administrator Login"</strong> RBAC on the jumpbox (Entra ID auth) — request from the platform team</li>
+    <li>The shared <strong>Azure Bastion + jumpbox</strong> deployed by the <code>bcgov/action-deployer-vm-bastion-alz</code> action (resource group <code>ai-hub-tools</code>, tools subscription)</li>
 </ul>
 
-<h3 id="step-1-get-chisel-credentials">Step 1: Get Chisel Credentials</h3>
+<h3 id="step-1-open-the-bastion-socks5-tunnel">Step 1: Open the Bastion SOCKS5 tunnel</h3>
 
-<p>The Chisel server credentials are stored in Terraform outputs. Contact the platform team or retrieve them yourself:</p>
+<p>The tunnel is opened with Azure Bastion native client tunnelling — no credentials to copy, auth is Entra ID + RBAC. The tunnel script is maintained upstream by the <code>bcgov/action-deployer-vm-bastion-alz</code> action, so fetch it on demand (we don't vendor it):</p>
 
-<pre># From a machine with Terraform access (e.g., Jumpbox)
-cd initial-setup/infra
-terraform output azure_proxy_chisel_auth
+<pre>curl -fsSL \
+  https://raw.githubusercontent.com/bcgov/action-deployer-vm-bastion-alz/v1.0.0/bastion-consumer-scripts/bastion-proxy.sh \
+  -o bastion-proxy.sh &amp;&amp; chmod +x bastion-proxy.sh
 
-# Output format: tunnel:XXXXXXXX</pre>
+./bastion-proxy.sh -g ai-hub-tools -b ai-hub-bastion -v ai-hub-jumpbox \
+  -s &lt;tools-subscription-id&gt; -t &lt;tenant-id&gt; -p 8228
 
-<p>You'll also need the App Service URL:</p>
+# Prints: SOCKS5 proxy ready on localhost:8228   (leave it running)</pre>
 
-<pre>terraform output azure_proxy_url
-
-# Output: https://&lt;app-name&gt;.azurewebsites.net</pre>
-
-<h3 id="step-2-connect-to-a-private-database">Step 2: Connect to a Private Database</h3>
-
-<p>Example: Connecting to a private PostgreSQL database on port 5432:</p>
-
-<pre># Run Chisel client in Docker
-docker run --rm -it \
-  -p 5432:5432 \
-  jpillora/chisel:latest client \
-  --auth "tunnel:XXXXXXXX" \
-  https://&lt;app-name&gt;.azurewebsites.net \
-  0.0.0.0:5432:&lt;postgres-server&gt;.postgres.database.azure.com:5432
-
-# Now connect locally
-psql -h localhost -p 5432 -U &lt;username&gt; -d &lt;database&gt;</pre>
+<p>See <code>initial-setup/infra/scripts/bastion-proxy.md</code> for the PowerShell variant and full details.</p>
 
 <div class="alert alert-warning">
     <span class="alert-icon">⚠️</span>
     <div>
-        <strong>Port Conflicts:</strong> If port 5432 is already in use locally, map to a different port:
-        <pre style="margin: 0.5rem 0 0;">-p 5462:5432</pre>
-        Then connect with <code>psql -h localhost -p 5462 ...</code>
+        <strong>Port Conflicts:</strong> If port 8228 is in use, the script automatically picks the next free port and prints it. Pass <code>-p &lt;port&gt;</code> to choose a specific starting port.
     </div>
 </div>
 
-<h3 id="step-3-connect-to-multiple-services-socks5-proxy">Step 3: Connect to Multiple Services (SOCKS5 Proxy)</h3>
+<h3 id="step-2-connect-to-a-private-database-socks5">Step 2: Connect to a Private Database (SOCKS5)</h3>
 
-<p>For accessing multiple private services or browsing private endpoints:</p>
+<p>A single SOCKS5 port reaches <em>any</em> hostname the jumpbox can resolve. Route a client through it — for example PostgreSQL via <code>proxychains</code>:</p>
 
-<pre># Run Chisel as SOCKS5 proxy
-docker run --rm -it \
-  -p 1080:1080 \
-  jpillora/chisel:latest client \
-  --auth "tunnel:XXXXXXXX" \
-  https://&lt;app-name&gt;.azurewebsites.net \
-  socks</pre>
+<pre># proxychains4 configured with: socks5 127.0.0.1 8228
+proxychains4 psql \
+  -h &lt;postgres-server&gt;.postgres.database.azure.com \
+  -U &lt;username&gt; -d &lt;database&gt;</pre>
 
-<h4>Configure Firefox with SmartProxy Extension</h4>
+<h3 id="step-3-browse-private-endpoints-firefox-smartproxy">Step 3: Browse Private Endpoints (Firefox + SmartProxy)</h3>
 
 <ol>
     <li>Install <a href="https://addons.mozilla.org/en-US/firefox/addon/smartproxy/" target="_blank">SmartProxy extension</a></li>
@@ -1613,7 +1593,8 @@ docker run --rm -it \
         <ul>
             <li>Type: SOCKS5</li>
             <li>Address: localhost</li>
-            <li>Port: 1080</li>
+            <li>Port: 8228 (or the port the script printed)</li>
+            <li>Enable <strong>"Proxy DNS when using SOCKS5"</strong> (remote DNS for private endpoints)</li>
         </ul>
     </li>
     <li>Add rules for Azure private endpoints:
@@ -1625,18 +1606,12 @@ docker run --rm -it \
     </li>
 </ol>
 
-<h3 id="step-4-connect-to-key-vault">Step 4: Connect to Key Vault</h3>
+<h3 id="step-4-connect-to-key-vault-use-the-azure-cli">Step 4: Connect to Key Vault / use the Azure CLI</h3>
 
-<pre># Tunnel to Key Vault (port 443)
-docker run --rm -it \
-  -p 8443:443 \
-  jpillora/chisel:latest client \
-  --auth "tunnel:XXXXXXXX" \
-  https://&lt;app-name&gt;.azurewebsites.net \
-  0.0.0.0:443:&lt;keyvault-name&gt;.vault.azure.net:443
+<p>For HTTP-proxy clients (Azure CLI, Terraform, Postman), bridge the SOCKS5 proxy to an HTTP proxy with privoxy (see <a href="https://github.com/bcgov/ai-hub-tracking/tree/main/azure-proxy/privoxy">azure-proxy/privoxy</a> or <code>docker compose up -d</code>):</p>
 
-# Use Azure CLI with HTTPS_PROXY (alternative method)
-HTTPS_PROXY=socks5://localhost:1080 az keyvault secret list --vault-name &lt;keyvault-name&gt;</pre>
+<pre># privoxy exposes http://127.0.0.1:8118 → Bastion SOCKS5
+HTTPS_PROXY=http://127.0.0.1:8118 az keyvault secret list --vault-name &lt;keyvault-name&gt;</pre>
 
 <h3 id="troubleshooting">Troubleshooting</h3>
 
@@ -1647,29 +1622,29 @@ HTTPS_PROXY=socks5://localhost:1080 az keyvault secret list --vault-name &lt;key
         <th>Solution</th>
     </tr>
     <tr>
-        <td>Connection refused</td>
-        <td>Chisel server not running or wrong URL</td>
-        <td>Verify App Service is running, check URL</td>
+        <td>Bastion not found / not ready</td>
+        <td>Cost-saving automation deleted the Bastion off-hours</td>
+        <td>Wait for the weekday recreate, or ask the platform team to run the <code>Create-BastionHost</code> runbook</td>
     </tr>
     <tr>
-        <td>Authentication failed</td>
-        <td>Wrong credentials</td>
-        <td>Get fresh credentials from Terraform output</td>
+        <td>Authentication / permission failed</td>
+        <td>Missing "Virtual Machine Administrator Login" RBAC, or signed in as the wrong account</td>
+        <td>Request the role; sign in with <code>az login</code> in a private browser window</td>
     </tr>
     <tr>
         <td>Timeout connecting to target</td>
-        <td>Target hostname wrong or not in VNet</td>
-        <td>Verify private endpoint hostname, check VNet peering</td>
+        <td>Target hostname wrong or not reachable from the jumpbox</td>
+        <td>Verify the private endpoint hostname and VNet peering</td>
     </tr>
     <tr>
-        <td>Port already in use</td>
-        <td>Local service using the port</td>
-        <td>Use different local port: <code>-p 5462:5432</code></td>
+        <td>VM is deallocated</td>
+        <td>Jumpbox auto-shutdown</td>
+        <td>The script offers to start it; or <code>az vm start --ids &lt;vm-id&gt;</code></td>
     </tr>
     <tr>
         <td>DNS resolution failed</td>
-        <td>Private DNS not linked</td>
-        <td>Use IP address instead, or check Private DNS Zone</td>
+        <td>Local DNS used instead of remote</td>
+        <td>Enable remote DNS (SmartProxy "Proxy DNS"; privoxy uses <code>forward-socks5t</code>)</td>
     </tr>
 </table>
 
@@ -1679,19 +1654,19 @@ HTTPS_PROXY=socks5://localhost:1080 az keyvault secret list --vault-name &lt;key
     <span class="alert-icon">🔒</span>
     <div>
         <ul style="margin: 0;">
-            <li><strong>Credentials:</strong> Chisel auth is randomly generated and stored in App Service settings (encrypted by Azure)</li>
-            <li><strong>Access logging:</strong> All connections are logged in Application Insights</li>
-            <li><strong>Scope:</strong> Chisel can only reach resources within the VNet or peered VNets</li>
-            <li><strong>Not for tenants:</strong> This is platform team tooling, not for ministry developers</li>
+            <li><strong>No shared secret:</strong> access is authenticated with Entra ID + RBAC over your <code>az login</code> session (12h limit)</li>
+            <li><strong>Access logging:</strong> Bastion connections are logged in Azure Monitor / the Bastion diagnostics</li>
+            <li><strong>Scope:</strong> the tunnel can only reach resources the jumpbox can reach (the VNet and peered VNets)</li>
+            <li><strong>Not for tenants:</strong> this is platform team tooling, not for ministry developers</li>
         </ul>
     </div>
 </div>
 
 <h3 id="related-resources">Related Resources</h3>
 <ul>
-    <li><a href="decisions.html#adr-011">ADR-011: Control Plane vs Data Plane Access & Chisel Tunnel</a></li>
-    <li><a href="terraform-reference.html">Terraform Reference: azure-proxy module</a></li>
-    <li><a href="https://github.com/jpillora/chisel" target="_blank">Chisel GitHub Repository</a></li>
+    <li><a href="decisions.html#adr-011">ADR-011: Control Plane vs Data Plane Access & Bastion Tunnel</a></li>
+    <li><a href="https://github.com/bcgov/action-deployer-vm-bastion-alz" target="_blank">bcgov/action-deployer-vm-bastion-alz</a></li>
+    <li><a href="https://learn.microsoft.com/en-us/azure/bastion/native-client" target="_blank">Azure Bastion native client support</a></li>
 </ul>
     </main>
     <footer class="site-footer">

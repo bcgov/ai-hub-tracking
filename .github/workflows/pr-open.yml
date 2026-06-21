@@ -45,28 +45,22 @@ jobs:
       comparison: pr
       default_changed: true
 
-  deploy-proxy-in-tools-environment:
-    name: Deploy to 'tools' Environment
+  deploy-bastion-in-tools:
+    name: Deploy Bastion in 'tools' Environment
     needs: detect-infra-changes
     if: needs.detect-infra-changes.outputs.changed == 'true'
     uses: ./.github/workflows/.deployer.yml
     with:
-      environment_name: tools
       command: apply
-      target_module: azure_proxy
-      tag: latest
-      terraform_log_level: INFO
     secrets: inherit
   plan-against-test-environment:
     name: Plan against test Environment
-    needs: [detect-infra-changes, deploy-proxy-in-tools-environment]
+    needs: [detect-infra-changes, deploy-bastion-in-tools]
     if: needs.detect-infra-changes.outputs.changed == 'true'
     uses: ./.github/workflows/.deployer-using-secure-tunnel.yml
     with:
       environment_name: test
       command: plan
-      proxy_url: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_url }}
-      proxy_auth: ${{ needs.deploy-proxy-in-tools-environment.outputs.proxy_auth }}
       tag: latest
       terraform_log_level: ERROR
     secrets: inherit
@@ -78,7 +72,7 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - name: Download plan comment artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
         with:
           name: plan-comment
           path: ${{ runner.temp }}/plan-comment
@@ -103,7 +97,7 @@ jobs:
           fi
 
       - name: Append plan to PR description
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           script: |
             const startMarker = '<!-- ai-hub-infra-changes -->';
@@ -170,10 +164,10 @@ jobs:
     timeout-minutes: 20
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version-file: ${{ env.PORTAL_NODE_VERSION_FILE }}
           cache: npm
@@ -222,10 +216,10 @@ jobs:
       app_hostname: ${{ steps.apply.outputs.app_hostname }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version-file: ${{ env.PORTAL_NODE_VERSION_FILE }}
           cache: npm
@@ -234,14 +228,14 @@ jobs:
             tenant-onboarding-portal/frontend/package-lock.json
 
       - name: Login to Azure (OIDC)
-        uses: azure/login@v2
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v4
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
@@ -277,7 +271,7 @@ jobs:
 
       - name: Update PR comment with preview URL
         if: github.event_name == 'pull_request'
-        uses: actions/github-script@v7
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
         with:
           script: |
             const hostname   = "${{ steps.apply.outputs.app_hostname }}";
