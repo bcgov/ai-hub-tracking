@@ -32,7 +32,7 @@ jobs:
       tags: |
         ${{ github.event.number || 'manual' }}
         manual-${{ github.run_number }}
-        ${{github.event.number}}-${{ github.run_number }}
+        ${{ github.event.number || 'manual' }}-${{ github.run_number }}
         latest
 
   detect-infra-changes:
@@ -209,7 +209,9 @@ jobs:
     runs-on: ubuntu-24.04
     environment: tools
     env:
-      TF_VERSION: 1.12.2
+      # TF_VERSION is injected at runtime by the "Load constants" step, which sources
+      # .github/lib/constants.sh into $GITHUB_ENV. Do NOT redeclare it as a static env: key —
+      # a static env: value would shadow $GITHUB_ENV and leave terraform_version empty.
       TF_WORKING_DIR: tenant-onboarding-portal/infra
     outputs:
       app_service_name: ${{ steps.apply.outputs.app_service_name }}
@@ -217,6 +219,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+
+      - name: Load constants
+        shell: bash
+        run: |
+          source .github/lib/constants.sh
+          echo "TF_VERSION=$TF_VERSION" >> "$GITHUB_ENV"
 
       - name: Setup Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020

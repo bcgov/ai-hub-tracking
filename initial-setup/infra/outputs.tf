@@ -5,6 +5,12 @@
 # Azure Bastion + jumpbox outputs now come from the bcgov/action-deployer-vm-bastion-alz
 # action's own Terraform state (tools subscription), not this root.
 
+# Monitoring outputs
+output "log_analytics_workspace_id" {
+  description = "Resource ID of the shared Log Analytics workspace. Consumed by the Bastion deployer (.github/workflows/.deployer.yml) as a bring-your-own workspace for Bastion audit diagnostics."
+  value       = module.monitoring.log_analytics_workspace_id
+}
+
 # GitHub Runners on Azure Container Apps outputs
 output "github_runners_environment_name" {
   description = "Name of the Container App Environment for GitHub runners"

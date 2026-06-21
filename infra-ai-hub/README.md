@@ -1478,7 +1478,7 @@ The workflow uses:
 1. **Bastion proxy script** - Opens a SOCKS5 tunnel to Azure via Bastion native tunnelling
 2. **Privoxy** - Converts the SOCKS5 proxy to HTTP/HTTPS proxy (Terraform-compatible)
 
-The Bastion + jumpbox are provisioned by the [`bcgov/action-deployer-vm-bastion-alz`](https://github.com/bcgov/action-deployer-vm-bastion-alz) action into the `ai-hub-tools` resource group (tools subscription). That same action publishes the local-dev tunnel scripts, so we don't vendor them — fetch them from upstream on demand.
+The Bastion + jumpbox are provisioned by the [`bcgov/action-deployer-vm-bastion-alz`](https://github.com/bcgov/action-deployer-vm-bastion-alz) action into the `ai-hub-bastion-tools` resource group (tools subscription). That same action publishes the local-dev tunnel scripts, so we don't vendor them — fetch them from upstream on demand.
 
 ---
 
@@ -1496,7 +1496,7 @@ chmod +x bastion-proxy.sh
 
 # Our tools stack is named ai-hub-<env>. Port 8228 matches docker-compose.yml.
 ./bastion-proxy.sh \
-  -g ai-hub-tools \
+  -g ai-hub-bastion-tools \
   -b ai-hub-bastion \
   -v ai-hub-jumpbox \
   -s <tools-subscription-id> \

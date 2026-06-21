@@ -30,10 +30,10 @@ curl -fsSL \
   -o bastion-proxy.sh
 chmod +x bastion-proxy.sh
 
-# Run it. Our tools stack is named ai-hub-<env>: RG ai-hub-tools, bastion
-# ai-hub-bastion, jumpbox ai-hub-jumpbox. Port 8228 matches docker-compose.yml.
+# Run it. Our tools stack is named ai-hub-<env>: bastion RG ai-hub-bastion-tools,
+# bastion ai-hub-bastion, jumpbox ai-hub-jumpbox. Port 8228 matches docker-compose.yml.
 ./bastion-proxy.sh \
-  -g ai-hub-tools \
+  -g ai-hub-bastion-tools \
   -b ai-hub-bastion \
   -v ai-hub-jumpbox \
   -s <tools-subscription-id> \
@@ -47,7 +47,7 @@ chmod +x bastion-proxy.sh
 iwr https://raw.githubusercontent.com/bcgov/action-deployer-vm-bastion-alz/v1.0.0/bastion-consumer-scripts/bastion-proxy.ps1 -OutFile bastion-proxy.ps1
 
 .\bastion-proxy.ps1 `
-  -ResourceGroup ai-hub-tools `
+  -ResourceGroup ai-hub-bastion-tools `
   -BastionName ai-hub-bastion `
   -VmName ai-hub-jumpbox `
   -SubscriptionId <tools-subscription-id> `
@@ -58,7 +58,7 @@ iwr https://raw.githubusercontent.com/bcgov/action-deployer-vm-bastion-alz/v1.0.
 Don't know the exact names? Discover them from Azure:
 
 ```bash
-RG=ai-hub-tools
+RG=ai-hub-bastion-tools
 az network bastion list -g "$RG" --subscription <tools-subscription-id> --query '[0].name' -o tsv
 az vm list            -g "$RG" --subscription <tools-subscription-id> --query '[0].name' -o tsv
 ```

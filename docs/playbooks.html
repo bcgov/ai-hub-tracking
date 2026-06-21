@@ -1551,7 +1551,7 @@ gh run view &lt;RUN_ID&gt; --log</pre>
     <li><strong>Azure CLI</strong> (<code>az</code>) installed and signed in (<code>az login</code>)</li>
     <li><strong>Bastion + ssh CLI extensions</strong> — the script installs them on first use</li>
     <li><strong>"Virtual Machine Administrator Login"</strong> RBAC on the jumpbox (Entra ID auth) — request from the platform team</li>
-    <li>The shared <strong>Azure Bastion + jumpbox</strong> deployed by the <code>bcgov/action-deployer-vm-bastion-alz</code> action (resource group <code>ai-hub-tools</code>, tools subscription)</li>
+    <li>The shared <strong>Azure Bastion + jumpbox</strong> deployed by the <code>bcgov/action-deployer-vm-bastion-alz</code> action (resource group <code>ai-hub-bastion-tools</code>, tools subscription)</li>
 </ul>
 
 <h3 id="step-1-open-the-bastion-socks5-tunnel">Step 1: Open the Bastion SOCKS5 tunnel</h3>
@@ -1562,7 +1562,7 @@ gh run view &lt;RUN_ID&gt; --log</pre>
   https://raw.githubusercontent.com/bcgov/action-deployer-vm-bastion-alz/v1.0.0/bastion-consumer-scripts/bastion-proxy.sh \
   -o bastion-proxy.sh &amp;&amp; chmod +x bastion-proxy.sh
 
-./bastion-proxy.sh -g ai-hub-tools -b ai-hub-bastion -v ai-hub-jumpbox \
+./bastion-proxy.sh -g ai-hub-bastion-tools -b ai-hub-bastion -v ai-hub-jumpbox \
   -s &lt;tools-subscription-id&gt; -t &lt;tenant-id&gt; -p 8228
 
 # Prints: SOCKS5 proxy ready on localhost:8228   (leave it running)</pre>

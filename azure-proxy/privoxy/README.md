@@ -23,7 +23,7 @@ VS Code / Postman / Terraform (HTTP proxy)
 ## 1) Start your Bastion SOCKS tunnel
 
 The Bastion + jumpbox are provisioned by the `bcgov/action-deployer-vm-bastion-alz` action in the
-`ai-hub-tools` resource group (tools subscription). That action also publishes the tunnel script, so
+`ai-hub-bastion-tools` resource group (tools subscription). That action also publishes the tunnel script, so
 fetch it from upstream (we don't vendor it) and open a SOCKS5 proxy through Bastion native
 tunnelling (default port `8228`):
 
@@ -32,7 +32,7 @@ curl -fsSL \
   https://raw.githubusercontent.com/bcgov/action-deployer-vm-bastion-alz/v1.0.0/bastion-consumer-scripts/bastion-proxy.sh \
   -o bastion-proxy.sh && chmod +x bastion-proxy.sh
 
-./bastion-proxy.sh -g ai-hub-tools -b ai-hub-bastion -v ai-hub-jumpbox \
+./bastion-proxy.sh -g ai-hub-bastion-tools -b ai-hub-bastion -v ai-hub-jumpbox \
   -s <tools-subscription-id> -t <tenant-id> -p 8228
 ```
 

@@ -304,7 +304,7 @@
     <text x="1160" y="635" text-anchor="middle" font-family="Arial, sans-serif" font-size="10" fill="#a78bfa" font-weight="bold">Secure Tunnel Architecture</text>
     <g font-family="Arial, sans-serif" font-size="8" fill="#94a3b8">
       <text x="995" y="655">1. .deployer.yml → deploy Bastion + jumpbox to tools</text>
-      <text x="995" y="670">2. Bastion + jumpbox ready in ai-hub-tools</text>
+      <text x="995" y="670">2. Bastion + jumpbox ready in ai-hub-bastion-tools</text>
       <text x="995" y="685">3. .deployer-using-secure-tunnel.yml ensures Bastion up</text>
       <text x="995" y="700">4. az bastion ssh -D → SOCKS5 → Privoxy → HTTP proxy</text>
       <text x="995" y="715" fill="#ef4444">5. All TF traffic routed through VNet private endpoints</text>

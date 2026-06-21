@@ -13,7 +13,9 @@ on:
         type: string
 
 env:
-  TF_VERSION: 1.12.2
+  # TF_VERSION is injected at runtime by the "Load constants" step, which sources
+  # .github/lib/constants.sh into $GITHUB_ENV. Do NOT redeclare it as a static env: key —
+  # a static env: value would shadow $GITHUB_ENV and leave terraform_version empty.
   # Common vars shared by both integration test steps
   ARM_USE_OIDC: "true"
   CI: "true"
@@ -56,11 +58,16 @@ jobs:
       TEST_ENV: ${{ inputs.environment_name }}
       # Bastion + jumpbox live in the tools subscription; bastion `az` calls target it explicitly.
       TOOLS_SUBSCRIPTION_ID: ${{ secrets.TOOLS_SUBSCRIPTION_ID }}
-      BASTION_RESOURCE_GROUP: ai-hub-tools
-      SOCKS_PORT: "1080"
+      # BASTION_RESOURCE_GROUP and SOCKS_PORT are sourced from .github/lib/constants.sh
+      # by ensure-bastion.sh and bastion-purge.sh directly — no workflow-level override needed.
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - name: Load constants
+        shell: bash
+        run: |
+          source .github/lib/constants.sh
+          echo "TF_VERSION=$TF_VERSION" >> "$GITHUB_ENV"
       - name: Setup Python
         uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:

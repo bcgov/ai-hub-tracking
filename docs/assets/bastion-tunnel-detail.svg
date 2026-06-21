@@ -180,8 +180,8 @@
   <rect x="770" y="710" width="280" height="80" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
   <text x="910" y="733" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#0c4a6e" text-anchor="middle">Setup Commands</text>
   <text x="780" y="752" font-family="Courier New" font-size="8" fill="#075985"># Get from Terraform output</text>
-  <text x="780" y="765" font-family="Courier New" font-size="8" fill="#075985">az network bastion list -g ai-hub-tools</text>
-  <text x="780" y="778" font-family="Courier New" font-size="8" fill="#075985">az network bastion list -g ai-hub-tools</text>
+  <text x="780" y="765" font-family="Courier New" font-size="8" fill="#075985">az network bastion list -g ai-hub-bastion-tools</text>
+  <text x="780" y="778" font-family="Courier New" font-size="8" fill="#075985">az network bastion list -g ai-hub-bastion-tools</text>
 
   <!-- Footer -->
   <rect x="30" y="830" width="1040" height="50" rx="8" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1"/>

@@ -9,7 +9,8 @@
 #                             (default: "Held by GitHub Actions")
 #
 # Reads env vars:
-#   BASTION_RESOURCE_GROUP   resource group containing bastion + jumpbox (e.g. ai-hub-tools)
+#   BASTION_RESOURCE_GROUP   resource group containing bastion + jumpbox.
+#                             Defaults to value in .github/lib/constants.sh; override via env.
 #   TOOLS_SUBSCRIPTION_ID    Azure subscription ID for the tools environment
 #   SOCKS_PORT               local SOCKS5 port to open (default: 1080)
 #
@@ -32,6 +33,12 @@
 #   then starts privoxy to bridge HTTP(S)_PROXY → SOCKS5 with remote DNS.
 #   After this script exits, callers should set HTTP_PROXY / HTTPS_PROXY to http://127.0.0.1:8118.
 set -euo pipefail
+
+# Load centralized constants (sets BASTION_RESOURCE_GROUP, SOCKS_PORT, etc.).
+# Callers may override any variable in the environment before invoking this script.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=.github/lib/constants.sh
+source "$SCRIPT_DIR/../lib/constants.sh"
 
 PRIVOXY_IMAGE=""
 NOTES="Held by GitHub Actions"

@@ -1102,7 +1102,7 @@
         <tr>
             <td><strong>.deployer.yml</strong></td>
             <td>Called by other workflows</td>
-            <td>Reusable Terraform deployer for <code>initial-setup/infra</code> (tools bootstrap and module-level operations)</td>
+            <td>Reusable two-stage <code>tools</code> deployer: <code>initial-setup/infra</code> (resource group, network, monitoring) then Azure Bastion + jumpbox via the bcgov action</td>
         </tr>
         <tr>
             <td><strong>.deployer-using-secure-tunnel.yml</strong></td>
@@ -1467,7 +1467,7 @@
 
 <h2 id="deployeryml-reusable-workflow">.deployer.yml (Reusable Workflow)</h2>
 
-<p>Reusable workflow that provisions the Azure Bastion + jumpbox in the <code>tools</code> environment by calling the <a href="https://github.com/bcgov/action-deployer-vm-bastion-alz"><code>bcgov/action-deployer-vm-bastion-alz</code></a> action (in the tools subscription). It replaces the legacy proxy-based deploy.</p>
+<p>Reusable workflow (<strong>.Tools Environment Deployer</strong>) that provisions the shared <code>tools</code> environment in two ordered stages: (1) an <strong>initial-setup</strong> job runs the <code>initial-setup/infra</code> Terraform &mdash; resource group, spoke network wiring, and monitoring (Log Analytics workspace + Application Insights); (2) a <strong>bastion</strong> job provisions the Azure Bastion + jumpbox by calling the <a href="https://github.com/bcgov/action-deployer-vm-bastion-alz"><code>bcgov/action-deployer-vm-bastion-alz</code></a> action (in the tools subscription), reusing the Log Analytics workspace from stage 1 as a bring-your-own workspace for Bastion diagnostics. It replaces the legacy proxy-based deploy. On <code>destroy</code>, the initial-setup stage is intentionally skipped so tearing down the Bastion stack does not remove the shared tools infrastructure.</p>
 
 <div class="card">
     <h3 id="inputs">Inputs</h3>
@@ -1492,10 +1492,13 @@
 <div class="card card-gold">
     <h3 id="key-features">Key Features</h3>
     <ul>
+        <li><strong>Two-stage deploy</strong>: the <code>initial-setup</code> job (resource group, network, monitoring) runs first; the <code>bastion</code> job <code>needs</code> it and consumes its outputs</li>
+        <li><strong>Shared Log Analytics workspace</strong>: the LAW created in stage 1 is passed to the Bastion action as <code>existing_log_analytics_workspace_id</code>, avoiding a duplicate workspace</li>
         <li><strong>OIDC Authentication</strong>: The bcgov action authenticates with federated credentials (no secrets)</li>
         <li><strong>Tools subscription</strong>: Deploys into the tools subscription via <code>TOOLS_SUBSCRIPTION_ID</code></li>
         <li><strong>Bastion native tunnelling</strong>: Standard SKU Bastion + jumpbox with Entra ID SSH login</li>
         <li><strong>Cost-saving automation</strong>: <code>enable_bastion_automation</code> runbooks delete/recreate the Bastion on a schedule</li>
+        <li><strong>Safe teardown</strong>: <code>destroy</code> skips the initial-setup stage, preserving shared tools infra (RG, network, LAW)</li>
     </ul>
 </div>
 

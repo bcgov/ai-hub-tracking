@@ -30,7 +30,9 @@ on:
         description: "Whether Terraform plan contains infrastructure changes"
         value: ${{ jobs.terraform.outputs.plan_has_changes }}
 env:
-  TF_VERSION: 1.12.2
+  # TF_VERSION is injected at runtime by the "Load constants" step, which sources
+  # .github/lib/constants.sh into $GITHUB_ENV. Do NOT redeclare it as a static env: key —
+  # a static env: value would shadow $GITHUB_ENV and leave terraform_version empty.
   TF_LOG: ${{ inputs.terraform_log_level }}
 permissions:
   id-token: write # Required for OIDC authentication
@@ -65,11 +67,16 @@ jobs:
     env:
       # Bastion + jumpbox live in the tools subscription; all bastion `az` calls target it explicitly.
       TOOLS_SUBSCRIPTION_ID: ${{ secrets.TOOLS_SUBSCRIPTION_ID }}
-      BASTION_RESOURCE_GROUP: ai-hub-tools
-      SOCKS_PORT: "1080"
+      # BASTION_RESOURCE_GROUP and SOCKS_PORT are sourced from .github/lib/constants.sh
+      # by ensure-bastion.sh and bastion-purge.sh directly — no workflow-level override needed.
     steps:
       - name: Checkout
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+      - name: Load constants
+        shell: bash
+        run: |
+          source .github/lib/constants.sh
+          echo "TF_VERSION=$TF_VERSION" >> "$GITHUB_ENV"
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:

@@ -271,7 +271,7 @@ resource "azurerm_key_vault_secret" "secret_two" {
 <p>The deploy pipeline (<code>.github/workflows/.deployer-using-secure-tunnel.yml</code>) opens a SOCKS5 proxy by SSH dynamic port-forwarding (<code>-D</code>) through Bastion native tunnelling to the jumpbox:</p>
 <pre><code># Native bastion tunnelling — no public proxy, no shared password.
 az network bastion ssh \
-  --name "$BASTION_NAME" -g ai-hub-tools --subscription "$TOOLS_SUBSCRIPTION_ID" \
+  --name "$BASTION_NAME" -g ai-hub-bastion-tools --subscription "$TOOLS_SUBSCRIPTION_ID" \
   --target-resource-id "$VM_ID" --auth-type AAD \
   -- -D 1080 -N -q &amp;
 

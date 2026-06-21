@@ -20,7 +20,9 @@ permissions:
   contents: read
 
 env:
-  TF_VERSION: 1.12.2
+  # TF_VERSION is injected at runtime by the "Load constants" step, which sources
+  # .github/lib/constants.sh into $GITHUB_ENV. Do NOT redeclare it as a static env: key —
+  # a static env: value would shadow $GITHUB_ENV and leave terraform_version empty.
   TF_WORKING_DIR: tenant-onboarding-portal/infra
 
 jobs:
@@ -31,7 +33,13 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
-      
+
+      - name: Load constants
+        shell: bash
+        run: |
+          source .github/lib/constants.sh
+          echo "TF_VERSION=$TF_VERSION" >> "$GITHUB_ENV"
+
       - name: Login to Azure (OIDC)
         uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
         with:

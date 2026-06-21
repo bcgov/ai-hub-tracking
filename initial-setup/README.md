@@ -198,8 +198,9 @@ action. Before the action runs against the shared tools VNet for the first time:
    first (e.g. `terraform state rm` the old `module.bastion`/`module.jumpbox`/subnet resources, then
    delete the orphaned Azure subnets) so the action can create its own without an `AzureBastionSubnet`
    collision. If they were never applied (dormant), there is nothing to migrate.
-3. Run `.github/workflows/.deployer.yml` (via `add-or-remove-module.yml` → apply) once to create the
-   Bastion + jumpbox + subnets fresh in `ai-hub-tools`.
+3. Run `.github/workflows/.deployer.yml` (via `add-or-remove-module.yml` → apply) once. It applies the
+   initial-setup infra (resource group, network, monitoring) first, then creates the Bastion + jumpbox +
+   subnets fresh in `ai-hub-bastion-tools`, reusing the Log Analytics workspace from the initial-setup stage.
 
 ## Directory Structure
 
