@@ -60,6 +60,10 @@ jobs:
         uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
         with:
           terraform_version: ${{ env.TF_VERSION }}
+          # Disable the wrapper so `terraform output` errors go to stderr,
+          # not stdout — prevents the annotation "::error::Terraform exited
+          # with code 1." from being captured into log_analytics_workspace_id.
+          terraform_wrapper: false
 
       - name: Make deploy script executable
         shell: bash
@@ -100,8 +104,25 @@ jobs:
             -var="tenant_id=${{ secrets.AZURE_TENANT_ID }}" \
             -var="client_id=${{ secrets.AZURE_CLIENT_ID }}" \
             -var="use_oidc=true"
-          LAW_ID="$(terraform output -raw log_analytics_workspace_id 2>/dev/null || true)"
-          echo "log_analytics_workspace_id=$LAW_ID" >> "$GITHUB_OUTPUT"
+          # Capture the FULL Log Analytics workspace resource ID for the Bastion stage.
+          # The output maps to azurerm_log_analytics_workspace.main.id, i.e.
+          #   /subscriptions/<sub>/resourceGroups/<rg>/providers/Microsoft.OperationalInsights/workspaces/<name>
+          # terraform_wrapper is disabled (see Setup Terraform) so stdout carries only the raw
+          # value — but a missing output (e.g. plan on fresh state) can otherwise leak noise such
+          # as "::error::Terraform exited with code 1." Forward the value ONLY when it matches a
+          # full ARM workspace ID (the same regex the action validates against); otherwise emit
+          # empty, which the action accepts and falls back to provisioning its own workspace.
+          # stderr is left attached to the job log (it does not pollute the captured
+          # stdout value) so a real "Output not found" / backend error stays visible.
+          LAW_ID="$(terraform output -raw log_analytics_workspace_id || true)"
+          law_re='^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\.operationalinsights/workspaces/[^/]+$'
+          if printf '%s' "$LAW_ID" | grep -qiE "$law_re"; then
+            echo "Captured Log Analytics workspace ID: $LAW_ID"
+            echo "log_analytics_workspace_id=$LAW_ID" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::log_analytics_workspace_id is not a full LAW resource ID (got: '${LAW_ID:-<empty>}'); forwarding empty so the Bastion stage provisions its own workspace."
+            echo "log_analytics_workspace_id=" >> "$GITHUB_OUTPUT"
+          fi
 
   bastion:
     name: Bastion ${{ inputs.command }} (tools)

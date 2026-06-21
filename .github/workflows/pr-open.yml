@@ -45,8 +45,8 @@ jobs:
       comparison: pr
       default_changed: true
 
-  deploy-bastion-in-tools:
-    name: Deploy Bastion in 'tools' Environment
+  deploy-to-tools:
+    name: Deploy to 'tools' Environment
     needs: detect-infra-changes
     if: needs.detect-infra-changes.outputs.changed == 'true'
     uses: ./.github/workflows/.deployer.yml
@@ -55,7 +55,7 @@ jobs:
     secrets: inherit
   plan-against-test-environment:
     name: Plan against test Environment
-    needs: [detect-infra-changes, deploy-bastion-in-tools]
+    needs: [detect-infra-changes, deploy-to-tools]
     if: needs.detect-infra-changes.outputs.changed == 'true'
     uses: ./.github/workflows/.deployer-using-secure-tunnel.yml
     with:
