@@ -1,10 +1,3 @@
-
-variable "app_env" {
-  description = "Application environment (dev, test, prod)"
-  type        = string
-  nullable    = false
-}
-
 variable "app_name" {
   description = "Name of the application"
   type        = string

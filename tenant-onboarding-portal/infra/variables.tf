@@ -117,6 +117,12 @@ variable "oidc_admin_role" {
 
 # --- Azure Table Storage ---
 
+variable "app_env" {
+  description = "Short environment identifier used in generated resource names (e.g. 'tools', 'test', 'prod'). Embedded in the default Storage Account name pattern 'st<env>portal<suffix>'."
+  type        = string
+  default     = "tools"
+}
+
 variable "storage_account_name_override" {
   description = "Override the computed Storage Account name. Leave blank to use the generated 'st<env>portal<suffix>' pattern."
   type        = string
