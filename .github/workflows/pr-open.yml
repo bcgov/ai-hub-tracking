@@ -209,7 +209,29 @@ jobs:
         # On cold cache the download is unavoidable; a canceled cold-cache run will
         # be retried and the next push will hit the warm cache.
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
+        # Step-level cap so a stalled CDN transfer fails fast instead of eating the
+        # whole 30-min job budget (the old single `install --with-deps` hung for ~28m
+        # after the "Chrome for Testing" download hit 100%, stalling on the second
+        # artifact). We split the work: install OS deps once, then download ONLY the
+        # chromium headless shell (what `headless: true` tests use — no full Chrome
+        # for Testing), with a per-attempt hard timeout + retry so a one-off stall
+        # is recovered rather than fatal.
+        timeout-minutes: 12
+        env:
+          # Bound an individual stalled connection instead of hanging indefinitely.
+          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "120000"
+        run: |
+          set -euo pipefail
+          npx playwright install-deps chromium
+          for attempt in 1 2 3; do
+            if timeout 300 npx playwright install --only-shell chromium; then
+              echo "Playwright headless shell installed (attempt ${attempt})."
+              exit 0
+            fi
+            echo "::warning::Playwright browser download attempt ${attempt} stalled/failed; retrying."
+          done
+          echo "::error::Playwright browser download failed after 3 attempts."
+          exit 1
 
       - name: Run Playwright E2E against dev servers
         working-directory: tenant-onboarding-portal/backend
