@@ -191,8 +191,24 @@ jobs:
         working-directory: tenant-onboarding-portal/frontend
         run: npm test
 
+      - name: Cache Playwright browsers
+        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          # Key on package-lock so a Playwright version bump invalidates the cache.
+          key: playwright-chromium-${{ hashFiles('tenant-onboarding-portal/backend/package-lock.json') }}
+          # Fall back to any prior chromium cache — stale binary is usually compatible
+          # and avoids a 170 MB re-download when package-lock changed for unrelated reasons.
+          restore-keys: playwright-chromium-
+
       - name: Install Playwright browsers
         working-directory: tenant-onboarding-portal/backend
+        # Skip entirely on cache hit: binary already in ~/.cache/ms-playwright and
+        # OS-level libs were installed during the run that populated the cache.
+        # On cold cache the download is unavoidable; a canceled cold-cache run will
+        # be retried and the next push will hit the warm cache.
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Run Playwright E2E against dev servers
