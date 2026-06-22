@@ -181,9 +181,4 @@ jobs:
           enable_bastion_automation: "true"
           # Reuse the Log Analytics workspace created by the initial-setup stage
           # for Bastion audit diagnostics instead of provisioning a second one.
-          enable_monitoring: "true"
-          # Rebuild the full resource ID by re-attaching /subscriptions/<sub>/ (a masked secret,
-          # allowed in inputs but not in job outputs) to the sub-stripped path from initial-setup.
-          # Empty path (destroy → initial-setup skipped, or capture failed) ⇒ pass empty, and the
-          # action provisions its own workspace.
-          existing_log_analytics_workspace_id: ${{ needs.initial-setup.outputs.log_analytics_workspace_path != '' && format('/subscriptions/{0}/{1}', secrets.AZURE_SUBSCRIPTION_ID, needs.initial-setup.outputs.log_analytics_workspace_path) || '' }}
+          enable_monitoring: "false"
