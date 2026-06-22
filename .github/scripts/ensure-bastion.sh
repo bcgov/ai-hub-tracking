@@ -19,7 +19,7 @@
 #
 # Phase 1 — Ensure up
 #   If Bastion is absent or not Succeeded, triggers the Create-BastionHost automation runbook
-#   (shipped by bcgov/action-deployer-vm-bastion-alz) and waits up to 15 min for it to finish.
+#   (shipped by bcgov/action-deployer-vm-bastion-alz) and waits up to 20 min for it to finish.
 #   Also starts the jumpbox VM if it is stopped.
 #
 # Phase 2 — Lock
@@ -68,13 +68,13 @@ if [[ "$STATE" != "Succeeded" ]]; then
   az automation runbook start -g "$RG" --subscription "$SUB" \
     --automation-account-name "$AA" --name Create-BastionHost
 
-  for _ in $(seq 1 90); do
+  for _ in $(seq 1 120); do
     STATE="$(az network bastion list -g "$RG" --subscription "$SUB" \
       --query '[0].provisioningState' -o tsv 2>/dev/null || true)"
     [[ "$STATE" == "Succeeded" ]] && break
     sleep 10
   done
-  [[ "$STATE" == "Succeeded" ]] || { echo "Bastion did not reach Succeeded after 15 min"; exit 1; }
+  [[ "$STATE" == "Succeeded" ]] || { echo "Bastion did not reach Succeeded after 20 min"; exit 1; }
 fi
 
 VM_ID="$(az vm list -g "$RG" --subscription "$SUB" --query '[0].id' -o tsv)"
