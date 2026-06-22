@@ -88,8 +88,8 @@ jobs:
           fi
           echo "All container images verified for ${TAG}"
 
-  deploy-bastion-in-tools:
-    name: Deploy Bastion in 'tools' Environment
+  deploy-to-tools:
+    name: Deploy to 'tools' Environment
     needs: validate-inputs
     uses: ./.github/workflows/.deployer.yml
     with:
@@ -97,7 +97,7 @@ jobs:
     secrets: inherit
   run-terraform-on-environment:
     name: "Terraform ${{ inputs.command }} — ${{ inputs.environment }}"
-    needs: deploy-bastion-in-tools
+    needs: deploy-to-tools
     uses: ./.github/workflows/.deployer-using-secure-tunnel.yml
     with:
       environment_name: ${{ inputs.environment }}

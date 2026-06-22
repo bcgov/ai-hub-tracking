@@ -38,7 +38,11 @@ jobs:
     environment: tools
     runs-on: ubuntu-24.04
     outputs:
-      log_analytics_workspace_id: ${{ steps.deploy.outputs.log_analytics_workspace_id }}
+      # Subscription-stripped workspace path (no secret). The Bastion job re-attaches
+      # /subscriptions/<sub>/ from the secret to rebuild the full resource ID. A job
+      # output that CONTAINS the (masked) subscription ID cannot be passed at all —
+      # the runner skips any $GITHUB_OUTPUT value that contains a secret.
+      log_analytics_workspace_path: ${{ steps.deploy.outputs.log_analytics_workspace_path }}
     steps:
       - name: Checkout
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
@@ -117,11 +121,17 @@ jobs:
           LAW_ID="$(terraform output -raw log_analytics_workspace_id || true)"
           law_re='^/subscriptions/[^/]+/resourcegroups/[^/]+/providers/microsoft\.operationalinsights/workspaces/[^/]+$'
           if printf '%s' "$LAW_ID" | grep -qiE "$law_re"; then
-            echo "Captured Log Analytics workspace ID: $LAW_ID"
-            echo "log_analytics_workspace_id=$LAW_ID" >> "$GITHUB_OUTPUT"
+            # The subscription ID is a registered secret (masked as *** in logs). The runner
+            # SKIPS any $GITHUB_OUTPUT whose value contains a secret, so the full ID can never
+            # cross the job boundary — it would silently arrive empty in the Bastion job.
+            # Strip the "/subscriptions/<sub>/" prefix here; the Bastion job re-attaches it from
+            # the secret. The remaining "resourceGroups/.../workspaces/<name>" path has no secret.
+            LAW_PATH="${LAW_ID#/subscriptions/*/}"
+            echo "Captured Log Analytics workspace path (subscription stripped): $LAW_PATH"
+            echo "log_analytics_workspace_path=$LAW_PATH" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::log_analytics_workspace_id is not a full LAW resource ID (got: '${LAW_ID:-<empty>}'); forwarding empty so the Bastion stage provisions its own workspace."
-            echo "log_analytics_workspace_id=" >> "$GITHUB_OUTPUT"
+            echo "log_analytics_workspace_path=" >> "$GITHUB_OUTPUT"
           fi
 
   bastion:
@@ -171,6 +181,9 @@ jobs:
           enable_bastion_automation: "true"
           # Reuse the Log Analytics workspace created by the initial-setup stage
           # for Bastion audit diagnostics instead of provisioning a second one.
-          # Empty on destroy (initial-setup skipped), which is fine for teardown.
           enable_monitoring: "true"
-          existing_log_analytics_workspace_id: ${{ needs.initial-setup.outputs.log_analytics_workspace_id }}
+          # Rebuild the full resource ID by re-attaching /subscriptions/<sub>/ (a masked secret,
+          # allowed in inputs but not in job outputs) to the sub-stripped path from initial-setup.
+          # Empty path (destroy → initial-setup skipped, or capture failed) ⇒ pass empty, and the
+          # action provisions its own workspace.
+          existing_log_analytics_workspace_id: ${{ needs.initial-setup.outputs.log_analytics_workspace_path != '' && format('/subscriptions/{0}/{1}', secrets.AZURE_SUBSCRIPTION_ID, needs.initial-setup.outputs.log_analytics_workspace_path) || '' }}
