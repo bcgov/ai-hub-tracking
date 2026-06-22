@@ -158,6 +158,13 @@ jobs:
     needs: detect-portal-changes
     if: (needs.detect-portal-changes.outputs.changed == 'true' && !github.event.pull_request.head.repo.fork)
     runs-on: ubuntu-24.04
+    # Run inside the official Playwright image: browsers + all OS deps are pre-baked,
+    # so there is NO `playwright install` browser download to stall (the download
+    # reliably hung at 100% on these runners — connection never finalised). The tag
+    # MUST match @playwright/test in tenant-onboarding-portal/backend/package-lock.json
+    # (1.61.0) so the bundled browser revision matches the npm package.
+    container:
+      image: mcr.microsoft.com/playwright:v1.61.0-noble
     concurrency:
       group: portal-tests-${{ github.event.number || 'latest' }}
       cancel-in-progress: true
@@ -191,48 +198,8 @@ jobs:
         working-directory: tenant-onboarding-portal/frontend
         run: npm test
 
-      - name: Cache Playwright browsers
-        uses: actions/cache@5a3ec84eff668545956fd18022155c47e93e2684 # v4.2.3
-        id: playwright-cache
-        with:
-          path: ~/.cache/ms-playwright
-          # Key on package-lock so a Playwright version bump invalidates the cache.
-          key: playwright-chromium-${{ hashFiles('tenant-onboarding-portal/backend/package-lock.json') }}
-          # Fall back to any prior chromium cache — stale binary is usually compatible
-          # and avoids a 170 MB re-download when package-lock changed for unrelated reasons.
-          restore-keys: playwright-chromium-
-
-      - name: Install Playwright browsers
-        working-directory: tenant-onboarding-portal/backend
-        # Skip entirely on cache hit: binary already in ~/.cache/ms-playwright and
-        # OS-level libs were installed during the run that populated the cache.
-        # On cold cache the download is unavoidable; a canceled cold-cache run will
-        # be retried and the next push will hit the warm cache.
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        # Step-level cap so a stalled CDN transfer fails fast instead of eating the
-        # whole 30-min job budget (the old single `install --with-deps` hung for ~28m
-        # after the "Chrome for Testing" download hit 100%, stalling on the second
-        # artifact). We split the work: install OS deps once, then download ONLY the
-        # chromium headless shell (what `headless: true` tests use — no full Chrome
-        # for Testing), with a per-attempt hard timeout + retry so a one-off stall
-        # is recovered rather than fatal.
-        timeout-minutes: 12
-        env:
-          # Bound an individual stalled connection instead of hanging indefinitely.
-          PLAYWRIGHT_DOWNLOAD_CONNECTION_TIMEOUT: "120000"
-        run: |
-          set -euo pipefail
-          npx playwright install-deps chromium
-          for attempt in 1 2 3; do
-            if timeout 300 npx playwright install --only-shell chromium; then
-              echo "Playwright headless shell installed (attempt ${attempt})."
-              exit 0
-            fi
-            echo "::warning::Playwright browser download attempt ${attempt} stalled/failed; retrying."
-          done
-          echo "::error::Playwright browser download failed after 3 attempts."
-          exit 1
-
+      # No "Install Playwright browsers" step: the container already ships them at
+      # $PLAYWRIGHT_BROWSERS_PATH, matching the pinned @playwright/test version.
       - name: Run Playwright E2E against dev servers
         working-directory: tenant-onboarding-portal/backend
         run: npm run e2e:dev

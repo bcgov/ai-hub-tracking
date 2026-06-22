@@ -14,6 +14,11 @@ export default defineConfig({
     baseURL: "http://127.0.0.1:4173",
     headless: true,
     trace: "on-first-retry",
+    // CI runs inside the Playwright container as root; Chromium refuses to start as
+    // root without --no-sandbox. Scoped to CI so local runs keep the sandbox.
+    launchOptions: {
+      args: process.env.CI ? ["--no-sandbox"] : [],
+    },
   },
   webServer: [
     {
