@@ -87,14 +87,29 @@ jobs:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
 
-      # Provision (if needed), lock, and open the SOCKS5 tunnel in one step.
-      # Lock released by bastion-purge.sh in the always() step below.
-      - name: Ensure Bastion (provision → lock → tunnel)
+      # Provision (if needed) and lock the Bastion. Lock released by bastion-purge.sh
+      # in the always() step below.
+      - name: Ensure Bastion (provision → lock)
         shell: bash
         run: |
           bash .github/scripts/ensure-bastion.sh \
-            --privoxy-image "ghcr.io/${{ github.repository }}/azure-proxy/privoxy:${{ inputs.tag || 'latest' }}" \
             --notes "Held by GitHub Actions during integration tests"
+
+      # Re-authenticate before opening the tunnel: provisioning above can exceed the
+      # ~5 min GitHub OIDC client-assertion lifetime, which would otherwise expire before
+      # the AAD-authenticated `az network bastion ssh` runs (AADSTS700024).
+      - name: Azure CLI Login (OIDC) — refresh before tunnel
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Open Bastion tunnel
+        shell: bash
+        run: |
+          bash .github/scripts/open-bastion-tunnel.sh \
+            --privoxy-image "ghcr.io/${{ github.repository }}/azure-proxy/privoxy:${{ inputs.tag || 'latest' }}"
 
       - name: Install Python integration test dependencies
         shell: bash

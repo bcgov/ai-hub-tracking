@@ -12,8 +12,10 @@ in the same action that provisions our Bastion + jumpbox, under
 Keeping a local copy only drifts from upstream, so fetch the raw script on demand
 — **no clone required**. Pin to `v1.0.0` (the action version our workflows use).
 
-> These scripts are for **local development only**. CI/CD opens its own tunnel via
-> [`.github/scripts/ensure-bastion.sh`](../../../../.github/scripts/ensure-bastion.sh).
+> These scripts are for **local development only**. CI/CD provisions and locks the
+> Bastion via [`.github/scripts/ensure-bastion.sh`](../../../../.github/scripts/ensure-bastion.sh),
+> then opens its own tunnel via
+> [`.github/scripts/open-bastion-tunnel.sh`](../../../../.github/scripts/open-bastion-tunnel.sh).
 
 ### Prerequisites
 

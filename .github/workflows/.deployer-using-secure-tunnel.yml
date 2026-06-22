@@ -93,14 +93,29 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
-      # Provision (if needed), lock, and open the SOCKS5 tunnel in one step.
-      # Lock released by bastion-purge.sh in the always() step below.
-      - name: Ensure Bastion (provision → lock → tunnel)
+      # Provision (if needed) and lock the Bastion. Lock released by bastion-purge.sh
+      # in the always() step below.
+      - name: Ensure Bastion (provision → lock)
         shell: bash
         run: |
           bash .github/scripts/ensure-bastion.sh \
-            --privoxy-image "ghcr.io/${{ github.repository }}/azure-proxy/privoxy:${{ inputs.tag || 'latest' }}" \
             --notes "Held by GitHub Actions during deploy"
+
+      # Re-authenticate before opening the tunnel: provisioning above can exceed the
+      # ~5 min GitHub OIDC client-assertion lifetime, which would otherwise expire before
+      # the AAD-authenticated `az network bastion ssh` runs (AADSTS700024).
+      - name: Azure CLI Login (OIDC) — refresh before tunnel
+        uses: azure/login@532459ea530d8321f2fb9bb10d1e0bcf23869a43
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Open Bastion tunnel
+        shell: bash
+        run: |
+          bash .github/scripts/open-bastion-tunnel.sh \
+            --privoxy-image "ghcr.io/${{ github.repository }}/azure-proxy/privoxy:${{ inputs.tag || 'latest' }}"
 
       - name: Validate required network secret
         shell: bash
@@ -218,7 +233,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          integ_follows_flag=""
+          integ_follows_flag="--integ-follows" # TODO make it blank before final merge
           if [[ "${{ inputs.command }}" == "apply" && \
                 ( "${{ inputs.environment_name }}" == "dev" || "${{ inputs.environment_name }}" == "test" ) ]]; then
             integ_follows_flag="--integ-follows"

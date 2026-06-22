@@ -179,7 +179,7 @@ To add a new tenant:
 
 - **SSL certificates**: See `ssl_certs/README.md` for CSR generation, PFX creation, and cert upload workflows
 - **Environment bootstrapping**: See `initial-setup/README.md` for OIDC identity setup and first-time provisioning
-- **Bastion tunnel (privoxy bridge)**: See `azure-proxy/privoxy/` and `initial-setup/infra/scripts/bastion-proxy.md` for the Bastion SOCKS tunnel (CI/CD opens it via `.github/scripts/ensure-bastion.sh`; local dev fetches the upstream consumer script)
+- **Bastion tunnel (privoxy bridge)**: See `azure-proxy/privoxy/` and `initial-setup/infra/scripts/bastion-proxy.md` for the Bastion SOCKS tunnel (CI/CD provisions + locks via `.github/scripts/ensure-bastion.sh`, then opens the tunnel via `.github/scripts/open-bastion-tunnel.sh` after a fresh `azure/login`; local dev fetches the upstream consumer script)
 
 ## Implementation Checklist
 
