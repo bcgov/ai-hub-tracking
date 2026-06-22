@@ -102,114 +102,129 @@ tenant = {
     model_deployments = [
       # GPT-4.1 Series
       {
-        name          = "gpt-4.1"
-        model_name    = "gpt-4.1"
-        model_version = "2025-04-14"
-        scale_type    = "GlobalStandard"
-        capacity      = 300 # 1% of 30,000
+        name           = "gpt-4.1"
+        model_name     = "gpt-4.1"
+        model_version  = "2025-04-14"
+        scale_type     = "GlobalStandard"
+        capacity       = 300 # 1% of 30,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "gpt-4.1-mini"
-        model_name    = "gpt-4.1-mini"
-        model_version = "2025-04-14"
-        scale_type    = "GlobalStandard"
-        capacity      = 1500 # 1% of 150,000
+        name           = "gpt-4.1-mini"
+        model_name     = "gpt-4.1-mini"
+        model_version  = "2025-04-14"
+        scale_type     = "GlobalStandard"
+        capacity       = 1500 # 1% of 150,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "gpt-4.1-nano"
-        model_name    = "gpt-4.1-nano"
-        model_version = "2025-04-14"
-        scale_type    = "GlobalStandard"
-        capacity      = 1500 # 1% of 150,000
+        name           = "gpt-4.1-nano"
+        model_name     = "gpt-4.1-nano"
+        model_version  = "2025-04-14"
+        scale_type     = "GlobalStandard"
+        capacity       = 1500 # 1% of 150,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # GPT-4o Series
       {
-        name          = "gpt-4o"
-        model_name    = "gpt-4o"
-        model_version = "2024-11-20"
-        scale_type    = "GlobalStandard"
-        capacity      = 300 # 1% of 30,000
+        name           = "gpt-4o"
+        model_name     = "gpt-4o"
+        model_version  = "2024-11-20"
+        scale_type     = "GlobalStandard"
+        capacity       = 300 # 1% of 30,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "gpt-4o-mini"
-        model_name    = "gpt-4o-mini"
-        model_version = "2024-07-18"
-        scale_type    = "GlobalStandard"
-        capacity      = 1500 # 1% of 150,000
+        name           = "gpt-4o-mini"
+        model_name     = "gpt-4o-mini"
+        model_version  = "2024-07-18"
+        scale_type     = "GlobalStandard"
+        capacity       = 1500 # 1% of 150,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # GPT-5 Series
       {
-        name          = "gpt-5-mini"
-        model_name    = "gpt-5-mini"
-        model_version = "2025-08-07"
-        scale_type    = "GlobalStandard"
-        capacity      = 100 # 1% of 10,000
+        name           = "gpt-5-mini"
+        model_name     = "gpt-5-mini"
+        model_version  = "2025-08-07"
+        scale_type     = "GlobalStandard"
+        capacity       = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "gpt-5-nano"
-        model_name    = "gpt-5-nano"
-        model_version = "2025-08-07"
-        scale_type    = "GlobalStandard"
-        capacity      = 1500 # 1% of 150,000
+        name           = "gpt-5-nano"
+        model_name     = "gpt-5-nano"
+        model_version  = "2025-08-07"
+        scale_type     = "GlobalStandard"
+        capacity       = 1500 # 1% of 150,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # GPT-5.1 Series
       {
-        name          = "gpt-5.1-chat"
-        model_name    = "gpt-5.1-chat"
-        model_version = "2025-11-13"
-        scale_type    = "GlobalStandard"
-        capacity      = 50 # 1% of 5,000
+        name           = "gpt-5.1-chat"
+        model_name     = "gpt-5.1-chat"
+        model_version  = "2025-11-13"
+        scale_type     = "GlobalStandard"
+        capacity       = 50 # 1% of 5,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "gpt-5.1-codex-mini"
-        model_name    = "gpt-5.1-codex-mini"
-        model_version = "2025-11-13"
-        scale_type    = "GlobalStandard"
-        capacity      = 100 # 1% of 10,000
+        name           = "gpt-5.1-codex-mini"
+        model_name     = "gpt-5.1-codex-mini"
+        model_version  = "2025-11-13"
+        scale_type     = "GlobalStandard"
+        capacity       = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # Reasoning Models
       {
-        name          = "o1"
-        model_name    = "o1"
-        model_version = "2024-12-17"
-        scale_type    = "GlobalStandard"
-        capacity      = 50 # 1% of 5,000
+        name           = "o1"
+        model_name     = "o1"
+        model_version  = "2024-12-17"
+        scale_type     = "GlobalStandard"
+        capacity       = 50 # 1% of 5,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "o3-mini"
-        model_name    = "o3-mini"
-        model_version = "2025-01-31"
-        scale_type    = "GlobalStandard"
-        capacity      = 50 # 1% of 5,000
+        name           = "o3-mini"
+        model_name     = "o3-mini"
+        model_version  = "2025-01-31"
+        scale_type     = "GlobalStandard"
+        capacity       = 50 # 1% of 5,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "o4-mini"
-        model_name    = "o4-mini"
-        model_version = "2025-04-16"
-        scale_type    = "GlobalStandard"
-        capacity      = 100 # 1% of 10,000
+        name           = "o4-mini"
+        model_name     = "o4-mini"
+        model_version  = "2025-04-16"
+        scale_type     = "GlobalStandard"
+        capacity       = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # Embeddings
       {
-        name          = "text-embedding-ada-002"
-        model_name    = "text-embedding-ada-002"
-        model_version = "2"
-        scale_type    = "GlobalStandard"
-        capacity      = 100 # 1% of 10,000
+        name           = "text-embedding-ada-002"
+        model_name     = "text-embedding-ada-002"
+        model_version  = "2"
+        scale_type     = "GlobalStandard"
+        capacity       = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "text-embedding-3-large"
-        model_name    = "text-embedding-3-large"
-        model_version = "1"
-        scale_type    = "GlobalStandard"
-        capacity      = 100 # 1% of 10,000
+        name           = "text-embedding-3-large"
+        model_name     = "text-embedding-3-large"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "text-embedding-3-small"
-        model_name    = "text-embedding-3-small"
-        model_version = "1"
-        scale_type    = "GlobalStandard"
-        capacity      = 100 # 1% of 10,000
+        name           = "text-embedding-3-small"
+        model_name     = "text-embedding-3-small"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
     ]
   }
