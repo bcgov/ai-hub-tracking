@@ -18,8 +18,10 @@
 #   BASTION_NAME, BASTION_ID, VM_ID
 #
 # Phase 1 — Ensure up
+#   If Bastion is in Deleting state, waits for deletion to finish first.
 #   If Bastion is absent or not Succeeded, triggers the Create-BastionHost automation runbook
-#   (shipped by bcgov/action-deployer-vm-bastion-alz) and waits up to 20 min for it to finish.
+#   (shipped by bcgov/action-deployer-vm-bastion-alz) and waits for it to finish.
+#   Total wait budget across deletion + creation is 25 min.
 #   Also starts the jumpbox VM if it is stopped.
 #
 # Phase 2 — Lock
@@ -62,19 +64,38 @@ STATE="$(az network bastion list -g "$RG" --subscription "$SUB" \
   --query '[0].provisioningState' -o tsv 2>/dev/null || true)"
 
 if [[ "$STATE" != "Succeeded" ]]; then
-  echo "Bastion not ready (state: ${STATE:-absent}); triggering Create-BastionHost runbook..."
-  AA="$(az automation account list -g "$RG" --subscription "$SUB" --query '[0].name' -o tsv)"
-  [[ -n "$AA" ]] || { echo "No automation account in $RG — cannot trigger Create-BastionHost. Is enable_bastion_automation set?"; exit 1; }
-  az automation runbook start -g "$RG" --subscription "$SUB" \
-    --automation-account-name "$AA" --name Create-BastionHost
+  MAX_POLLS=150  # 25 min total budget (150 × 10 s), shared across deletion-wait + creation-wait
+  polls=0
 
-  for _ in $(seq 1 120); do
-    STATE="$(az network bastion list -g "$RG" --subscription "$SUB" \
-      --query '[0].provisioningState' -o tsv 2>/dev/null || true)"
-    [[ "$STATE" == "Succeeded" ]] && break
-    sleep 10
-  done
-  [[ "$STATE" == "Succeeded" ]] || { echo "Bastion did not reach Succeeded after 20 min"; exit 1; }
+  # If Bastion is mid-deletion, wait for it to disappear before triggering re-create.
+  if [[ "$STATE" == "Deleting" ]]; then
+    echo "Bastion is being deleted; waiting for deletion to complete before re-creating..."
+    while [[ "$polls" -lt "$MAX_POLLS" && "$STATE" == "Deleting" ]]; do
+      sleep 10
+      polls=$(( polls + 1 ))
+      STATE="$(az network bastion list -g "$RG" --subscription "$SUB" \
+        --query '[0].provisioningState' -o tsv 2>/dev/null || true)"
+    done
+    [[ "$STATE" != "Deleting" ]] || { echo "Bastion deletion did not complete within 25 min"; exit 1; }
+    echo "Deletion complete (state: ${STATE:-absent})"
+  fi
+
+  if [[ "$STATE" != "Succeeded" ]]; then
+    echo "Bastion not ready (state: ${STATE:-absent}); triggering Create-BastionHost runbook..."
+    AA="$(az automation account list -g "$RG" --subscription "$SUB" --query '[0].name' -o tsv)"
+    [[ -n "$AA" ]] || { echo "No automation account in $RG — cannot trigger Create-BastionHost. Is enable_bastion_automation set?"; exit 1; }
+    az automation runbook start -g "$RG" --subscription "$SUB" \
+      --automation-account-name "$AA" --name Create-BastionHost
+
+    while [[ "$polls" -lt "$MAX_POLLS" ]]; do
+      sleep 10
+      polls=$(( polls + 1 ))
+      STATE="$(az network bastion list -g "$RG" --subscription "$SUB" \
+        --query '[0].provisioningState' -o tsv 2>/dev/null || true)"
+      [[ "$STATE" == "Succeeded" ]] && break
+    done
+    [[ "$STATE" == "Succeeded" ]] || { echo "Bastion did not reach Succeeded after 25 min"; exit 1; }
+  fi
 fi
 
 VM_ID="$(az vm list -g "$RG" --subscription "$SUB" --query '[0].id' -o tsv)"

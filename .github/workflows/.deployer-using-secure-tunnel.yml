@@ -226,9 +226,8 @@ jobs:
           bash .github/scripts/bastion-purge.sh $integ_follows_flag
 
   integration-tests:
-    name: Integration Tests via Secure Tunnel
-    # comment out command for the time being, inputs.command == 'apply' &&
-    # if: (inputs.environment_name == 'dev' || inputs.environment_name == 'test')
+    name: Integration Tests via Secure Tunnel # it only works with apply as terraform state is refreshed, fails otherwise.
+    if: inputs.command == 'apply' && (inputs.environment_name == 'dev' || inputs.environment_name == 'test')
     needs: terraform
     uses: ./.github/workflows/.integration-tests-using-secure-tunnel.yml
     with:
