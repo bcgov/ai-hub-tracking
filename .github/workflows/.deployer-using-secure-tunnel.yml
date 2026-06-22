@@ -228,7 +228,7 @@ jobs:
   integration-tests:
     name: Integration Tests via Secure Tunnel
     # comment out command for the time being, inputs.command == 'apply' &&
-    if: (inputs.environment_name == 'dev' || inputs.environment_name == 'test')
+    # if: (inputs.environment_name == 'dev' || inputs.environment_name == 'test')
     needs: terraform
     uses: ./.github/workflows/.integration-tests-using-secure-tunnel.yml
     with:
