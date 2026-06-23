@@ -197,7 +197,7 @@ jobs:
 
       # Integration tests are the last consumer of the Bastion in a dev/test apply.
       # Always release the lock; after 7 PM PT also delete the Bastion to save overnight cost.
-      #- name: Release Bastion lock (+ delete after 7 PM PT)
-      #  if: always()
-      #  shell: bash
-      #  run: bash .github/scripts/bastion-purge.sh
+      - name: Release Bastion lock (+ delete after 7 PM PT)
+        if: always()
+        shell: bash
+        run: bash .github/scripts/bastion-purge.sh

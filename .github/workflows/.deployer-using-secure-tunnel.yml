@@ -229,7 +229,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          integ_follows_flag="--integ-follows" # TODO make it blank before final merge
+          integ_follows_flag=""
           if [[ "${{ inputs.command }}" == "apply" && \
                 ( "${{ inputs.environment_name }}" == "dev" || "${{ inputs.environment_name }}" == "test" ) ]]; then
             integ_follows_flag="--integ-follows"
