@@ -65,7 +65,7 @@ tenant = {
   }
 
   document_intelligence = {
-    enabled = false
+    enabled = true
     sku     = "S0"
     kind    = "FormRecognizer"
     diagnostics = {
