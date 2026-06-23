@@ -9,5 +9,4 @@ provider "azurerm" {
   client_id           = var.client_id
   use_oidc            = var.use_oidc
   storage_use_azuread = true
-  features {}
 }
