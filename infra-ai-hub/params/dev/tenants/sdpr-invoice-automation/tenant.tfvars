@@ -96,8 +96,8 @@ tenant = {
     # Capacity = 1% of regional quota limit per model
     # Quota limits: gpt-4.1=30k, gpt-4.1-mini=150k, gpt-4.1-nano=150k,
     #   gpt-4o=30k, gpt-4o-mini=150k, gpt-5-mini=10k, gpt-5-nano=150k,
-    #   gpt-5.1-chat=5k, gpt-5.1-codex-mini=10k, o1=5k, o3-mini=5k,
-    #   o4-mini=10k, text-embedding-ada-002=10k, text-embedding-3-large=10k,
+    #   gpt-5.1-chat=5k, gpt-5.1-codex-mini=10k, o4-mini=10k,
+    #   text-embedding-ada-002=10k, text-embedding-3-large=10k,
     #   text-embedding-3-small=10k
     model_deployments = [
       # GPT-4.1 Series
@@ -177,22 +177,6 @@ tenant = {
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # Reasoning Models
-      {
-        name           = "o1"
-        model_name     = "o1"
-        model_version  = "2024-12-17"
-        scale_type     = "GlobalStandard"
-        capacity       = 50 # 1% of 5,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
-      {
-        name           = "o3-mini"
-        model_name     = "o3-mini"
-        model_version  = "2025-01-31"
-        scale_type     = "GlobalStandard"
-        capacity       = 50 # 1% of 5,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
       {
         name           = "o4-mini"
         model_name     = "o4-mini"
