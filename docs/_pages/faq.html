@@ -169,13 +169,13 @@
         <li><strong>&#10003; You can see</strong> the vault configuration, because reading settings is also a management action.</li>
         <li><strong>&#10007; You cannot</strong> reveal the secret value unless your traffic is actually coming from inside the allowed private network path.</li>
     </ul>
-    <p style="margin-bottom: 0;">In other words, the screen that shows the vault is not the same thing as network access to the vault's secret data. To view secrets, use <a href="playbooks.html#chisel-tunnel">the Chisel tunnel playbook</a> or connect through the <a href="playbooks.html#bastion-access">jumpbox by way of Azure Bastion</a>.</p>
+    <p style="margin-bottom: 0;">In other words, the screen that shows the vault is not the same thing as network access to the vault's secret data. To view secrets, use <a href="playbooks.html#bastion-tunnel">the Bastion tunnel playbook</a> or connect through the <a href="playbooks.html#bastion-access">jumpbox by way of Azure Bastion</a>.</p>
 </div>
 
 <div class="card">
-    <h3 style="margin-top:0;">Do tenant developers get Chisel access?</h3>
+    <h3 style="margin-top:0;">Do tenant developers get Bastion tunnel access?</h3>
     <span class="badge badge-gold">Answered</span>
-    <p><strong>No.</strong> Chisel is an administrative tool for the people who operate the platform itself. It is not part of the normal tenant experience.</p>
+    <p><strong>No.</strong> The Bastion tunnel is an administrative tool for the people who operate the platform itself. It is not part of the normal tenant experience.</p>
     <p>Tenant developers are expected to use the public entry points that were built for them:</p>
     <ul>
         <li><strong>Application Gateway and the Azure gateway service for application programming interfaces</strong> for public service endpoints</li>
@@ -195,15 +195,15 @@
         </tr>
         <tr>
             <td>Automated deployment that must read secrets or private state</td>
-            <td>Chisel tunnel with the Azure proxy enabled (<code>enable_azure_proxy</code>)</td>
+            <td>Bastion native tunnel to the jumpbox (provisioned by the bcgov action)</td>
         </tr>
         <tr>
             <td>Administrative access, debugging, or command-line work by platform maintainers</td>
-            <td>Chisel tunnel with the Azure proxy enabled (<code>enable_azure_proxy</code>)</td>
+            <td>SSH/RDP to the jumpbox via Azure Bastion</td>
         </tr>
         <tr>
             <td>Local development access to private databases or private Azure services</td>
-            <td>Chisel tunnel with the Azure proxy enabled (<code>enable_azure_proxy</code>)</td>
+            <td>Bastion native tunnel (<code>bastion-proxy.sh</code> &rarr; SOCKS5)</td>
         </tr>
         <tr>
             <td>Deployment work that only changes resource definitions and does not need private data access</td>
@@ -283,9 +283,9 @@
     <h3 style="margin-top:0;">Why can't GitHub Actions run Terraform directly?</h3>
     <span class="badge badge-gold">Answered</span>
     <p>GitHub Actions can run Terraform, but it cannot directly reach private endpoints from a standard public runner. That is the key limitation.</p>
-    <p>The platform solves this by creating a secure tunnel from the public automation runner into the private Azure network. A Chisel server runs inside an Azure App Service that sits in the private network path, and the deployment workflow sends private data traffic through that tunnel when it needs to talk to things like the private Terraform state account or secrets store.</p>
+    <p>The platform solves this by creating a secure tunnel from the public automation runner into the private Azure network. Azure Bastion (Standard SKU) opens an Entra ID-authenticated SSH tunnel to a jumpbox VM inside the private network, and the deployment workflow sends private data traffic through that SOCKS5 tunnel when it needs to talk to things like the private Terraform state account or secrets store.</p>
     <p>This means the workflow can still use normal public GitHub-hosted runners for most automation, without paying for a permanently running private build fleet. There is an optional module for self-hosted runners on Azure Container Apps for special cases, but the platform's own deployment path does not depend on it.</p>
-    <p style="margin-bottom: 0;"><strong>Cost note:</strong> The Chisel proxy runs as an App Service plan-based component, so cost is tied to that service plan rather than to how often the workflow runs. See <a href="cost.html">Cost Tracking</a> for details.</p>
+    <p style="margin-bottom: 0;"><strong>Cost note:</strong> The Bastion host is the main cost; to save money the platform auto-deletes it off-hours and recreates it on weekdays. See <a href="cost.html">Cost Tracking</a> for details.</p>
 </div>
 
 <div class="card">
@@ -406,25 +406,25 @@
         </summary>
         <div class="accordion-content">
             <p><strong>Resolved:</strong> The platform uses standard GitHub-hosted runners for automated deployment, including Terraform operations that must touch private endpoints. It does not require a permanently running Azure Bastion session or jumpbox virtual machine for normal automation.</p>
-            <p>The mechanism is a Docker-based Chisel tunnel together with Privoxy, running directly on the GitHub-hosted runner:</p>
+            <p>The mechanism is Azure Bastion native client tunnelling together with Privoxy, running directly on the GitHub-hosted runner:</p>
             <ol>
-                <li>A Chisel server container is deployed into the tools virtual network through the deployment workflow.</li>
-                <li>The Terraform deployment job starts a Chisel client container and Privoxy on the runner, creating an encrypted tunnel into the private network.</li>
+                <li>Azure Bastion and a jumpbox VM are provisioned into the tools virtual network by the <code>bcgov/action-deployer-vm-bastion-alz</code> action.</li>
+                <li>The Terraform deployment job opens a SOCKS5 tunnel through Bastion (<code>az network bastion ssh -- -D</code>) and runs Privoxy on the runner, bridging it to an HTTP proxy.</li>
                 <li>Terraform sends data-plane traffic, such as access to the secrets store and private state, through that tunnel, while normal Azure management traffic bypasses it.</li>
             </ol>
-            <p>Azure Bastion and the jumpbox remain available for interactive administrator sessions, such as portal access or command-line debugging, but they are not required for the normal automated deployment pipeline.</p>
-            <p style="margin-bottom: 0;">There is also an optional module for self-hosted runners on Azure Container Apps for other repositories that cannot use the Chisel proxy approach.</p>
+            <p>Azure Bastion and the jumpbox also serve interactive administrator sessions, such as SSH/RDP or command-line debugging, in addition to the automated deployment pipeline.</p>
+            <p style="margin-bottom: 0;">There is also an optional module for self-hosted runners on Azure Container Apps for other repositories that cannot use the Bastion tunnel approach.</p>
         </div>
     </details>
 
     <details>
         <summary>
             5. GitHub-hosted runners versus Azure DevOps
-            <span class="badge badge-gold">Answered — GitHub (public runners + Chisel tunnel)</span>
+            <span class="badge badge-gold">Answered — GitHub (public runners + Bastion tunnel)</span>
         </summary>
         <div class="accordion-content">
             <p><strong>Decision:</strong> GitHub Actions was chosen over Azure DevOps for the platform's own automation. The deployment jobs run on standard public GitHub-hosted runners rather than on always-on self-hosted machines inside the private network.</p>
-            <p>Access to private endpoints is handled by the Chisel tunnel approach, which sends the necessary private data traffic through the tools virtual network only when needed. This is cheaper and operationally simpler than maintaining a permanent pool of self-hosted agents.</p>
+            <p>Access to private endpoints is handled by the Bastion tunnel approach, which sends the necessary private data traffic through the tools virtual network only when needed. This is cheaper and operationally simpler than maintaining a permanent pool of self-hosted agents.</p>
             <p>The optional module for self-hosted runners on Azure Container Apps still exists for workloads that genuinely need persistent private-network compute, but it is not the default operating model for this platform.</p>
             <p style="margin-bottom: 0;">See <a href="cost.html#cicd-runner-costs">the runner cost section</a> for a more detailed cost comparison.</p>
         </div>
@@ -565,10 +565,10 @@
         <div class="accordion-content">
             <p>The <a href="playbooks.html">Playbooks</a> page documents operational runbooks for the ongoing care and maintenance of the platform after initial deployment, including:</p>
             <ul>
-                <li>Chisel tunnel setup for private endpoint access</li>
+                <li>Bastion tunnel setup for private endpoint access</li>
                 <li>Azure Bastion and jumpbox access</li>
                 <li>Gateway subscription key rotation</li>
-                <li>Chisel tunnel setup and proxy operations</li>
+                <li>Bastion SOCKS proxy operations for local development</li>
             </ul>
             <p style="margin-bottom: 0;">Additional runbooks (incident response, disaster recovery, cost spike investigation) are in progress.</p>
         </div>
@@ -622,7 +622,7 @@
     </tr>
     <tr>
         <td>4</td>
-        <td>Chisel tunnel proxy setup in the virtual network</td>
+        <td>Bastion + jumpbox tunnel setup in the virtual network</td>
         <td>Platform Team</td>
         <td><span class="badge" style="background:#22c55e;color:white;">Done</span></td>
     </tr>

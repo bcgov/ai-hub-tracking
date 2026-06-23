@@ -30,31 +30,17 @@
             <td>No</td>
         </tr>
         <tr>
-            <td><strong>bastion</strong></td>
-            <td>Secure virtual machine access without exposing a public internet address</td>
-            <td>Azure Bastion Host, Public IP</td>
-            <td>Yes (<code>enable_bastion</code>)</td>
-        </tr>
-        <tr>
-            <td><strong>jumpbox</strong></td>
-            <td>Development virtual machine with command-line tools</td>
-            <td>Linux VM, SSH Keys, Auto-shutdown</td>
-            <td>Yes (<code>enable_jumpbox</code>)</td>
-        </tr>
-        <tr>
             <td><strong>github-runners-aca</strong></td>
             <td>Self-hosted GitHub runners on Container Apps</td>
             <td>Container Apps Environment, Container Job, ACR</td>
             <td>Yes (<code>github_runners_aca_enabled</code>)</td>
         </tr>
-        <tr>
-            <td><strong>azure-proxy</strong></td>
-            <td>Secure tunnel (chisel) for proxying to peered networks</td>
-            <td>App Service, Container Image</td>
-            <td>Yes (<code>enable_azure_proxy</code>)</td>
-        </tr>
     </tbody>
 </table>
+
+<div class="alert alert-info">
+    <strong>Bastion + jumpbox are not in-repo modules.</strong> Secure VM access and the private-endpoint tunnel are provisioned by the upstream <a href="https://github.com/bcgov/action-deployer-vm-bastion-alz"><code>bcgov/action-deployer-vm-bastion-alz</code></a> action (tools subscription) — see the section below.
+</div>
 
 <div class="alert alert-info">
     <strong>Optional Modules:</strong> Modules marked as optional can be toggled on/off using their respective variables. Set them in <code>terraform.tfvars</code> or as environment variables.
@@ -342,60 +328,60 @@ Commands:
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2>Azure Proxy Module (Chisel Tunnel)</h2>
+<h2>Azure Bastion + Jumpbox (Native Tunnel)</h2>
 
-<p>This module deploys a <strong>Chisel</strong> tunnel server so platform maintainers can reach private Azure resources from a local machine. It solves the problem of trying to access private endpoints while you are outside the virtual network.</p>
+<p>Bastion + a jumpbox VM let platform maintainers and CI/CD reach private Azure resources from outside the virtual network. They are <strong>not</strong> an in-repo module &mdash; they are provisioned by the upstream <a href="https://github.com/bcgov/action-deployer-vm-bastion-alz"><code>bcgov/action-deployer-vm-bastion-alz</code></a> action (in the tools subscription), which the <code>.deployer.yml</code> workflow calls.</p>
 
 <div class="alert alert-info">
-    <strong>Why Chisel?</strong> Private endpoints block public internet access to the data side of Azure services. Chisel creates an HTTPS tunnel through an App Service that is connected to the virtual network, which lets your laptop reach Key Vault secrets, databases, and other private resources without exposing them publicly.
+    <strong>Why Bastion native tunnelling?</strong> Private endpoints block public internet access to the data side of Azure services. Azure Bastion (Standard SKU) opens an Entra ID-authenticated SSH tunnel to a jumpbox in the VNet; SSH dynamic port-forwarding turns it into a SOCKS5 proxy. Your laptop or the CI runner can then reach Key Vault secrets, databases, and other private resources &mdash; with no public proxy and no shared password.
 </div>
 
 <div class="grid grid-2">
     <div class="card">
-        <h3>Resources Created</h3>
+        <h3>Resources Created (by the action)</h3>
         <ul>
-            <li><strong>App Service Plan</strong>: Linux plan hosting the tunnel (configurable SKU)</li>
-            <li><strong>Web App</strong>: Runs containerized Chisel server with VNet integration</li>
-            <li><strong>Random Credentials</strong>: Auto-generated username/password for tunnel auth</li>
-            <li><strong>Application Insights</strong>: Connection logging and monitoring</li>
+            <li><strong>Azure Bastion</strong>: Standard SKU host with native client tunnelling enabled</li>
+            <li><strong>Jumpbox VM</strong>: Linux VM in the VNet, no public IP, Entra ID SSH login</li>
+            <li><strong>Bastion + jumpbox subnets</strong>: created in the existing VNet</li>
+            <li><strong>Automation runbooks</strong>: auto-delete/recreate Bastion + auto-stop/start jumpbox to save cost</li>
         </ul>
     </div>
     <div class="card card-gold">
         <h3>Security Features</h3>
         <ul>
-            <li><strong>HTTPS Only</strong>: TLS 1.3 minimum</li>
-            <li><strong>Mandatory Auth</strong>: Random credentials stored in App Settings</li>
-            <li><strong>Health Checks</strong>: Automatic restart on failure</li>
-            <li><strong>Logging</strong>: All connections logged to App Insights</li>
+            <li><strong>No public proxy</strong>: nothing is exposed to the internet</li>
+            <li><strong>Entra ID + RBAC auth</strong>: no shared tunnel password</li>
+            <li><strong>No SSH keys needed</strong>: "Virtual Machine Administrator Login" role gates access</li>
+            <li><strong>Logging</strong>: Bastion diagnostics to Azure Monitor</li>
         </ul>
     </div>
 </div>
 
 <div class="card">
-    <h3>Key Variables</h3>
+    <h3>Key Action Inputs</h3>
     <table>
         <thead>
             <tr>
-                <th>Variable</th>
+                <th>Input</th>
                 <th>Default</th>
                 <th>Description</th>
             </tr>
         </thead>
         <tbody>
             <tr>
-                <td><code>enable_azure_proxy</code></td>
-                <td>false</td>
-                <td>Enable/disable Chisel deployment</td>
+                <td><code>enable_bastion</code> / <code>enable_jumpbox</code></td>
+                <td>true</td>
+                <td>Deploy the Bastion host and jumpbox VM</td>
             </tr>
             <tr>
-                <td><code>azure_proxy_image</code></td>
+                <td><code>bastion_sku</code></td>
+                <td>Standard</td>
+                <td>Standard (or Premium) is required for native client tunnelling</td>
+            </tr>
+            <tr>
+                <td><code>vm_admin_login_principal_ids</code></td>
                 <td>-</td>
-                <td>Container image URI (built by pr-open workflow)</td>
-            </tr>
-            <tr>
-                <td><code>app_service_sku_name_azure_proxy</code></td>
-                <td>B1</td>
-                <td>App Service plan SKU</td>
+                <td>Entra object IDs granted VM Administrator Login (must include the CI service principal)</td>
             </tr>
         </tbody>
     </table>
@@ -403,24 +389,21 @@ Commands:
 
 <div class="card" style="border-left-color: #8b5cf6;">
     <h3>Usage Example</h3>
-    <p>After deployment, connect from your laptop:</p>
-    <pre># Get credentials from Terraform output
-terraform output azure_proxy_chisel_auth
-terraform output azure_proxy_url
+    <p>Open a SOCKS5 tunnel from your laptop (auth is Entra ID, no credentials to copy). The script is maintained upstream by the action — fetch it on demand:</p>
+    <pre>curl -fsSL \
+  https://raw.githubusercontent.com/bcgov/action-deployer-vm-bastion-alz/v1.0.0/bastion-consumer-scripts/bastion-proxy.sh \
+  -o bastion-proxy.sh &amp;&amp; chmod +x bastion-proxy.sh
 
-# Connect to private PostgreSQL database
-docker run --rm -it -p 5432:5432 jpillora/chisel:latest client \
-  --auth "tunnel:XXXXXXXX" \
-  https://your-app.azurewebsites.net \
-  0.0.0.0:5432:private-postgres.postgres.database.azure.com:5432
+./bastion-proxy.sh -g ai-hub-bastion-tools -b ai-hub-bastion -v ai-hub-jumpbox \
+  -s &lt;tools-subscription-id&gt; -t &lt;tenant-id&gt; -p 8228
 
-# Now connect locally
-psql -h localhost -p 5432 -U admin -d mydb</pre>
-    <p>See <a href="playbooks.html#chisel-tunnel">Chisel Tunnel Playbook</a> for detailed instructions.</p>
+# Prints: SOCKS5 proxy ready on localhost:8228
+# Route clients through it (e.g. proxychains4 psql ...)</pre>
+    <p>See <a href="playbooks.html#bastion-tunnel">Bastion Tunnel Playbook</a> for detailed instructions.</p>
 </div>
 
 <div class="alert alert-warning">
-    <strong>Platform Maintainers Only:</strong> Chisel is for the platform team to access private resources. Tenant developers should use APIM/App Gateway endpoints designed for their applications.
+    <strong>Platform Maintainers Only:</strong> the Bastion tunnel is for the platform team and CI/CD to access private resources. Tenant developers should use APIM/App Gateway endpoints designed for their applications.
 </div>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
@@ -459,18 +442,18 @@ psql -h localhost -p 5432 -U admin -d mydb</pre>
             <td>Tenant CI/CD pipelines needing VNet access</td>
         </tr>
         <tr>
-            <td><strong>Bastion + Jumpbox</strong></td>
-            <td><code>enable_bastion</code> + <code>enable_jumpbox</code></td>
+            <td><strong>Bastion + jumpbox (interactive)</strong></td>
+            <td>bcgov action (<code>enable_bastion</code> + <code>enable_jumpbox</code>)</td>
             <td style="color: #22c55e;">&#10003; Yes</td>
             <td style="color: #22c55e;">&#10003; Yes</td>
-            <td>Admin access, debugging</td>
+            <td>Admin access, debugging (SSH/RDP)</td>
         </tr>
         <tr>
-            <td><strong>Chisel Tunnel</strong></td>
-            <td><code>enable_azure_proxy</code></td>
+            <td><strong>Bastion native SOCKS tunnel</strong></td>
+            <td>bcgov action (<code>bastion_sku: Standard</code>)</td>
             <td style="color: #22c55e;">&#10003; Yes</td>
             <td style="color: #22c55e;">&#10003; Yes</td>
-            <td>Local dev access from laptop</td>
+            <td>CI/CD + local dev access from laptop</td>
         </tr>
     </tbody>
 </table>
@@ -478,24 +461,22 @@ psql -h localhost -p 5432 -U admin -d mydb</pre>
 <div class="grid grid-2">
     <div class="card">
         <h3>Example: Minimal (Control Plane Only)</h3>
-        <pre># terraform.tfvars
-enable_bastion              = false
-enable_jumpbox              = false
-enable_azure_proxy          = false
+        <pre># initial-setup tfvars
 github_runners_aca_enabled  = false
 
+# No Bastion deployed (the .deployer.yml action can be skipped)
 # Uses public GitHub runners
 # Good for: Resource-only Terraform</pre>
     </div>
     <div class="card card-gold">
         <h3>Example: Full Access</h3>
-        <pre># terraform.tfvars
-enable_bastion              = true
-enable_jumpbox              = true
-enable_azure_proxy          = true
+        <pre># initial-setup tfvars
 github_runners_aca_enabled  = true
 
-# All access methods available
+# Bastion + jumpbox come from the bcgov action (.deployer.yml):
+#   enable_bastion: "true"
+#   enable_jumpbox: "true"
+#   bastion_sku: Standard
 # Good for: Platform maintainers</pre>
     </div>
 </div>
@@ -505,7 +486,7 @@ github_runners_aca_enabled  = true
     <table>
         <tr>
             <td><strong>Platform Maintainers</strong></td>
-            <td>Enable all: Bastion + Jumpbox for admin, Chisel for local dev, Self-hosted for CI/CD</td>
+            <td>Bastion + jumpbox (via the bcgov action) for admin + local dev + CI/CD; Self-hosted runners only if needed</td>
         </tr>
         <tr>
             <td><strong>Project Developers</strong></td>
@@ -513,7 +494,7 @@ github_runners_aca_enabled  = true
         </tr>
         <tr>
             <td><strong>Cost-Conscious</strong></td>
-            <td>Chisel only (<code>enable_azure_proxy</code>) - cheapest option with data plane access</td>
+            <td>Bastion native tunnel with the cost-saving auto-delete/recreate automation enabled</td>
         </tr>
     </table>
 </div>

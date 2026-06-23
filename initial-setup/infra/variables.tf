@@ -1,10 +1,3 @@
-
-variable "app_env" {
-  description = "Application environment (dev, test, prod)"
-  type        = string
-  nullable    = false
-}
-
 variable "app_name" {
   description = "Name of the application"
   type        = string
@@ -144,55 +137,6 @@ variable "test_address_spaces" {
   default     = []
 }
 
-### -----------------------------------------------------------------------------
-### Azure Proxy Module Variables
-### -----------------------------------------------------------------------------
-variable "azure_proxy_image" {
-  description = "The image for the Azure Proxy container"
-  type        = string
-}
-variable "app_service_sku_name_azure_proxy" {
-  description = "The SKU name for the azure proxy App Service plan."
-  type        = string
-  default     = "P0v4"
-}
-variable "enable_azure_proxy" {
-  description = "Enable deployment of the Azure Proxy App Service"
-  type        = bool
-  default     = false
-}
-
-
-variable "enable_bastion" {
-  description = "Enable deployment of the Azure Bastion host"
-  type        = bool
-  default     = false
-}
-variable "enable_jumpbox" {
-  description = "Enable deployment of the Azure Jumpbox VM"
-  type        = bool
-  default     = false
-}
-
-variable "enable_entra_login" {
-  description = "Enable Microsoft Entra ID (AAD) SSH login on the jumpbox VM"
-  type        = bool
-  default     = true
-}
-
-variable "vm_admin_login_principal_ids" {
-  description = "List of Entra group or user object IDs to grant Virtual Machine Administrator Login role on the jumpbox"
-  type        = list(string)
-  default     = []
-
-  validation {
-    condition = alltrue([
-      for id in var.vm_admin_login_principal_ids :
-      can(regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$", id))
-    ])
-    error_message = "All entries in vm_admin_login_principal_ids must be valid GUIDs (e.g. 033ec9ae-c728-42ae-8b40-0ca8fe777133)."
-  }
-}
 ### -----------------------------------------------------------------------------
 ### Log Analytics Variables
 ### -----------------------------------------------------------------------------

@@ -27,7 +27,7 @@
 
   <!-- Header -->
   <rect x="0" y="0" width="1100" height="60" fill="url(#headerGrad)"/>
-  <text x="550" y="38" font-family="Segoe UI, Arial" font-size="22" font-weight="bold" fill="white" text-anchor="middle">How Chisel Tunnel Works with Azure App Service</text>
+  <text x="550" y="38" font-family="Segoe UI, Arial" font-size="22" font-weight="bold" fill="white" text-anchor="middle">How the Bastion native tunnel reaches private endpoints</text>
   <text x="550" y="55" font-family="Segoe UI, Arial" font-size="12" fill="#e2e8f0" text-anchor="middle">HTTPS Tunnel from Laptop to Private Endpoints</text>
 
   <!-- Left Side: Your Laptop -->
@@ -38,8 +38,8 @@
   <!-- Docker Container -->
   <rect x="50" y="155" width="280" height="100" rx="8" fill="#fef3c7" stroke="#f59e0b" stroke-width="2"/>
   <text x="190" y="178" font-family="Segoe UI, Arial" font-size="12" font-weight="bold" fill="#92400e" text-anchor="middle">Docker Container</text>
-  <text x="190" y="195" font-family="Segoe UI, Arial" font-size="10" fill="#b45309" text-anchor="middle">jpillora/chisel:latest</text>
-  <text x="190" y="210" font-family="Courier New" font-size="9" fill="#78350f" text-anchor="middle">Chisel Client Mode</text>
+  <text x="190" y="195" font-family="Segoe UI, Arial" font-size="10" fill="#b45309" text-anchor="middle">az network bastion ssh</text>
+  <text x="190" y="210" font-family="Courier New" font-size="9" fill="#78350f" text-anchor="middle">Bastion SSH -D mode</text>
 
   <!-- Container Details -->
   <rect x="60" y="225" width="260" height="60" rx="6" fill="white" stroke="#f59e0b"/>
@@ -75,23 +75,23 @@
   <!-- Center: Azure App Service -->
   <rect x="380" y="90" width="340" height="720" rx="12" fill="white" stroke="#0ea5e9" stroke-width="2" filter="url(#shadow)"/>
   <rect x="380" y="90" width="340" height="40" rx="12" fill="#0ea5e9"/>
-  <text x="550" y="118" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="white" text-anchor="middle">Azure App Service (Linux)</text>
+  <text x="550" y="118" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="white" text-anchor="middle">Azure Bastion (Standard SKU)</text>
 
   <!-- App Service Plan -->
   <rect x="400" y="150" width="300" height="80" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
-  <text x="550" y="173" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#0c4a6e" text-anchor="middle">App Service Plan</text>
+  <text x="550" y="173" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#0c4a6e" text-anchor="middle">+ jumpbox VM (in VNet)</text>
   <text x="550" y="190" font-family="Segoe UI, Arial" font-size="9" fill="#075985" text-anchor="middle">SKU: B1 (Basic $15/month)</text>
   <text x="550" y="205" font-family="Segoe UI, Arial" font-size="9" fill="#075985" text-anchor="middle">Region: Canada Central</text>
   <text x="550" y="220" font-family="Segoe UI, Arial" font-size="9" fill="#075985" text-anchor="middle">OS: Linux</text>
 
   <!-- Web App -->
   <rect x="400" y="245" width="300" height="120" rx="8" fill="#cffafe" stroke="#06b6d4" stroke-width="2"/>
-  <text x="550" y="268" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#0e7490" text-anchor="middle">Web App - Chisel Server</text>
-  <text x="550" y="285" font-family="Segoe UI, Arial" font-size="10" fill="#155e75" text-anchor="middle">Container: azure-proxy/chisel:latest</text>
+  <text x="550" y="268" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#0e7490" text-anchor="middle">Bastion -> jumpbox VM</text>
+  <text x="550" y="285" font-family="Segoe UI, Arial" font-size="10" fill="#155e75" text-anchor="middle">az network bastion ssh -- -D/text>
   <text x="550" y="300" font-family="Segoe UI, Arial" font-size="10" fill="#155e75" text-anchor="middle">Port: 80 (internal httpd)</text>
   <text x="550" y="315" font-family="Segoe UI, Arial" font-size="10" fill="#155e75" text-anchor="middle">TLS: HTTPS only, min 1.3</text>
   <text x="550" y="330" font-family="Segoe UI, Arial" font-size="10" fill="#155e75" text-anchor="middle">Auth: Username/Password required</text>
-  <text x="550" y="345" font-family="Segoe UI, Arial" font-size="10" fill="#155e75" text-anchor="middle">Health: /healthz endpoint</text>
+  <text x="550" y="345" font-family="Segoe UI, Arial" font-size="10" fill="#155e75" text-anchor="middle">Auth: Entra ID + RBAC (no shared secret)</text>
 
   <!-- VNet Integration -->
   <rect x="400" y="380" width="300" height="100" rx="8" fill="#dcfce7" stroke="#22c55e"/>
@@ -101,10 +101,10 @@
   <text x="550" y="450" font-family="Segoe UI, Arial" font-size="10" fill="#15803d" text-anchor="middle">Route: All outbound to VNet</text>
   <text x="550" y="465" font-family="Segoe UI, Arial" font-size="10" fill="#15803d" text-anchor="middle">NSG: Allow HTTP/HTTPS from internet</text>
 
-  <!-- Chisel Server Process -->
+  <!-- Bastion -> jumpbox -->
   <rect x="400" y="495" width="300" height="80" rx="8" fill="#fef3c7" stroke="#f59e0b"/>
-  <text x="550" y="518" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">Chisel Server Process</text>
-  <text x="550" y="535" font-family="Courier New" font-size="9" fill="#b45309" text-anchor="middle">chisel server --auth tunnel:XXXXXXXX</text>
+  <text x="550" y="518" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#92400e" text-anchor="middle">Bastion -> jumpbox</text>
+  <text x="550" y="535" font-family="Courier New" font-size="9" fill="#b45309" text-anchor="middle">az network bastion ssh -- -D 1080</text>
   <text x="550" y="550" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">Port 8080 (internal)</text>
   <text x="550" y="565" font-family="Segoe UI, Arial" font-size="9" fill="#b45309" text-anchor="middle">Forwards to *.postgres.database.azure.com:5432</text>
 
@@ -113,7 +113,7 @@
   <text x="550" y="613" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#6b21a8" text-anchor="middle">Application Settings</text>
   <text x="410" y="630" font-family="Courier New" font-size="9" fill="#7e22ce">WEBSITE_DYNAMIC_CACHE = 0</text>
   <text x="410" y="643" font-family="Courier New" font-size="9" fill="#7e22ce">WEBSITE_VNET_ROUTE_ALL = 1</text>
-  <text x="410" y="656" font-family="Courier New" font-size="9" fill="#7e22ce">CHISEL_AUTH = tunnel:XXXXXXXX</text>
+  <text x="410" y="656" font-family="Courier New" font-size="9" fill="#7e22ce">Entra ID auth (no shared secret)</text>
   <text x="410" y="669" font-family="Segoe UI, Arial" font-size="9" fill="#7e22ce">(Randomly generated by Terraform)</text>
 
   <!-- Application Insights -->
@@ -160,8 +160,8 @@
   <text x="910" y="443" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#166534" text-anchor="middle">Example: PostgreSQL Access</text>
 
   <text x="790" y="465" font-family="Segoe UI, Arial" font-size="9" fill="#15803d">1. Client: psql -h localhost -p 5432</text>
-  <text x="790" y="480" font-family="Segoe UI, Arial" font-size="9" fill="#15803d">2. Chisel Client: Encrypts, sends via HTTPS</text>
-  <text x="790" y="495" font-family="Segoe UI, Arial" font-size="9" fill="#15803d">3. Chisel Server: Decrypts in VNet</text>
+  <text x="790" y="480" font-family="Segoe UI, Arial" font-size="9" fill="#15803d">2. Bastion tunnel client: Encrypts, sends via HTTPS</text>
+  <text x="790" y="495" font-family="Segoe UI, Arial" font-size="9" fill="#15803d">3. jumpbox: Decrypts in VNet</text>
   <text x="790" y="510" font-family="Segoe UI, Arial" font-size="9" fill="#15803d">4. Private Endpoint: Forwards to PE</text>
   <text x="790" y="525" font-family="Segoe UI, Arial" font-size="9" fill="#15803d">5. PostgreSQL: Receives on VNet IP</text>
   <text x="790" y="540" font-family="Segoe UI, Arial" font-size="9" fill="#15803d">6. Return path: Same in reverse</text>
@@ -180,12 +180,12 @@
   <rect x="770" y="710" width="280" height="80" rx="8" fill="#e0f2fe" stroke="#0284c7"/>
   <text x="910" y="733" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#0c4a6e" text-anchor="middle">Setup Commands</text>
   <text x="780" y="752" font-family="Courier New" font-size="8" fill="#075985"># Get from Terraform output</text>
-  <text x="780" y="765" font-family="Courier New" font-size="8" fill="#075985">terraform output azure_proxy_chisel_auth</text>
-  <text x="780" y="778" font-family="Courier New" font-size="8" fill="#075985">terraform output azure_proxy_url</text>
+  <text x="780" y="765" font-family="Courier New" font-size="8" fill="#075985">az network bastion list -g ai-hub-bastion-tools</text>
+  <text x="780" y="778" font-family="Courier New" font-size="8" fill="#075985">az network bastion list -g ai-hub-bastion-tools</text>
 
   <!-- Footer -->
   <rect x="30" y="830" width="1040" height="50" rx="8" fill="#f0f9ff" stroke="#0ea5e9" stroke-width="1"/>
-  <text x="550" y="853" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#0369a1" text-anchor="middle">💡 Key Insight: Chisel creates a secure, authenticated tunnel that makes private endpoints accessible from anywhere</text>
+  <text x="550" y="853" font-family="Segoe UI, Arial" font-size="11" font-weight="bold" fill="#0369a1" text-anchor="middle">💡 Key Insight: Bastion creates a secure, authenticated tunnel that makes private endpoints accessible from anywhere</text>
   <text x="550" y="868" font-family="Segoe UI, Arial" font-size="9" fill="#0284c7" text-anchor="middle">while maintaining full network isolation and zero-trust security</text>
 
 </svg>

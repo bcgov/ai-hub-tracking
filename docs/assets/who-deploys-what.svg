@@ -20,7 +20,7 @@
 
   <!-- Central Question -->
   <rect x="50" y="85" width="1000" height="80" rx="10" fill="#fef3c7" stroke="#f59e0b" stroke-width="2" filter="url(#shadow)"/>
-  <text x="550" y="115" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="#92400e" text-anchor="middle">Do ALL teams need to deploy Bastion, Jumpbox, Chisel, and Container Apps?</text>
+  <text x="550" y="115" font-family="Segoe UI, Arial" font-size="16" font-weight="bold" fill="#92400e" text-anchor="middle">Do ALL teams need to deploy Bastion, Jumpbox, Bastion, and Container Apps?</text>
   <text x="550" y="140" font-family="Segoe UI, Arial" font-size="14" fill="#b45309" text-anchor="middle">NO! It depends on your role...</text>
 
   <!-- Platform Team Box -->
@@ -45,11 +45,11 @@
   <text x="90" y="430" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ Bastion + Jumpbox (optional)</text>
   <text x="110" y="450" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ For admin access to platform</text>
 
-  <text x="90" y="475" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ Chisel tunnel (optional)</text>
+  <text x="90" y="475" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ Bastion tunnel (optional)</text>
   <text x="110" y="495" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ For platform team local dev</text>
 
-  <text x="90" y="520" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ GitHub Actions + Chisel Tunnel</text>
-  <text x="110" y="540" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ GH-hosted runners + Chisel SOCKS5</text>
+  <text x="90" y="520" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ GitHub Actions + Bastion Tunnel</text>
+  <text x="110" y="540" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ GH-hosted runners + Bastion SOCKS5</text>
 
   <text x="90" y="565" font-family="Segoe UI, Arial" font-size="12" fill="#5b21b6">✓ Monitoring (Log Analytics)</text>
   <text x="110" y="585" font-family="Segoe UI, Arial" font-size="10" fill="#6b21a8">  └─ Centralized logging</text>
@@ -83,7 +83,7 @@
 
   <rect x="590" y="355" width="440" height="450" rx="8" fill="#f0fdf4" stroke="#22c55e"/>
 
-  <text x="610" y="385" font-family="Segoe UI, Arial" font-size="12" fill="#166534">✗ NO: Bastion/Jumpbox/Chisel</text>
+  <text x="610" y="385" font-family="Segoe UI, Arial" font-size="12" fill="#166534">✗ NO: Bastion/Jumpbox/Bastion</text>
   <text x="630" y="405" font-family="Segoe UI, Arial" font-size="10" fill="#15803d">  └─ Platform team maintains these</text>
 
   <text x="610" y="430" font-family="Segoe UI, Arial" font-size="12" fill="#166534">✗ NO: Network infrastructure</text>

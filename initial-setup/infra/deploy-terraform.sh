@@ -36,7 +36,7 @@
 #   ./initial-setup/infra/deploy-terraform.sh init
 #   ./initial-setup/infra/deploy-terraform.sh plan
 #   ./initial-setup/infra/deploy-terraform.sh apply
-#   ./initial-setup/infra/deploy-terraform.sh apply -target=module.jumpbox
+#   ./initial-setup/infra/deploy-terraform.sh apply -target=module.network
 #   export CI=true && ./initial-setup/infra/deploy-terraform.sh apply
 #   ./initial-setup/infra/deploy-terraform.sh destroy
 # =============================================================================
@@ -120,8 +120,8 @@ Examples:
     $0 init
     $0 plan
     $0 apply
-    $0 apply -target=module.jumpbox
-    $0 destroy -target=module.bastion
+    $0 apply -target=module.network
+    $0 destroy -target=module.github_runners_aca
     CI=true $0 apply
 
 EOF

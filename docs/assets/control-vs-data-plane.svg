@@ -120,8 +120,8 @@
   <text x="540" y="597" font-family="Segoe UI, Arial" font-size="10" fill="white" text-anchor="middle">&#10003; Works</text>
   <text x="750" y="595" font-family="Segoe UI, Arial" font-size="9" fill="#64748b" text-anchor="middle">VM inside VNet</text>
 
-  <!-- Row 4: Chisel Tunnel -->
-  <text x="140" y="625" font-family="Segoe UI, Arial" font-size="10" fill="#475569" text-anchor="middle">Chisel Tunnel (Laptop)</text>
+  <!-- Row 4: Bastion Tunnel -->
+  <text x="140" y="625" font-family="Segoe UI, Arial" font-size="10" fill="#475569" text-anchor="middle">Bastion Tunnel (Laptop)</text>
   <rect x="310" y="612" width="60" height="22" rx="4" fill="#22c55e"/>
   <text x="340" y="627" font-family="Segoe UI, Arial" font-size="10" fill="white" text-anchor="middle">&#10003; Works</text>
   <rect x="510" y="612" width="60" height="22" rx="4" fill="#22c55e"/>
@@ -134,7 +134,7 @@
   <text x="340" y="657" font-family="Segoe UI, Arial" font-size="10" fill="white" text-anchor="middle">&#10003; Works</text>
   <rect x="510" y="642" width="60" height="22" rx="4" fill="#ef4444"/>
   <text x="540" y="657" font-family="Segoe UI, Arial" font-size="10" fill="white" text-anchor="middle">&#10007; Blocked</text>
-  <text x="750" y="655" font-family="Segoe UI, Arial" font-size="9" fill="#64748b" text-anchor="middle">Use Chisel or Bastion</text>
+  <text x="750" y="655" font-family="Segoe UI, Arial" font-size="9" fill="#64748b" text-anchor="middle">Use Bastion or Bastion</text>
 
   <!-- Footer note -->
   <text x="450" y="690" font-family="Segoe UI, Arial" font-size="10" fill="#64748b" text-anchor="middle">OIDC provides authentication credentials, but credentials alone don't grant network access to private endpoints</text>

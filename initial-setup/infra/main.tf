@@ -41,31 +41,8 @@ module "monitoring" {
 
   depends_on = [azurerm_resource_group.main, module.network]
 }
-module "bastion" {
-  source = "./modules/bastion"
-  count  = var.enable_bastion ? 1 : 0
-
-  app_name            = var.app_name
-  common_tags         = var.common_tags
-  location            = var.location
-  resource_group_name = azurerm_resource_group.main.name
-  bastion_subnet_id   = module.network.bastion_subnet_id
-  bastion_sku         = "Standard"
-
-}
-module "jumpbox" {
-  source = "./modules/jumpbox"
-  count  = var.enable_jumpbox ? 1 : 0
-
-  app_name                     = var.app_name
-  common_tags                  = var.common_tags
-  location                     = var.location
-  resource_group_name          = azurerm_resource_group.main.name
-  subnet_id                    = module.network.jumpbox_subnet_id
-  enable_entra_login           = var.enable_entra_login
-  vm_admin_login_principal_ids = var.vm_admin_login_principal_ids
-  depends_on                   = [module.network]
-}
+# Azure Bastion + jumpbox are provisioned by the bcgov/action-deployer-vm-bastion-alz
+# action in the tools subscription (see .github/workflows/.deployer.yml), not by this root.
 
 # GitHub Self-Hosted Runners on Azure Container Apps (AVM-based)
 # These runners auto-scale from 0 based on queued jobs
@@ -100,21 +77,6 @@ module "github_runners_aca" {
   depends_on = [module.network]
 }
 
-module "azure_proxy" {
-  source = "./modules/azure-proxy"
-  count  = var.enable_azure_proxy ? 1 : 0
-
-  app_name                         = var.app_name
-  repo_name                        = var.github_repository
-  app_env                          = var.app_env
-  resource_group_name              = azurerm_resource_group.main.name
-  location                         = var.location
-  app_service_subnet_id            = module.network.app_service_subnet_id
-  azure_proxy_image                = var.azure_proxy_image
-  common_tags                      = var.common_tags
-  app_service_sku_name_azure_proxy = var.app_service_sku_name_azure_proxy
-  log_analytics_workspace_id       = module.monitoring.log_analytics_workspace_id
-  appinsights_connection_string    = module.monitoring.appinsights_connection_string
-  appinsights_instrumentation_key  = module.monitoring.appinsights_instrumentation_key
-  depends_on                       = [module.network]
-}
+# The legacy chisel "azure_proxy" App Service has been removed. Private-endpoint reach for
+# dev/test/prod deployments now flows through Azure Bastion native tunnelling — see
+# .github/workflows/.deployer-using-secure-tunnel.yml and azure-proxy/privoxy/README.md.

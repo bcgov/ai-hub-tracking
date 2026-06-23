@@ -344,16 +344,16 @@
         </div>
         <div class="diagram-card-info">
             <h4>3-Step Access Evolution</h4>
-            <p>Evolution from Bastion → Container Apps runners (previous) → Chisel+App Service (current) with cost comparison</p>
+            <p>Evolution from Container Apps runners (previous) → Bastion native tunnel + jumpbox (current) with cost comparison</p>
         </div>
     </div>
-    <div class="diagram-card" onclick="loadDiagram('chisel-detail', this)">
+    <div class="diagram-card" onclick="loadDiagram('bastion-detail', this)">
         <div class="diagram-card-preview">
-            <img src="assets/chisel-tunnel-detail.svg" alt="Chisel Tunnel Detail Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
+            <img src="assets/bastion-tunnel-detail.svg" alt="Bastion Tunnel Detail Preview" onerror="this.parentElement.innerHTML='<div style=\'color:#666;font-size:0.9rem;\'>Coming Soon</div>'">
         </div>
         <div class="diagram-card-info">
-            <h4>Chisel Tunnel Detail</h4>
-            <p>How HTTPS tunnel from laptop reaches private endpoints via App Service</p>
+            <h4>Bastion Tunnel Detail</h4>
+            <p>How a SOCKS5 tunnel from the runner/laptop reaches private endpoints via Bastion + jumpbox</p>
         </div>
     </div>
     <div class="diagram-card" onclick="loadDiagram('terraform-keyvault', this)">
@@ -455,7 +455,7 @@
         </div>
         <div class="diagram-card-info">
             <h4>Access Methods Architecture</h4>
-            <p>Four toggleable access methods: GitHub-hosted runners (CI/CD via Chisel), optional self-hosted runners, Bastion, Chisel</p>
+            <p>Toggleable access methods: GitHub-hosted runners (CI/CD via the Bastion tunnel), optional self-hosted runners, Bastion + jumpbox</p>
         </div>
     </div>
     <div class="diagram-card" onclick="loadDiagram('who-deploys-what', this)">
@@ -659,7 +659,7 @@
         <ul style="margin-bottom: 0;">
             <li>All 6 GHA workflows (manual-dispatch, key-rotation, module mgmt, schedule, PR, pages)</li>
             <li>Manual dispatch to dev/test/prod with OIDC federation</li>
-            <li>Proxy deploy → health check → secure tunnel (chisel+privoxy)</li>
+            <li>Bastion deploy → ensure up → SOCKS tunnel (bastion+privoxy)</li>
             <li>Reusable workflow templates (.deployer + .deployer-using-secure-tunnel)</li>
             <li>Script architecture: deploy-terraform.sh → deploy-scaled.sh → 3 phases</li>
         </ul>
@@ -821,9 +821,9 @@ const diagrams = {
         title: '3-Step Access Evolution',
         src: 'assets/three-steps-access-evolution.svg'
     },
-    'chisel-detail': {
-        title: 'Chisel Tunnel Detail',
-        src: 'assets/chisel-tunnel-detail.svg'
+    'bastion-detail': {
+        title: 'Bastion Tunnel Detail',
+        src: 'assets/bastion-tunnel-detail.svg'
     },
     'terraform-keyvault': {
         title: 'When Terraform Needs Key Vault',

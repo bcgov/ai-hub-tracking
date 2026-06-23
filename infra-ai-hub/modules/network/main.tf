@@ -73,7 +73,7 @@ resource "azurerm_network_security_group" "private_endpoints" {
 
   # --- Inbound: allow source/tools VNet → all PE subnets ---
   # The source VNet (e.g., tools VNet) is a separate peered VNet that needs
-  # to reach PE-backed services for management, testing, and chisel proxy.
+  # to reach PE-backed services for management, testing, and the Bastion tunnel.
   security_rule {
     name                         = "AllowInboundFromSourceVNet"
     priority                     = 300
@@ -430,11 +430,12 @@ resource "azurerm_route_table" "appgw" {
   name                = "${var.name_prefix}-appgw-rt"
   location            = var.location
   resource_group_name = var.vnet_resource_group_name
-
-  tags = var.common_tags
+  tags                = var.common_tags
 
   lifecycle {
-    ignore_changes = [tags]
+    # bgp_route_propagation_enabled is set to false to avoid VWAN hub route propagation
+    # which would cause asymmetric routing for AppGW. This is required in VWAN spoke, it is set by platform team so we ignore that.
+    ignore_changes = [tags, bgp_route_propagation_enabled]
   }
 }
 

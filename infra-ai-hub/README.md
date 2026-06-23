@@ -1412,7 +1412,7 @@ This guide explains how to deploy infrastructure from your local machine to the 
 
 **Private Endpoints Block Public Access**: This infrastructure uses private endpoints for all Azure PaaS services (Key Vault, Storage, AI services, etc.). While GitHub Actions can deploy control plane resources (creating VMs, networks, etc.) using OIDC authentication, they **cannot access the data plane** (reading secrets, uploading blobs) when private endpoints are enabled.
 
-**Chisel Provides Network Access**: By establishing a secure tunnel through the Chisel proxy server (deployed in the VNet), your local machine can reach private endpoints as if it were inside the Azure VNet. This enables Terraform to perform data plane operations like reading Key Vault secrets during deployment.
+**Azure Bastion Provides Network Access**: By opening an Azure Bastion native tunnel (SOCKS5) to a jumpbox VM inside the VNet, your local machine can reach private endpoints as if it were inside the Azure VNet. This enables Terraform to perform data plane operations like reading Key Vault secrets during deployment — with no public proxy and no shared password (auth is Entra ID + RBAC).
 
 **Dev-Only Local Deployments**: Local deployments are restricted to the **dev environment only**. Once the infrastructure is stable, dev deployments can also be triggered via GitHub Actions workflow dispatch. Promotions to test and prod environments happen exclusively through GitHub Actions workflows after gated review and approval.
 
@@ -1424,10 +1424,10 @@ For a detailed technical explanation, see the [Technical Deep Dive: Control vs D
 
 Before starting, ensure you have:
 
-- **Docker** installed and running on your local machine
-- **Azure CLI** authenticated (`az login`)
+- **Docker** installed and running on your local machine (for the Privoxy bridge)
+- **Azure CLI** authenticated (`az login`), with the `bastion` and `ssh` extensions (the proxy script installs them)
 - **Terraform** >= 1.12.0 installed
-- **Chisel credentials** from the platform team or Terraform outputs
+- **"Virtual Machine Administrator Login"** RBAC on the jumpbox (request from the platform team)
 - **Appropriate Azure permissions** (Contributor or Owner on the subscription)
 
 ---
@@ -1465,119 +1465,72 @@ Local Machine (Terraform)
         ↓
 HTTP Proxy (Privoxy on localhost:8118)
         ↓
-SOCKS5 Proxy (Chisel on localhost:18080)
+SOCKS5 Proxy (Azure Bastion tunnel on localhost:8228)
         ↓
-HTTPS Tunnel to Azure
+Azure Bastion native tunnel (Entra ID auth)
         ↓
-Chisel Server (App Service in VNet)
+Jumpbox VM (in VNet)
         ↓
 Private Endpoints (Key Vault, Storage, AI Services, etc.)
 ```
 
-The workflow uses two Docker containers:
-1. **Chisel Client** - Creates a SOCKS5 tunnel to Azure
+The workflow uses:
+1. **Bastion proxy script** - Opens a SOCKS5 tunnel to Azure via Bastion native tunnelling
 2. **Privoxy** - Converts the SOCKS5 proxy to HTTP/HTTPS proxy (Terraform-compatible)
 
----
-
-### Step 1: Get Chisel Credentials
-
-The Chisel proxy is deployed in the **tools subscription** (`da4cf6-tools - AI Services Hub`). Retrieve the credentials using Azure CLI:
-
-```bash
-# Switch to tools subscription
-az account set --subscription "da4cf6-tools - AI Services Hub"
-
-# Get the authentication credentials
-CHISEL_AUTH=$(az webapp config appsettings list \
-  --name ai-hub-tools-azure-proxy \
-  --resource-group ai-hub-tools \
-  --query "[?name=='CHISEL_AUTH'].value" -o tsv)
-
-# Get the proxy URL
-CHISEL_URL="https://$(az webapp show \
-  --name ai-hub-tools-azure-proxy \
-  --resource-group ai-hub-tools \
-  --query defaultHostName -o tsv)"
-
-# Display credentials
-echo "Proxy URL: $CHISEL_URL"
-echo "Auth: $CHISEL_AUTH"
-
-# Switch back to your working subscription (e.g., dev)
-az account set --subscription "da4cf6-dev - AI Services Hub"
-```
-
-**Expected output**:
-```
-Proxy URL: https://ai-hub-tools-azure-proxy.azurewebsites.net
-Auth: username:password
-```
-
-**Alternative**: Contact the platform team if you don't have access to the tools subscription.
-
-**Note**: Do not commit these credentials to version control.
+The Bastion + jumpbox are provisioned by the [`bcgov/action-deployer-vm-bastion-alz`](https://github.com/bcgov/action-deployer-vm-bastion-alz) action into the `ai-hub-bastion-tools` resource group (tools subscription). That same action publishes the local-dev tunnel scripts, so we don't vendor them — fetch them from upstream on demand.
 
 ---
 
-### Step 2: Start Chisel Tunnel (SOCKS5 Proxy)
+### Step 1: Open the Bastion SOCKS5 tunnel
 
-Open a terminal and run the Chisel client using the credentials from Step 1:
+There are no credentials to copy — Bastion native tunnelling authenticates with your `az login` session (Entra ID + RBAC). The jumpbox + Bastion live in the **tools subscription**.
 
-```bash
-docker run --rm -it -p 18080:1080 jpillora/chisel:latest client \
-  --auth "$CHISEL_AUTH" \
-  $CHISEL_URL \
-  0.0.0.0:1080:socks
-```
-
-**Or with credentials directly** (if you didn't set environment variables):
+Fetch the upstream consumer script (pinned to the action version we deploy with) and run it. Full instructions — including the PowerShell variant and troubleshooting — are in [`initial-setup/infra/scripts/bastion-proxy.md`](../initial-setup/infra/scripts/bastion-proxy.md).
 
 ```bash
-docker run --rm -it -p 18080:1080 jpillora/chisel:latest client \
-  --auth "username:password" \
-  https://ai-hub-tools-azure-proxy.azurewebsites.net \
-  0.0.0.0:1080:socks
-```
+curl -fsSL \
+  https://raw.githubusercontent.com/bcgov/action-deployer-vm-bastion-alz/v1.0.0/bastion-consumer-scripts/bastion-proxy.sh \
+  -o bastion-proxy.sh
+chmod +x bastion-proxy.sh
 
-**Command breakdown**:
-- `-p 18080:1080` - Map local port 18080 to container's SOCKS5 port 1080
-- `--auth "$CHISEL_AUTH"` - Use the authentication credentials from the App Service
-- `$CHISEL_URL` - The proxy URL (ai-hub-tools-azure-proxy.azurewebsites.net)
-- `0.0.0.0:1080:socks` - Start SOCKS5 proxy on all interfaces
+# Our tools stack is named ai-hub-<env>. Port 8228 matches docker-compose.yml.
+./bastion-proxy.sh \
+  -g ai-hub-bastion-tools \
+  -b ai-hub-bastion \
+  -v ai-hub-jumpbox \
+  -s <tools-subscription-id> \
+  -t <tenant-id> \
+  -p 8228
+```
 
 Leave this terminal running. You should see:
 ```
-[client] Connected (Latency XXXms)
+SOCKS5 proxy ready on localhost:8228
 ```
+
+**Note**: if the cost-saving automation has deleted the Bastion off-hours, ask the platform team to run the `Create-BastionHost` runbook (or wait for the weekday recreate).
 
 ---
 
-### Step 3: Build and Start Privoxy (HTTP Proxy)
+### Step 2: Start Privoxy (HTTP Proxy)
 
-Privoxy converts the SOCKS5 proxy to an HTTP/HTTPS proxy that Terraform can use.
+Privoxy converts the SOCKS5 proxy to an HTTP/HTTPS proxy that Terraform and the Azure CLI can use.
 
-**First time only** - Build the Privoxy image:
-
-```bash
-cd azure-proxy/privoxy
-docker build -t local/privoxy-socks-bridge:latest .
-```
-
-**Start Privoxy** (in a new terminal):
+**Start Privoxy** (in a new terminal) — using the published image, or `docker compose up -d`:
 
 ```bash
 docker run --rm -d --name privoxy \
   --network host \
   -e SOCKS_HOST=127.0.0.1 \
-  -e SOCKS_PORT=18080 \
-  local/privoxy-socks-bridge:latest
+  -e SOCKS_PORT=8228 \
+  ghcr.io/bcgov/ai-hub-tracking/azure-proxy/privoxy:latest
 ```
 
 **Command breakdown**:
-- `--network host` - Use host networking to access localhost:18080
-- `-e SOCKS_HOST=127.0.0.1` - Point to Chisel SOCKS5 proxy
-- `-e SOCKS_PORT=18080` - Chisel's SOCKS5 port
+- `--network host` - Use host networking to access localhost:8228
+- `-e SOCKS_HOST=127.0.0.1` - Point to the Bastion SOCKS5 proxy
+- `-e SOCKS_PORT=8228` - The port the Bastion proxy script opened
 - `-d` - Run in detached mode
 
 Privoxy will now be listening on `localhost:8118`.
@@ -1589,7 +1542,7 @@ docker ps | grep privoxy
 
 ---
 
-### Step 4: Configure Environment Variables and terraform.tfvars
+### Step 3: Configure Environment Variables and terraform.tfvars
 
 #### A. Set Environment Variables
 
@@ -1642,7 +1595,7 @@ source_vnet_address_space  = "$source_address_space"
 
 ---
 
-### Step 5: Preview Changes (Terraform Plan)
+### Step 4: Preview Changes (Terraform Plan)
 
 Run a Terraform plan to preview what changes will be made:
 
@@ -1658,7 +1611,7 @@ BACKEND_STORAGE_ACCOUNT="${BACKEND_STORAGE_ACCOUNT}" \
 ```
 
 **Environment variables explained**:
-- `HTTP_PROXY` / `HTTPS_PROXY` - Route traffic through Privoxy (which routes through Chisel)
+- `HTTP_PROXY` / `HTTPS_PROXY` - Route traffic through Privoxy (which routes through the Bastion SOCKS tunnel)
 - `NO_PROXY` - Bypass proxy for Azure control plane and Terraform registry (these are publicly accessible)
 - `CI="true"` - Enables non-interactive mode in the deployment script
 - `BACKEND_RESOURCE_GROUP` - Resource group containing Terraform state storage
@@ -1666,7 +1619,7 @@ BACKEND_STORAGE_ACCOUNT="${BACKEND_STORAGE_ACCOUNT}" \
 
 ---
 
-### Step 6: Deploy Infrastructure (Terraform Apply)
+### Step 5: Deploy Infrastructure (Terraform Apply)
 
 Deploy using stack orchestration:
 
@@ -1733,7 +1686,7 @@ Dependency details in this flow:
 
 ---
 
-### Step 7: Run Integration Tests (Optional)
+### Step 6: Run Integration Tests (Optional)
 
 Test the deployed infrastructure using the integration test suite:
 
@@ -1758,7 +1711,7 @@ The tests validate:
 
 ---
 
-### Step 8: Destroy Landing Zone (Cost Savings)
+### Step 7: Destroy Landing Zone (Cost Savings)
 
 **⚠️ DEV ENVIRONMENT ONLY**: This destroy operation should **only** be performed on the dev environment to save costs when not actively developing. **Never destroy test or prod environments** - they are managed through GitHub Actions and should remain persistent.
 

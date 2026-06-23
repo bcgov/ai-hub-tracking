@@ -612,6 +612,14 @@ resource "azurerm_role_assignment" "apim_openai_user" {
   principal_id         = module.apim[0].principal_id
 }
 
+resource "azurerm_role_assignment" "apim_ai_services_user" {
+  count = local.apim_config.enabled ? 1 : 0
+
+  scope                = data.terraform_remote_state.shared.outputs.ai_foundry_hub_id
+  role_definition_name = "Cognitive Services User"
+  principal_id         = module.apim[0].principal_id
+}
+
 resource "azurerm_role_assignment" "apim_docint_user" {
   for_each = local.tenants_with_document_intelligence
 

@@ -1,17 +1,16 @@
+# Local HTTP→SOCKS bridge for reaching Azure private endpoints during development.
+#
+# 1. Start the Bastion SOCKS5 proxy on your host (default port 8228) using the upstream
+#    consumer script — see initial-setup/infra/scripts/bastion-proxy.md for the fetch+run steps.
+# 2. Start privoxy:  docker compose up -d
+# 3. Point tools at http://127.0.0.1:8118  (see azure-proxy/privoxy/README.md).
 services:
-  chisel-client-azure:
-    image: jpillora/chisel:latest
-    container_name: chisel-client-azure
-    ports:
-      - "18080:1080"
-    command: client --auth "${CHISEL_AUTH}" "${CHISEL_SERVER_URL}" 0.0.0.0:1080:socks
   privoxy:
     image: ghcr.io/bcgov/ai-hub-tracking/azure-proxy/privoxy:latest
     container_name: privoxy
     ports:
       - "0.0.0.0:8118:8118"
     environment:
+      # host.docker.internal points back at the host where bastion-proxy.sh runs the SOCKS5 proxy.
       - SOCKS_HOST=host.docker.internal
-      - SOCKS_PORT=18080
-    depends_on:
-      - chisel-client-azure
+      - SOCKS_PORT=${SOCKS_PORT:-8228}

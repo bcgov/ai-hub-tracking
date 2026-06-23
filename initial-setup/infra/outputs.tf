@@ -2,55 +2,13 @@
 # Root Level Outputs - Re-export module outputs
 # =============================================================================
 
-# Jumpbox Outputs
-output "jumpbox_vm_id" {
-  description = "ID of the jumpbox virtual machine"
-  value       = var.enable_jumpbox ? module.jumpbox[0].vm_id : null
-}
+# Azure Bastion + jumpbox outputs now come from the bcgov/action-deployer-vm-bastion-alz
+# action's own Terraform state (tools subscription), not this root.
 
-output "jumpbox_vm_name" {
-  description = "Name of the jumpbox virtual machine"
-  value       = var.enable_jumpbox ? module.jumpbox[0].vm_name : null
-}
-
-
-output "jumpbox_admin_username" {
-  description = "Admin username for SSH access to jumpbox"
-  value       = var.enable_jumpbox ? module.jumpbox[0].admin_username : null
-  sensitive   = false
-}
-
-
-output "jumpbox_auto_shutdown_time" {
-  description = "Auto-shutdown time (PST)"
-  value       = var.enable_jumpbox ? module.jumpbox[0].auto_shutdown_time : null
-}
-
-output "jumpbox_auto_start_schedule" {
-  description = "Auto-start schedule (PST)"
-  value       = var.enable_jumpbox ? module.jumpbox[0].auto_start_schedule : null
-}
-
-output "jumpbox_entra_login_enabled" {
-  description = "Whether Entra ID SSH login is enabled on the jumpbox"
-  value       = var.enable_jumpbox ? module.jumpbox[0].entra_login_enabled : null
-}
-
-output "jumpbox_ssh_private_key" {
-  description = "PEM-encoded SSH private key for break-glass access (sensitive)"
-  value       = var.enable_jumpbox ? module.jumpbox[0].ssh_private_key : null
-  sensitive   = true
-}
-
-# Bastion Outputs
-output "bastion_resource_id" {
-  description = "Resource ID of Azure Bastion"
-  value       = var.enable_bastion ? module.bastion[0].bastion_resource_id : null
-}
-
-output "bastion_fqdn" {
-  description = "FQDN of the Bastion service"
-  value       = var.enable_bastion ? module.bastion[0].bastion_fqdn : null
+# Monitoring outputs
+output "log_analytics_workspace_id" {
+  description = "Resource ID of the shared Log Analytics workspace. Consumed by the Bastion deployer (.github/workflows/.deployer.yml) as a bring-your-own workspace for Bastion audit diagnostics."
+  value       = module.monitoring.log_analytics_workspace_id
 }
 
 # GitHub Runners on Azure Container Apps outputs
@@ -74,13 +32,3 @@ output "github_runners_acr_name" {
   value       = var.github_runners_aca_enabled ? module.github_runners_aca[0].container_registry_name : null
 }
 
-output "proxy_url" {
-  description = "URL of the Azure Proxy service"
-  value       = var.enable_azure_proxy ? module.azure_proxy[0].proxy_url : null
-  sensitive   = true
-}
-output "proxy_auth" {
-  description = "Authentication info for the Azure Proxy service"
-  value       = var.enable_azure_proxy ? module.azure_proxy[0].proxy_auth : null
-  sensitive   = true
-}

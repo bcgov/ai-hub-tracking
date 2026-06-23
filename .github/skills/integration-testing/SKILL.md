@@ -108,7 +108,7 @@ uv run python ./run-tests.py --env test --group proxy
 
 1. **Direct**: `uv run python ./run-tests.py --group direct`
 2. **Optional AI Evaluation**: `uv run python ./run-evaluation.py` when judge-model secrets and vars exist
-3. **Proxy**: `uv run python ./run-tests.py --group proxy` with `HTTP_PROXY`/`HTTPS_PROXY` set to the chisel+privoxy tunnel
+3. **Proxy**: `uv run python ./run-tests.py --group proxy` with `HTTP_PROXY`/`HTTPS_PROXY` set to the Bastion SOCKS tunnel (fronted by privoxy)
 
 ## Validation Gates (Required)
 1. `uv sync --group dev` succeeds

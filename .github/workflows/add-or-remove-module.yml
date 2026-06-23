@@ -1,29 +1,18 @@
 name: Deploy or Remove Bastion Host
 
+# Manual lifecycle control for the tools Bastion + jumpbox stack, provisioned via the
+# bcgov/action-deployer-vm-bastion-alz action (see .deployer.yml). Use `destroy` to tear
+# the stack down and `apply` to bring it back.
 on:
   workflow_dispatch:
     inputs:
-      environment_name:
-        description: "Target environment"
-        required: true
-        type: choice
-        options:
-          - tools
-      module:
-        description: "Infrastructure module to manage, not required for full stack operations"
-        required: true
-        type: choice
-        options:
-          - bastion
-          - azure_proxy
-          - jumpbox
-          - github_runners_aca
       command:
-        description: "Terraform command"
+        description: "Terraform command for the Bastion stack"
         required: true
         type: choice
         options:
           - apply
+          - plan
           - destroy
 
 permissions:
@@ -31,11 +20,9 @@ permissions:
   contents: read
 
 jobs:
-  terraform:
-    name: "${{ inputs.command }} module.${{ inputs.module }}"
+  bastion:
+    name: "Bastion ${{ inputs.command }} (tools)"
     uses: ./.github/workflows/.deployer.yml
     with:
-      environment_name: ${{ inputs.environment_name }}
       command: ${{ inputs.command }}
-      target_module: ${{ inputs.module }}
     secrets: inherit

@@ -70,9 +70,9 @@
         <td>Entry point infrastructure</td>
     </tr>
     <tr>
-        <td><strong>Azure Proxy (Chisel Server)</strong></td>
+        <td><strong>Azure Bastion + jumpbox</strong></td>
         <td><span class="badge" style="background:#f59e0b;color:white;">Shared</span></td>
-        <td>App Service running Chisel SOCKS5 proxy for CI/CD private-endpoint access (always-on)</td>
+        <td>Standard SKU Bastion + jumpbox VM for CI/CD private-endpoint access (auto-deleted off-hours to save cost)</td>
     </tr>
     <tr>
         <td><strong>CI/CD Runners (GitHub self-hosted) <span class="badge" style="background:#6b7280;color:white;">Optional</span></strong></td>
@@ -156,7 +156,7 @@
 
 <h2 id="cicd-runner-costs">CI/CD Runner Costs (Self-hosted GitHub runners)</h2>
 
-<p>The optional <code>github_runners_aca</code> module provisions self-hosted runners inside the VNet for tenant CI/CD pipelines that need private endpoint access. Runners run as Azure Container Apps jobs (scale-to-zero) with supporting services (ACR + Log Analytics). Note: this repo's own CI/CD uses public GitHub runners + the Chisel tunnel instead.</p>
+<p>The optional <code>github_runners_aca</code> module provisions self-hosted runners inside the VNet for tenant CI/CD pipelines that need private endpoint access. Runners run as Azure Container Apps jobs (scale-to-zero) with supporting services (ACR + Log Analytics). Note: this repo's own CI/CD uses public GitHub runners + the Bastion tunnel instead.</p>
 
 <div class="grid grid-2">
     <div class="card" style="border-left-color: #0ea5e9;">

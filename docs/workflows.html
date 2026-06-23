@@ -1032,7 +1032,7 @@
                     </a>
                     <a href="technical-deep-dive.html" class="">
                         Technical Deep Dive
-                        <small>Control/data plane &amp; Chisel architecture</small>
+                        <small>Control/data plane &amp; Bastion tunnel architecture</small>
                     </a>
                 </div>
             </div>
@@ -1102,12 +1102,12 @@
         <tr>
             <td><strong>.deployer.yml</strong></td>
             <td>Called by other workflows</td>
-            <td>Reusable Terraform deployer for <code>initial-setup/infra</code> (tools bootstrap and module-level operations)</td>
+            <td>Reusable two-stage <code>tools</code> deployer: <code>initial-setup/infra</code> (resource group, network, monitoring) then Azure Bastion + jumpbox via the bcgov action</td>
         </tr>
         <tr>
             <td><strong>.deployer-using-secure-tunnel.yml</strong></td>
             <td>Called by other workflows</td>
-            <td>Reusable Terraform deployer for <code>infra-ai-hub</code> through Chisel + Privoxy secure tunnel</td>
+            <td>Reusable Terraform deployer for <code>infra-ai-hub</code> through the Bastion SOCKS tunnel + Privoxy</td>
         </tr>
         <tr>
             <td><strong>.lint.yml</strong></td>
@@ -1117,7 +1117,7 @@
         <tr>
             <td><strong>add-or-remove-module.yml</strong></td>
             <td>Manual (workflow_dispatch)</td>
-            <td>Deploy or destroy selected tools modules (bastion, azure_proxy, jumpbox, github_runners_aca)</td>
+            <td>Manually apply/plan/destroy the tools Bastion + jumpbox stack (via the bcgov action)</td>
         </tr>
         <tr>
             <td><strong>manual-dispatch.yml</strong></td>
@@ -1132,12 +1132,7 @@
         <tr>
             <td><strong>pr-open.yml</strong></td>
             <td>Pull request events + manual trigger</td>
-            <td>PR validation: lint, container builds, deploy proxy in tools, and plan against test</td>
-        </tr>
-        <tr>
-            <td><strong>schedule.yml</strong></td>
-            <td>Cron (daily at 5 PM PST)</td>
-            <td>Auto-destroy Bastion for cost savings</td>
+            <td>PR validation: lint, container builds, deploy Bastion in tools, and plan against test</td>
         </tr>
         <tr>
             <td><strong>pages.yml</strong></td>
@@ -1194,7 +1189,7 @@
         </ul>
     </li>
     <li><strong>Merge to main</strong> once PR checks and code review pass.</li>
-    <li><strong>Auto-apply to test + semver tag</strong>: <code>merge-main.yml</code> starts two jobs concurrently &mdash; semantic versioning (conventional commit history &rarr; <code>v1.2.3</code> tag + <code>CHANGELOG.md</code> update) and proxy bootstrap in <code>tools</code>. Container images are then re-tagged with the semver version. Once the proxy is up, it applies infrastructure to <code>test</code> through the Chisel tunnel. After a successful apply, integration tests run automatically (two phases &mdash; see below).</li>
+    <li><strong>Auto-apply to test + semver tag</strong>: <code>merge-main.yml</code> starts two jobs concurrently &mdash; semantic versioning (conventional commit history &rarr; <code>v1.2.3</code> tag + <code>CHANGELOG.md</code> update) and Bastion bootstrap in <code>tools</code>. Container images are then re-tagged with the semver version. Once the Bastion + jumpbox are up, it applies infrastructure to <code>test</code> through the Bastion tunnel. After a successful apply, integration tests run automatically (two phases &mdash; see below).</li>
     <li><strong>Promote to prod</strong>: Use <code>manual-dispatch.yml</code>, select <code>prod</code> + <code>apply</code>, and provide the semver tag. The workflow verifies all container images exist with that tag, then deploys using the <strong>semver-tagged images</strong> (not <code>latest</code>). <strong>This is gated &mdash; requires approval from designated reviewers</strong> (configured in the GitHub <code>prod</code> environment protection rules).</li>
     <li><strong>Release created</strong>: After successful prod apply, a GitHub Release is automatically created from the deployed tag with deployment metadata.</li>
 </ol>
@@ -1212,7 +1207,7 @@
    └── Pull Request ──► pr-open.yml
                         ├─ .lint.yml (fmt, tflint, conventional commits, fork check)
                         ├─ .builds.yml
-                        ├─ .deployer.yml (tools/azure_proxy)
+                        ├─ .deployer.yml (tools Bastion + jumpbox via bcgov action)
                         ├─ .deployer-using-secure-tunnel.yml (test plan)
                         └─ Update PR description with plan summary
                                   │
@@ -1223,8 +1218,8 @@
                         merge-main.yml
                         ├─ Semantic version tag (v1.2.3) ─────────────────── concurrent
                         ├─ Tag container images (latest → v1.2.3) ──────── after semver
-                        ├─ Deploy azure_proxy (tools) ───────────────────────────────┤
-                        └─ Apply to test (via Chisel tunnel)
+                        ├─ Deploy Bastion + jumpbox (tools) ──────────────────────────┤
+                        └─ Apply to test (via Bastion tunnel)
                              └─ Integration tests (post-apply)
                                   ├─ Direct: pytest group=direct
                                   ├─ AI evaluation (optional, judge model configured)
@@ -1382,13 +1377,13 @@
 
 <div class="alert alert-info">
     <div>
-        <strong>How this platform solves the private-endpoint problem:</strong> All continuous integration and deployment work in this repository runs on standard GitHub-hosted runners using <code>ubuntu-24.04</code>. When a workflow needs to reach a private endpoint, the Terraform deployer starts a Chisel tunnel and Privoxy inside Docker on that runner. That temporary proxy sends data-access traffic through a proxy service deployed in the <code>tools</code> virtual network. Because of that setup, this repository does not need self-hosted runners for its own pipelines.
+        <strong>How this platform solves the private-endpoint problem:</strong> All continuous integration and deployment work in this repository runs on standard GitHub-hosted runners using <code>ubuntu-24.04</code>. When a workflow needs to reach a private endpoint, the Terraform deployer opens an Azure Bastion SOCKS tunnel to a jumpbox in the <code>tools</code> virtual network and runs Privoxy on that runner to bridge it to an HTTP proxy. Data-access traffic flows through that tunnel. Because of that setup, this repository does not need self-hosted runners for its own pipelines.
         <br><br>
         The optional <strong><code>github_runners_aca</code></strong> module, deployed through <code>add-or-remove-module.yml</code>, can create self-hosted runners inside the virtual network. Use that option when <em>other repositories</em> or workloads need long-lived compute that already lives inside the private network, not for this repository's own automation.
     </div>
 </div>
 
-<p>The table below describes the general pattern. Data-plane work that <em>can't</em> use the Chisel tunnel approach — for example, other repos without the proxy setup — would still need self-hosted runners.</p>
+<p>The table below describes the general pattern. Data-plane work that <em>can't</em> use the Bastion tunnel approach — for example, other repos without access to the tools Bastion — would still need self-hosted runners.</p>
 
 <div class="alert alert-info">
     <div><strong>Understanding the Difference:</strong> See <a href="decisions.html#adr-011">ADR-011: Control Plane vs Data Plane</a> for the detailed explanation of why identity alone is enough for some operations, while private network access is also required for others.</div>
@@ -1472,7 +1467,7 @@
 
 <h2 id="deployeryml-reusable-workflow">.deployer.yml (Reusable Workflow)</h2>
 
-<p>Reusable Terraform workflow for <code>initial-setup/infra</code>, primarily used to manage the tools environment and targeted foundational modules.</p>
+<p>Reusable workflow (<strong>.Tools Environment Deployer</strong>) that provisions the shared <code>tools</code> environment in two ordered stages: (1) an <strong>initial-setup</strong> job runs the <code>initial-setup/infra</code> Terraform &mdash; resource group, spoke network wiring, and monitoring (Log Analytics workspace + Application Insights); (2) a <strong>bastion</strong> job provisions the Azure Bastion + jumpbox by calling the <a href="https://github.com/bcgov/action-deployer-vm-bastion-alz"><code>bcgov/action-deployer-vm-bastion-alz</code></a> action (in the tools subscription), reusing the Log Analytics workspace from stage 1 as a bring-your-own workspace for Bastion diagnostics. It replaces the legacy proxy-based deploy. On <code>destroy</code>, the initial-setup stage is intentionally skipped so tearing down the Bastion stack does not remove the shared tools infrastructure.</p>
 
 <div class="card">
     <h3 id="inputs">Inputs</h3>
@@ -1486,19 +1481,9 @@
         </thead>
         <tbody>
             <tr>
-                <td><code>environment_name</code></td>
-                <td>string</td>
-                <td>Target environment name (commonly <code>tools</code>)</td>
-            </tr>
-            <tr>
                 <td><code>command</code></td>
                 <td>string</td>
-                <td>Terraform command (init, plan, apply, destroy)</td>
-            </tr>
-            <tr>
-                <td><code>target_module</code></td>
-                <td>string</td>
-                <td>Required module target (for example: <code>azure_proxy</code>, <code>bastion</code>, <code>jumpbox</code>)</td>
+                <td>Terraform command passed to the action (<code>plan</code>, <code>apply</code>, <code>destroy</code>). Always the <code>tools</code> environment.</td>
             </tr>
         </tbody>
     </table>
@@ -1507,11 +1492,13 @@
 <div class="card card-gold">
     <h3 id="key-features">Key Features</h3>
     <ul>
-        <li><strong>OIDC Authentication</strong>: Uses <code>azure/login@v2</code> with federated credentials</li>
-        <li><strong>Environment Isolation</strong>: Each environment has separate secrets and identity</li>
-        <li><strong>Module Targeting</strong>: Deploy specific modules with <code>-target=module.name</code> (supports all modules including azure-proxy)</li>
-        <li><strong>Optional Modules</strong>: Deploy only what you need—all modules except <code>network</code> and <code>monitoring</code> can be toggled on/off</li>
-        <li><strong>ARM_USE_OIDC</strong>: Enabled for Terraform Azure provider</li>
+        <li><strong>Two-stage deploy</strong>: the <code>initial-setup</code> job (resource group, network, monitoring) runs first; the <code>bastion</code> job <code>needs</code> it and consumes its outputs</li>
+        <li><strong>Shared Log Analytics workspace</strong>: the LAW created in stage 1 is passed to the Bastion action as <code>existing_log_analytics_workspace_id</code>, avoiding a duplicate workspace</li>
+        <li><strong>OIDC Authentication</strong>: The bcgov action authenticates with federated credentials (no secrets)</li>
+        <li><strong>Tools subscription</strong>: Deploys into the tools subscription via <code>TOOLS_SUBSCRIPTION_ID</code></li>
+        <li><strong>Bastion native tunnelling</strong>: Standard SKU Bastion + jumpbox with Entra ID SSH login</li>
+        <li><strong>Cost-saving automation</strong>: <code>enable_bastion_automation</code> runbooks delete/recreate the Bastion on a schedule</li>
+        <li><strong>Safe teardown</strong>: <code>destroy</code> skips the initial-setup stage, preserving shared tools infra (RG, network, LAW)</li>
     </ul>
 </div>
 
@@ -1527,19 +1514,19 @@
 
 <h2 id="deployer-using-secure-tunnelyml-reusable-workflow">.deployer-using-secure-tunnel.yml (Reusable Workflow)</h2>
 
-<p>Reusable Terraform workflow for <code>infra-ai-hub</code>. It receives encrypted proxy outputs from <code>.deployer.yml</code>, starts Chisel + Privoxy, then runs stack deployment and (for apply in dev/test) integration tests.</p>
+<p>Reusable Terraform workflow for <code>infra-ai-hub</code>. It ensures the tools Bastion is up, opens a Bastion SOCKS tunnel and starts Privoxy, then runs stack deployment and (for apply in dev/test) integration tests.</p>
 
 <div class="card">
     <h3 id="highlights">Highlights</h3>
     <ul>
         <li><strong>Validated environments</strong>: <code>dev</code>, <code>test</code>, <code>prod</code></li>
-        <li><strong>Secure tunnel bootstrap</strong>: decrypts <code>proxy_url</code>/<code>proxy_auth</code> with <code>GPG_PASSPHRASE</code></li>
-        <li><strong>Proxy-aware Terraform</strong>: sets <code>HTTP_PROXY</code>, <code>HTTPS_PROXY</code>, and <code>NO_PROXY</code></li>
+        <li><strong>Bastion tunnel bootstrap</strong>: ensures the Bastion (in the tools subscription) is up, then <code>az network bastion ssh -- -D</code> opens a SOCKS5 proxy (Entra ID auth)</li>
+        <li><strong>Proxy-aware Terraform</strong>: Privoxy bridges the SOCKS proxy to <code>HTTP_PROXY</code>/<code>HTTPS_PROXY</code> (with <code>NO_PROXY</code> for the control plane)</li>
         <li><strong>Integration tests</strong> (after successful <code>apply</code> in dev/test) — two phases:
             <ul>
                 <li><strong>Direct (no proxy):</strong> <code>uv run python ./run-tests.py --group direct</code> — APIM and App Gateway are public endpoints; proxy not required</li>
                 <li><strong>AI evaluation (optional):</strong> <code>uv run python ./run-evaluation.py</code> runs only when the judge-model secrets and vars are configured</li>
-                <li><strong>Via proxy:</strong> <code>uv run python ./run-tests.py --group proxy</code> — Key Vault is private-endpoint only (<code>public_network_access_enabled=false</code>), so the key-rotation suite must route through the Chisel tunnel</li>
+                <li><strong>Via proxy:</strong> <code>uv run python ./run-tests.py --group proxy</code> — Key Vault is private-endpoint only (<code>public_network_access_enabled=false</code>), so the key-rotation suite must route through the Bastion tunnel</li>
             </ul>
         </li>
     </ul>
@@ -1570,8 +1557,7 @@
 <div class="card">
     <h3 id="built-packages">Built Packages</h3>
     <ul>
-        <li><strong>azure-proxy/chisel</strong> - Chisel-based secure tunnel server for private network access</li>
-        <li><strong>azure-proxy/privoxy</strong> - Privoxy HTTP/SOCKS proxy server</li>
+        <li><strong>azure-proxy/privoxy</strong> - Privoxy HTTP→SOCKS bridge (fronts the Bastion SOCKS tunnel)</li>
         <li><strong>jobs/apim-key-rotation</strong> - APIM subscription key rotation Container App Job</li>
     </ul>
 </div>
@@ -1612,14 +1598,15 @@
 
 <h2 id="add-or-remove-moduleyml">add-or-remove-module.yml</h2>
 
-<p>Manual workflow for deploying or destroying infrastructure modules on demand. Evolved from the earlier bastion-only workflow to support all optional modules (bastion, jumpbox, azure_proxy, github_runners_aca).</p>
+<p>Manual workflow for managing the tools Bastion + jumpbox stack on demand. It calls <code>.deployer.yml</code> (the bcgov action) to <code>apply</code>, <code>plan</code>, or <code>destroy</code> the stack.</p>
 
 <div class="grid grid-2">
     <div class="card">
         <h3 id="when-to-use-2">When to Use</h3>
         <ul>
-            <li><strong>Deploy Module</strong>: When you need to provision a specific infrastructure module</li>
-            <li><strong>Destroy Module</strong>: When done, to save costs or clean up resources</li>
+            <li><strong>apply</strong>: Bring the Bastion + jumpbox back up (e.g. after a teardown)</li>
+            <li><strong>destroy</strong>: Tear the stack down to save costs</li>
+            <li><strong>plan</strong>: Preview changes without applying</li>
         </ul>
     </div>
     <div class="card">
@@ -1628,7 +1615,7 @@
             <li>Go to Actions tab in GitHub</li>
             <li>Select "Deploy or Remove Bastion Host"</li>
             <li>Click "Run workflow"</li>
-            <li>Choose <code>tools</code>, module, and command</li>
+            <li>Choose the <code>command</code> (apply / plan / destroy)</li>
         </ol>
     </div>
 </div>
@@ -1645,19 +1632,9 @@
     </thead>
     <tbody>
         <tr>
-            <td><code>environment_name</code></td>
-            <td>tools</td>
-            <td>Target environment</td>
-        </tr>
-        <tr>
-            <td><code>module</code></td>
-            <td>bastion, jumpbox, azure_proxy, github_runners_aca</td>
-            <td>Module to deploy or destroy</td>
-        </tr>
-        <tr>
             <td><code>command</code></td>
-            <td>apply, destroy</td>
-            <td>Terraform command to execute</td>
+            <td>apply, plan, destroy</td>
+            <td>Terraform command for the Bastion stack (always the <code>tools</code> environment)</td>
         </tr>
     </tbody>
 </table>
@@ -1677,7 +1654,7 @@
     <ul>
         <li><strong>Validation</strong>: Invokes <code>.lint.yml</code> (pre-commit fmt + tflint, conventional commits, fork check)</li>
         <li><strong>Container Build Validation</strong>: Invokes <code>.builds.yml</code> for proxy images</li>
-        <li><strong>Tools Proxy Bootstrap</strong>: Invokes <code>.deployer.yml</code> to deploy <code>azure_proxy</code> in <code>tools</code></li>
+        <li><strong>Tools Bastion Bootstrap</strong>: Invokes <code>.deployer.yml</code> to deploy the Bastion + jumpbox in <code>tools</code> (bcgov action)</li>
         <li><strong>Plan Against Test</strong>: Invokes <code>.deployer-using-secure-tunnel.yml</code> with <code>command=plan</code></li>
         <li><strong>PR Description Update</strong>: Appends the test plan summary to the PR description under <em>AI Hub Infra Changes</em></li>
         <li><strong>Final Result</strong>: Reports pass/fail per job with clear ✅/❌ indicators; PR-Description is non-blocking</li>
@@ -1690,34 +1667,21 @@
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
-<h2 id="scheduleyml-scheduled-cleanup">schedule.yml (Scheduled Cleanup)</h2>
+<h2 id="bastion-cost-saving-handled-by-the-actions-runbooks">Bastion cost-saving (handled by the action's runbooks)</h2>
 
-<p>Automatically destroys Bastion every day at 5 PM PST to prevent unnecessary charges.</p>
-
-<div class="card">
-    <h3 id="schedule">Schedule</h3>
-    <pre># Runs daily at 5 PM PST (1 AM UTC next day)
-on:
-  schedule:
-    - cron: "0 1 * * *"</pre>
-</div>
+<p>There is no longer a separate scheduled-cleanup workflow. Cost savings are built into the
+<a href="https://github.com/bcgov/action-deployer-vm-bastion-alz">bcgov/action-deployer-vm-bastion-alz</a>
+action via Azure Automation runbooks (enabled by <code>enable_bastion_automation: "true"</code>):</p>
 
 <div class="card card-gold">
-    <h3 id="workflow-logic">Workflow Logic</h3>
-    <ol>
-        <li><strong>Check if Bastion exists</strong>: Uses Azure CLI to query the Bastion resource</li>
-        <li><strong>Conditional destroy</strong>: Only runs Terraform destroy if Bastion is found</li>
-        <li><strong>Status notification</strong>: Reports whether Bastion was destroyed or already removed</li>
-    </ol>
+    <h3 id="lifecycle-automation">Lifecycle automation</h3>
+    <ul>
+        <li><strong>Delete-BastionHost</strong>: deletes the Standard SKU Bastion host daily off-hours (the host is the main cost)</li>
+        <li><strong>Create-BastionHost</strong>: recreates it on weekday mornings</li>
+        <li><strong>Jumpbox auto-stop/start</strong>: the VM is deallocated nightly and started on weekdays</li>
+    </ul>
+    <p style="margin-bottom:0;">The deploy pipeline also ensures the Bastion is up on demand (running <code>Create-BastionHost</code> if the host is missing) before opening the tunnel &mdash; see <code>.deployer-using-secure-tunnel.yml</code>.</p>
 </div>
-
-<h3 id="jobs-flow">Jobs Flow</h3>
-
-<pre>check-and-destroy-bastion
-         │
-         ├── bastion_exists=true ──► destroy-bastion ──► notification
-         │
-         └── bastion_exists=false ──────────────────────► notification</pre>
 
 <hr style="margin: 2rem 0; border: none; border-top: 1px solid #e2e8f0;">
 
@@ -1730,8 +1694,8 @@ on:
     <ol>
         <li>Validates inputs — <strong>prod apply requires a <code>deploy_tag</code></strong> (a semver tag like <code>v1.2.3</code> from a successful <code>merge-main.yml</code> run)</li>
         <li>Verifies all container images exist with the semver tag (prod apply only)</li>
-        <li>Deploys/refreshes <code>azure_proxy</code> in <code>tools</code> via <code>.deployer.yml</code></li>
-        <li>Passes encrypted proxy outputs to <code>.deployer-using-secure-tunnel.yml</code></li>
+        <li>Deploys/refreshes the Bastion + jumpbox in <code>tools</code> via <code>.deployer.yml</code> (bcgov action)</li>
+        <li>Opens the Bastion SOCKS tunnel in <code>.deployer-using-secure-tunnel.yml</code></li>
         <li>Executes selected Terraform command in chosen environment &mdash; <strong>prod uses the semver-tagged container images</strong> (e.g. <code>:v1.2.3</code>) while dev/test use <code>:latest</code></li>
         <li><strong>For prod apply only</strong>: Creates a GitHub Release from the deployed tag with deployment metadata</li>
     </ol>
@@ -1757,12 +1721,12 @@ on:
         <li><strong>Concurrently on push to main</strong>:
             <ul>
                 <li><strong>Semantic version</strong>: <code>TriPSs/conventional-changelog-action</code> inspects commits since last tag (<code>feat:</code> → minor, <code>fix:</code> → patch, <code>BREAKING CHANGE</code> → major), creates a git tag (e.g. <code>v1.2.3</code>), and pushes an updated <code>CHANGELOG.md</code></li>
-                <li><strong>Proxy bootstrap</strong>: deploys/refreshes <code>azure_proxy</code> in <code>tools</code> via <code>.deployer.yml</code></li>
+                <li><strong>Bastion bootstrap</strong>: deploys/refreshes the Bastion + jumpbox in <code>tools</code> via <code>.deployer.yml</code> (bcgov action)</li>
             </ul>
         </li>
-        <li><strong>Tag container images</strong>: After the semver tag is created, all container images (<code>azure-proxy/chisel</code>, <code>azure-proxy/privoxy</code>, <code>jobs/apim-key-rotation</code>) that have a <code>:latest</code> tag are re-tagged with the semver version (e.g. <code>:v1.2.3</code>). This runs in parallel via a matrix strategy.</li>
-        <li>Once <code>azure_proxy</code> is live, its encrypted URL+auth outputs are passed to <code>.deployer-using-secure-tunnel.yml</code></li>
-        <li>Run <code>apply</code> against <code>test</code> (through Chisel tunnel)</li>
+        <li><strong>Tag container images</strong>: After the semver tag is created, all container images (<code>azure-proxy/privoxy</code>, <code>jobs/apim-key-rotation</code>) that have a <code>:latest</code> tag are re-tagged with the semver version (e.g. <code>:v1.2.3</code>). This runs in parallel via a matrix strategy.</li>
+        <li>Once the Bastion + jumpbox are live, <code>.deployer-using-secure-tunnel.yml</code> opens the SOCKS tunnel to them</li>
+        <li>Run <code>apply</code> against <code>test</code> (through the Bastion tunnel)</li>
         <li>After successful apply, integration tests run automatically in two phases (direct + via proxy — see <code>.deployer-using-secure-tunnel.yml</code> section)</li>
     </ol>
 </div>
@@ -1858,7 +1822,7 @@ on:
 <div class="grid grid-2">
     <div class="card">
         <h3 id="buildsyml-matrix-entry">.builds.yml (Matrix Entry)</h3>
-        <p>The key rotation container image is built by the shared <code>.builds.yml</code> reusable workflow as a matrix entry alongside other containers (chisel, privoxy).</p>
+        <p>The key rotation container image is built by the shared <code>.builds.yml</code> reusable workflow as a matrix entry alongside other containers (privoxy, pii-redaction-service).</p>
         <ul>
             <li>Called by <code>pr-open.yml</code> on PR open/update</li>
             <li>Triggers on changes to <code>jobs/apim-key-rotation/</code> or the workflow itself</li>

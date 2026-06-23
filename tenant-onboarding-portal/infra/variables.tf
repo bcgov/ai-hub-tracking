@@ -2,16 +2,6 @@
 # Variables – Tenant Onboarding Portal Infrastructure
 # -----------------------------------------------------------------------------
 
-variable "app_env" {
-  description = "Environment name used in resource naming and tagging (dev, test, prod, or tools)."
-  type        = string
-
-  validation {
-    condition     = contains(["dev", "test", "prod", "tools"], var.app_env)
-    error_message = "app_env must be one of: dev, test, prod, tools."
-  }
-}
-
 variable "location" {
   description = "Azure region (e.g. canadacentral)."
   type        = string
@@ -126,6 +116,12 @@ variable "oidc_admin_role" {
 }
 
 # --- Azure Table Storage ---
+
+variable "app_env" {
+  description = "Short environment identifier used in generated resource names (e.g. 'tools', 'test', 'prod'). Embedded in the default Storage Account name pattern 'st<env>portal<suffix>'."
+  type        = string
+  default     = "tools"
+}
 
 variable "storage_account_name_override" {
   description = "Override the computed Storage Account name. Leave blank to use the generated 'st<env>portal<suffix>' pattern."

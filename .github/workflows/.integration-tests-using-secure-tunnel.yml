@@ -7,23 +7,15 @@ on:
         description: "The target environment for integration tests"
         required: true
         type: string
-      proxy_url:
-        description: "Encrypted proxy URL for secure tunnel"
-        required: true
-        type: string
-      proxy_auth:
-        description: "Encrypted proxy auth token for secure tunnel"
-        required: true
-        type: string
       tag:
         description: "Container tag for privoxy image"
         required: false
         type: string
 
 env:
-  TF_VERSION: 1.12.2
-  CHISEL_IMAGE_VERSION: 1.11
-  CHISEL_IMAGE: jpillora/chisel
+  # TF_VERSION is injected at runtime by the "Load constants" step, which sources
+  # .github/lib/constants.sh into $GITHUB_ENV. Do NOT redeclare it as a static env: key —
+  # a static env: value would shadow $GITHUB_ENV and leave terraform_version empty.
   # Common vars shared by both integration test steps
   ARM_USE_OIDC: "true"
   CI: "true"
@@ -40,6 +32,10 @@ jobs:
     name: Integration Tests (${{ inputs.environment_name }})
     runs-on: ubuntu-24.04
     environment: ${{ inputs.environment_name }}
+    concurrency:
+      # Same fixed group as the deployer so all shared-Bastion jobs serialise (lock-safe).
+      cancel-in-progress: false
+      group: bastion-tunnel
     env:
       # Dynamic vars that reference inputs/secrets/vars — available at job scope
       TF_VAR_app_env: ${{ inputs.environment_name }}
@@ -60,62 +56,60 @@ jobs:
       BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
       BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
       TEST_ENV: ${{ inputs.environment_name }}
+      # Bastion + jumpbox live in the tools subscription; bastion `az` calls target it explicitly.
+      TOOLS_SUBSCRIPTION_ID: ${{ secrets.TOOLS_SUBSCRIPTION_ID }}
+      # BASTION_RESOURCE_GROUP and SOCKS_PORT are sourced from .github/lib/constants.sh
+      # by ensure-bastion.sh and bastion-purge.sh directly — no workflow-level override needed.
     steps:
       - name: Checkout
-        uses: actions/checkout@v6
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+      - name: Load constants
+        shell: bash
+        run: |
+          source .github/lib/constants.sh
+          echo "TF_VERSION=$TF_VERSION" >> "$GITHUB_ENV"
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
         with:
           python-version: "3.13"
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86
       - name: Azure CLI Login (OIDC)
-        uses: azure/login@v2
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
         with:
           client-id: ${{ secrets.AZURE_CLIENT_ID }}
           tenant-id: ${{ secrets.AZURE_TENANT_ID }}
           subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v4
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
         with:
           terraform_version: ${{ env.TF_VERSION }}
           terraform_wrapper: false
 
-      - name: Run proxy client
+      # Provision (if needed) and lock the Bastion. Lock released by bastion-purge.sh
+      # in the always() step below.
+      - name: Ensure Bastion (provision → lock)
         shell: bash
         run: |
-          set -euo pipefail
+          bash .github/scripts/ensure-bastion.sh \
+            --notes "Held by GitHub Actions during integration tests"
 
-          if [[ -z "${{ inputs.proxy_url }}" || -z "${{ inputs.proxy_auth }}" ]]; then
-            echo "proxy_url and proxy_auth are required when use_secure_tunnel=true" >&2
-            exit 1
-          fi
+      # Re-authenticate before opening the tunnel: provisioning above can exceed the
+      # ~5 min GitHub OIDC client-assertion lifetime, which would otherwise expire before
+      # the AAD-authenticated `az network bastion ssh` runs (AADSTS700024).
+      - name: Azure CLI Login (OIDC) — refresh before tunnel
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-          KEY='${{ secrets.GPG_PASSPHRASE }}'
-          if [[ -z "$KEY" ]]; then
-            echo "GPG_PASSPHRASE secret is empty/missing" >&2
-            exit 1
-          fi
-
-          decrypt_b64_gpg() {
-            local encoded="$1"
-            printf '%s' "$encoded" \
-              | tr -d '\r\n' \
-              | base64 --decode \
-              | gpg --batch --yes --pinentry-mode loopback --passphrase "$KEY" --decrypt --output -
-          }
-
-          PROXY_URL="$(decrypt_b64_gpg '${{ inputs.proxy_url }}')"
-          PROXY_AUTH="$(decrypt_b64_gpg '${{ inputs.proxy_auth }}')"
-          echo "Proxy URL: ****${PROXY_URL: -4}"
-          echo "Proxy Auth: ****${PROXY_AUTH: -4}"
-
-          docker network create proxy-net >/dev/null 2>&1 || true
-          docker run -d --name chisel-client --network proxy-net ${CHISEL_IMAGE}:${CHISEL_IMAGE_VERSION} client --auth "$PROXY_AUTH" "$PROXY_URL" 0.0.0.0:1080:socks
-          docker run -d --name privoxy --network proxy-net -p 127.0.0.1:8118:8118 -e SOCKS_HOST=chisel-client -e SOCKS_PORT=1080 ghcr.io/${{ github.repository }}/azure-proxy/privoxy:${{ inputs.tag || 'latest' }}
-          docker logs chisel-client
-          docker logs privoxy
+      - name: Open Bastion tunnel
+        shell: bash
+        run: |
+          bash .github/scripts/open-bastion-tunnel.sh \
+            --privoxy-image "ghcr.io/${{ github.repository }}/azure-proxy/privoxy:${{ inputs.tag || 'latest' }}"
 
       - name: Install Python integration test dependencies
         shell: bash
@@ -185,7 +179,6 @@ jobs:
 
           echo "=== Running Azure AI Evaluation (optional) ==="
           uv run python ./run-evaluation.py --env "${TEST_ENV}"
-
       - name: Run Key Vault Integration Tests (with proxy)
         shell: bash
         working-directory: ./tests/integration
@@ -201,3 +194,10 @@ jobs:
 
           echo "=== Running Key Vault Integration Tests — via proxy ==="
           uv run python ./run-tests.py --env "${TEST_ENV}" --group proxy
+
+      # Integration tests are the last consumer of the Bastion in a dev/test apply.
+      # Always release the lock; after 7 PM PT also delete the Bastion to save overnight cost.
+      #- name: Release Bastion lock (+ delete after 7 PM PT)
+      #  if: always()
+      #  shell: bash
+      #  run: bash .github/scripts/bastion-purge.sh
