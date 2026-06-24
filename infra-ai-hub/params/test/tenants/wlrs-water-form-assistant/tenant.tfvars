@@ -271,7 +271,7 @@ tenant = {
       tokens_per_minute = 1000
     }
     pii_redaction = {
-      enabled     = true  # Redact emails, phone numbers, addresses, etc.
+      enabled     = false  # Redact emails, phone numbers, addresses, etc.
       fail_closed = false # Fail-open: allow requests through if PII service fails
     }
     usage_logging = {
