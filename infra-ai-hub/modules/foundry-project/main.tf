@@ -271,6 +271,21 @@ resource "azapi_resource" "ai_model_deployment" {
 
   schema_validation_enabled = false
 
+
+  # THIS IS A TEMP Change, to push the flags of PII redaction, 
+  # till we sort out MODEL deccommising stratergy. 
+  # Once a deployment exists, do not re-push its body on subsequent applies.
+  # Deprecated models (e.g. gpt-5.1-chat) reject any update PUT with
+  # ServiceModelDeprecated, which would otherwise break the CI/CD pipeline.
+  # Azure manages version upgrades server-side via versionUpgradeOption, so
+  # ignoring body changes here is safe; capacity/RAI/version changes to an
+  # existing deployment must be made out-of-band or by recreating it.
+  # NOTE: lifecycle blocks are static and cannot be scoped to a single
+  # for_each instance, so this applies to all model deployments.
+  lifecycle {
+    ignore_changes = [body]
+  }
+
   # Serialize after project and RAI policy creation to avoid ETag conflicts
   depends_on = [
     azapi_resource.project,
