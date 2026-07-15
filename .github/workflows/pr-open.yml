@@ -63,6 +63,7 @@ jobs:
       command: plan
       tag: latest
       terraform_log_level: ERROR
+      timeout-minutes: 30
     secrets: inherit
 
   update-pr-description:

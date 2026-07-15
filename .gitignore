@@ -92,3 +92,5 @@ tfplan
 .terraform-tenant-*
 docs/assets/search-index.json
 **/.tmp/**
+abinaotgitsign.pub
+abinaotgitsign

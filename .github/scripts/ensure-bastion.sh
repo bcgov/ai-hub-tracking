@@ -49,10 +49,14 @@ done
 RG="${BASTION_RESOURCE_GROUP:?BASTION_RESOURCE_GROUP must be set}"
 SUB="${TOOLS_SUBSCRIPTION_ID:?TOOLS_SUBSCRIPTION_ID must be set}"
 
+echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] ensure-bastion.sh started (RG=$RG)"
+
 # ── Phase 1: Ensure Bastion is provisioned ────────────────────────────────────
 
+echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Checking Bastion provisioning state..."
 STATE="$(az network bastion list -g "$RG" --subscription "$SUB" \
   --query '[0].provisioningState' -o tsv 2>/dev/null || true)"
+echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Current state: ${STATE:-absent}"
 
 if [[ "$STATE" != "Succeeded" ]]; then
   MAX_POLLS=150  # 25 min total budget (150 × 10 s), shared across deletion-wait + creation-wait
@@ -60,45 +64,54 @@ if [[ "$STATE" != "Succeeded" ]]; then
 
   # If Bastion is mid-deletion, wait for it to disappear before triggering re-create.
   if [[ "$STATE" == "Deleting" ]]; then
-    echo "Bastion is being deleted; waiting for deletion to complete before re-creating..."
+    echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Bastion is being deleted; waiting for deletion to complete before re-creating..."
     while [[ "$polls" -lt "$MAX_POLLS" && "$STATE" == "Deleting" ]]; do
       sleep 10
       polls=$(( polls + 1 ))
+      echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Deletion wait poll $polls/150 (${polls}0 sec)..."
       STATE="$(az network bastion list -g "$RG" --subscription "$SUB" \
         --query '[0].provisioningState' -o tsv 2>/dev/null || true)"
     done
-    [[ "$STATE" != "Deleting" ]] || { echo "Bastion deletion did not complete within 25 min"; exit 1; }
-    echo "Deletion complete (state: ${STATE:-absent})"
+    [[ "$STATE" != "Deleting" ]] || { echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] ERROR: Bastion deletion did not complete within 25 min"; exit 1; }
+    echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Deletion complete (state: ${STATE:-absent})"
   fi
 
   if [[ "$STATE" != "Succeeded" ]]; then
-    echo "Bastion not ready (state: ${STATE:-absent}); triggering Create-BastionHost runbook..."
+    echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Bastion not ready (state: ${STATE:-absent}); fetching automation account..."
     AA="$(az automation account list -g "$RG" --subscription "$SUB" --query '[0].name' -o tsv)"
-    [[ -n "$AA" ]] || { echo "No automation account in $RG — cannot trigger Create-BastionHost. Is enable_bastion_automation set?"; exit 1; }
+    [[ -n "$AA" ]] || { echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] ERROR: No automation account in $RG — cannot trigger Create-BastionHost. Is enable_bastion_automation set?"; exit 1; }
+    echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Found automation account: $AA; triggering Create-BastionHost runbook..."
     az automation runbook start -g "$RG" --subscription "$SUB" \
       --automation-account-name "$AA" --name Create-BastionHost
+    echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Runbook triggered; waiting for Bastion to reach Succeeded state..."
 
     while [[ "$polls" -lt "$MAX_POLLS" ]]; do
       sleep 10
       polls=$(( polls + 1 ))
+      echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Creation wait poll $polls/150 (${polls}0 sec)..."
       STATE="$(az network bastion list -g "$RG" --subscription "$SUB" \
         --query '[0].provisioningState' -o tsv 2>/dev/null || true)"
+      echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Current state: ${STATE:-absent}"
       [[ "$STATE" == "Succeeded" ]] && break
     done
-    [[ "$STATE" == "Succeeded" ]] || { echo "Bastion did not reach Succeeded after 25 min"; exit 1; }
+    [[ "$STATE" == "Succeeded" ]] || { echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] ERROR: Bastion did not reach Succeeded after 25 min; final state: ${STATE:-absent}"; exit 1; }
+    echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Bastion creation complete!"
   fi
 fi
 
 VM_ID="$(az vm list -g "$RG" --subscription "$SUB" --query '[0].id' -o tsv)"
-[[ -n "$VM_ID" ]] || { echo "No jumpbox VM found in $RG — cannot open the tunnel."; exit 1; }
+[[ -n "$VM_ID" ]] || { echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] ERROR: No jumpbox VM found in $RG — cannot open the tunnel."; exit 1; }
+echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Starting jumpbox VM: $VM_ID"
 az vm start --ids "$VM_ID" || true
+echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] VM start command issued."
 
+echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Fetching Bastion details..."
 BASTION_NAME="$(az network bastion list -g "$RG" --subscription "$SUB" \
   --query '[0].name' -o tsv)"
 BASTION_ID="$(az network bastion show -g "$RG" -n "$BASTION_NAME" \
   --subscription "$SUB" --query id -o tsv)"
 
-echo "Bastion ready: $BASTION_NAME | VM: $VM_ID"
+echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Bastion ready: $BASTION_NAME | VM: $VM_ID"
 
 if [[ -n "${GITHUB_ENV:-}" ]]; then
   {
@@ -110,6 +123,7 @@ fi
 
 # ── Phase 2: Lock ─────────────────────────────────────────────────────────────
 
+echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Phase 2: Creating CanNotDelete lock on Bastion..."
 az lock create \
   --name lock-bastion \
   --lock-type CanNotDelete \
@@ -117,4 +131,5 @@ az lock create \
   --subscription "$SUB" \
   --notes "$NOTES" || true
 
-echo "Lock 'lock-bastion' acquired on Bastion."
+echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] Lock 'lock-bastion' acquired on Bastion."
+echo "[$(date -u +'%Y-%m-%d %H:%M:%S')] ensure-bastion.sh completed successfully."
