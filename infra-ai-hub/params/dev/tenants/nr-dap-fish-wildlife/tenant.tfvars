@@ -244,6 +244,7 @@ tenant = {
     pii_redaction = {
       enabled     = false # Redact emails, phone numbers, addresses, etc.
       fail_closed = false # Fail-open: allow requests through if PII service fails
+      excluded_categories = []
     }
     usage_logging = {
       enabled = true # Log AI model token usage
