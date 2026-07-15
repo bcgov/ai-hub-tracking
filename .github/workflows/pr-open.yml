@@ -54,6 +54,7 @@ jobs:
       command: apply
     secrets: inherit
   plan-against-test-environment:
+    timeout-minutes: 30
     name: Plan against test Environment
     needs: [detect-infra-changes, deploy-to-tools]
     if: needs.detect-infra-changes.outputs.changed == 'true'
