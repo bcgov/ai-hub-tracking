@@ -22,6 +22,11 @@ on:
         required: false
         default: "ERROR"
         type: string
+      timeout-minutes:
+        description: "The timeout for the deployment job in minutes"
+        required: false
+        default: 60
+        type: number
     outputs:
       plan_comment:
         description: "(deprecated) Always empty — plan comment is now passed via artifact 'plan-comment'"
@@ -54,6 +59,7 @@ jobs:
   terraform:
     environment: ${{ inputs.environment_name }}
     name: Terraform ${{ inputs.command }} via Secure Tunnel
+    timeout-minutes: ${{ inputs.timeout-minutes }}
     concurrency:
       # Fixed group across ALL environments: serialises every job that touches the shared
       # tools Bastion so the resource lock create/delete can never race between GitHub jobs.
