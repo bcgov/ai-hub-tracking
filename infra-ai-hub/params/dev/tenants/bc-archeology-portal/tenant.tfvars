@@ -199,6 +199,7 @@ tenant = {
     pii_redaction = {
       enabled     = true
       fail_closed = false
+      excluded_categories = []
     }
     usage_logging = {
       enabled = true
