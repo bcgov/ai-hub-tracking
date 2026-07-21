@@ -180,3 +180,4 @@ jobs:
           enable_jumpbox: "true"
           enable_bastion_automation: "true"
           enable_monitoring: "false"
+          vm_size: "Standard_D2ls_v5"
