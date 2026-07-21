@@ -1768,6 +1768,7 @@ flowchart TD
 Recommendation: use `destroy` as the primary teardown path.
 
 Destroy guardrails in this flow:
+
 - Reverse ordering prevents deleting shared resources while downstream stacks still reference them
 - Tenant destroys run in parallel but each tenant keeps isolated Terraform data (`TF_DATA_DIR`) to avoid init collisions
 - Shared is always destroyed last because it provides hub/network/observability/security outputs consumed by other stacks
