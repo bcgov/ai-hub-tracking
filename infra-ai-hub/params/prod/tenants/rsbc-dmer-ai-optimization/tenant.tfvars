@@ -169,16 +169,23 @@ tenant = {
     }
   }
 
+  apim_auth = {
+    mode                 = "subscription_key"
+    key_rotation_enabled = true
+  }
+
   apim_policies = {
+    rate_limiting = {
+      enabled           = true
+      tokens_per_minute = 1000
+    }
     pii_redaction = {
-      enabled     = true
-      fail_closed = false
+      enabled             = true
+      fail_closed         = false
+      excluded_categories = []
     }
     usage_logging = {
       enabled = true
-    }
-    custom_rai_filters = {
-      enabled = false
     }
     streaming_metrics = {
       enabled = true

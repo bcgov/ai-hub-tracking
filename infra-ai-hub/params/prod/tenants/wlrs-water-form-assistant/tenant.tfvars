@@ -171,10 +171,50 @@ tenant = {
     ]
   }
 
+  # Speech Services - enabled for text-to-speech/speech-to-text capabilities
+  speech_services = {
+    enabled = true
+  }
+
+  log_analytics = {
+    enabled        = true
+    retention_days = 90 # Longer retention for prod
+    sku            = "PerGB2018"
+  }
+
   # APIM Authentication
   apim_auth = {
     mode                 = "subscription_key"
     key_rotation_enabled = false # Per-tenant opt-in for APIM key rotation
+  }
+
+  apim_policies = {
+    rate_limiting = {
+      enabled           = true
+      tokens_per_minute = 1000
+    }
+    pii_redaction = {
+      enabled             = true                  # Redact emails, phone numbers, addresses, etc.
+      fail_closed         = false                 # Fail-open: allow requests through if PII service fails
+      excluded_categories = ["PersonType", "URL"] # Do not redact these PII categories for WLRS
+    }
+    usage_logging = {
+      enabled = true # Log AI model token usage
+    }
+    streaming_metrics = {
+      enabled = true # Emit metrics for streaming requests
+    }
+    tracking_dimensions = {
+      enabled = true # Extract tracking headers for analytics
+    }
+    intelligent_routing = {
+      enabled = false # Disabled until multi-backend setup
+    }
+  }
+
+  apim_diagnostics = {
+    sampling_percentage = 100
+    verbosity           = "information"
   }
 
   # Tenant user management (applies across environments)
