@@ -165,6 +165,11 @@ tenant = {
     ]
   }
 
+  apim_auth = {
+    mode                 = "subscription_key"
+    key_rotation_enabled = true
+  }
+
   user_management = {
     seed_members = {
       admin = [
