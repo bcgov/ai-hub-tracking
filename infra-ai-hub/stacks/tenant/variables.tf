@@ -69,20 +69,6 @@ variable "tenant_tags" {
   }
 }
 
-variable "defender_enabled" {
-  description = "Enable Defender for Cloud plans (passed through from shared stack)"
-  type        = bool
-  default     = false
-}
-
-variable "defender_resource_types" {
-  description = "Defender for Cloud resource types and subplans (passed through from shared stack)"
-  type = map(object({
-    subplan = optional(string, null)
-  }))
-  default = {}
-}
-
 variable "backend_resource_group" {
   type = string
 }

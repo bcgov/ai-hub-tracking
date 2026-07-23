@@ -197,8 +197,8 @@ tenant = {
       tokens_per_minute = 1000
     }
     pii_redaction = {
-      enabled     = true
-      fail_closed = false
+      enabled             = true
+      fail_closed         = false
       excluded_categories = []
     }
     usage_logging = {
