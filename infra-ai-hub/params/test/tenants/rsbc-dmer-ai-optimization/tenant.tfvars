@@ -190,6 +190,10 @@ tenant = {
   }
 
   apim_policies = {
+    rate_limiting = {
+      enabled           = true
+      tokens_per_minute = 1000
+    }
     pii_redaction = {
       enabled             = true
       fail_closed         = false
@@ -197,9 +201,6 @@ tenant = {
     }
     usage_logging = {
       enabled = true
-    }
-    custom_rai_filters = {
-      enabled = false
     }
     streaming_metrics = {
       enabled = true
