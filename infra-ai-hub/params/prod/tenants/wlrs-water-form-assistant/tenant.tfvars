@@ -171,10 +171,52 @@ tenant = {
     ]
   }
 
+  # Speech Services - MUST be present even if disabled (map(any) type constraint)
+  speech_services = {
+    enabled = true
+  }
+
+  log_analytics = {
+    enabled        = true
+    retention_days = 90 # Longer retention for prod
+    sku            = "PerGB2018"
+  }
+
   # APIM Authentication
   apim_auth = {
     mode                 = "subscription_key"
     key_rotation_enabled = false # Per-tenant opt-in for APIM key rotation
+  }
+
+  # APIM Policies
+  apim_policies = {
+    rate_limiting = {
+      enabled           = true
+      tokens_per_minute = 1000
+    }
+    pii_redaction = {
+      enabled             = true
+      fail_closed         = false
+      excluded_categories = ["PersonType", "URL"] # WLRS-specific PII exclusions
+    }
+    usage_logging = {
+      enabled = true
+    }
+    streaming_metrics = {
+      enabled = true
+    }
+    tracking_dimensions = {
+      enabled = true
+    }
+    intelligent_routing = {
+      enabled = false
+    }
+  }
+
+  # Per-tenant APIM Diagnostics - logs go to tenant's own LAW
+  apim_diagnostics = {
+    sampling_percentage = 100
+    verbosity           = "information"
   }
 
   # Tenant user management (applies across environments)
