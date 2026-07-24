@@ -42,7 +42,7 @@ variable "graph_client_id" {
 
 variable "tenants" {
   description = "Tenant configurations (reuses the same tfvars as the main config)"
-  type        = any
+  type    = map(any)
   default     = {}
 }
 
