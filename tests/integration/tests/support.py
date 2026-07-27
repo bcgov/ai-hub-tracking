@@ -51,11 +51,22 @@ def deployed_deployments_chat_models(config: IntegrationConfig, tenant: str) -> 
 
 
 def response_json(response: requests.Response) -> dict:
-    """Decode a response body as JSON after normalizing redacted placeholders."""
+    """Decode a response body as JSON after normalizing redacted placeholders.
+
+    A non-JSON body means a gateway or backend error page reached the test, so the
+    failure is raised as an assertion carrying the status, content type, and a body
+    excerpt instead of an opaque `JSONDecodeError`.
+    """
     if not response.text:
         return {}
     sanitized = response.text.replace("[REDACTED_PHONE]", "0")
-    return json.loads(sanitized)
+    try:
+        return json.loads(sanitized)
+    except json.JSONDecodeError as exc:
+        raise AssertionError(
+            f"Non-JSON response body (HTTP {response.status_code}, "
+            f"content-type={response.headers.get('Content-Type')}): {response.text[:500]!r}"
+        ) from exc
 
 
 def assert_status(response: requests.Response, expected: int) -> None:

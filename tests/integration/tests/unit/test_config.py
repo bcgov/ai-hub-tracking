@@ -11,7 +11,7 @@ def test_filter_chat_models_keeps_openai_and_v1_mistral_models() -> None:
         "cohere-command-a",
         "Cohere-rerank-v4.0-pro",
         "Mistral-Large-3",
-        "mistral-document-ai-2505",
+        "mistral-document-ai-2512",
         "gpt-5-mini",
     ]
 
@@ -20,7 +20,7 @@ def test_filter_chat_models_keeps_openai_and_v1_mistral_models() -> None:
 
 def test_filter_deployments_chat_models_keeps_openai_route_models_only() -> None:
     """Verify that deployments-route filtering excludes non-OpenAI chat models."""
-    models = ["gpt-4.1-mini", "Mistral-Large-3", "o3-mini", "cohere-command-a", "mistral-document-ai-2505"]
+    models = ["gpt-4.1-mini", "Mistral-Large-3", "o3-mini", "cohere-command-a", "mistral-document-ai-2512"]
 
     assert filter_deployments_chat_models(models) == ["gpt-4.1-mini", "o3-mini"]
 
