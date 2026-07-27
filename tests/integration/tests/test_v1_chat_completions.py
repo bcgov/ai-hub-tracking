@@ -12,6 +12,13 @@ from .support import PRIMARY_TENANT, assert_status, deployed_chat_models, requir
 
 pytestmark = [pytest.mark.live]
 
+# A 429 can come from two independent limiters with different body shapes:
+#   - APIM's own llm-token-limit / rate-limit-by-key synthesizes {"code": "429"} in on-error.
+#   - A Foundry deployment throttle passes through outbound untouched, carrying Azure's
+#     native {"code": "rate_limit_exceeded", "type": "too_many_requests"}.
+# Either limiter may trip first depending on the shared token window, so both are accepted.
+RATE_LIMIT_ERROR_CODES = {"429", "too_many_requests", "rate_limit_exceeded"}
+
 RATE_LIMIT_TARGET_MODELS = (
     "gpt-5.1-chat",
     "o1",
@@ -327,7 +334,10 @@ def test_ai_hub_admin_v1_eventually_returns_429_when_token_budget_is_exhausted(
             assert response.headers.get("Retry-After")
             assert response.headers.get("retry-after-ms")
             assert response.headers.get("x-should-retry") == "true"
-            assert (payload.get("error") or {}).get("code") in {"429", "too_many_requests"}
+            error = payload.get("error") or {}
+            assert {error.get("code"), error.get("type")} & RATE_LIMIT_ERROR_CODES, (
+                f"Unexpected 429 error body for {model}: {payload}"
+            )
             return
 
         assert response.status_code == 200, response.text
