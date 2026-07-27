@@ -9,10 +9,12 @@ from .support import MISTRAL_OCR_SAMPLE_PDF_BASE64, PRIMARY_TENANT, assert_statu
 
 pytestmark = [pytest.mark.live]
 
-# The Mistral Document AI deployments are provisioned at minimal capacity until their quota
-# strategy is defined, so throttling and backend errors are expected rather than regressions.
-# Skipping on these keeps the merge gate meaningful while still reporting the observed status.
-UNAVAILABLE_STATUS_CODES = frozenset({429, 500, 502, 503, 504})
+# The Mistral Document AI deployment is provisioned at minimal capacity until its quota strategy
+# is defined, so throttling is expected noise rather than a regression. Only 429 is tolerated:
+# a retired or removed model surfaces as 4xx/5xx and must keep failing loudly, because
+# /internal/tenant-info reports Terraform config rather than live Foundry state and cannot
+# detect it. mistral-document-ai-2505 retired on 2026-07-20 exactly this way.
+THROTTLED_STATUS_CODES = frozenset({429})
 
 
 def _tenant_info_payload(client: ApimClient) -> dict:
@@ -31,12 +33,18 @@ def _mistral_chat_model(payload: dict) -> str:
 
 
 def _mistral_document_model(payload: dict) -> str:
-    """Return the deployed Mistral OCR model name, if one is present."""
-    for model in payload.get("models", []):
-        name = model.get("name", "")
-        if name.startswith("mistral-document-ai-"):
-            return name
-    return ""
+    """Return the newest deployed Mistral OCR model name, if one is present.
+
+    The names carry a `YYMM` release suffix, so the lexicographic maximum is the newest
+    version. Selecting the newest rather than the first entry keeps the suite off older
+    releases that Azure has since deprecated.
+    """
+    names = [
+        name
+        for model in payload.get("models", [])
+        if (name := model.get("name", "")).startswith("mistral-document-ai-")
+    ]
+    return max(names, default="")
 
 
 def test_ai_hub_admin_tenant_info_exposes_deployed_mistral_models(
@@ -129,9 +137,9 @@ def test_ai_hub_admin_deployed_mistral_document_model_accepts_ocr_requests(
         },
         retry=True,
     )
-    if response.status_code in UNAVAILABLE_STATUS_CODES:
+    if response.status_code in THROTTLED_STATUS_CODES:
         pytest.skip(
-            f"Mistral document model {document_model} is unavailable (HTTP {response.status_code}); "
+            f"Mistral document model {document_model} is throttled (HTTP {response.status_code}); "
             "the deployment is provisioned at minimal capacity until its quota target is defined"
         )
 

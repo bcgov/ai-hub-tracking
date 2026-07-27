@@ -281,10 +281,11 @@ tenant = {
       # Mistral Models (format auto-detected as "Mistral AI" via model_format_prefixes in foundry stack)
       # MaaS serverless (pay-per-token).
       # Mistral-Large-3 is allocated 1% of the 10M TPM quota shown in Foundry for ai-hub-admin.
-      # Document AI models remain at the minimal allocation until their quota strategy is defined.
+      # The Document AI model remains at the minimal allocation until its quota strategy is defined.
       # Excluded models:
       #   mistral-medium-2505, mistral-small-2503, Codestral-2501 — not in BC Gov Private Marketplace (UserError)
       #   mistral-ocr-2503                                         — DeploymentModelNotSupported in Canada East
+      #   mistral-document-ai-2505                                 — inference retired 2026-07-20; superseded by 2512
 
       # Chat / Multimodal
       {
@@ -296,14 +297,6 @@ tenant = {
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       # OCR / Document AI
-      {
-        name           = "mistral-document-ai-2505"
-        model_name     = "mistral-document-ai-2505"
-        model_version  = "1"
-        scale_type     = "GlobalStandard"
-        capacity       = 1 # minimal allocation until document-model quota targets are defined
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
       {
         name           = "mistral-document-ai-2512"
         model_name     = "mistral-document-ai-2512"
