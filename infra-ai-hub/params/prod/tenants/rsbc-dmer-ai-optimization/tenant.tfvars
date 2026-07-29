@@ -113,6 +113,13 @@ tenant = {
         capacity      = 1500
       },
       {
+        name          = "gpt-5.1"
+        model_name    = "gpt-5.1"
+        model_version = "2025-11-13"
+        scale_type    = "GlobalStandard"
+        capacity      = 300 # 1% of 30,000
+      },
+      {
         name          = "gpt-5.1-codex-mini"
         model_name    = "gpt-5.1-codex-mini"
         model_version = "2025-11-13"
