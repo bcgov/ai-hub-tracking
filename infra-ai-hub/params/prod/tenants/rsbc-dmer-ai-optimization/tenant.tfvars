@@ -125,7 +125,7 @@ tenant = {
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
         capacity      = 100
-      }
+      },
     ]
   }
 

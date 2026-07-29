@@ -153,7 +153,7 @@ tenant = {
         scale_type     = "GlobalStandard"
         capacity       = 100
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      }
+      },
     ]
   }
 
