@@ -162,12 +162,14 @@ tenant = {
       admin = [
         "divya.viswanath@gov.bc.ca",
         "nicholas.2.kan@gov.bc.ca",
-        "curtis.stodgell@gov.bc.ca"
+        "curtis.stodgell@gov.bc.ca",
+        "MIdhun.1.Murali@gov.bc.ca"
       ]
       write = [
         "nicholas.2.kan@gov.bc.ca",
         "divya.viswanath@gov.bc.ca",
-        "curtis.stodgell@gov.bc.ca"
+        "curtis.stodgell@gov.bc.ca",
+        "MIdhun.1.Murali@gov.bc.ca"
       ]
       read = [
         "curtis.stodgell@gov.bc.ca",
