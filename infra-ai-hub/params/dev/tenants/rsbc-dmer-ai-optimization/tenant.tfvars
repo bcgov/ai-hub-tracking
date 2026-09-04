@@ -33,11 +33,6 @@ tenant = {
     account_replication_type = "LRS"
     account_kind             = "StorageV2"
     access_tier              = "Hot"
-    diagnostics = {
-      log_groups        = []
-      log_categories    = []
-      metric_categories = ["Capacity", "Transaction"]
-    }
   }
 
   ai_search = {
@@ -59,20 +54,12 @@ tenant = {
     geo_redundant_backup_enabled = false
     automatic_failover_enabled   = false
     total_throughput_limit       = 1000
-    # Required for map(any) shape uniformity across all tenants (even when disabled)
-    database_name  = "default"
-    container_name = "cosmosContainer"
   }
 
   document_intelligence = {
     enabled = true
     sku     = "S0"
     kind    = "FormRecognizer"
-    diagnostics = {
-      log_groups        = ["allLogs"]
-      log_categories    = []
-      metric_categories = ["AllMetrics"]
-    }
   }
 
   # Speech Services - MUST be present even if disabled (map(any) type constraint)
@@ -89,70 +76,90 @@ tenant = {
   openai = {
     enabled = true
     sku     = "S0"
-    diagnostics = {
-      log_groups        = ["allLogs"]
-      log_categories    = []
-      metric_categories = ["AllMetrics"]
-    }
-    # content_filter key MUST be present on every deployment across ALL tenants
-    # so Terraform's map(any) can infer a uniform element type. Microsoft.DefaultV2
-    # with empty filters uses Azure's built-in policy (no custom RAI resource created).
     model_deployments = [
       {
-        name           = "text-embedding-ada-002"
-        model_name     = "text-embedding-ada-002"
-        model_version  = "2"
-        scale_type     = "GlobalStandard"
-        capacity       = 100
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "text-embedding-ada-002"
+        model_name    = "text-embedding-ada-002"
+        model_version = "2"
+        scale_type    = "GlobalStandard"
+        capacity      = 100
       },
       {
-        name           = "text-embedding-3-large"
-        model_name     = "text-embedding-3-large"
-        model_version  = "1"
-        scale_type     = "GlobalStandard"
-        capacity       = 100
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "text-embedding-3-large"
+        model_name    = "text-embedding-3-large"
+        model_version = "1"
+        scale_type    = "GlobalStandard"
+        capacity      = 100
       },
       {
-        name           = "text-embedding-3-small"
-        model_name     = "text-embedding-3-small"
-        model_version  = "1"
-        scale_type     = "GlobalStandard"
-        capacity       = 100
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "text-embedding-3-small"
+        model_name    = "text-embedding-3-small"
+        model_version = "1"
+        scale_type    = "GlobalStandard"
+        capacity      = 100
       },
       {
-        name           = "gpt-5-mini"
-        model_name     = "gpt-5-mini"
-        model_version  = "2025-08-07"
-        scale_type     = "GlobalStandard"
-        capacity       = 100
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "gpt-5-mini"
+        model_name    = "gpt-5-mini"
+        model_version = "2025-08-07"
+        scale_type    = "GlobalStandard"
+        capacity      = 100
       },
       {
-        name           = "gpt-5-nano"
-        model_name     = "gpt-5-nano"
-        model_version  = "2025-08-07"
-        scale_type     = "GlobalStandard"
-        capacity       = 1500
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "gpt-5-nano"
+        model_name    = "gpt-5-nano"
+        model_version = "2025-08-07"
+        scale_type    = "GlobalStandard"
+        capacity      = 1500
       },
       {
-        name           = "gpt-5.1"
-        model_name     = "gpt-5.1"
-        model_version  = "2025-11-13"
-        scale_type     = "GlobalStandard"
-        capacity       = 300 # 1% of 30,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "gpt-5.1-chat"
+        model_name    = "gpt-5.1-chat"
+        model_version = "2025-11-13"
+        scale_type    = "GlobalStandard"
+        capacity      = 50
       },
       {
-        name           = "gpt-5.1-codex-mini"
-        model_name     = "gpt-5.1-codex-mini"
-        model_version  = "2025-11-13"
-        scale_type     = "GlobalStandard"
-        capacity       = 100
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+        name          = "gpt-5.1-codex-mini"
+        model_name    = "gpt-5.1-codex-mini"
+        model_version = "2025-11-13"
+        scale_type    = "GlobalStandard"
+        capacity      = 100
+      },
+      {
+        name          = "o1"
+        model_name    = "o1"
+        model_version = "2024-12-17"
+        scale_type    = "GlobalStandard"
+        capacity      = 50
+      },
+      {
+        name          = "o3-mini"
+        model_name    = "o3-mini"
+        model_version = "2025-01-31"
+        scale_type    = "GlobalStandard"
+        capacity      = 50
+      },
+      {
+        name          = "o4-mini"
+        model_name    = "o4-mini"
+        model_version = "2025-04-16"
+        scale_type    = "GlobalStandard"
+        capacity      = 100
+      },
+      {
+        name          = "gpt-4o"
+        model_name    = "gpt-4o"
+        model_version = "2024-11-20"
+        scale_type    = "GlobalStandard"
+        capacity      = 300
+      },
+      {
+        name          = "gpt-4o-mini"
+        model_name    = "gpt-4o-mini"
+        model_version = "2024-07-18"
+        scale_type    = "GlobalStandard"
+        capacity      = 1500
       },
     ]
   }
@@ -163,13 +170,13 @@ tenant = {
         "divya.viswanath@gov.bc.ca",
         "nicholas.2.kan@gov.bc.ca",
         "curtis.stodgell@gov.bc.ca",
-        "MIdhun.1.Murali@gov.bc.ca"
+        "midhun.1.murali@gov.bc.ca"
       ]
       write = [
         "nicholas.2.kan@gov.bc.ca",
         "divya.viswanath@gov.bc.ca",
         "curtis.stodgell@gov.bc.ca",
-        "MIdhun.1.Murali@gov.bc.ca"
+        "midhun.1.murali@gov.bc.ca"
       ]
       read = [
         "curtis.stodgell@gov.bc.ca",
@@ -178,24 +185,16 @@ tenant = {
     }
   }
 
-  # APIM Authentication - present on all tenants for map(any) shape uniformity
-  apim_auth = {
-    mode                 = "subscription_key"
-    key_rotation_enabled = false
-  }
-
   apim_policies = {
-    rate_limiting = {
-      enabled           = true
-      tokens_per_minute = 1000
-    }
     pii_redaction = {
-      enabled             = true
-      fail_closed         = false
-      excluded_categories = []
+      enabled     = true
+      fail_closed = false
     }
     usage_logging = {
       enabled = true
+    }
+    custom_rai_filters = {
+      enabled = false
     }
     streaming_metrics = {
       enabled = true
