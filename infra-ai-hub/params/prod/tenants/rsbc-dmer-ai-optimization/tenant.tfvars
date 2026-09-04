@@ -113,11 +113,11 @@ tenant = {
         capacity      = 1500
       },
       {
-        name          = "gpt-5.1-chat"
-        model_name    = "gpt-5.1-chat"
+        name          = "gpt-5.1"
+        model_name    = "gpt-5.1"
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
-        capacity      = 50
+        capacity      = 300 # 1% of 30,000
       },
       {
         name          = "gpt-5.1-codex-mini"
@@ -125,41 +125,6 @@ tenant = {
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
         capacity      = 100
-      },
-      {
-        name          = "o1"
-        model_name    = "o1"
-        model_version = "2024-12-17"
-        scale_type    = "GlobalStandard"
-        capacity      = 50
-      },
-      {
-        name          = "o3-mini"
-        model_name    = "o3-mini"
-        model_version = "2025-01-31"
-        scale_type    = "GlobalStandard"
-        capacity      = 50
-      },
-      {
-        name          = "o4-mini"
-        model_name    = "o4-mini"
-        model_version = "2025-04-16"
-        scale_type    = "GlobalStandard"
-        capacity      = 100
-      },
-      {
-        name          = "gpt-4o"
-        model_name    = "gpt-4o"
-        model_version = "2024-11-20"
-        scale_type    = "GlobalStandard"
-        capacity      = 300
-      },
-      {
-        name          = "gpt-4o-mini"
-        model_name    = "gpt-4o-mini"
-        model_version = "2024-07-18"
-        scale_type    = "GlobalStandard"
-        capacity      = 1500
       },
     ]
   }
@@ -170,13 +135,13 @@ tenant = {
         "divya.viswanath@gov.bc.ca",
         "nicholas.2.kan@gov.bc.ca",
         "curtis.stodgell@gov.bc.ca",
-        "midhun.1.murali@gov.bc.ca"
+        "MIdhun.1.Murali@gov.bc.ca"
       ]
       write = [
         "nicholas.2.kan@gov.bc.ca",
         "divya.viswanath@gov.bc.ca",
         "curtis.stodgell@gov.bc.ca",
-        "midhun.1.murali@gov.bc.ca"
+        "MIdhun.1.Murali@gov.bc.ca"
       ]
       read = [
         "curtis.stodgell@gov.bc.ca",
@@ -189,6 +154,7 @@ tenant = {
     pii_redaction = {
       enabled     = true
       fail_closed = false
+      excluded_categories = []
     }
     usage_logging = {
       enabled = true
