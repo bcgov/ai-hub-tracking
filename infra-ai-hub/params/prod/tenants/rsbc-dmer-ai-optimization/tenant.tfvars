@@ -99,6 +99,20 @@ tenant = {
         capacity      = 100
       },
       {
+        name          = "gpt-4o"
+        model_name    = "gpt-4o"
+        model_version = "2024-11-20"
+        scale_type    = "GlobalStandard"
+        capacity      = 300
+      },
+      {
+        name          = "gpt-4o-mini"
+        model_name    = "gpt-4o-mini"
+        model_version = "2024-07-18"
+        scale_type    = "GlobalStandard"
+        capacity      = 1500
+      },      
+      {
         name          = "gpt-5-mini"
         model_name    = "gpt-5-mini"
         model_version = "2025-08-07"
