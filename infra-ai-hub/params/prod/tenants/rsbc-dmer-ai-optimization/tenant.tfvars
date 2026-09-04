@@ -104,6 +104,7 @@ tenant = {
         model_version = "2024-11-20"
         scale_type    = "GlobalStandard"
         capacity      = 300
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
         name          = "gpt-4o-mini"
@@ -111,6 +112,7 @@ tenant = {
         model_version = "2024-07-18"
         scale_type    = "GlobalStandard"
         capacity      = 1500
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },      
       {
         name          = "gpt-5-mini"
@@ -118,6 +120,7 @@ tenant = {
         model_version = "2025-08-07"
         scale_type    = "GlobalStandard"
         capacity      = 100
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
         name          = "gpt-5-nano"
@@ -125,6 +128,7 @@ tenant = {
         model_version = "2025-08-07"
         scale_type    = "GlobalStandard"
         capacity      = 1500
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
         name          = "gpt-5.1"
@@ -132,6 +136,7 @@ tenant = {
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
         capacity      = 300 # 1% of 30,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
         name          = "gpt-5.1-codex-mini"
@@ -139,6 +144,7 @@ tenant = {
         model_version = "2025-11-13"
         scale_type    = "GlobalStandard"
         capacity      = 100
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
     ]
   }
