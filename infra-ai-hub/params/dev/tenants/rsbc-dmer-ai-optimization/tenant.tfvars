@@ -123,6 +123,22 @@ tenant = {
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
+        name          = "gpt-4o"
+        model_name    = "gpt-4o"
+        model_version = "2024-11-20"
+        scale_type    = "GlobalStandard"
+        capacity      = 300
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+      {
+        name          = "gpt-4o-mini"
+        model_name    = "gpt-4o-mini"
+        model_version = "2024-07-18"
+        scale_type    = "GlobalStandard"
+        capacity      = 1500
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },      
+      {
         name           = "gpt-5-mini"
         model_name     = "gpt-5-mini"
         model_version  = "2025-08-07"
@@ -162,12 +178,14 @@ tenant = {
       admin = [
         "divya.viswanath@gov.bc.ca",
         "nicholas.2.kan@gov.bc.ca",
-        "curtis.stodgell@gov.bc.ca"
+        "curtis.stodgell@gov.bc.ca",
+        "MIdhun.1.Murali@gov.bc.ca"
       ]
       write = [
         "nicholas.2.kan@gov.bc.ca",
         "divya.viswanath@gov.bc.ca",
-        "curtis.stodgell@gov.bc.ca"
+        "curtis.stodgell@gov.bc.ca",
+        "MIdhun.1.Murali@gov.bc.ca"
       ]
       read = [
         "curtis.stodgell@gov.bc.ca",
