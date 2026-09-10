@@ -114,14 +114,6 @@ tenant = {
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name           = "gpt-5"
-        model_name     = "gpt-5"
-        model_version  = "2025-08-07"
-        scale_type     = "GlobalStandard"
-        capacity       = 300 # 1% of 30,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
-      {
         name           = "gpt-5.1"
         model_name     = "gpt-5.1"
         model_version  = "2025-11-13"
