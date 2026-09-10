@@ -20,10 +20,12 @@ All models listed are available via GlobalStandard SKU without explicit access a
 | gpt-4.1-nano | Chat | 150,000 |
 | gpt-4o | Chat | 30,000 |
 | gpt-4o-mini | Chat | 150,000 |
+| gpt-5 | Chat | 30,000 |
 | gpt-5-mini | Chat | 10,000 |
 | gpt-5-nano | Chat | 150,000 |
 | gpt-5.1-chat | Chat (Preview) | 5,000 |
 | gpt-5.1-codex-mini | Code | 10,000 |
+| gpt-5.4 | Chat | 30,000 * |
 | o1 | Reasoning | 5,000 |
 | o3-mini | Reasoning | 5,000 |
 | o4-mini | Reasoning | 10,000 |
@@ -164,6 +166,34 @@ Quota allocation strategy: **1% per tenant** for all models. Only wlrs-water-for
 | text-embedding-ada-002 | 10,000 | 100 | 100 (1%) | 9,900 |
 | text-embedding-3-large | 10,000 | 100 | 100 (1%) | 9,900 |
 | text-embedding-3-small | 10,000 | 100 | 100 (1%) | 9,900 |
+
+---
+
+## common-gazette-intelligence-service (dev / test / prod)
+
+This tenant does not yet have a column in the environment tables above — neither do
+`bc-archeology-portal`, `common-component-workflow`, or `rsbc-dmer-ai-optimization`.
+Its GlobalStandard allocations are identical across all three environments:
+
+| Model | Version | Quota Limit | cgis (1%) |
+|-------|---------|------------:|----------:|
+| gpt-4.1 | 2025-04-14 | 30,000 | 300 |
+| gpt-4.1-mini | 2025-04-14 | 150,000 | 1,500 |
+| gpt-5 | 2025-08-07 | 30,000 | 300 |
+| gpt-5.1 | 2025-11-13 | 30,000 | 300 |
+| gpt-5.4 | 2026-03-05 | 30,000 * | 300 |
+| text-embedding-3-large | 1 | 10,000 | 100 |
+| text-embedding-3-small | 1 | 10,000 | 100 |
+
+> \* `gpt-5.4` is new to this repo and its Canada East quota limit has **not** been
+> confirmed. The 30,000 TPM figure is assumed from the flagship-chat pattern
+> (`gpt-4.1`, `gpt-5`, `gpt-5.1`). Verify with
+> `az cognitiveservices usage list --location canadaeast` and correct the capacity
+> before the first prod apply if the real limit differs.
+>
+> `gpt-5` is GlobalStandard-available in **Canada East only** — it is not offered in
+> Canada Central. Since `ai_location = "Canada East"`, this deployment is valid.
+> `gpt-5.4` is available in both Canada regions.
 
 ---
 
