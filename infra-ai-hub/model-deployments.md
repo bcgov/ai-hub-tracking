@@ -25,7 +25,10 @@ All models listed are available via GlobalStandard SKU without explicit access a
 | gpt-5-nano | Chat | 150,000 |
 | gpt-5.1-chat | Chat (Preview) | 5,000 |
 | gpt-5.1-codex-mini | Code | 10,000 |
-| gpt-5.4 | Chat | 30,000 * |
+| gpt-5.4 | Chat | 10,000 |
+| gpt-5.6-luna | Chat | 10,000 |
+| gpt-5.6-sol | Chat | 10,000 |
+| gpt-5.6-terra | Chat | 10,000 |
 | o1 | Reasoning | 5,000 |
 | o3-mini | Reasoning | 5,000 |
 | o4-mini | Reasoning | 10,000 |
@@ -181,19 +184,57 @@ Its GlobalStandard allocations are identical across all three environments:
 | gpt-4.1-mini | 2025-04-14 | 150,000 | 1,500 |
 | gpt-5 | 2025-08-07 | 30,000 | 300 |
 | gpt-5.1 | 2025-11-13 | 30,000 | 300 |
-| gpt-5.4 | 2026-03-05 | 30,000 * | 300 |
+| gpt-5.4 | 2026-03-05 | 10,000 | 300 * |
 | text-embedding-3-large | 1 | 10,000 | 100 |
 | text-embedding-3-small | 1 | 10,000 | 100 |
 
-> \* `gpt-5.4` is new to this repo and its Canada East quota limit has **not** been
-> confirmed. The 30,000 TPM figure is assumed from the flagship-chat pattern
-> (`gpt-4.1`, `gpt-5`, `gpt-5.1`). Verify with
-> `az cognitiveservices usage list --location canadaeast` and correct the capacity
-> before the first prod apply if the real limit differs.
+> \* `gpt-5.4`'s Canada East quota was verified on 2026-09-17 with
+> `az cognitiveservices usage list --location canadaeast`: the real limit is
+> **10,000 TPM**, not the 30,000 previously assumed from the flagship-chat pattern
+> (`gpt-4.1`, `gpt-5`, `gpt-5.1`). This tenant's `capacity = 300` is therefore **3%**
+> of the regional quota, not 1%. Reduce it to `100` to restore the 1%-per-tenant rule
+> before the first prod apply, or record the 3% allocation as intentional.
 >
 > `gpt-5` is GlobalStandard-available in **Canada East only** — it is not offered in
 > Canada Central. Since `ai_location = "Canada East"`, this deployment is valid.
 > `gpt-5.4` is available in both Canada regions.
+
+---
+
+## jag-csb-ai-services (dev / test / prod)
+
+Onboarded from the `common-gazette-intelligence-service` service/model baseline, with
+Azure AI Search disabled and all three `gpt-5.6` variants added. Like the tenants
+listed above, it does not yet have a column in the environment tables. Its
+GlobalStandard allocations are identical across all three environments:
+
+| Model | Version | Quota Limit | jag-csb (1%) |
+|-------|---------|------------:|-------------:|
+| gpt-4.1 | 2025-04-14 | 30,000 | 300 |
+| gpt-4.1-mini | 2025-04-14 | 150,000 | 1,500 |
+| gpt-5 | 2025-08-07 | 30,000 | 300 |
+| gpt-5.1 | 2025-11-13 | 30,000 | 300 |
+| gpt-5.4 | 2026-03-05 | 10,000 | 100 |
+| gpt-5.6-luna | 2026-07-09 | 10,000 | 100 |
+| gpt-5.6-sol | 2026-07-09 | 10,000 | 100 |
+| gpt-5.6-terra | 2026-07-09 | 10,000 | 100 |
+| text-embedding-3-large | 1 | 10,000 | 100 |
+| text-embedding-3-small | 1 | 10,000 | 100 |
+
+> `gpt-5.6` is not a deployable model name in either Canada region. The catalog offers
+> three variants at version `2026-07-09` — `gpt-5.6-luna`, `gpt-5.6-sol`, and
+> `gpt-5.6-terra` — each with its own 10,000 TPM GlobalStandard quota. This tenant
+> deploys **all three** as GlobalStandard, at 1% (100 TPM) each. The quotas are
+> per-variant, so the three deployments do not compete for the same pool.
+>
+> All three variants are GlobalStandard-available in **both** Canada East and Canada
+> Central. The only regional difference is that `gpt-5.6-sol` has no
+> `GlobalProvisionedManaged` SKU in Canada Central; it does in Canada East. Since every
+> deployment here is GlobalStandard, that difference does not apply.
+>
+> Model deployments land in the shared AI Foundry Hub's region, which is
+> `ai_location = "Canada East"` in all three environments. There is no per-tenant or
+> per-deployment region override, so this deployment is created in Canada East.
 
 ---
 
