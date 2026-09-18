@@ -49,6 +49,16 @@ output "aca_subnet_id" {
   value       = module.network.aca_subnet_id
 }
 
+output "app_service_subnet_id" {
+  description = "App Service integration subnet ID (null if not enabled). Consumed by the tenant onboarding portal Terraform root."
+  value       = module.network.app_service_subnet_id
+}
+
+output "app_service_subnet_cidr" {
+  description = "App Service integration subnet CIDR (null if not enabled)"
+  value       = module.network.app_service_subnet_cidr
+}
+
 output "container_app_environment_id" {
   description = "Container App Environment resource ID (null if not enabled)"
   value       = length(module.container_app_environment) > 0 ? module.container_app_environment[0].resource_id : null

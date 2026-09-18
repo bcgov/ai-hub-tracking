@@ -94,6 +94,25 @@ output "aca_nsg_id" {
 
 
 # -----------------------------------------------------------------------------
+# App Service Subnet Outputs (regional VNet integration)
+# -----------------------------------------------------------------------------
+output "app_service_subnet_id" {
+  description = "Resource ID of the App Service integration subnet (null if not enabled)"
+  value       = local.app_service_enabled ? azapi_resource.app_service_subnet[0].id : null
+}
+
+output "app_service_subnet_cidr" {
+  description = "CIDR of the App Service integration subnet (null if not enabled)"
+  value       = local.app_service_subnet_cidr
+}
+
+output "app_service_nsg_id" {
+  description = "Resource ID of the App Service NSG (null if not enabled)"
+  value       = local.app_service_enabled ? azurerm_network_security_group.app_service[0].id : null
+}
+
+
+# -----------------------------------------------------------------------------
 # VNet Information
 # -----------------------------------------------------------------------------
 output "vnet_id" {

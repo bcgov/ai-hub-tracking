@@ -1,0 +1,173 @@
+# =============================================================================
+# Deploy – Tenant Onboarding Portal (dev environment)
+# =============================================================================
+# Manual deploy trigger for the portal instance that runs in the AI Services
+# Hub **dev** subscription. This is a separate, self-contained instance from
+# the production portal in the tools subscription (portal-deploy.yml) — it has
+# its own resource group, App Service, Storage Account, and Terraform state.
+#
+# Naming:
+#   App Service    : dev-ai-hub-onboarding
+#   Resource group : dev-ai-hub-onboarding-rg   (created by the portal root)
+#   Storage account: stdevportal<random>        (Azure Table Storage)
+#   State key      : portal/dev/terraform.tfstate
+#
+# Scope note: unlike the tools deployment, this job wires only the **dev** hub
+# Key Vault and APIM. The portal Terraform creates a "Key Vault Secrets User"
+# role assignment for every hub Key Vault ID it is given, and the dev service
+# principal has no rights to create role assignments in the test or prod
+# subscriptions. Passing all three would fail the apply.
+#
+# Prerequisite: an "app-service-subnet" must exist in the dev VNet. It is
+# created by the shared stack via the subnet_allocation map — see
+# infra-ai-hub/modules/network. Deploy the shared stack for dev first.
+#
+# All secrets/variables come from the 'dev' GitHub Environment.
+# Required secrets:
+#   AZURE_CLIENT_ID                   – OIDC-federated service principal client ID
+#   AZURE_TENANT_ID                   – Azure AD tenant ID
+#   AZURE_SUBSCRIPTION_ID             – Azure dev subscription ID
+#   VNET_NAME                         – dev VNet name
+#   VNET_RESOURCE_GROUP_NAME          – dev VNet resource group (also holds TF state)
+#   PORTAL_NONPROD_OIDC_CLIENT_SECRET – Keycloak confidential client secret (dev realm)
+#
+# Required variables:
+#   STORAGE_ACCOUNT_NAME              – storage account holding Terraform state
+#
+# Optional variables:
+#   PORTAL_OIDC_ADMIN_ROLE            – Keycloak role granting admin access
+#   PORTAL_ADMIN_EMAILS               – comma-separated fallback admin emails
+# =============================================================================
+
+name: Deploy Portal (dev)
+
+on:
+  workflow_dispatch:
+    inputs:
+      infra_only:
+        description: "Run Terraform apply only, skip packaging and app deployment"
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  PORTAL_NODE_VERSION_FILE: tenant-onboarding-portal/.node-version
+  # TF_VERSION is injected at runtime by the "Load constants" step, which sources
+  # .github/lib/constants.sh into $GITHUB_ENV. Do NOT redeclare it as a static env: key —
+  # a static env: value would shadow $GITHUB_ENV and leave terraform_version empty.
+  TF_WORKING_DIR: tenant-onboarding-portal/infra
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Single portal deploy job
+  # Collects the dev hub Terraform outputs, runs terraform apply, then packages
+  # and deploys the portal app. No staging slot — the dev plan is Basic tier and
+  # slot creation is blocked by the Deny-AppSlots-Public policy.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy dev-ai-hub-onboarding (dev)
+    runs-on: ubuntu-24.04
+    environment: dev
+    timeout-minutes: 20
+    concurrency:
+      group: portal-deploy-dev
+      cancel-in-progress: false # avoid terraform state conflicts
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10
+
+      - name: Load constants
+        shell: bash
+        run: |
+          source .github/lib/constants.sh
+          echo "TF_VERSION=$TF_VERSION" >> "$GITHUB_ENV"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version-file: ${{ env.PORTAL_NODE_VERSION_FILE }}
+          cache: npm
+          cache-dependency-path: |
+            tenant-onboarding-portal/backend/package-lock.json
+            tenant-onboarding-portal/frontend/package-lock.json
+
+      - name: Login to Azure (OIDC)
+        uses: azure/login@a457da9ea143d694b1b9c7c869ebb04ebe844ef5
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      # Reads the dev shared + apim remote state blobs and emits the hub Key
+      # Vault ID/URI and APIM gateway URL. Requires "Storage Blob Data Reader"
+      # on the dev state storage account for the CI identity. The script exits 0
+      # with empty outputs when a blob is missing, which leaves the matching
+      # TF_VAR blank and skips the role assignment rather than failing the run.
+      - name: Collect dev hub Terraform outputs
+        id: hub
+        env:
+          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+          BACKEND_CONTAINER: tfstate
+          HUB_ENV: dev
+        run: bash ./.github/scripts/collect-hub-outputs.sh
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@dfe3c3f87815947d99a8997f908cb6525fc44e9e
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+          terraform_wrapper: false
+
+      - name: Terraform apply
+        id: apply
+        working-directory: ${{ env.TF_WORKING_DIR }}
+        env:
+          CI: "true"
+          ARM_USE_OIDC: "true"
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          BACKEND_RESOURCE_GROUP: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          BACKEND_STORAGE_ACCOUNT: ${{ vars.STORAGE_ACCOUNT_NAME }}
+          PORTAL_STATE_KEY: portal/dev/terraform.tfstate
+          TF_VAR_subscription_id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          TF_VAR_tenant_id: ${{ secrets.AZURE_TENANT_ID }}
+          TF_VAR_client_id: ${{ secrets.AZURE_CLIENT_ID }}
+          TF_VAR_location: "Canada Central"
+          TF_VAR_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          TF_VAR_vnet_name: ${{ secrets.VNET_NAME }}
+          TF_VAR_vnet_resource_group_name: ${{ secrets.VNET_RESOURCE_GROUP_NAME }}
+          TF_VAR_sku_name: "B1"
+          TF_VAR_enable_always_on: "true"
+          TF_VAR_app_name_override: "dev-ai-hub-onboarding"
+          TF_VAR_enable_deployment_slot: "false" # Staging slot disabled - blocked by Deny-AppSlots-Public policy
+          TF_VAR_enable_table_rbac: "false"
+          # App settings pushed into App Service environment
+          TF_VAR_oidc_discovery_url: https://dev.loginproxy.gov.bc.ca/auth/realms/standard/.well-known/openid-configuration
+          TF_VAR_oidc_client_id: ai-hub-admin-portal-6366
+          TF_VAR_oidc_client_secret: ${{ secrets.PORTAL_NONPROD_OIDC_CLIENT_SECRET }}
+          TF_VAR_oidc_admin_role: ${{ vars.PORTAL_OIDC_ADMIN_ROLE || 'ai-hub-onboarding-portal-admin' }}
+          TF_VAR_admin_emails: ${{ vars.PORTAL_ADMIN_EMAILS }}
+          # Dev hub only — see the scope note in this file's header.
+          TF_VAR_hub_keyvault_id_dev: ${{ steps.hub.outputs.hub_kv_id }}
+          TF_VAR_hub_keyvault_url_dev: ${{ steps.hub.outputs.hub_kv_url }}
+          TF_VAR_apim_gateway_url_dev: ${{ steps.hub.outputs.apim_url }}
+          PORTAL_NODE_VERSION_FILE: ${{ env.PORTAL_NODE_VERSION_FILE }}
+          INFRA_ONLY_FLAG: ${{ inputs.infra_only && '--infra-only' || '' }}
+        run: bash ./deploy-terraform.sh apply dev --auto-approve --no-var-file --timeout=600 $INFRA_ONLY_FLAG
+
+      - name: Summarize deployment
+        if: steps.apply.outcome == 'success'
+        run: |
+          {
+            echo "### Portal deployed to dev"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| App Service | \`${{ steps.apply.outputs.app_service_name }}\` |"
+            echo "| Resource group | \`${{ steps.apply.outputs.resource_group_name }}\` |"
+            echo "| URL | https://${{ steps.apply.outputs.app_hostname }} |"
+          } >> "$GITHUB_STEP_SUMMARY"

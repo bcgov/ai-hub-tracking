@@ -214,6 +214,7 @@ shared_config = {
 #   "apim-subnet"               — APIM VNet injection (/27 min)
 #   "appgw-subnet"              — Application Gateway (/27 min, no delegation)
 #   "aca-subnet"                — Container Apps Environment (/27 min)
+#   "app-service-subnet"        — App Service regional VNet integration (/28 min)
 #
 # CIDRs are explicit — the value is the exact subnet CIDR, not a prefix length.
 # Subnets are independent; changing one does not affect others.
@@ -222,13 +223,13 @@ shared_config = {
 #   10.x.x.0/27   privateendpoints-subnet  (32 IPs)
 #   10.x.x.32/27  apim-subnet              (32 IPs)
 #   10.x.x.64/27  aca-subnet               (32 IPs)
-#   10.x.x.96/27  ← unused / reserved
+#   10.x.x.96/27  app-service-subnet       (32 IPs, tenant onboarding portal)
 #   10.x.x.128/25 ← unused / reserved
 #
 # --- GROWTH PATTERNS ---
 #
 # (A) Enable App Gateway (when WAF needed in dev for parity testing):
-#   Add "appgw-subnet" = "10.x.x.96/27" alongside aca-subnet in the existing space.
+#   Add "appgw-subnet" = "10.x.x.128/27" alongside aca-subnet in the existing space.
 #   Note: appgw lands at priority 2 (between apim and aca), shifting aca
 #   forward — but because CIDRs are computed at plan time, this only matters
 #   if aca-subnet doesn't exist yet. If aca is already deployed, add a second
@@ -260,6 +261,7 @@ shared_config = {
 #       "privateendpoints-subnet" = "10.x.x.0/27"  # 32 IPs
 #       "apim-subnet"             = "10.x.x.32/27" # 32 IPs
 #       "aca-subnet"              = "10.x.x.64/27" # 32 IPs
+#       "app-service-subnet"      = "10.x.x.96/27" # 32 IPs
 #     }
 #   }
 

@@ -24,6 +24,9 @@ locals {
   appgw_enabled = contains(keys(local.subnet_cidrs), "appgw-subnet")
   aca_enabled   = contains(keys(local.subnet_cidrs), "aca-subnet")
 
+  # App Service regional VNet integration (tenant onboarding portal).
+  app_service_enabled = contains(keys(local.subnet_cidrs), "app-service-subnet")
+
   # =============================================================================
   # PE SUBNET POOL
   # All subnets whose name starts with "privateendpoints-subnet".
@@ -57,4 +60,5 @@ locals {
   apim_subnet_cidr             = local.apim_enabled ? local.subnet_cidrs["apim-subnet"] : null
   appgw_subnet_cidr            = local.appgw_enabled ? local.subnet_cidrs["appgw-subnet"] : null
   aca_subnet_cidr              = local.aca_enabled ? local.subnet_cidrs["aca-subnet"] : null
+  app_service_subnet_cidr      = local.app_service_enabled ? local.subnet_cidrs["app-service-subnet"] : null
 }

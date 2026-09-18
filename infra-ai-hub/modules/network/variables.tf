@@ -44,6 +44,7 @@ variable "subnet_allocation" {
     - "apim-subnet"                — APIM VNet injection (delegation: Microsoft.Web/serverFarms)
     - "appgw-subnet"               — Application Gateway (no delegation, dedicated)
     - "aca-subnet"                 — Container Apps Environment (delegation: Microsoft.App/environments)
+    - "app-service-subnet"         — App Service regional VNet integration (delegation: Microsoft.Web/serverFarms, /28 min)
 
     Each subnet CIDR must fall within its parent address space.
     Subnets are independent — changing one does not recompute others.
@@ -84,11 +85,11 @@ variable "subnet_allocation" {
     condition = alltrue(flatten([
       for space_cidr, subnets in var.subnet_allocation : [
         for name, _ in subnets : contains([
-          "privateendpoints-subnet", "apim-subnet", "appgw-subnet", "aca-subnet"
+          "privateendpoints-subnet", "apim-subnet", "appgw-subnet", "aca-subnet", "app-service-subnet"
         ], name) || can(regex("^privateendpoints-subnet-[1-9]\\d*$", name))
       ]
     ]))
-    error_message = "Subnet names must be one of: privateendpoints-subnet, privateendpoints-subnet-<n> (n starts at 1), apim-subnet, appgw-subnet, aca-subnet."
+    error_message = "Subnet names must be one of: privateendpoints-subnet, privateendpoints-subnet-<n> (n starts at 1), apim-subnet, appgw-subnet, aca-subnet, app-service-subnet."
   }
 
   validation {

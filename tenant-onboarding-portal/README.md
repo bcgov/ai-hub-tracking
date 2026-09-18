@@ -85,6 +85,8 @@ cd tenant-onboarding-portal/infra
 Notes:
 
 - The script supports `dev`, `test`, `prod`, and `tools`.
+- The Terraform root is environment-agnostic: the target subscription is decided entirely by the credentials, `PORTAL_STATE_KEY`, and `TF_VAR_*` values you supply. Always set `TF_VAR_app_name_override` for anything other than the tools instance — App Service names are globally unique and the default falls back to `ai-hub-onboarding`.
+- Regional VNet integration requires a subnet named `app-service-subnet` (delegated to `Microsoft.Web/serverFarms`) in the target VNet. For dev/test/prod it is provisioned by the hub shared stack via `subnet_allocation`; in tools it comes from `initial-setup/infra`.
 - `apply` is now the end-to-end deployment path: it provisions infra, packages the app, deploys it, runs health checks, and emits App Service outputs to `GITHUB_OUTPUT` when running in GitHub Actions.
 - Use `--infra-only` when you want Terraform apply without packaging or App Service deployment.
 - It still supports standalone commands such as `package-app`, `deploy-app`, `swap-slot`, and `health-check` for targeted local or debugging runs.
@@ -132,6 +134,7 @@ Workflow responsibilities:
 - `pr-close.yml`: destroys preview portal apps when a PR closes
 - `merge-main.yml`: deploys the tools portal through the staging slot and swaps to production
 - `portal-deploy.yml`: manually redeploys the tools portal with the same bundle path
+- `portal-deploy-dev.yml`: manually deploys the separate dev-subscription portal instance (`dev-ai-hub-onboarding`), wiring only the dev hub Key Vault and APIM
 
 ## Storage And Security Notes
 
