@@ -634,3 +634,171 @@ resource "azapi_resource" "aca_subnet" {
     azapi_resource.appgw_subnet
   ]
 }
+
+# =============================================================================
+# APP SERVICE SUBNET (optional — enabled when "app-service-subnet" exists)
+# Required for App Service regional VNet integration (outbound only).
+# Used by: tenant onboarding portal (tenant-onboarding-portal/infra).
+#
+# Sizing: Azure requires a minimum /28 for regional VNet integration and
+# reserves 5 addresses. A /27 comfortably hosts a single-plan portal app
+# including scale-out and instance churn during deployments.
+#
+# The subnet carries outbound traffic only — inbound to the app arrives over
+# the public App Service front end, not through this subnet.
+#
+# NSG rules allow:
+#   - Outbound: Entra ID (managed identity token acquisition)
+#   - Outbound: Azure Monitor (logs, metrics, diagnostics)
+#   - Outbound: VirtualNetwork (hub Key Vault and APIM via private endpoints)
+#   - Outbound: Storage (Azure Table Storage backing the portal)
+#   - Outbound: Internet 443 (BC Gov Keycloak discovery and token endpoints)
+#   - Inbound: all address spaces in var.subnet_allocation (health probes)
+#
+# local.address_spaces = keys(var.subnet_allocation), sorted lexicographically.
+# =============================================================================
+
+# NSG for App Service integration subnet
+resource "azurerm_network_security_group" "app_service" {
+  count = local.app_service_enabled ? 1 : 0
+
+  name                = "${var.name_prefix}-app-service-nsg"
+  location            = var.location
+  resource_group_name = var.vnet_resource_group_name
+
+  # --- Outbound: Entra ID (managed identity token acquisition) ---
+  # The portal uses its system-assigned identity to read Key Vault secrets.
+  security_rule {
+    name                       = "AllowAadOutbound"
+    priority                   = 100
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "AzureActiveDirectory"
+  }
+
+  # --- Outbound: Azure Monitor (logs, metrics, diagnostics) ---
+  security_rule {
+    name                       = "AllowMonitorOutbound"
+    priority                   = 110
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "AzureMonitor"
+  }
+
+  # --- Outbound: VirtualNetwork (PE-backed services via private endpoints) ---
+  # The portal reads APIM subscription keys from the hub Key Vault and calls
+  # APIM. Both resolve to private IPs in the PE subnet, which may live in a
+  # different address space — the VirtualNetwork tag covers every space.
+  security_rule {
+    name                       = "AllowVirtualNetworkOutbound"
+    priority                   = 120
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "VirtualNetwork"
+  }
+
+  # --- Outbound: Azure Storage (portal Table Storage persistence) ---
+  # Tenant requests, registry, and session state live in Azure Table Storage.
+  security_rule {
+    name                       = "AllowStorageOutbound"
+    priority                   = 130
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "Storage"
+  }
+
+  # --- Outbound: Internet 443 (BC Gov Keycloak / loginproxy) ---
+  # OIDC discovery, token exchange, and JWKS fetches target a public endpoint
+  # outside Azure, so no service tag covers it.
+  security_rule {
+    name                       = "AllowHttpsInternetOutbound"
+    priority                   = 140
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "443"
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "Internet"
+  }
+
+  # --- Inbound: allow each address space in the allocation map → App Service subnet ---
+  # One rule per address space from keys(var.subnet_allocation).
+  # Covers platform health probes and any in-VNet caller reaching the app.
+  dynamic "security_rule" {
+    for_each = local.address_spaces
+    content {
+      name                       = "AllowVnetInbound-${replace(replace(security_rule.value, ".", "-"), "/", "-")}"
+      priority                   = 200 + index(local.address_spaces, security_rule.value)
+      direction                  = "Inbound"
+      access                     = "Allow"
+      protocol                   = "*"
+      source_address_prefix      = security_rule.value # e.g., "10.x.x.0/24"
+      destination_address_prefix = "VirtualNetwork"
+      source_port_range          = "*"
+      destination_port_range     = "*"
+    }
+  }
+
+  tags = var.common_tags
+
+  lifecycle {
+    ignore_changes = [tags]
+  }
+}
+
+# App Service subnet with delegation for regional VNet integration
+resource "azapi_resource" "app_service_subnet" {
+  count = local.app_service_enabled ? 1 : 0
+
+  type      = "Microsoft.Network/virtualNetworks/subnets@2023-04-01"
+  name      = "app-service-subnet"
+  parent_id = data.azurerm_virtual_network.target.id
+  locks     = [data.azurerm_virtual_network.target.id]
+
+  body = {
+    properties = {
+      addressPrefix = local.app_service_subnet_cidr
+
+      networkSecurityGroup = {
+        id = azurerm_network_security_group.app_service[0].id
+      }
+
+      # App Service regional VNet integration requires delegation to Microsoft.Web/serverFarms
+      delegations = [
+        {
+          name = "Microsoft.Web.serverFarms"
+          properties = {
+            serviceName = "Microsoft.Web/serverFarms"
+          }
+        }
+      ]
+    }
+  }
+
+  response_export_values = ["*"]
+
+  # Subnet writes serialize on the VNet lock; ordering keeps plans deterministic.
+  depends_on = [
+    azapi_resource.pe_subnets,
+    azapi_resource.apim_subnet,
+    azapi_resource.appgw_subnet,
+    azapi_resource.aca_subnet
+  ]
+}

@@ -79,6 +79,7 @@ There is **no offset computation** — all CIDRs are explicit in tfvars. The mod
 | `apim-subnet` | `Microsoft.Web/serverFarms` | APIM VNet injection |
 | `appgw-subnet` | None (dedicated, no delegation) | Application Gateway |
 | `aca-subnet` | `Microsoft.App/environments` | Container Apps Environment |
+| `app-service-subnet` | `Microsoft.Web/serverFarms` | App Service regional VNet integration (tenant onboarding portal). Azure minimum `/28` |
 
 ### External VNet Peered Projects (`external_peered_projects`)
 
@@ -106,6 +107,7 @@ Priorities are caller-assigned (400–499) so adding/removing a project never sh
 | `privateendpoints-subnet` | `10.x.x.0/27` | 32 IPs |
 | `apim-subnet` | `10.x.x.32/27` | 32 IPs |
 | `aca-subnet` | `10.x.x.64/27` | 32 IPs |
+| `app-service-subnet` | `10.x.x.96/27` | 32 IPs (tenant onboarding portal) |
 | `appgw-subnet` | Not deployed | App Gateway disabled |
 
 **Test** — 2 address spaces:

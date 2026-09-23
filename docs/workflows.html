@@ -1170,6 +1170,10 @@
             <td><strong>portal-deploy.yml</strong></td>
             <td>Manual tools redeploy for the same backend/frontend bundle, following the same provision, staging deploy, health check, and slot-swap path as the automated main deployment.</td>
         </tr>
+        <tr>
+            <td><strong>portal-deploy-dev.yml</strong></td>
+            <td>Manual deploy of the separate dev-subscription portal instance (<code>dev-ai-hub-onboarding</code>). Same bundle path, but its own resource group, storage account, and Terraform state, and it wires only the dev hub Key Vault and APIM. No staging slot.</td>
+        </tr>
     </tbody>
 </table>
 

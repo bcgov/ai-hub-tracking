@@ -137,7 +137,7 @@ module "ai_foundry_hub" {
 
 ## Network Architecture
 
-The network module uses an explicit `subnet_allocation` variable. In CI/CD, values are passed via `TF_VAR_subnet_allocation` (GitHub environment secret). For local runs, `TF_VAR_subnet_allocation` is mandatory and must be exported before running Terraform. Source of truth is in the tools storage account `tftoolsaihubtracking`, container `tools`, under `network-info/subnet-allocation/`. There is no offset computation or formulaic derivation.
+The network module uses an explicit `subnet_allocation` variable. In CI/CD, values are passed via `TF_VAR_subnet_allocation` (GitHub environment secret). For local runs, `TF_VAR_subnet_allocation` is mandatory and must be exported before running Terraform. Source of truth is in the tools storage account `tftoolsaihubtracking`, container `network-info`, under `subnet-allocation/subnet-allocation-<env>.json`. There is no offset computation or formulaic derivation.
 
 ```mermaid
 flowchart TB
@@ -258,6 +258,8 @@ Creates subnet infrastructure with NSGs for the Landing Zone VNet. Uses `azapi_r
 | `apim_subnet_id` | APIM subnet ID (null if not allocated) |
 | `appgw_subnet_id` | App Gateway subnet ID (null if not allocated) |
 | `aca_subnet_id` | ACA subnet ID (null if not allocated) |
+| `app_service_subnet_id` | App Service integration subnet ID (null if not allocated) |
+| `app_service_subnet_cidr` | App Service integration subnet CIDR (null if not allocated) |
 | `vnet_id` | VNet resource ID |
 
 ---
@@ -1443,8 +1445,8 @@ az account set --subscription "da4cf6-tools - AI Services Hub"
 # Example: prod allocation (adjust file name for dev/test as needed)
 TF_VAR_subnet_allocation=$(az storage blob download \
   --account-name tftoolsaihubtracking \
-  --container-name tools \
-  --name network-info/subnet-allocation/subnet-allocation-prod.json \
+  --container-name network-info \
+  --name subnet-allocation/subnet-allocation-prod.json \
   --auth-mode login \
   --file - | jq -c .)
 
