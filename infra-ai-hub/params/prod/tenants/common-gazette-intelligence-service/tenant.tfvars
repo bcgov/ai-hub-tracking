@@ -168,7 +168,7 @@ tenant = {
   # APIM Authentication - present on all tenants for map(any) shape uniformity
   apim_auth = {
     mode                 = "subscription_key"
-    key_rotation_enabled = false
+    key_rotation_enabled = true # Per-tenant opt-in for APIM key rotation
   }
 
   apim_policies = {
@@ -177,7 +177,7 @@ tenant = {
       tokens_per_minute = 1000
     }
     pii_redaction = {
-      enabled             = true
+      enabled             = false # PII redaction disabled at tenant request
       fail_closed         = false
       excluded_categories = []
     }
