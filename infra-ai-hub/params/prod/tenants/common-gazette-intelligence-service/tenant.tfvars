@@ -177,7 +177,7 @@ tenant = {
       tokens_per_minute = 1000
     }
     pii_redaction = {
-      enabled             = true
+      enabled             = false # PII redaction disabled at tenant request
       fail_closed         = false
       excluded_categories = []
     }
