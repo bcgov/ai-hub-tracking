@@ -168,7 +168,7 @@ tenant = {
   # APIM Authentication - present on all tenants for map(any) shape uniformity
   apim_auth = {
     mode                 = "subscription_key"
-    key_rotation_enabled = true # Per-tenant opt-in for APIM key rotation
+    key_rotation_enabled = false
   }
 
   apim_policies = {
