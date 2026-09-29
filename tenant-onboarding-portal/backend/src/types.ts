@@ -81,6 +81,13 @@ export type PortalSettings = {
   apimGatewayUrlDev: string;
   apimGatewayUrlTest: string;
   apimGatewayUrlProd: string;
+  publicBaseUrl: string;
+  notificationAdminEmails: string[];
+  chesTokenUrl: string;
+  chesApiUrl: string;
+  chesClientId: string;
+  chesClientSecret: string;
+  chesFromAddress: string;
 };
 
 export type TenantRecord = {
