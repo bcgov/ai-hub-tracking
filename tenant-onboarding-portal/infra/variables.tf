@@ -154,6 +154,51 @@ variable "admin_emails" {
   default     = ""
 }
 
+# --- Email notifications (CHES) ---
+
+variable "notification_admin_emails" {
+  description = "Comma-separated admin email addresses notified on tenant request submissions and updates. Empty disables notifications."
+  type        = string
+  default     = ""
+}
+
+variable "public_base_url" {
+  description = "Public portal URL used to build review links in notification emails. Optional."
+  type        = string
+  default     = ""
+}
+
+variable "ches_token_url" {
+  description = "CHES OAuth token endpoint (client credentials grant)."
+  type        = string
+  default     = "https://dev.loginproxy.gov.bc.ca/auth/realms/comsvcauth/protocol/openid-connect/token"
+}
+
+variable "ches_api_url" {
+  description = "CHES API base URL."
+  type        = string
+  default     = "https://ches-dev.api.gov.bc.ca/api/v1"
+}
+
+variable "ches_client_id" {
+  description = "CHES service client ID."
+  type        = string
+  default     = ""
+}
+
+variable "ches_client_secret" {
+  description = "CHES service client secret."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "ches_from_address" {
+  description = "Sender address for notification emails, e.g. \"AI Services Hub <aiserviceshub-test@gov.bc.ca>\"."
+  type        = string
+  default     = ""
+}
+
 variable "extra_app_settings" {
   description = "Additional App Service application settings merged with the defaults."
   type        = map(string)
