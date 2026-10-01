@@ -136,6 +136,48 @@ function validateRequiredString(value: string, message: string): string {
 }
 
 /**
+ * Validates a required free-text field: non-empty after trimming and within the
+ * configured maximum length.
+ *
+ * @param value - The raw field value from the request payload.
+ * @param validation - The schema validation rule providing `max_length` and `message`.
+ * @returns The trimmed, validated string.
+ * @throws UnprocessableEntityException when the value is blank or too long.
+ */
+function validateRequiredText(
+  value: unknown,
+  validation: { max_length?: number; message: string },
+): string {
+  const normalized = validateRequiredString(asString(value), validation.message);
+  if (validation.max_length != null && normalized.length > validation.max_length) {
+    throw new UnprocessableEntityException(validation.message);
+  }
+
+  return normalized;
+}
+
+/**
+ * Validates a required contact email: trimmed, lowercased, non-empty, within the
+ * configured maximum length, and matching the government email pattern.
+ *
+ * @param value - The raw email value from the request payload.
+ * @param validation - The schema validation rule providing `pattern`, `max_length`, and `message`.
+ * @returns The normalised, validated email address.
+ * @throws UnprocessableEntityException when the email is blank, too long, or not a `@gov.bc.ca` address.
+ */
+function validateRequiredGovEmail(
+  value: unknown,
+  validation: { max_length?: number; pattern?: string; message: string },
+): string {
+  const normalized = validateRequiredText(value, validation).toLowerCase();
+  if (validation.pattern && !new RegExp(validation.pattern, 'i').test(normalized)) {
+    throw new UnprocessableEntityException(validation.message);
+  }
+
+  return normalized;
+}
+
+/**
  * Validates that a string value is included in the list of allowed values.
  *
  * @param value - The string to validate against the allowed list.
@@ -237,6 +279,41 @@ export function parseTenantForm(input: unknown): TenantFormData {
     ),
     ministry,
     department: asString(payload.department),
+    business_need: validateRequiredText(payload.business_need, VALIDATION.business_need),
+    desired_outcome: validateRequiredText(payload.desired_outcome, VALIDATION.desired_outcome),
+    executive_sponsor_name: validateRequiredText(
+      payload.executive_sponsor_name,
+      VALIDATION.executive_sponsor_name,
+    ),
+    executive_sponsor_title: validateRequiredText(
+      payload.executive_sponsor_title,
+      VALIDATION.executive_sponsor_title,
+    ),
+    executive_sponsor_email: validateRequiredGovEmail(
+      payload.executive_sponsor_email,
+      VALIDATION.executive_sponsor_email,
+    ),
+    delivery_owner_name: validateRequiredText(
+      payload.delivery_owner_name,
+      VALIDATION.delivery_owner_name,
+    ),
+    delivery_owner_title: validateRequiredText(
+      payload.delivery_owner_title,
+      VALIDATION.delivery_owner_title,
+    ),
+    delivery_owner_email: validateRequiredGovEmail(
+      payload.delivery_owner_email,
+      VALIDATION.delivery_owner_email,
+    ),
+    intended_users_use_case: validateRequiredText(
+      payload.intended_users_use_case,
+      VALIDATION.intended_users_use_case,
+    ),
+    data_classification: validateAllowedValue(
+      asString(payload.data_classification).trim(),
+      VALIDATION.data_classification.allowed_values,
+      VALIDATION.data_classification.message,
+    ),
     openai_enabled: openaiEnabled,
     ai_search_enabled: asBoolean(payload.ai_search_enabled, DEFAULTS.ai_search_enabled),
     document_intelligence_enabled: documentIntelligenceEnabled,

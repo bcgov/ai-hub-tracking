@@ -111,6 +111,16 @@ export type TenantFormData = {
   display_name: string;
   ministry: string;
   department: string;
+  business_need: string;
+  desired_outcome: string;
+  executive_sponsor_name: string;
+  executive_sponsor_title: string;
+  executive_sponsor_email: string;
+  delivery_owner_name: string;
+  delivery_owner_title: string;
+  delivery_owner_email: string;
+  intended_users_use_case: string;
+  data_classification: string;
   openai_enabled: boolean;
   ai_search_enabled: boolean;
   document_intelligence_enabled: boolean;

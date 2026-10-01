@@ -1,4 +1,4 @@
-export const FORM_VERSION = '2026.03.1';
+export const FORM_VERSION = '2026.10.1';
 
 export const MINISTRIES = [
   'AF',
@@ -164,6 +164,19 @@ export const MODEL_FAMILIES = {
   },
 } as const;
 
+export const DATA_CLASSIFICATIONS = [
+  'Public',
+  'Internal',
+  'Personal Information',
+  'Sensitive / Confidential',
+  'Not Yet Determined',
+];
+
+const BUSINESS_TEXT_MAX_LENGTH = 2000;
+const CONTACT_TEXT_MAX_LENGTH = 200;
+const GOV_EMAIL_DOMAIN = '@gov.bc.ca';
+const GOV_EMAIL_PATTERN = '^[^\\s@]+@gov\\.bc\\.ca$';
+
 export const CAPACITY_TIERS = {
   reduced: { label: 'Reduced (0.5x quota)', multiplier: 0.5 },
   standard: { label: 'Standard (1% quota)', multiplier: 1.0 },
@@ -175,6 +188,7 @@ export const FORM_SCHEMA = {
   ministries: MINISTRIES,
   model_families: MODEL_FAMILIES,
   capacity_tiers: CAPACITY_TIERS,
+  data_classifications: DATA_CLASSIFICATIONS,
   auth_modes: [
     { value: 'subscription_key', label: 'API Key (Subscription Key)' },
     { value: 'oauth2', label: 'OAuth2 (Azure AD JWT)' },
@@ -184,6 +198,16 @@ export const FORM_SCHEMA = {
     display_name: '',
     ministry: MINISTRIES[0],
     department: '',
+    business_need: '',
+    desired_outcome: '',
+    executive_sponsor_name: '',
+    executive_sponsor_title: '',
+    executive_sponsor_email: '',
+    delivery_owner_name: '',
+    delivery_owner_title: '',
+    delivery_owner_email: '',
+    intended_users_use_case: '',
+    data_classification: '',
     openai_enabled: true,
     ai_search_enabled: false,
     document_intelligence_enabled: false,
@@ -227,6 +251,66 @@ export const FORM_SCHEMA = {
       description: 'Operational area requesting the tenant within the selected ministry.',
       details:
         'This helps reviewers distinguish teams that share the same ministry and informs generated tagging metadata.',
+    },
+    business_need: {
+      label: 'Business need',
+      description: 'The business problem or opportunity this tenant will address.',
+      details:
+        'Describe why the team needs AI Hub services and what happens today without them. Reviewers use this to confirm fit for the platform.',
+    },
+    desired_outcome: {
+      label: 'Desired outcome',
+      description: 'What success looks like once the tenant is in use.',
+      details:
+        'Describe the measurable or observable results expected, such as time saved, improved service quality, or a new capability.',
+    },
+    executive_sponsor_name: {
+      label: 'Sponsor name',
+      description: 'Executive accountable for the initiative and its budget.',
+      details: 'The executive who sponsors the work and holds expense authority for tenant costs.',
+      placeholder: 'Jane Doe',
+    },
+    executive_sponsor_title: {
+      label: 'Sponsor title',
+      description: 'Position of the executive sponsor.',
+      details: 'For example Assistant Deputy Minister or Executive Director.',
+      placeholder: 'Assistant Deputy Minister',
+    },
+    executive_sponsor_email: {
+      label: 'Sponsor email',
+      description: 'Government email address for the executive sponsor.',
+      details: 'Must be a @gov.bc.ca address. Used for approvals and cost notifications.',
+      placeholder: 'name@gov.bc.ca',
+    },
+    delivery_owner_name: {
+      label: 'Owner name',
+      description: 'Person responsible for delivering and operating the solution.',
+      details: 'The owner who will build, run, and support the workload day to day.',
+      placeholder: 'John Smith',
+    },
+    delivery_owner_title: {
+      label: 'Owner title',
+      description: 'Position of the delivery and operational owner.',
+      details: 'For example Product Owner or Senior Manager, Digital Delivery.',
+      placeholder: 'Product Owner',
+    },
+    delivery_owner_email: {
+      label: 'Owner email',
+      description: 'Government email address for the delivery and operational owner.',
+      details: 'Must be a @gov.bc.ca address. Used for operational and incident contact.',
+      placeholder: 'name@gov.bc.ca',
+    },
+    intended_users_use_case: {
+      label: 'Intended users and use case',
+      description: 'Who will use the solution and how they will use it.',
+      details:
+        'Identify the user groups (for example internal staff or the public) and describe the main scenarios the AI services will support.',
+    },
+    data_classification: {
+      label: 'Data classification',
+      description: 'Highest classification of data the tenant will process.',
+      details:
+        'Choose the most sensitive category of data the workload will send to AI services. Select Not Yet Determined if a privacy or security assessment is still in progress.',
     },
     openai_enabled: {
       label: 'Azure OpenAI',
@@ -331,6 +415,60 @@ export const FORM_SCHEMA = {
       required: true,
       allowed_values: MINISTRIES,
       message: 'Select a ministry from the portal form schema',
+    },
+    business_need: {
+      required: true,
+      max_length: BUSINESS_TEXT_MAX_LENGTH,
+      message: `Business need is required (max ${BUSINESS_TEXT_MAX_LENGTH} characters)`,
+    },
+    desired_outcome: {
+      required: true,
+      max_length: BUSINESS_TEXT_MAX_LENGTH,
+      message: `Desired outcome is required (max ${BUSINESS_TEXT_MAX_LENGTH} characters)`,
+    },
+    executive_sponsor_name: {
+      required: true,
+      max_length: CONTACT_TEXT_MAX_LENGTH,
+      message: `Executive sponsor name is required (max ${CONTACT_TEXT_MAX_LENGTH} characters)`,
+    },
+    executive_sponsor_title: {
+      required: true,
+      max_length: CONTACT_TEXT_MAX_LENGTH,
+      message: `Executive sponsor title is required (max ${CONTACT_TEXT_MAX_LENGTH} characters)`,
+    },
+    executive_sponsor_email: {
+      required: true,
+      max_length: CONTACT_TEXT_MAX_LENGTH,
+      email_domain: GOV_EMAIL_DOMAIN,
+      pattern: GOV_EMAIL_PATTERN,
+      message: 'Executive sponsor email must be a valid @gov.bc.ca address',
+    },
+    delivery_owner_name: {
+      required: true,
+      max_length: CONTACT_TEXT_MAX_LENGTH,
+      message: `Delivery owner name is required (max ${CONTACT_TEXT_MAX_LENGTH} characters)`,
+    },
+    delivery_owner_title: {
+      required: true,
+      max_length: CONTACT_TEXT_MAX_LENGTH,
+      message: `Delivery owner title is required (max ${CONTACT_TEXT_MAX_LENGTH} characters)`,
+    },
+    delivery_owner_email: {
+      required: true,
+      max_length: CONTACT_TEXT_MAX_LENGTH,
+      email_domain: GOV_EMAIL_DOMAIN,
+      pattern: GOV_EMAIL_PATTERN,
+      message: 'Delivery owner email must be a valid @gov.bc.ca address',
+    },
+    intended_users_use_case: {
+      required: true,
+      max_length: BUSINESS_TEXT_MAX_LENGTH,
+      message: `Intended users and use case is required (max ${BUSINESS_TEXT_MAX_LENGTH} characters)`,
+    },
+    data_classification: {
+      required: true,
+      allowed_values: DATA_CLASSIFICATIONS,
+      message: 'Select a data classification',
     },
     capacity_tier: {
       required: true,
