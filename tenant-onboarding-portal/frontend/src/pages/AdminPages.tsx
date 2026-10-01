@@ -3,7 +3,7 @@ import { Link, getRouteApi, useNavigate } from '@tanstack/react-router';
 
 import { api } from '../api';
 import { AdminRoute } from '../components/guards';
-import { InlineMessage, Panel, SummaryRow } from '../components/ui';
+import { BusinessContextSummary, InlineMessage, Panel, SummaryRow } from '../components/ui';
 import type { AdminDashboardResponse, TenantRecord } from '../types';
 import { formatDate, getErrorMessage } from '../utils/formatters';
 
@@ -302,6 +302,8 @@ function AdminReviewContent() {
           </div>
         </div>
       </section>
+
+      <BusinessContextSummary formData={tenant.FormData} />
 
       <section className="panel stack-md">
         <h3>Generated tfvars</h3>

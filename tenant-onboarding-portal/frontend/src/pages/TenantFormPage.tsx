@@ -17,9 +17,20 @@ import {
   updateRoleEmail,
   validateTenantForm,
 } from '../utils/form-helpers';
-import { getErrorMessage, getInputClassName } from '../utils/formatters';
+import { getErrorMessage, getInputClassName, getTextareaClassName } from '../utils/formatters';
 
 const editTenantApi = getRouteApi('/tenants/$tenantName/edit');
+
+const CONTACT_GROUPS = [
+  {
+    title: 'Executive sponsor / financial authority',
+    fields: ['executive_sponsor_name', 'executive_sponsor_title', 'executive_sponsor_email'],
+  },
+  {
+    title: 'Delivery and operational owner',
+    fields: ['delivery_owner_name', 'delivery_owner_title', 'delivery_owner_email'],
+  },
+] as const;
 
 /**
  * Route-level entry component for creating a new tenant onboarding request.
@@ -240,6 +251,99 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
             />
           </Field>
         </div>
+      </section>
+
+      <section className="panel stack-md">
+        <h3>Business context</h3>
+        <p className="section-intro">
+          Explain why this tenant is needed, who is accountable for it, and what data it will
+          handle. All fields in this section are required for review.
+        </p>
+        <div className="form-grid">
+          {(['business_need', 'desired_outcome'] as const).map((field) => (
+            <Field error={visibleErrors[field]} info={schema.field_info[field]} key={field}>
+              <textarea
+                aria-invalid={Boolean(visibleErrors[field])}
+                className={getTextareaClassName(visibleErrors[field])}
+                maxLength={schema.validation[field].max_length}
+                onBlur={() => markTouched(field)}
+                onChange={(event) => setForm({ ...form, [field]: event.target.value })}
+                required={schema.validation[field].required}
+                rows={4}
+                value={form[field]}
+              />
+            </Field>
+          ))}
+          <Field
+            error={visibleErrors.intended_users_use_case}
+            info={schema.field_info.intended_users_use_case}
+          >
+            <textarea
+              aria-invalid={Boolean(visibleErrors.intended_users_use_case)}
+              className={getTextareaClassName(visibleErrors.intended_users_use_case)}
+              maxLength={schema.validation.intended_users_use_case.max_length}
+              onBlur={() => markTouched('intended_users_use_case')}
+              onChange={(event) =>
+                setForm({ ...form, intended_users_use_case: event.target.value })
+              }
+              required={schema.validation.intended_users_use_case.required}
+              rows={4}
+              value={form.intended_users_use_case}
+            />
+          </Field>
+          <Field
+            error={visibleErrors.data_classification}
+            info={schema.field_info.data_classification}
+          >
+            <select
+              aria-invalid={Boolean(visibleErrors.data_classification)}
+              className={getInputClassName(visibleErrors.data_classification)}
+              onBlur={() => markTouched('data_classification')}
+              onChange={(event) => setForm({ ...form, data_classification: event.target.value })}
+              required={schema.validation.data_classification.required}
+              value={form.data_classification}
+            >
+              <option disabled value="">
+                Select a classification
+              </option>
+              {schema.data_classifications.map((classification) => (
+                <option key={classification} value={classification}>
+                  {classification}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        {CONTACT_GROUPS.map((group) => (
+          <div className="stack-md" key={group.title}>
+            <h4>{group.title}</h4>
+            <div className="access-grid">
+              {group.fields.map((field) => {
+                const validation = schema.validation[field];
+                const isEmail = field.endsWith('_email');
+                return (
+                  <Field error={visibleErrors[field]} info={schema.field_info[field]} key={field}>
+                    <input
+                      aria-invalid={Boolean(visibleErrors[field])}
+                      autoCapitalize={isEmail ? 'off' : undefined}
+                      className={getInputClassName(visibleErrors[field])}
+                      maxLength={validation.max_length}
+                      onBlur={() => markTouched(field)}
+                      onChange={(event) => setForm({ ...form, [field]: event.target.value })}
+                      pattern={validation.pattern}
+                      placeholder={schema.field_info[field].placeholder}
+                      required={validation.required}
+                      spellCheck={isEmail ? false : undefined}
+                      title={validation.message}
+                      type={isEmail ? 'email' : 'text'}
+                      value={form[field]}
+                    />
+                  </Field>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </section>
 
       <section className="panel stack-md">

@@ -3,7 +3,14 @@ import { Link, getRouteApi } from '@tanstack/react-router';
 
 import { api } from '../api';
 import { ProtectedRoute } from '../components/guards';
-import { CredentialsPanel, InlineMessage, Panel, SummaryRow, TagList } from '../components/ui';
+import {
+  BusinessContextSummary,
+  CredentialsPanel,
+  InlineMessage,
+  Panel,
+  SummaryRow,
+  TagList,
+} from '../components/ui';
 import type { FormSchema, TenantDetailResponse } from '../types';
 import { normalizeForm } from '../utils/form-helpers';
 import { formatDate, getErrorMessage, stringValue } from '../utils/formatters';
@@ -156,6 +163,8 @@ function TenantDetailContent() {
           <SummaryRow label="Read users" value={(formData.read_users ?? []).join(', ') || 'None'} />
         </div>
       </section>
+
+      <BusinessContextSummary formData={formData} />
 
       {detail.tenant.Status === 'approved' && (
         <CredentialsPanel tenantName={detail.tenant.PartitionKey} />

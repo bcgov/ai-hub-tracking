@@ -682,6 +682,7 @@ textarea {
 
 .summary-row__value {
   word-break: break-word;
+  white-space: pre-wrap;
 }
 
 /* --- Tags ---------------------------------------------------------- */

@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import type { FormSchema } from '../types';
 import type { HubEnv, TenantCredentialsResponse, ApimTenantInfoResponse } from '../types';
 import { api } from '../api';
-import { getInputClassName } from '../utils/formatters';
+import { getInputClassName, stringValue } from '../utils/formatters';
 
 type FieldInfo = FormSchema['field_info'][keyof FormSchema['field_info']];
 
@@ -262,6 +262,40 @@ export function SummaryRow({ label, value }: { label: string; value: ReactNode }
       <span className="summary-row__label">{label}</span>
       <span className="summary-row__value">{value}</span>
     </div>
+  );
+}
+
+/**
+ * Renders the business context captured on a tenant request (need, outcome, accountable
+ * owners, intended users, and data classification) as a summary panel.
+ * @param formData - The stored tenant form data; missing fields render as `Not provided`.
+ * @returns A panel `<section>` listing each business context field.
+ */
+export function BusinessContextSummary({
+  formData,
+}: {
+  formData: Record<string, unknown> | undefined;
+}) {
+  const rows: Array<[string, string]> = [
+    ['Business need', 'business_need'],
+    ['Desired outcome', 'desired_outcome'],
+    ['Executive sponsor name', 'executive_sponsor_name'],
+    ['Executive sponsor title', 'executive_sponsor_title'],
+    ['Executive sponsor email', 'executive_sponsor_email'],
+    ['Delivery owner name', 'delivery_owner_name'],
+    ['Delivery owner title', 'delivery_owner_title'],
+    ['Delivery owner email', 'delivery_owner_email'],
+    ['Intended users and use case', 'intended_users_use_case'],
+    ['Data classification', 'data_classification'],
+  ];
+
+  return (
+    <section className="panel stack-md">
+      <h3>Business context</h3>
+      {rows.map(([label, key]) => (
+        <SummaryRow key={key} label={label} value={stringValue(formData?.[key])} />
+      ))}
+    </section>
   );
 }
 
