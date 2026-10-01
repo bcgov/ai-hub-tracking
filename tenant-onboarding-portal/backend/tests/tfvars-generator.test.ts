@@ -27,6 +27,7 @@ function sampleForm(): TenantFormData {
     storage_account_enabled: true,
     key_vault_enabled: false,
     model_families: ['gpt-4.1', 'embeddings'],
+    other_models: 'GPT 5.4',
     capacity_tier: 'standard',
     pii_redaction_enabled: true,
     logging_enabled: true,

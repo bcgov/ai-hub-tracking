@@ -42,6 +42,7 @@ test('admin can create, revise, and approve a tenant request', async ({ page }) 
   await page.getByLabel('Owner email').fill('john.smith@gov.bc.ca');
   await page.getByLabel('Intended users and use case').fill('Internal staff summaries');
   await page.getByLabel('Data classification').selectOption('Internal');
+  await page.getByLabel('Other models').fill('GPT 5.4, GPT 5.6');
   await page.getByPlaceholder('name@gov.bc.ca').first().fill('owner@gov.bc.ca');
   await page.getByRole('button', { name: 'Submit request' }).click();
 

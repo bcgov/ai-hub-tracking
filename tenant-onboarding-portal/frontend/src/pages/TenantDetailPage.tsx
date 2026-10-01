@@ -139,6 +139,7 @@ function TenantDetailContent() {
             label="Model families"
             value={(formData.model_families ?? []).join(', ') || 'None'}
           />
+          <SummaryRow label="Other models" value={formData.other_models || 'None'} />
           <SummaryRow label="Capacity tier" value={stringValue(formData.capacity_tier)} />
           <SummaryRow
             label="Gateway policies"

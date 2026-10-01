@@ -179,3 +179,18 @@ test('contact emails are trimmed and lowercased', () => {
 
   expect(data.executive_sponsor_email).toBe('jane.doe@gov.bc.ca');
 });
+
+test('other models are optional, trimmed, and length-limited', () => {
+  const base = {
+    ...BUSINESS_CONTEXT,
+    project_name: 'valid-name',
+    display_name: 'Valid',
+    ministry: 'CITZ',
+  };
+
+  expect(parseTenantForm(base).other_models).toBe('');
+  expect(parseTenantForm({ ...base, other_models: '  GPT 5.4, GPT 5.6 ' }).other_models).toBe(
+    'GPT 5.4, GPT 5.6',
+  );
+  expect(() => parseTenantForm({ ...base, other_models: 'x'.repeat(501) })).toThrow(/Other models/);
+});

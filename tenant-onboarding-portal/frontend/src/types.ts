@@ -96,6 +96,7 @@ export type FormSchema = {
     data_classification: FormFieldValidation;
     capacity_tier: FormFieldValidation;
     model_families: FormFieldValidation;
+    other_models: FormFieldValidation;
     admin_users: FormFieldValidation;
     write_users: FormFieldValidation;
     read_users: FormFieldValidation;
@@ -159,6 +160,7 @@ export type TenantFormPayload = {
   storage_account_enabled: boolean;
   key_vault_enabled: boolean;
   model_families: string[];
+  other_models: string;
   capacity_tier: string;
   pii_redaction_enabled: boolean;
   logging_enabled: boolean;

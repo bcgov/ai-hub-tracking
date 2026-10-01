@@ -272,6 +272,14 @@ function AdminReviewContent() {
           />
           <SummaryRow label="Created" value={formatDate(tenant.CreatedAt)} />
           <SummaryRow label="Ministry" value={tenant.Ministry} />
+          <SummaryRow
+            label="Other models requested"
+            value={
+              typeof tenant.FormData?.other_models === 'string' && tenant.FormData.other_models
+                ? tenant.FormData.other_models
+                : 'None'
+            }
+          />
         </div>
         <div className="panel stack-md">
           <h3>Review notes</h3>

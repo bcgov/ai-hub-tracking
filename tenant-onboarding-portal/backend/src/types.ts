@@ -129,6 +129,7 @@ export type TenantFormData = {
   storage_account_enabled: boolean;
   key_vault_enabled: boolean;
   model_families: string[];
+  other_models: string;
   capacity_tier: string;
   pii_redaction_enabled: boolean;
   logging_enabled: boolean;

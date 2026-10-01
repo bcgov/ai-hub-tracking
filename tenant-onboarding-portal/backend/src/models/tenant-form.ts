@@ -256,6 +256,11 @@ export function parseTenantForm(input: unknown): TenantFormData {
     throw new UnprocessableEntityException(VALIDATION.model_families.message);
   }
 
+  const otherModels = asString(payload.other_models).trim();
+  if (otherModels.length > (VALIDATION.other_models.max_length ?? Infinity)) {
+    throw new UnprocessableEntityException(VALIDATION.other_models.message);
+  }
+
   const ministry = validateAllowedValue(
     validateRequiredString(
       asString(payload.ministry, DEFAULTS.ministry),
@@ -328,6 +333,7 @@ export function parseTenantForm(input: unknown): TenantFormData {
     ),
     key_vault_enabled: asBoolean(payload.key_vault_enabled, DEFAULTS.key_vault_enabled),
     model_families: modelFamilies,
+    other_models: otherModels,
     capacity_tier: capacityTier,
     pii_redaction_enabled: asBoolean(payload.pii_redaction_enabled, DEFAULTS.pii_redaction_enabled),
     logging_enabled:

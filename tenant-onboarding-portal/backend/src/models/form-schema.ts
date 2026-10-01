@@ -174,6 +174,7 @@ export const DATA_CLASSIFICATIONS = [
 
 const BUSINESS_TEXT_MAX_LENGTH = 2000;
 const CONTACT_TEXT_MAX_LENGTH = 200;
+const OTHER_MODELS_MAX_LENGTH = 500;
 const GOV_EMAIL_DOMAIN = '@gov.bc.ca';
 const GOV_EMAIL_PATTERN = '^[^\\s@]+@gov\\.bc\\.ca$';
 
@@ -216,6 +217,7 @@ export const FORM_SCHEMA = {
     storage_account_enabled: true,
     key_vault_enabled: false,
     model_families: ['gpt-4.1', 'gpt-4o', 'embeddings'],
+    other_models: '',
     capacity_tier: 'standard',
     pii_redaction_enabled: true,
     logging_enabled: true,
@@ -231,7 +233,7 @@ export const FORM_SCHEMA = {
       description:
         'Stable tenant identifier used in generated tfvars, Azure naming, and request history.',
       details:
-        'Use lowercase letters, numbers, and hyphens only. This value should stay stable over the life of the tenant.',
+        'Use lowercase letters, numbers, and hyphens only. This value should stay stable over the life.',
       placeholder: 'example-tenant',
     },
     display_name: {
@@ -244,7 +246,7 @@ export const FORM_SCHEMA = {
       label: 'Ministry',
       description: 'Owning ministry used for tagging, routing, and reporting across environments.',
       details:
-        'Choose the ministry that will own the tenant budget, policy decisions, and service approvals.',
+        'Choose the ministry that will own the budget, policy decisions, and service approvals.',
     },
     department: {
       label: 'Department or branch',
@@ -254,20 +256,20 @@ export const FORM_SCHEMA = {
     },
     business_need: {
       label: 'Business need',
-      description: 'The business problem or opportunity this tenant will address.',
+      description: 'The business problem or opportunity',
       details:
         'Describe why the team needs AI Hub services and what happens today without them. Reviewers use this to confirm fit for the platform.',
     },
     desired_outcome: {
       label: 'Desired outcome',
-      description: 'What success looks like once the tenant is in use.',
+      description: 'What success looks like',
       details:
         'Describe the measurable or observable results expected, such as time saved, improved service quality, or a new capability.',
     },
     executive_sponsor_name: {
       label: 'Sponsor name',
       description: 'Executive accountable for the initiative and its budget.',
-      details: 'The executive who sponsors the work and holds expense authority for tenant costs.',
+      details: 'The executive who sponsors the work and holds expense authority.',
       placeholder: 'Jane Doe',
     },
     executive_sponsor_title: {
@@ -308,7 +310,7 @@ export const FORM_SCHEMA = {
     },
     data_classification: {
       label: 'Data classification',
-      description: 'Highest classification of data the tenant will process.',
+      description: 'Highest classification of data that will be processed.',
       details:
         'Choose the most sensitive category of data the workload will send to AI services. Select Not Yet Determined if a privacy or security assessment is still in progress.',
     },
@@ -353,6 +355,13 @@ export const FORM_SCHEMA = {
       description: 'Provision Azure Key Vault for secrets, keys, and certificates.',
       details:
         'Use this when the tenant needs secure secret storage or managed keys integrated with its workloads.',
+    },
+    other_models: {
+      label: 'Other models',
+      description: 'Additional models not listed above, separated by commas.',
+      details:
+        'Request models that are not yet offered as a model family, for example GPT 5.4 or GPT 5.6. These are reviewed by the platform team and are not deployed automatically.',
+      placeholder: 'GPT 5.4, GPT 5.6',
     },
     capacity_tier: {
       label: 'Capacity tier',
@@ -469,6 +478,11 @@ export const FORM_SCHEMA = {
       required: true,
       allowed_values: DATA_CLASSIFICATIONS,
       message: 'Select a data classification',
+    },
+    other_models: {
+      required: false,
+      max_length: OTHER_MODELS_MAX_LENGTH,
+      message: `Other models must be ${OTHER_MODELS_MAX_LENGTH} characters or fewer`,
     },
     capacity_tier: {
       required: true,

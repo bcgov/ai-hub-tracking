@@ -256,8 +256,8 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
       <section className="panel stack-md">
         <h3>Business context</h3>
         <p className="section-intro">
-          Explain why this tenant is needed, who is accountable for it, and what data it will
-          handle. All fields in this section are required for review.
+          Explain the business need, expected outcomes, and identify the accountable sponsors and
+          owners
         </p>
         <div className="form-grid">
           {(['business_need', 'desired_outcome'] as const).map((field) => (
@@ -417,10 +417,10 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
 
       {form.openai_enabled ? (
         <section className="panel stack-md">
-          <h3>OpenAI model selection</h3>
+          <h3>Model selection</h3>
           <p className="section-intro">
             Select the model families that will be requested when Azure OpenAI is enabled for this
-            tenant.
+            tenant. Use Other models to request models that are not listed.
           </p>
           {visibleErrors.model_families ? (
             <InlineMessage tone="error" message={visibleErrors.model_families} />
@@ -446,6 +446,18 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
             ))}
           </div>
           <div className="form-grid">
+            <Field error={visibleErrors.other_models} info={schema.field_info.other_models}>
+              <input
+                aria-invalid={Boolean(visibleErrors.other_models)}
+                className={getInputClassName(visibleErrors.other_models)}
+                maxLength={schema.validation.other_models.max_length}
+                onBlur={() => markTouched('other_models')}
+                onChange={(event) => setForm({ ...form, other_models: event.target.value })}
+                placeholder={schema.field_info.other_models.placeholder}
+                title={schema.validation.other_models.message}
+                value={form.other_models}
+              />
+            </Field>
             <Field error={visibleErrors.capacity_tier} info={schema.field_info.capacity_tier}>
               <select
                 aria-invalid={Boolean(visibleErrors.capacity_tier)}

@@ -90,6 +90,7 @@ export function sanitizeForm(form: TenantFormState, schema: FormSchema): TenantF
     display_name: form.display_name.trim(),
     ministry: form.ministry.trim(),
     department: form.department.trim(),
+    other_models: form.other_models.trim(),
     business_need: form.business_need.trim(),
     desired_outcome: form.desired_outcome.trim(),
     executive_sponsor_name: form.executive_sponsor_name.trim(),
@@ -149,6 +150,7 @@ export function normalizeForm(value: unknown, schema: FormSchema): TenantFormSta
     delivery_owner_name: stringOrEmpty(source.delivery_owner_name),
     delivery_owner_title: stringOrEmpty(source.delivery_owner_title),
     delivery_owner_email: stringOrEmpty(source.delivery_owner_email),
+    other_models: stringOrEmpty(source.other_models),
     intended_users_use_case:
       typeof source.intended_users_use_case === 'string' ? source.intended_users_use_case : '',
     data_classification: normalizeAllowedValue(
@@ -317,6 +319,10 @@ export function validateTenantForm(
       (schema.validation.model_families.min_items_when_openai_enabled ?? 0)
     ) {
       errors.model_families = schema.validation.model_families.message;
+    }
+    const otherModelsMax = schema.validation.other_models.max_length;
+    if (otherModelsMax != null && form.other_models.trim().length > otherModelsMax) {
+      errors.other_models = schema.validation.other_models.message;
     }
     if (!Object.prototype.hasOwnProperty.call(schema.capacity_tiers, form.capacity_tier)) {
       errors.capacity_tier = schema.validation.capacity_tier.message;
