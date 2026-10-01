@@ -10,6 +10,15 @@ export function getInputClassName(error?: string) {
 }
 
 /**
+ * Returns the CSS class name for a textarea, applying the error variant when an error message is provided.
+ * @param error - Optional error message string.
+ * @returns CSS class string for the textarea element.
+ */
+export function getTextareaClassName(error?: string) {
+  return error ? 'textarea-input text-input--error' : 'textarea-input';
+}
+
+/**
  * Extracts a user-facing error message string from an unknown thrown value.
  * Returns the message from an `ApiError` or `Error` instance, or a generic fallback.
  * @param error - The caught error value of unknown type.
