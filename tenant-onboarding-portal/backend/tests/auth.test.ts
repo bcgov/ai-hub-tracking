@@ -49,6 +49,16 @@ test('create tenant api returns persisted detail', async () => {
       display_name: 'Alpha Demo',
       ministry: 'CITZ',
       department: 'Digital Office',
+      business_need: 'Reduce manual triage of citizen enquiries',
+      desired_outcome: 'Faster response times for front-line staff',
+      executive_sponsor_name: 'Jane Doe',
+      executive_sponsor_title: 'Assistant Deputy Minister',
+      executive_sponsor_email: 'jane.doe@gov.bc.ca',
+      delivery_owner_name: 'John Smith',
+      delivery_owner_title: 'Product Owner',
+      delivery_owner_email: 'john.smith@gov.bc.ca',
+      intended_users_use_case: 'Internal staff summarising enquiries',
+      data_classification: 'Internal',
       admin_emails: ['owner@gov.bc.ca'],
     });
 

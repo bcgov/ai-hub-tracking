@@ -32,6 +32,16 @@ test('admin can create, revise, and approve a tenant request', async ({ page }) 
   await page.getByLabel('Project name').fill(tenantName);
   await page.getByLabel('Display name').fill(displayName);
   await page.getByLabel('Department or branch').fill('Platform Engineering');
+  await page.getByLabel('Business need').fill('Automate enquiry triage');
+  await page.getByLabel('Desired outcome').fill('Faster responses for staff');
+  await page.getByLabel('Sponsor name').fill('Jane Doe');
+  await page.getByLabel('Sponsor title').fill('Assistant Deputy Minister');
+  await page.getByLabel('Sponsor email').fill('jane.doe@gov.bc.ca');
+  await page.getByLabel('Owner name').fill('John Smith');
+  await page.getByLabel('Owner title').fill('Product Owner');
+  await page.getByLabel('Owner email').fill('john.smith@gov.bc.ca');
+  await page.getByLabel('Intended users and use case').fill('Internal staff summaries');
+  await page.getByLabel('Data classification').selectOption('Internal');
   await page.getByPlaceholder('name@gov.bc.ca').first().fill('owner@gov.bc.ca');
   await page.getByRole('button', { name: 'Submit request' }).click();
 
