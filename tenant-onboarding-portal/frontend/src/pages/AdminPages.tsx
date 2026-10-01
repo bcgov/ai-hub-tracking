@@ -81,7 +81,7 @@ function AdminDashboardContent() {
           <strong>{data.pending.length}</strong>
         </div>
         <div className="stat-card">
-          <span>Current tenants</span>
+          <span>Current requests</span>
           <strong>{data.all_tenants.length}</strong>
         </div>
       </section>
@@ -95,7 +95,7 @@ function AdminDashboardContent() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Tenant</th>
+                  <th>Request</th>
                   <th>Version</th>
                   <th>Submitted by</th>
                   <th>Submitted</th>
@@ -130,12 +130,12 @@ function AdminDashboardContent() {
       </section>
 
       <section className="panel stack-md">
-        <h3>Current tenant versions</h3>
+        <h3>Current request versions</h3>
         <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Tenant</th>
+                <th>Request</th>
                 <th>Status</th>
                 <th>Updated</th>
                 <th>Open</th>

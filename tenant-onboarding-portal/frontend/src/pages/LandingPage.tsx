@@ -23,7 +23,7 @@ export function LandingPage() {
   return (
     <div className="hero-grid">
       <section className="hero-card hero-card--primary">
-        <p className="eyebrow">Tenant onboarding</p>
+        <p className="eyebrow">AI Services Hub onboarding</p>
         <h2>Request AI platform resources without editing Terraform by hand.</h2>
         <p>
           The NestJS backend owns the OIDC flow, maintains the portal session, and stores request

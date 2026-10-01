@@ -62,8 +62,8 @@ function TenantDashboardContent() {
       <section className="page-header">
         <div>
           <p className="eyebrow">Workspace</p>
-          <h2>My tenant requests</h2>
-          <p>View current tenant versions and open a request for a new onboarding package.</p>
+          <h2>My onboarding requests</h2>
+          <p>View current request versions and open a request for a new onboarding package.</p>
         </div>
         <Link className="button button--primary" to="/tenants/new">
           New request
@@ -86,7 +86,7 @@ function TenantDashboardContent() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Tenant</th>
+                  <th>Request</th>
                   <th>Ministry</th>
                   <th>Status</th>
                   <th>Updated</th>

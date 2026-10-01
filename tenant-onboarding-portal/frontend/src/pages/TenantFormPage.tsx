@@ -169,7 +169,11 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
       <section className="page-header">
         <div>
           <p className="eyebrow">{mode === 'create' ? 'New request' : 'Update request'}</p>
-          <h2>{mode === 'create' ? 'Create tenant onboarding request' : `Update ${tenantName}`}</h2>
+          <h2>
+            {mode === 'create'
+              ? 'Create onboarding request'
+              : `Update ${tenantName}`}
+          </h2>
           <p>
             These inputs are versioned and used to generate environment tfvars for the platform
             deployment.
@@ -504,7 +508,7 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
       </section>
 
       <section className="panel stack-md">
-        <h3>Tenant access</h3>
+        <h3>AI Services Hub access</h3>
         <p className="section-intro">
           Assign the initial tenant members by access category. All seeded users must use @gov.bc.ca
           email addresses.

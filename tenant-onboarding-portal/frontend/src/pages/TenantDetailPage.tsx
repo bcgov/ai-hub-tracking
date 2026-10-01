@@ -84,7 +84,7 @@ function TenantDetailContent() {
     <div className="stack-lg">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Tenant request</p>
+          <p className="eyebrow">Request</p>
           <h2>{detail.tenant.DisplayName}</h2>
           <p>{detail.tenant.PartitionKey}</p>
         </div>

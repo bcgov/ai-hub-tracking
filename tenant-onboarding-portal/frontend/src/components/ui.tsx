@@ -372,10 +372,10 @@ export function CredentialsPanel({ tenantName }: { tenantName: string }) {
       } catch (err: unknown) {
         const status = (err as { status?: number }).status;
         let msg = 'Failed to load credentials';
-        if (status === 403) msg = 'You do not have permission to view credentials for this tenant';
+        if (status === 403) msg = 'You do not have permission to view credentials for this request';
         else if (status === 503)
           msg = 'Credentials not available for this environment (not configured)';
-        else if (status === 409) msg = 'Tenant is not yet approved';
+        else if (status === 409) msg = 'Request is not yet approved';
         startTransition(() => {
           setCredState((prev) => ({ ...prev, [env]: { data: null, loading: false, error: msg } }));
         });
@@ -502,13 +502,13 @@ export function CredentialsPanel({ tenantName }: { tenantName: string }) {
                   void toggleInfo(activeEnv);
                 }}
               >
-                {info.expanded ? 'Hide tenant info' : 'Show tenant info'}
+                {info.expanded ? 'Hide request info' : 'Show request info'}
               </button>
             </div>
 
             {info.expanded && (
               <div className="tenant-info-panel stack-md">
-                {info.loading && <p className="muted">Loading tenant info&hellip;</p>}
+                {info.loading && <p className="muted">Loading request info&hellip;</p>}
                 {info.error && <p className="inline-message inline-message--error">{info.error}</p>}
                 {info.data && (
                   <>

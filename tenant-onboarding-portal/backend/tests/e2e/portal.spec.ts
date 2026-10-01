@@ -11,7 +11,9 @@ function uniqueTenantSuffix() {
 test('mock auth auto-bootstraps an admin session', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'My tenant requests' })).toBeVisible();
+  await expect(
+    page.getByRole('heading', { name: 'My requests' }),
+  ).toBeVisible();
   await expect(page.getByText('Playwright Admin')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Admin Queue' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Sign in with BCGov' })).toHaveCount(0);
@@ -27,7 +29,7 @@ test('admin can create, revise, and approve a tenant request', async ({ page }) 
   await page.goto('/tenants/new');
 
   await expect(
-    page.getByRole('heading', { name: 'Create tenant onboarding request' }),
+    page.getByRole('heading', { name: 'Create onboarding request' }),
   ).toBeVisible();
   await page.getByLabel('Project name').fill(tenantName);
   await page.getByLabel('Display name').fill(displayName);
