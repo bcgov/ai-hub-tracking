@@ -169,11 +169,7 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
       <section className="page-header">
         <div>
           <p className="eyebrow">{mode === 'create' ? 'New request' : 'Update request'}</p>
-          <h2>
-            {mode === 'create'
-              ? 'Create onboarding request'
-              : `Update ${tenantName}`}
-          </h2>
+          <h2>{mode === 'create' ? 'Create onboarding request' : `Update ${tenantName}`}</h2>
           <p>
             These inputs are versioned and used to generate environment tfvars for the platform
             deployment.
@@ -353,8 +349,8 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
       <section className="panel stack-md">
         <h3>Services</h3>
         <p className="section-intro">
-          Choose the platform services this project needs. Azure OpenAI or Document Intelligence must
-          be enabled for every request.
+          Choose the platform services this project needs. Azure OpenAI or Document Intelligence
+          must be enabled for every request.
         </p>
         {visibleErrors.services ? (
           <InlineMessage tone="error" message={visibleErrors.services} />
@@ -510,8 +506,8 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
       <section className="panel stack-md">
         <h3>AI Services Hub access</h3>
         <p className="section-intro">
-          Assign the initial project members by access category. All seeded users must use @gov.bc.ca
-          email addresses.
+          Assign the initial project members by access category. All seeded users must use
+          @gov.bc.ca email addresses.
         </p>
         <div className="access-grid">
           <EmailListField
