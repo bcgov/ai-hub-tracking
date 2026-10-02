@@ -56,6 +56,10 @@ PORTAL_OIDC_CLIENT_ID=tenant-onboarding-portal
 PORTAL_OIDC_ADMIN_ROLE=portal-admin
 ```
 
+### Admin email notifications (CHES)
+
+Every tenant request submission (`POST /api/tenants`) and update (`PUT /api/tenants/:tenantName`) emails the admins listed in `PORTAL_NOTIFICATION_ADMIN_EMAILS` through the BC Gov Common Hosted Email Service. Notifications are skipped when the recipients, `PORTAL_CHES_CLIENT_ID`, `PORTAL_CHES_CLIENT_SECRET`, or `PORTAL_CHES_FROM_ADDRESS` are unset. The email is sent in the background, so a CHES failure is logged and never fails the submission. See `backend/.env.example` for all settings; Terraform exposes the same values as `notification_admin_emails` and `ches_*` variables.
+
 ## Build And Test
 
 ```bash

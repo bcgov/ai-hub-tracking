@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import type { FormSchema } from '../types';
 import type { HubEnv, TenantCredentialsResponse, ApimTenantInfoResponse } from '../types';
 import { api } from '../api';
-import { getInputClassName } from '../utils/formatters';
+import { getInputClassName, stringValue } from '../utils/formatters';
 
 type FieldInfo = FormSchema['field_info'][keyof FormSchema['field_info']];
 
@@ -266,6 +266,40 @@ export function SummaryRow({ label, value }: { label: string; value: ReactNode }
 }
 
 /**
+ * Renders the business context captured on a tenant request (need, outcome, accountable
+ * owners, intended users, and data classification) as a summary panel.
+ * @param formData - The stored tenant form data; missing fields render as `Not provided`.
+ * @returns A panel `<section>` listing each business context field.
+ */
+export function BusinessContextSummary({
+  formData,
+}: {
+  formData: Record<string, unknown> | undefined;
+}) {
+  const rows: Array<[string, string]> = [
+    ['Business need', 'business_need'],
+    ['Desired outcome', 'desired_outcome'],
+    ['Executive sponsor name', 'executive_sponsor_name'],
+    ['Executive sponsor title', 'executive_sponsor_title'],
+    ['Executive sponsor email', 'executive_sponsor_email'],
+    ['Delivery owner name', 'delivery_owner_name'],
+    ['Delivery owner title', 'delivery_owner_title'],
+    ['Delivery owner email', 'delivery_owner_email'],
+    ['Intended users and use case', 'intended_users_use_case'],
+    ['Data classification', 'data_classification'],
+  ];
+
+  return (
+    <section className="panel stack-md">
+      <h3>Business context</h3>
+      {rows.map(([label, key]) => (
+        <SummaryRow key={key} label={label} value={stringValue(formData?.[key])} />
+      ))}
+    </section>
+  );
+}
+
+/**
  * Renders a list of tag badges, or a muted fallback message when the list is empty.
  * @param items - Array of string items to display as tags.
  * @returns A tag list `<div>` when items are present, or a muted `<p>` when empty.
@@ -338,10 +372,10 @@ export function CredentialsPanel({ tenantName }: { tenantName: string }) {
       } catch (err: unknown) {
         const status = (err as { status?: number }).status;
         let msg = 'Failed to load credentials';
-        if (status === 403) msg = 'You do not have permission to view credentials for this tenant';
+        if (status === 403) msg = 'You do not have permission to view credentials for this request';
         else if (status === 503)
           msg = 'Credentials not available for this environment (not configured)';
-        else if (status === 409) msg = 'Tenant is not yet approved';
+        else if (status === 409) msg = 'Request is not yet approved';
         startTransition(() => {
           setCredState((prev) => ({ ...prev, [env]: { data: null, loading: false, error: msg } }));
         });
@@ -468,13 +502,13 @@ export function CredentialsPanel({ tenantName }: { tenantName: string }) {
                   void toggleInfo(activeEnv);
                 }}
               >
-                {info.expanded ? 'Hide tenant info' : 'Show tenant info'}
+                {info.expanded ? 'Hide request info' : 'Show request info'}
               </button>
             </div>
 
             {info.expanded && (
               <div className="tenant-info-panel stack-md">
-                {info.loading && <p className="muted">Loading tenant info&hellip;</p>}
+                {info.loading && <p className="muted">Loading request info&hellip;</p>}
                 {info.error && <p className="inline-message inline-message--error">{info.error}</p>}
                 {info.data && (
                   <>

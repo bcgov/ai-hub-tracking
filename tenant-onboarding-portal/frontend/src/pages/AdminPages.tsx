@@ -3,7 +3,7 @@ import { Link, getRouteApi, useNavigate } from '@tanstack/react-router';
 
 import { api } from '../api';
 import { AdminRoute } from '../components/guards';
-import { InlineMessage, Panel, SummaryRow } from '../components/ui';
+import { BusinessContextSummary, InlineMessage, Panel, SummaryRow } from '../components/ui';
 import type { AdminDashboardResponse, TenantRecord } from '../types';
 import { formatDate, getErrorMessage } from '../utils/formatters';
 
@@ -81,7 +81,7 @@ function AdminDashboardContent() {
           <strong>{data.pending.length}</strong>
         </div>
         <div className="stat-card">
-          <span>Current tenants</span>
+          <span>Current requests</span>
           <strong>{data.all_tenants.length}</strong>
         </div>
       </section>
@@ -95,7 +95,7 @@ function AdminDashboardContent() {
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Tenant</th>
+                  <th>Request</th>
                   <th>Version</th>
                   <th>Submitted by</th>
                   <th>Submitted</th>
@@ -130,12 +130,12 @@ function AdminDashboardContent() {
       </section>
 
       <section className="panel stack-md">
-        <h3>Current tenant versions</h3>
+        <h3>Current request versions</h3>
         <div className="table-wrap">
           <table className="data-table">
             <thead>
               <tr>
-                <th>Tenant</th>
+                <th>Request</th>
                 <th>Status</th>
                 <th>Updated</th>
                 <th>Open</th>
@@ -272,6 +272,14 @@ function AdminReviewContent() {
           />
           <SummaryRow label="Created" value={formatDate(tenant.CreatedAt)} />
           <SummaryRow label="Ministry" value={tenant.Ministry} />
+          <SummaryRow
+            label="Other models requested"
+            value={
+              typeof tenant.FormData?.other_models === 'string' && tenant.FormData.other_models
+                ? tenant.FormData.other_models
+                : 'None'
+            }
+          />
         </div>
         <div className="panel stack-md">
           <h3>Review notes</h3>
@@ -302,6 +310,8 @@ function AdminReviewContent() {
           </div>
         </div>
       </section>
+
+      <BusinessContextSummary formData={tenant.FormData} />
 
       <section className="panel stack-md">
         <h3>Generated tfvars</h3>

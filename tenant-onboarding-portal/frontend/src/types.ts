@@ -58,6 +58,7 @@ export type FormFieldInfo = {
 export type FormFieldValidation = {
   required?: boolean;
   min_length?: number;
+  max_length?: number;
   pattern?: string;
   message?: string;
   allowed_values?: string[];
@@ -75,6 +76,7 @@ export type FormSchema = {
   ministries: string[];
   model_families: Record<string, ModelFamily>;
   capacity_tiers: Record<string, CapacityTier>;
+  data_classifications: string[];
   auth_modes: AuthMode[];
   defaults: TenantFormPayload & { form_version?: string };
   field_info: Record<keyof TenantFormPayload, FormFieldInfo>;
@@ -82,8 +84,19 @@ export type FormSchema = {
     project_name: FormFieldValidation;
     display_name: FormFieldValidation;
     ministry: FormFieldValidation;
+    business_need: FormFieldValidation;
+    desired_outcome: FormFieldValidation;
+    executive_sponsor_name: FormFieldValidation;
+    executive_sponsor_title: FormFieldValidation;
+    executive_sponsor_email: FormFieldValidation;
+    delivery_owner_name: FormFieldValidation;
+    delivery_owner_title: FormFieldValidation;
+    delivery_owner_email: FormFieldValidation;
+    intended_users_use_case: FormFieldValidation;
+    data_classification: FormFieldValidation;
     capacity_tier: FormFieldValidation;
     model_families: FormFieldValidation;
+    other_models: FormFieldValidation;
     admin_users: FormFieldValidation;
     write_users: FormFieldValidation;
     read_users: FormFieldValidation;
@@ -129,6 +142,16 @@ export type TenantFormPayload = {
   display_name: string;
   ministry: string;
   department: string;
+  business_need: string;
+  desired_outcome: string;
+  executive_sponsor_name: string;
+  executive_sponsor_title: string;
+  executive_sponsor_email: string;
+  delivery_owner_name: string;
+  delivery_owner_title: string;
+  delivery_owner_email: string;
+  intended_users_use_case: string;
+  data_classification: string;
   openai_enabled: boolean;
   ai_search_enabled: boolean;
   document_intelligence_enabled: boolean;
@@ -137,6 +160,7 @@ export type TenantFormPayload = {
   storage_account_enabled: boolean;
   key_vault_enabled: boolean;
   model_families: string[];
+  other_models: string;
   capacity_tier: string;
   pii_redaction_enabled: boolean;
   logging_enabled: boolean;

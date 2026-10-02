@@ -21,6 +21,7 @@ import { AuthSessionService } from './auth/session.service';
 import { TokenValidatorService } from './auth/token-validator.service';
 import { FORM_SCHEMA } from './models/form-schema';
 import { parseTenantForm } from './models/tenant-form';
+import { ChesEmailService } from './services/ches-email.service';
 import { HubKeyVaultService } from './services/hub-keyvault.service';
 import { generateAllEnvTfvars } from './services/tfvars-generator';
 import { TenantStoreService } from './storage/tenant-store.service';
@@ -45,6 +46,7 @@ export class AppController {
    * @param tokenValidator - Validates and decodes bearer tokens.
    * @param tenantStore - Provides read and write access to tenant records.
    * @param hubKeyVault - Retrieves APIM credentials from Azure Key Vault per hub environment.
+   * @param chesEmail - Sends admin email notifications through CHES.
    */
   constructor(
     @Inject(AuthSessionService)
@@ -55,6 +57,8 @@ export class AppController {
     private readonly tenantStore: TenantStoreService,
     @Inject(HubKeyVaultService)
     private readonly hubKeyVault: HubKeyVaultService,
+    @Inject(ChesEmailService)
+    private readonly chesEmail: ChesEmailService,
   ) {}
 
   /**
@@ -198,7 +202,7 @@ export class AppController {
   /**
    * Creates a new tenant onboarding request at version 1. Parses and validates the
    * request body, generates Terraform variable files for all environments, and persists
-   * the record to the store.
+   * the record to the store. Notifies the configured admin recipients by email.
    *
    * @param payload - The raw request body containing tenant form fields.
    * @param request - The incoming HTTP request containing the session cookie.
@@ -223,6 +227,7 @@ export class AppController {
       user.email,
     );
     const tenant = await this.tenantStore.getCurrent(tenantForm.project_name);
+    void this.chesEmail.notifyTenantRequest('submitted', tenant, version, user);
     return { tenant, version };
   }
 
@@ -264,7 +269,8 @@ export class AppController {
 
   /**
    * Creates a new version of an existing tenant request with updated form data.
-   * Regenerates Terraform variable files and appends the new version to the store.
+   * Regenerates Terraform variable files, appends the new version to the store, and
+   * notifies the configured admin recipients by email.
    * Only the original submitter or an admin may update a tenant.
    *
    * @param tenantName - The partition key / project name of the tenant to update.
@@ -300,6 +306,12 @@ export class AppController {
       user.email,
     );
     const tenant = await this.tenantStore.getCurrent(tenantName);
+    void this.chesEmail.notifyTenantRequest(
+      existing ? 'updated' : 'submitted',
+      tenant,
+      version,
+      user,
+    );
     return { tenant, version };
   }
 

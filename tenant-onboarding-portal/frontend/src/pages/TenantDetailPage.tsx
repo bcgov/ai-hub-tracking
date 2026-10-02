@@ -3,7 +3,14 @@ import { Link, getRouteApi } from '@tanstack/react-router';
 
 import { api } from '../api';
 import { ProtectedRoute } from '../components/guards';
-import { CredentialsPanel, InlineMessage, Panel, SummaryRow, TagList } from '../components/ui';
+import {
+  BusinessContextSummary,
+  CredentialsPanel,
+  InlineMessage,
+  Panel,
+  SummaryRow,
+  TagList,
+} from '../components/ui';
 import type { FormSchema, TenantDetailResponse } from '../types';
 import { normalizeForm } from '../utils/form-helpers';
 import { formatDate, getErrorMessage, stringValue } from '../utils/formatters';
@@ -77,7 +84,7 @@ function TenantDetailContent() {
     <div className="stack-lg">
       <section className="page-header">
         <div>
-          <p className="eyebrow">Tenant request</p>
+          <p className="eyebrow">Request</p>
           <h2>{detail.tenant.DisplayName}</h2>
           <p>{detail.tenant.PartitionKey}</p>
         </div>
@@ -132,6 +139,7 @@ function TenantDetailContent() {
             label="Model families"
             value={(formData.model_families ?? []).join(', ') || 'None'}
           />
+          <SummaryRow label="Other models" value={formData.other_models || 'None'} />
           <SummaryRow label="Capacity tier" value={stringValue(formData.capacity_tier)} />
           <SummaryRow
             label="Gateway policies"
@@ -156,6 +164,8 @@ function TenantDetailContent() {
           <SummaryRow label="Read users" value={(formData.read_users ?? []).join(', ') || 'None'} />
         </div>
       </section>
+
+      <BusinessContextSummary formData={formData} />
 
       {detail.tenant.Status === 'approved' && (
         <CredentialsPanel tenantName={detail.tenant.PartitionKey} />

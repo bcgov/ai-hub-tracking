@@ -82,6 +82,19 @@ function getCorsAllowedOrigins(): string[] {
     .filter(Boolean);
 }
 
+/**
+ * Reads the `PORTAL_NOTIFICATION_ADMIN_EMAILS` environment variable and returns
+ * the admin addresses that receive tenant request notifications.
+ *
+ * @returns An array of lower-cased email addresses, or an empty array when the variable is not set.
+ */
+function getNotificationAdminEmails(): string[] {
+  return (process.env.PORTAL_NOTIFICATION_ADMIN_EMAILS ?? '')
+    .split(/[,;]/)
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+}
+
 let cachedSettings: PortalSettings | null = null;
 
 /**
@@ -112,6 +125,17 @@ export function getSettings(): PortalSettings {
     apimGatewayUrlDev: process.env.PORTAL_APIM_GATEWAY_URL_DEV ?? '',
     apimGatewayUrlTest: process.env.PORTAL_APIM_GATEWAY_URL_TEST ?? '',
     apimGatewayUrlProd: process.env.PORTAL_APIM_GATEWAY_URL_PROD ?? '',
+    publicBaseUrl: (process.env.PORTAL_PUBLIC_BASE_URL ?? '').trim().replace(/\/+$/, ''),
+    notificationAdminEmails: getNotificationAdminEmails(),
+    chesTokenUrl:
+      process.env.PORTAL_CHES_TOKEN_URL ||
+      'https://dev.loginproxy.gov.bc.ca/auth/realms/comsvcauth/protocol/openid-connect/token',
+    chesApiUrl: (
+      process.env.PORTAL_CHES_API_URL || 'https://ches-dev.api.gov.bc.ca/api/v1'
+    ).replace(/\/+$/, ''),
+    chesClientId: process.env.PORTAL_CHES_CLIENT_ID ?? '',
+    chesClientSecret: process.env.PORTAL_CHES_CLIENT_SECRET ?? '',
+    chesFromAddress: process.env.PORTAL_CHES_FROM_ADDRESS ?? '',
   };
   return cachedSettings;
 }

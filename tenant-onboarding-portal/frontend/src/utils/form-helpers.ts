@@ -5,6 +5,18 @@ export type FormValidationErrors = Partial<
   Record<keyof TenantFormPayload | 'services' | 'model_families', string>
 >;
 
+export const BUSINESS_TEXT_FIELDS = [
+  'business_need',
+  'desired_outcome',
+  'executive_sponsor_name',
+  'executive_sponsor_title',
+  'executive_sponsor_email',
+  'delivery_owner_name',
+  'delivery_owner_title',
+  'delivery_owner_email',
+  'intended_users_use_case',
+] as const;
+
 /**
  * Toggles a model family selection in the form state.
  * Removes the family if already selected, or appends it if not present.
@@ -78,6 +90,21 @@ export function sanitizeForm(form: TenantFormState, schema: FormSchema): TenantF
     display_name: form.display_name.trim(),
     ministry: form.ministry.trim(),
     department: form.department.trim(),
+    other_models: form.other_models.trim(),
+    business_need: form.business_need.trim(),
+    desired_outcome: form.desired_outcome.trim(),
+    executive_sponsor_name: form.executive_sponsor_name.trim(),
+    executive_sponsor_title: form.executive_sponsor_title.trim(),
+    executive_sponsor_email: form.executive_sponsor_email.trim().toLowerCase(),
+    delivery_owner_name: form.delivery_owner_name.trim(),
+    delivery_owner_title: form.delivery_owner_title.trim(),
+    delivery_owner_email: form.delivery_owner_email.trim().toLowerCase(),
+    intended_users_use_case: form.intended_users_use_case.trim(),
+    data_classification: normalizeAllowedValue(
+      form.data_classification,
+      schema.data_classifications,
+      '',
+    ),
     capacity_tier: normalizeAllowedValue(
       form.capacity_tier,
       Object.keys(schema.capacity_tiers),
@@ -115,6 +142,22 @@ export function normalizeForm(value: unknown, schema: FormSchema): TenantFormSta
     ...defaults,
     ...source,
     ministry: normalizeAllowedValue(source.ministry, schema.ministries, defaults.ministry),
+    business_need: typeof source.business_need === 'string' ? source.business_need : '',
+    desired_outcome: typeof source.desired_outcome === 'string' ? source.desired_outcome : '',
+    executive_sponsor_name: stringOrEmpty(source.executive_sponsor_name),
+    executive_sponsor_title: stringOrEmpty(source.executive_sponsor_title),
+    executive_sponsor_email: stringOrEmpty(source.executive_sponsor_email),
+    delivery_owner_name: stringOrEmpty(source.delivery_owner_name),
+    delivery_owner_title: stringOrEmpty(source.delivery_owner_title),
+    delivery_owner_email: stringOrEmpty(source.delivery_owner_email),
+    other_models: stringOrEmpty(source.other_models),
+    intended_users_use_case:
+      typeof source.intended_users_use_case === 'string' ? source.intended_users_use_case : '',
+    data_classification: normalizeAllowedValue(
+      source.data_classification,
+      schema.data_classifications,
+      '',
+    ),
     capacity_tier: normalizeAllowedValue(
       source.capacity_tier,
       Object.keys(schema.capacity_tiers),
@@ -180,6 +223,15 @@ function createFormFromSchema(
 }
 
 /**
+ * Returns the value when it is a string, otherwise an empty string.
+ * @param value - Value of unknown type read from stored form data.
+ * @returns The string value or `''`.
+ */
+function stringOrEmpty(value: unknown) {
+  return typeof value === 'string' ? value : '';
+}
+
+/**
  * Returns the given value if it is present in the list of allowed values, otherwise returns the fallback.
  * @param value - The value to validate.
  * @param allowedValues - Array of permitted string values.
@@ -237,6 +289,25 @@ export function validateTenantForm(
     errors.ministry = schema.validation.ministry.message;
   }
 
+  for (const field of BUSINESS_TEXT_FIELDS) {
+    const validation = schema.validation[field];
+    const value = form[field].trim();
+    if (
+      (validation.required && !value) ||
+      (validation.max_length != null && value.length > validation.max_length) ||
+      (value && validation.pattern && !new RegExp(validation.pattern, 'i').test(value))
+    ) {
+      errors[field] = validation.message;
+    }
+  }
+
+  if (
+    schema.validation.data_classification.required &&
+    !schema.data_classifications.includes(form.data_classification)
+  ) {
+    errors.data_classification = schema.validation.data_classification.message;
+  }
+
   const primaryServicesSelected = form.openai_enabled || form.document_intelligence_enabled;
   if (!primaryServicesSelected) {
     errors.services = schema.validation.primary_services.message;
@@ -248,6 +319,10 @@ export function validateTenantForm(
       (schema.validation.model_families.min_items_when_openai_enabled ?? 0)
     ) {
       errors.model_families = schema.validation.model_families.message;
+    }
+    const otherModelsMax = schema.validation.other_models.max_length;
+    if (otherModelsMax != null && form.other_models.trim().length > otherModelsMax) {
+      errors.other_models = schema.validation.other_models.message;
     }
     if (!Object.prototype.hasOwnProperty.call(schema.capacity_tiers, form.capacity_tier)) {
       errors.capacity_tier = schema.validation.capacity_tier.message;

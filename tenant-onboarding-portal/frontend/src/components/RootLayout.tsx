@@ -41,7 +41,7 @@ export function RootLayout() {
 
       <div className="app-header">
         <div className="app-header__top">
-          <Header title="AI Services Hub Tenant Portal" titleElement="h1" />
+          <Header title="AI Services Hub Onboarding Portal" titleElement="h1" />
           {isAuthenticated ? (
             <div className="app-session app-session--header">
               <div className="app-session__user">

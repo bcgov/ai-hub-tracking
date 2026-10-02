@@ -17,9 +17,20 @@ import {
   updateRoleEmail,
   validateTenantForm,
 } from '../utils/form-helpers';
-import { getErrorMessage, getInputClassName } from '../utils/formatters';
+import { getErrorMessage, getInputClassName, getTextareaClassName } from '../utils/formatters';
 
 const editTenantApi = getRouteApi('/tenants/$tenantName/edit');
+
+const CONTACT_GROUPS = [
+  {
+    title: 'Executive sponsor / financial authority',
+    fields: ['executive_sponsor_name', 'executive_sponsor_title', 'executive_sponsor_email'],
+  },
+  {
+    title: 'Delivery and operational owner',
+    fields: ['delivery_owner_name', 'delivery_owner_title', 'delivery_owner_email'],
+  },
+] as const;
 
 /**
  * Route-level entry component for creating a new tenant onboarding request.
@@ -158,7 +169,7 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
       <section className="page-header">
         <div>
           <p className="eyebrow">{mode === 'create' ? 'New request' : 'Update request'}</p>
-          <h2>{mode === 'create' ? 'Create tenant onboarding request' : `Update ${tenantName}`}</h2>
+          <h2>{mode === 'create' ? 'Create onboarding request' : `Update ${tenantName}`}</h2>
           <p>
             These inputs are versioned and used to generate environment tfvars for the platform
             deployment.
@@ -243,10 +254,103 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
       </section>
 
       <section className="panel stack-md">
+        <h3>Business context</h3>
+        <p className="section-intro">
+          Explain the business need, expected outcomes, and identify the accountable sponsors and
+          owners
+        </p>
+        <div className="form-grid">
+          {(['business_need', 'desired_outcome'] as const).map((field) => (
+            <Field error={visibleErrors[field]} info={schema.field_info[field]} key={field}>
+              <textarea
+                aria-invalid={Boolean(visibleErrors[field])}
+                className={getTextareaClassName(visibleErrors[field])}
+                maxLength={schema.validation[field].max_length}
+                onBlur={() => markTouched(field)}
+                onChange={(event) => setForm({ ...form, [field]: event.target.value })}
+                required={schema.validation[field].required}
+                rows={4}
+                value={form[field]}
+              />
+            </Field>
+          ))}
+          <Field
+            error={visibleErrors.intended_users_use_case}
+            info={schema.field_info.intended_users_use_case}
+          >
+            <textarea
+              aria-invalid={Boolean(visibleErrors.intended_users_use_case)}
+              className={getTextareaClassName(visibleErrors.intended_users_use_case)}
+              maxLength={schema.validation.intended_users_use_case.max_length}
+              onBlur={() => markTouched('intended_users_use_case')}
+              onChange={(event) =>
+                setForm({ ...form, intended_users_use_case: event.target.value })
+              }
+              required={schema.validation.intended_users_use_case.required}
+              rows={4}
+              value={form.intended_users_use_case}
+            />
+          </Field>
+          <Field
+            error={visibleErrors.data_classification}
+            info={schema.field_info.data_classification}
+          >
+            <select
+              aria-invalid={Boolean(visibleErrors.data_classification)}
+              className={getInputClassName(visibleErrors.data_classification)}
+              onBlur={() => markTouched('data_classification')}
+              onChange={(event) => setForm({ ...form, data_classification: event.target.value })}
+              required={schema.validation.data_classification.required}
+              value={form.data_classification}
+            >
+              <option disabled value="">
+                Select a classification
+              </option>
+              {schema.data_classifications.map((classification) => (
+                <option key={classification} value={classification}>
+                  {classification}
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        {CONTACT_GROUPS.map((group) => (
+          <div className="stack-md" key={group.title}>
+            <h4>{group.title}</h4>
+            <div className="access-grid">
+              {group.fields.map((field) => {
+                const validation = schema.validation[field];
+                const isEmail = field.endsWith('_email');
+                return (
+                  <Field error={visibleErrors[field]} info={schema.field_info[field]} key={field}>
+                    <input
+                      aria-invalid={Boolean(visibleErrors[field])}
+                      autoCapitalize={isEmail ? 'off' : undefined}
+                      className={getInputClassName(visibleErrors[field])}
+                      maxLength={validation.max_length}
+                      onBlur={() => markTouched(field)}
+                      onChange={(event) => setForm({ ...form, [field]: event.target.value })}
+                      pattern={validation.pattern}
+                      placeholder={schema.field_info[field].placeholder}
+                      required={validation.required}
+                      spellCheck={isEmail ? false : undefined}
+                      title={validation.message}
+                      type={isEmail ? 'email' : 'text'}
+                      value={form[field]}
+                    />
+                  </Field>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </section>
+
+      <section className="panel stack-md">
         <h3>Services</h3>
         <p className="section-intro">
-          Choose the platform services this tenant needs. Azure OpenAI or Document Intelligence must
-          be enabled for every request.
+          Choose the platform services this project needs. Azure OpenAI or Document Intelligence
+          must be enabled for every request.
         </p>
         {visibleErrors.services ? (
           <InlineMessage tone="error" message={visibleErrors.services} />
@@ -313,10 +417,10 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
 
       {form.openai_enabled ? (
         <section className="panel stack-md">
-          <h3>OpenAI model selection</h3>
+          <h3>Model selection</h3>
           <p className="section-intro">
             Select the model families that will be requested when Azure OpenAI is enabled for this
-            tenant.
+            request. Use Other models to request models that are not listed.
           </p>
           {visibleErrors.model_families ? (
             <InlineMessage tone="error" message={visibleErrors.model_families} />
@@ -342,6 +446,18 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
             ))}
           </div>
           <div className="form-grid">
+            <Field error={visibleErrors.other_models} info={schema.field_info.other_models}>
+              <input
+                aria-invalid={Boolean(visibleErrors.other_models)}
+                className={getInputClassName(visibleErrors.other_models)}
+                maxLength={schema.validation.other_models.max_length}
+                onBlur={() => markTouched('other_models')}
+                onChange={(event) => setForm({ ...form, other_models: event.target.value })}
+                placeholder={schema.field_info.other_models.placeholder}
+                title={schema.validation.other_models.message}
+                value={form.other_models}
+              />
+            </Field>
             <Field error={visibleErrors.capacity_tier} info={schema.field_info.capacity_tier}>
               <select
                 aria-invalid={Boolean(visibleErrors.capacity_tier)}
@@ -365,7 +481,7 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
       <section className="panel stack-md">
         <h3>Gateway policies</h3>
         <p className="section-intro">
-          Configure the tenant policies that will be applied at the gateway layer for incoming AI
+          Configure the project policies that will be applied at the gateway layer for incoming AI
           traffic.
         </p>
         <div className="toggle-grid">
@@ -388,10 +504,10 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
       </section>
 
       <section className="panel stack-md">
-        <h3>Tenant access</h3>
+        <h3>AI Services Hub access</h3>
         <p className="section-intro">
-          Assign the initial tenant members by access category. All seeded users must use @gov.bc.ca
-          email addresses.
+          Assign the initial project members by access category. All seeded users must use
+          @gov.bc.ca email addresses.
         </p>
         <div className="access-grid">
           <EmailListField

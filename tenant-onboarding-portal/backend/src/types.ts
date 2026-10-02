@@ -81,6 +81,13 @@ export type PortalSettings = {
   apimGatewayUrlDev: string;
   apimGatewayUrlTest: string;
   apimGatewayUrlProd: string;
+  publicBaseUrl: string;
+  notificationAdminEmails: string[];
+  chesTokenUrl: string;
+  chesApiUrl: string;
+  chesClientId: string;
+  chesClientSecret: string;
+  chesFromAddress: string;
 };
 
 export type TenantRecord = {
@@ -104,6 +111,16 @@ export type TenantFormData = {
   display_name: string;
   ministry: string;
   department: string;
+  business_need: string;
+  desired_outcome: string;
+  executive_sponsor_name: string;
+  executive_sponsor_title: string;
+  executive_sponsor_email: string;
+  delivery_owner_name: string;
+  delivery_owner_title: string;
+  delivery_owner_email: string;
+  intended_users_use_case: string;
+  data_classification: string;
   openai_enabled: boolean;
   ai_search_enabled: boolean;
   document_intelligence_enabled: boolean;
@@ -112,6 +129,7 @@ export type TenantFormData = {
   storage_account_enabled: boolean;
   key_vault_enabled: boolean;
   model_families: string[];
+  other_models: string;
   capacity_tier: string;
   pii_redaction_enabled: boolean;
   logging_enabled: boolean;

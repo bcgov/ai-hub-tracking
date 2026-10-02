@@ -2,9 +2,23 @@ import { expect, test } from 'vitest';
 
 import { parseTenantForm } from '../src/models/tenant-form';
 
+const BUSINESS_CONTEXT = {
+  business_need: 'Reduce manual triage of citizen enquiries',
+  desired_outcome: 'Faster response times for front-line staff',
+  executive_sponsor_name: 'Jane Doe',
+  executive_sponsor_title: 'Assistant Deputy Minister',
+  executive_sponsor_email: 'jane.doe@gov.bc.ca',
+  delivery_owner_name: 'John Smith',
+  delivery_owner_title: 'Product Owner',
+  delivery_owner_email: 'john.smith@gov.bc.ca',
+  intended_users_use_case: 'Internal staff summarising enquiries',
+  data_classification: 'Internal',
+};
+
 test('valid tenant form uses defaults', () => {
   const data = parseTenantForm({
     project_name: 'my-test-project',
+    ...BUSINESS_CONTEXT,
     display_name: 'My Test Project',
     ministry: 'CITZ',
     admin_users: ['test.user@gov.bc.ca'],
@@ -20,6 +34,7 @@ test('uppercase project names are rejected', () => {
   expect(() =>
     parseTenantForm({
       project_name: 'MyProject',
+      ...BUSINESS_CONTEXT,
       display_name: 'X',
       ministry: 'CITZ',
     }),
@@ -30,6 +45,7 @@ test('invalid email domains are rejected', () => {
   expect(() =>
     parseTenantForm({
       project_name: 'valid-name',
+      ...BUSINESS_CONTEXT,
       display_name: 'Valid',
       ministry: 'CITZ',
       admin_users: ['user@gmail.com'],
@@ -41,6 +57,7 @@ test('blank display names are rejected', () => {
   expect(() =>
     parseTenantForm({
       project_name: 'valid-name',
+      ...BUSINESS_CONTEXT,
       display_name: '   ',
       ministry: 'CITZ',
     }),
@@ -51,6 +68,7 @@ test('invalid ministries are rejected', () => {
   expect(() =>
     parseTenantForm({
       project_name: 'valid-name',
+      ...BUSINESS_CONTEXT,
       display_name: 'Valid',
       ministry: 'INVALID',
     }),
@@ -61,6 +79,7 @@ test('openai requests require at least one model family', () => {
   expect(() =>
     parseTenantForm({
       project_name: 'valid-name',
+      ...BUSINESS_CONTEXT,
       display_name: 'Valid',
       ministry: 'CITZ',
       openai_enabled: true,
@@ -68,4 +87,110 @@ test('openai requests require at least one model family', () => {
       model_families: [],
     }),
   ).toThrow(/model families/i);
+});
+
+test('business context fields are trimmed and stored', () => {
+  const data = parseTenantForm({
+    ...BUSINESS_CONTEXT,
+    project_name: 'valid-name',
+    display_name: 'Valid',
+    ministry: 'CITZ',
+    business_need: '  Need  ',
+    data_classification: 'Sensitive / Confidential',
+  });
+
+  expect(data.business_need).toBe('Need');
+  expect(data.executive_sponsor_name).toBe('Jane Doe');
+  expect(data.delivery_owner_title).toBe('Product Owner');
+  expect(data.data_classification).toBe('Sensitive / Confidential');
+});
+
+test.each([
+  ['business_need', /Business need is required/],
+  ['desired_outcome', /Desired outcome is required/],
+  ['executive_sponsor_name', /Executive sponsor name is required/],
+  ['executive_sponsor_title', /Executive sponsor title is required/],
+  ['executive_sponsor_email', /Executive sponsor email must be a valid @gov.bc.ca/],
+  ['delivery_owner_name', /Delivery owner name is required/],
+  ['delivery_owner_title', /Delivery owner title is required/],
+  ['delivery_owner_email', /Delivery owner email must be a valid @gov.bc.ca/],
+  ['intended_users_use_case', /Intended users and use case/],
+])('missing %s is rejected', (field, message) => {
+  expect(() =>
+    parseTenantForm({
+      ...BUSINESS_CONTEXT,
+      [field]: '   ',
+      project_name: 'valid-name',
+      display_name: 'Valid',
+      ministry: 'CITZ',
+    }),
+  ).toThrow(message);
+});
+
+test('overlong business context text is rejected', () => {
+  expect(() =>
+    parseTenantForm({
+      ...BUSINESS_CONTEXT,
+      business_need: 'x'.repeat(2001),
+      project_name: 'valid-name',
+      display_name: 'Valid',
+      ministry: 'CITZ',
+    }),
+  ).toThrow(/Business need/);
+});
+
+test.each([[''], ['Top Secret']])('invalid data classification %j is rejected', (value) => {
+  expect(() =>
+    parseTenantForm({
+      ...BUSINESS_CONTEXT,
+      data_classification: value,
+      project_name: 'valid-name',
+      display_name: 'Valid',
+      ministry: 'CITZ',
+    }),
+  ).toThrow(/data classification/);
+});
+
+test.each([
+  ['executive_sponsor_email', 'jane.doe@gmail.com'],
+  ['executive_sponsor_email', 'jane doe@gov.bc.ca'],
+  ['delivery_owner_email', 'john@gov.bc.ca.evil.com'],
+  ['delivery_owner_email', 'not-an-email'],
+])('non-government contact email %s=%j is rejected', (field, value) => {
+  expect(() =>
+    parseTenantForm({
+      ...BUSINESS_CONTEXT,
+      [field]: value,
+      project_name: 'valid-name',
+      display_name: 'Valid',
+      ministry: 'CITZ',
+    }),
+  ).toThrow(/@gov.bc.ca/);
+});
+
+test('contact emails are trimmed and lowercased', () => {
+  const data = parseTenantForm({
+    ...BUSINESS_CONTEXT,
+    executive_sponsor_email: '  Jane.Doe@GOV.BC.CA ',
+    project_name: 'valid-name',
+    display_name: 'Valid',
+    ministry: 'CITZ',
+  });
+
+  expect(data.executive_sponsor_email).toBe('jane.doe@gov.bc.ca');
+});
+
+test('other models are optional, trimmed, and length-limited', () => {
+  const base = {
+    ...BUSINESS_CONTEXT,
+    project_name: 'valid-name',
+    display_name: 'Valid',
+    ministry: 'CITZ',
+  };
+
+  expect(parseTenantForm(base).other_models).toBe('');
+  expect(parseTenantForm({ ...base, other_models: '  GPT 5.4, GPT 5.6 ' }).other_models).toBe(
+    'GPT 5.4, GPT 5.6',
+  );
+  expect(() => parseTenantForm({ ...base, other_models: 'x'.repeat(501) })).toThrow(/Other models/);
 });

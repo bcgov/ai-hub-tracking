@@ -11,7 +11,7 @@ function uniqueTenantSuffix() {
 test('mock auth auto-bootstraps an admin session', async ({ page }) => {
   await page.goto('/');
 
-  await expect(page.getByRole('heading', { name: 'My tenant requests' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'My onboarding requests' })).toBeVisible();
   await expect(page.getByText('Playwright Admin')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Admin Queue' })).toBeVisible();
   await expect(page.getByRole('button', { name: 'Sign in with BCGov' })).toHaveCount(0);
@@ -26,12 +26,21 @@ test('admin can create, revise, and approve a tenant request', async ({ page }) 
 
   await page.goto('/tenants/new');
 
-  await expect(
-    page.getByRole('heading', { name: 'Create tenant onboarding request' }),
-  ).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Create onboarding request' })).toBeVisible();
   await page.getByLabel('Project name').fill(tenantName);
   await page.getByLabel('Display name').fill(displayName);
   await page.getByLabel('Department or branch').fill('Platform Engineering');
+  await page.getByLabel('Business need').fill('Automate enquiry triage');
+  await page.getByLabel('Desired outcome').fill('Faster responses for staff');
+  await page.getByLabel('Sponsor name').fill('Jane Doe');
+  await page.getByLabel('Sponsor title').fill('Assistant Deputy Minister');
+  await page.getByLabel('Sponsor email').fill('jane.doe@gov.bc.ca');
+  await page.getByLabel('Owner name').fill('John Smith');
+  await page.getByLabel('Owner title').fill('Product Owner');
+  await page.getByLabel('Owner email').fill('john.smith@gov.bc.ca');
+  await page.getByLabel('Intended users and use case').fill('Internal staff summaries');
+  await page.getByLabel('Data classification').selectOption('Internal');
+  await page.getByLabel('Other models').fill('GPT 5.4, GPT 5.6');
   await page.getByPlaceholder('name@gov.bc.ca').first().fill('owner@gov.bc.ca');
   await page.getByRole('button', { name: 'Submit request' }).click();
 

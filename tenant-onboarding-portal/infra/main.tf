@@ -153,6 +153,13 @@ module "portal" {
       "PORTAL_APIM_GATEWAY_URL_DEV"            = var.apim_gateway_url_dev
       "PORTAL_APIM_GATEWAY_URL_TEST"           = var.apim_gateway_url_test
       "PORTAL_APIM_GATEWAY_URL_PROD"           = var.apim_gateway_url_prod
+      "PORTAL_NOTIFICATION_ADMIN_EMAILS"       = var.notification_admin_emails
+      "PORTAL_PUBLIC_BASE_URL"                 = var.public_base_url
+      "PORTAL_CHES_TOKEN_URL"                  = var.ches_token_url
+      "PORTAL_CHES_API_URL"                    = var.ches_api_url
+      "PORTAL_CHES_CLIENT_ID"                  = var.ches_client_id
+      "PORTAL_CHES_CLIENT_SECRET"              = var.ches_client_secret
+      "PORTAL_CHES_FROM_ADDRESS"               = var.ches_from_address
     },
     var.extra_app_settings,
   )
@@ -181,6 +188,13 @@ module "portal" {
           "PORTAL_APIM_GATEWAY_URL_DEV"            = var.apim_gateway_url_dev
           "PORTAL_APIM_GATEWAY_URL_TEST"           = var.apim_gateway_url_test
           "PORTAL_APIM_GATEWAY_URL_PROD"           = var.apim_gateway_url_prod
+          "PORTAL_NOTIFICATION_ADMIN_EMAILS"       = var.notification_admin_emails
+          "PORTAL_PUBLIC_BASE_URL"                 = var.public_base_url
+          "PORTAL_CHES_TOKEN_URL"                  = var.ches_token_url
+          "PORTAL_CHES_API_URL"                    = var.ches_api_url
+          "PORTAL_CHES_CLIENT_ID"                  = var.ches_client_id
+          "PORTAL_CHES_CLIENT_SECRET"              = var.ches_client_secret
+          "PORTAL_CHES_FROM_ADDRESS"               = var.ches_from_address
         },
         var.extra_app_settings,
       )
