@@ -231,10 +231,10 @@ export const FORM_SCHEMA = {
     project_name: {
       label: 'Project name',
       description:
-        'Stable tenant identifier used in generated tfvars, Azure naming, and request history.',
+        'Stable project identifier used in generated tfvars, Azure naming, and request history.',
       details:
         'Use lowercase letters, numbers, and hyphens only. This value should stay stable over the life.',
-      placeholder: 'example-tenant',
+      placeholder: 'example-project-name',
     },
     display_name: {
       label: 'Display name',
@@ -250,7 +250,7 @@ export const FORM_SCHEMA = {
     },
     department: {
       label: 'Department or branch',
-      description: 'Operational area requesting the tenant within the selected ministry.',
+      description: 'Operational area within the selected ministry.',
       details:
         'This helps reviewers distinguish teams that share the same ministry and informs generated tagging metadata.',
     },
@@ -371,39 +371,39 @@ export const FORM_SCHEMA = {
     },
     pii_redaction_enabled: {
       label: 'PII redaction',
-      description: 'Apply gateway PII screening and redaction policies to tenant traffic.',
+      description: 'Apply gateway PII screening and redaction policies to project traffic.',
       details:
         'Use this for workloads that may process personal or sensitive text and need gateway-side redaction protection.',
     },
     logging_enabled: {
       label: 'Logging',
-      description: 'Capture tenant gateway activity for diagnostics, operations, and audit needs.',
+      description: 'Capture project gateway activity for diagnostics, operations, and audit needs.',
       details:
         'Disable only when there is a clear operational reason; logging supports triage, monitoring, and evidence gathering.',
     },
     custom_rai_filters_enabled: {
       label: 'Custom RAI filters',
-      description: 'Enable tenant-specific Responsible AI filtering at the gateway layer.',
+      description: 'Enable project-specific Responsible AI filtering at the gateway layer.',
       details:
-        'Use this when a tenant needs additional content controls beyond the platform default protection set.',
+        'Use this when a project needs additional content controls beyond the platform default protection set.',
     },
     admin_users: {
       label: 'Admin users',
-      description: 'Users with full tenant administration rights.',
+      description: 'Users with full administration rights.',
       details:
-        'Admins can manage tenant configuration decisions and should generally be a small, accountable group.',
+        'Admins can manage  configuration decisions and should generally be a small, accountable group.',
       placeholder: 'name@gov.bc.ca',
     },
     write_users: {
       label: 'Write users',
-      description: 'Users allowed to create or update tenant-managed content and configuration.',
+      description: 'Users allowed to create or update project-managed content and configuration.',
       details:
         'Use this for operators or application owners who need change access without full administrative ownership.',
       placeholder: 'name@gov.bc.ca',
     },
     read_users: {
       label: 'Read users',
-      description: 'Users allowed to view tenant resources and outputs without modifying them.',
+      description: 'Users allowed to view project resources and outputs without modifying them.',
       details:
         'Use this for auditors, analysts, or stakeholders who need visibility but not write access.',
       placeholder: 'name@gov.bc.ca',

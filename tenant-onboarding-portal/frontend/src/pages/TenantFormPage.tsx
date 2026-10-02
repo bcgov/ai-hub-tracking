@@ -353,7 +353,7 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
       <section className="panel stack-md">
         <h3>Services</h3>
         <p className="section-intro">
-          Choose the platform services this tenant needs. Azure OpenAI or Document Intelligence must
+          Choose the platform services this project needs. Azure OpenAI or Document Intelligence must
           be enabled for every request.
         </p>
         {visibleErrors.services ? (
@@ -424,7 +424,7 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
           <h3>Model selection</h3>
           <p className="section-intro">
             Select the model families that will be requested when Azure OpenAI is enabled for this
-            tenant. Use Other models to request models that are not listed.
+            request. Use Other models to request models that are not listed.
           </p>
           {visibleErrors.model_families ? (
             <InlineMessage tone="error" message={visibleErrors.model_families} />
@@ -485,7 +485,7 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
       <section className="panel stack-md">
         <h3>Gateway policies</h3>
         <p className="section-intro">
-          Configure the tenant policies that will be applied at the gateway layer for incoming AI
+          Configure the project policies that will be applied at the gateway layer for incoming AI
           traffic.
         </p>
         <div className="toggle-grid">
@@ -510,7 +510,7 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
       <section className="panel stack-md">
         <h3>AI Services Hub access</h3>
         <p className="section-intro">
-          Assign the initial tenant members by access category. All seeded users must use @gov.bc.ca
+          Assign the initial project members by access category. All seeded users must use @gov.bc.ca
           email addresses.
         </p>
         <div className="access-grid">
