@@ -199,6 +199,27 @@ variable "ches_from_address" {
   default     = ""
 }
 
+# --- GitHub PR automation (on approval) ---
+
+variable "github_token" {
+  description = "GitHub token (fine-grained PAT or GitHub App installation token) with Contents and Pull requests write access to github_repo. Empty disables PR creation on approval."
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "github_repo" {
+  description = "Repository (owner/name) that receives tenant onboarding PRs when a request is approved, e.g. \"bcgov/ai-hub-tracking\". Empty disables PR creation."
+  type        = string
+  default     = ""
+}
+
+variable "github_base_branch" {
+  description = "Base branch that tenant onboarding PRs target."
+  type        = string
+  default     = "main"
+}
+
 variable "extra_app_settings" {
   description = "Additional App Service application settings merged with the defaults."
   type        = map(string)

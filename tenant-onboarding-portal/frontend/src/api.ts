@@ -75,7 +75,7 @@ export const api = {
   adminReview: (tenantName: string, version: string) =>
     requestJson<AdminReviewResponse>(client.get(`/admin/review/${tenantName}/${version}`)),
   approveRequest: (tenantName: string, version: string, reviewNotes: string) =>
-    requestJson<{ status: string }>(
+    requestJson<{ status: string; pr_url: string | null; pr_number: number | null }>(
       client.post(`/admin/approve/${tenantName}/${version}`, {
         review_notes: reviewNotes,
       }),

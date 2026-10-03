@@ -266,6 +266,24 @@ export function SummaryRow({ label, value }: { label: string; value: ReactNode }
 }
 
 /**
+ * Renders a link to the GitHub pull request opened when a tenant version was approved.
+ * @param prUrl - The pull request URL, if one has been opened.
+ * @param prNumber - The pull request number, used for the link text.
+ * @returns An external link, or `Not created` when no PR exists.
+ */
+export function PullRequestLink({ prUrl, prNumber }: { prUrl?: string; prNumber?: number }) {
+  if (!prUrl) {
+    return <>Not created</>;
+  }
+
+  return (
+    <a className="text-link" href={prUrl} rel="noreferrer" target="_blank">
+      {prNumber ? `PR #${prNumber}` : 'View pull request'}
+    </a>
+  );
+}
+
+/**
  * Renders the business context captured on a tenant request (need, outcome, accountable
  * owners, intended users, and data classification) as a summary panel.
  * @param formData - The stored tenant form data; missing fields render as `Not provided`.

@@ -6,6 +6,7 @@ import { AppController } from './app.controller';
 import { SessionStoreService } from './storage/session-store.service';
 import { TenantStoreService } from './storage/tenant-store.service';
 import { ChesEmailService } from './services/ches-email.service';
+import { GitHubOpsService } from './services/github-ops.service';
 import { HubKeyVaultService } from './services/hub-keyvault.service';
 import { HTTPLoggerMiddleware } from './middleware/req.res.logger';
 @Module({
@@ -17,6 +18,7 @@ import { HTTPLoggerMiddleware } from './middleware/req.res.logger';
     TenantStoreService,
     HubKeyVaultService,
     ChesEmailService,
+    GitHubOpsService,
   ],
 })
 export class AppModule {

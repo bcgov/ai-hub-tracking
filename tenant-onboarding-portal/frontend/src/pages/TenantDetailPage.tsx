@@ -8,6 +8,7 @@ import {
   CredentialsPanel,
   InlineMessage,
   Panel,
+  PullRequestLink,
   SummaryRow,
   TagList,
 } from '../components/ui';
@@ -117,6 +118,12 @@ function TenantDetailContent() {
           <SummaryRow label="Department" value={stringValue(formData.department)} />
           <SummaryRow label="Submitted by" value={detail.tenant.SubmittedBy} />
           <SummaryRow label="Created" value={formatDate(detail.tenant.CreatedAt)} />
+          <SummaryRow
+            label="Pull request"
+            value={
+              <PullRequestLink prNumber={detail.tenant.PrNumber} prUrl={detail.tenant.PrUrl} />
+            }
+          />
           <SummaryRow label="Review notes" value={detail.tenant.ReviewNotes || 'No review notes'} />
         </div>
 

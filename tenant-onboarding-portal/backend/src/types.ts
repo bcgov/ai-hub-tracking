@@ -88,6 +88,10 @@ export type PortalSettings = {
   chesClientId: string;
   chesClientSecret: string;
   chesFromAddress: string;
+  githubToken: string;
+  githubRepo: string;
+  githubBaseBranch: string;
+  githubApiUrl: string;
 };
 
 export type TenantRecord = {
@@ -102,6 +106,9 @@ export type TenantRecord = {
   ReviewedBy?: string;
   ReviewNotes?: string;
   FormVersion?: string;
+  PrUrl?: string;
+  PrNumber?: number;
+  BranchName?: string;
   CreatedAt: string;
   UpdatedAt?: string;
 };

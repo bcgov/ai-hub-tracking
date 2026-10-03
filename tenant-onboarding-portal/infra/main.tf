@@ -160,6 +160,9 @@ module "portal" {
       "PORTAL_CHES_CLIENT_ID"                  = var.ches_client_id
       "PORTAL_CHES_CLIENT_SECRET"              = var.ches_client_secret
       "PORTAL_CHES_FROM_ADDRESS"               = var.ches_from_address
+      "PORTAL_GITHUB_TOKEN"                    = var.github_token
+      "PORTAL_GITHUB_REPO"                     = var.github_repo
+      "PORTAL_GITHUB_BASE_BRANCH"              = var.github_base_branch
     },
     var.extra_app_settings,
   )
@@ -195,6 +198,9 @@ module "portal" {
           "PORTAL_CHES_CLIENT_ID"                  = var.ches_client_id
           "PORTAL_CHES_CLIENT_SECRET"              = var.ches_client_secret
           "PORTAL_CHES_FROM_ADDRESS"               = var.ches_from_address
+          "PORTAL_GITHUB_TOKEN"                    = var.github_token
+          "PORTAL_GITHUB_REPO"                     = var.github_repo
+          "PORTAL_GITHUB_BASE_BRANCH"              = var.github_base_branch
         },
         var.extra_app_settings,
       )

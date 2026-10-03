@@ -3,7 +3,13 @@ import { Link, getRouteApi, useNavigate } from '@tanstack/react-router';
 
 import { api } from '../api';
 import { AdminRoute } from '../components/guards';
-import { BusinessContextSummary, InlineMessage, Panel, SummaryRow } from '../components/ui';
+import {
+  BusinessContextSummary,
+  InlineMessage,
+  Panel,
+  PullRequestLink,
+  SummaryRow,
+} from '../components/ui';
 import type { AdminDashboardResponse, TenantRecord } from '../types';
 import { formatDate, getErrorMessage } from '../utils/formatters';
 
@@ -137,6 +143,7 @@ function AdminDashboardContent() {
               <tr>
                 <th>Request</th>
                 <th>Status</th>
+                <th>Pull request</th>
                 <th>Updated</th>
                 <th>Open</th>
               </tr>
@@ -149,6 +156,9 @@ function AdminDashboardContent() {
                     <span className={`status-badge status-badge--${item.Status}`}>
                       {item.Status}
                     </span>
+                  </td>
+                  <td>
+                    <PullRequestLink prNumber={item.PrNumber} prUrl={item.PrUrl} />
                   </td>
                   <td>{formatDate(item.UpdatedAt ?? item.CreatedAt)}</td>
                   <td>
@@ -272,6 +282,10 @@ function AdminReviewContent() {
           />
           <SummaryRow label="Created" value={formatDate(tenant.CreatedAt)} />
           <SummaryRow label="Ministry" value={tenant.Ministry} />
+          <SummaryRow
+            label="Pull request"
+            value={<PullRequestLink prNumber={tenant.PrNumber} prUrl={tenant.PrUrl} />}
+          />
           <SummaryRow
             label="Other models requested"
             value={
