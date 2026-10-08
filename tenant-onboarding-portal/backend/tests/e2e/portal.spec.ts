@@ -42,6 +42,7 @@ test('admin can create, revise, and approve a tenant request', async ({ page }) 
   await page.getByLabel('Data classification').selectOption('Internal');
   await page.getByLabel('Other models').fill('GPT 5.4, GPT 5.6');
   await page.getByPlaceholder('name@gov.bc.ca').first().fill('owner@gov.bc.ca');
+  await page.getByRole('checkbox', { name: /engage a Privacy Analyst/ }).check();
   await page.getByRole('button', { name: 'Submit request' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/tenants/${tenantName}$`));
@@ -52,6 +53,7 @@ test('admin can create, revise, and approve a tenant request', async ({ page }) 
   await page.getByRole('link', { name: 'Create updated version' }).click();
   await expect(page.getByRole('heading', { name: `Update ${tenantName}` })).toBeVisible();
   await page.getByLabel('Department or branch').fill(updatedDepartment);
+  await page.getByRole('checkbox', { name: /engage a Privacy Analyst/ }).check();
   await page.getByRole('button', { name: 'Create updated version' }).click();
 
   await expect(page).toHaveURL(new RegExp(`/tenants/${tenantName}$`));
