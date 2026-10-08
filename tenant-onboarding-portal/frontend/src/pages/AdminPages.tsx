@@ -199,8 +199,8 @@ export function AdminReviewPage() {
 /**
  * Fetches a specific tenant version for admin review and drives its review lifecycle:
  * a `submitted` version can be moved to `in_review`, and an `in_review` version can be
- * approved or rejected. Renders submission metadata, generated tfvars per environment,
- * and a notes textarea with the actions valid for the current status.
+ * approved or rejected. Renders submission metadata, business context, and a notes
+ * textarea with the actions valid for the current status.
  * @returns The review page JSX, or an inline error message if loading fails.
  */
 function AdminReviewContent() {
@@ -353,16 +353,6 @@ function AdminReviewContent() {
       </section>
 
       <BusinessContextSummary formData={tenant.FormData} />
-
-      <section className="panel stack-md">
-        <h3>Generated tfvars</h3>
-        {Object.entries(tenant.GeneratedTfvars ?? {}).map(([environment, content]) => (
-          <div key={environment} className="code-block-wrap">
-            <div className="code-block__header">{environment}.tfvars</div>
-            <pre className="code-block">{content}</pre>
-          </div>
-        ))}
-      </section>
     </div>
   );
 }

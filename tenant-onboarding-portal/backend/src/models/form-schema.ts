@@ -230,8 +230,7 @@ export const FORM_SCHEMA = {
   field_info: {
     project_name: {
       label: 'Project name',
-      description:
-        'Stable project identifier used in generated tfvars, Azure naming, and request history.',
+      description: '',
       details:
         'Use lowercase letters, numbers, and hyphens only. This value should stay stable over the life.',
       placeholder: 'example-project-name',

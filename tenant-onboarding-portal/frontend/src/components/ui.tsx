@@ -95,7 +95,7 @@ export function Field({
       <FieldHeader info={info} />
       {children}
       {error ? <span className="field__error">{error}</span> : null}
-      <span className="field__help">{info.description}</span>
+      {info.description ? <span className="field__help">{info.description}</span> : null}
     </label>
   );
 }

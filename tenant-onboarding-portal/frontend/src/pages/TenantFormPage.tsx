@@ -180,10 +180,6 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
         <div>
           <p className="eyebrow">{mode === 'create' ? 'New request' : 'Update request'}</p>
           <h2>{mode === 'create' ? 'Create onboarding request' : `Update ${tenantName}`}</h2>
-          <p>
-            These inputs are versioned and used to generate environment tfvars for the platform
-            deployment.
-          </p>
         </div>
         <div className="button-row">
           <Link

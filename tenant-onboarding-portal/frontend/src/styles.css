@@ -832,59 +832,6 @@ textarea {
   overflow-x: auto;
 }
 
-/* --- Detail disclosure --------------------------------------------- */
-.detail-disclosure {
-  display: grid;
-  gap: 14px;
-}
-
-.detail-disclosure__summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  cursor: pointer;
-  list-style: none;
-  font-size: 1.1rem;
-  font-weight: 700;
-  color: #1f2933;
-}
-
-.detail-disclosure__summary::-webkit-details-marker {
-  display: none;
-}
-
-.detail-disclosure__summary::after {
-  content: '+';
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 999px;
-  border: 1px solid #cbd5e1;
-  background: #f8fafc;
-  color: #003366;
-  font-size: 1rem;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.detail-disclosure[open] .detail-disclosure__summary::after {
-  content: '−';
-}
-
-.detail-disclosure__hint {
-  margin-left: auto;
-  font-size: 0.82rem;
-  font-weight: 600;
-  color: #52606d;
-}
-
-.detail-disclosure__content {
-  padding-top: 4px;
-}
-
 /* --- Stat cards ---------------------------------------------------- */
 .stat-card {
   display: grid;
@@ -906,29 +853,6 @@ textarea {
   gap: 12px;
   margin: 0;
   padding-left: 20px;
-}
-
-/* --- Code blocks --------------------------------------------------- */
-.code-block-wrap {
-  overflow: hidden;
-  border: 1px solid #cbd5e1;
-  border-radius: 14px;
-}
-
-.code-block__header {
-  padding: 10px 14px;
-  background: #0f172a;
-  color: #f8fafc;
-  font-weight: 700;
-}
-
-.code-block {
-  margin: 0;
-  padding: 16px;
-  max-height: 420px;
-  overflow: auto;
-  background: #020617;
-  color: #e2e8f0;
 }
 
 /* --- Responsive: tablet landscape ---------------------------------- */
@@ -1178,16 +1102,6 @@ textarea {
     font-size: 0.86rem;
   }
 
-  /* Code blocks */
-  .code-block {
-    max-height: 280px;
-    font-size: 0.82rem;
-  }
-
-  .code-block-wrap {
-    border-radius: 10px;
-  }
-
   /* Tags */
   .tag {
     font-size: 0.82rem;
@@ -1287,10 +1201,6 @@ textarea {
   .role-card {
     padding: 12px;
     border-radius: 10px;
-  }
-
-  .code-block-wrap {
-    border-radius: 8px;
   }
 
   .field__help,
