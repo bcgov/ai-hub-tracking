@@ -74,6 +74,12 @@ export const api = {
   adminDashboard: () => requestJson<AdminDashboardResponse>(client.get('/admin/dashboard')),
   adminReview: (tenantName: string, version: string) =>
     requestJson<AdminReviewResponse>(client.get(`/admin/review/${tenantName}/${version}`)),
+  startReview: (tenantName: string, version: string, reviewNotes: string) =>
+    requestJson<{ status: string }>(
+      client.post(`/admin/start-review/${tenantName}/${version}`, {
+        review_notes: reviewNotes,
+      }),
+    ),
   approveRequest: (tenantName: string, version: string, reviewNotes: string) =>
     requestJson<{ status: string; pr_url: string | null; pr_number: number | null }>(
       client.post(`/admin/approve/${tenantName}/${version}`, {

@@ -384,6 +384,11 @@ textarea {
   gap: 10px;
 }
 
+/* Keep buttons at their natural height when a stretched grid row makes the row taller. */
+.button-row > .button {
+  height: fit-content;
+}
+
 .button {
   display: inline-flex;
   align-items: center;
@@ -507,6 +512,11 @@ textarea {
 .status-badge--submitted {
   background: #fff7d6;
   color: #8a5d00;
+}
+
+.status-badge--in_review {
+  background: #e0e7ff;
+  color: #3730a3;
 }
 
 .status-badge--approved {

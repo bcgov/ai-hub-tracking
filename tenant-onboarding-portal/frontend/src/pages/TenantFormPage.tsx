@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { Link, getRouteApi, useNavigate } from '@tanstack/react-router';
 
@@ -31,6 +31,9 @@ const CONTACT_GROUPS = [
     fields: ['delivery_owner_name', 'delivery_owner_title', 'delivery_owner_email'],
   },
 ] as const;
+
+const PRIVACY_ACKNOWLEDGEMENT_TEXT =
+  'I agree to engage a Privacy Analyst to determine if my initiative involves personal information (PI). If PI is involved, I agree to notify CSBC, and am aware that my team is responsible for completing any required PIA, STRA, and approvals before the solution is moved into production.';
 
 /**
  * Route-level entry component for creating a new tenant onboarding request.
@@ -76,6 +79,8 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
   const [touched, setTouched] = useState<Set<string>>(new Set());
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [privacyAcknowledged, setPrivacyAcknowledged] = useState(false);
+  const privacyCheckboxRef = useRef<HTMLInputElement>(null);
 
   const markTouched = (field: string) => {
     setTouched((prev) => {
@@ -140,6 +145,11 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
     setForm(payload);
 
     if (hasValidationErrors(payloadErrors)) {
+      return;
+    }
+
+    if (!privacyAcknowledged) {
+      privacyCheckboxRef.current?.focus();
       return;
     }
 
@@ -550,6 +560,26 @@ function TenantFormPage({ mode, tenantName }: { mode: 'create' | 'edit'; tenantN
             onRemove={(index) => removeRoleEmail('read_users', index, form, setForm)}
           />
         </div>
+      </section>
+
+      <section className="panel stack-md">
+        <h3>Privacy acknowledgement</h3>
+        {hasSubmitted && !privacyAcknowledged ? (
+          <InlineMessage
+            tone="error"
+            message="You must accept the privacy acknowledgement before submitting."
+          />
+        ) : null}
+        <label className="check-card">
+          <input
+            aria-invalid={hasSubmitted && !privacyAcknowledged}
+            checked={privacyAcknowledged}
+            onChange={(event) => setPrivacyAcknowledged(event.target.checked)}
+            ref={privacyCheckboxRef}
+            type="checkbox"
+          />
+          <span>{PRIVACY_ACKNOWLEDGEMENT_TEXT}</span>
+        </label>
       </section>
     </form>
   );

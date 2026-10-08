@@ -94,6 +94,9 @@ export type PortalSettings = {
   githubApiUrl: string;
 };
 
+/** Review lifecycle of a tenant request version: `submitted → in_review → approved | rejected`. */
+export type TenantStatus = 'submitted' | 'in_review' | 'approved' | 'rejected';
+
 export type TenantRecord = {
   PartitionKey: string;
   RowKey: string;

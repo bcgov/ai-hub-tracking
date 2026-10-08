@@ -2,6 +2,7 @@ import { afterEach, beforeEach, expect, test, vi } from 'vitest';
 
 import request from 'supertest';
 
+import { TenantStoreService } from '../src/storage/tenant-store.service';
 import { createTestApp } from './helpers/test-app';
 
 const GITHUB_ENV = {
@@ -113,6 +114,7 @@ test('approving a request opens a pull request with the tfvars for every environ
   try {
     const agent = request.agent(app.getHttpServer());
     await agent.post('/api/tenants').send(TENANT_PAYLOAD);
+    await agent.post('/api/admin/start-review/alpha-demo/v1').send({});
 
     const approveResponse = await agent
       .post('/api/admin/approve/alpha-demo/v1')
@@ -147,15 +149,18 @@ test('approving a request opens a pull request with the tfvars for every environ
   }
 });
 
-test('re-approving a version reuses its recorded pull request', async () => {
+test('retrying approval after the PR was recorded reuses that pull request', async () => {
   const calls = stubGitHub();
   const app = await createTestApp();
 
   try {
     const agent = request.agent(app.getHttpServer());
     await agent.post('/api/tenants').send(TENANT_PAYLOAD);
+    await agent.post('/api/admin/start-review/alpha-demo/v1').send({});
     await agent.post('/api/admin/approve/alpha-demo/v1').send({});
     const callsAfterFirst = calls.length;
+    // Simulate a status write that failed after the PR was opened, leaving the request in review.
+    await app.get(TenantStoreService).updateStatus('alpha-demo', 'v1', 'in_review');
 
     const second = await agent.post('/api/admin/approve/alpha-demo/v1').send({});
 
@@ -175,6 +180,7 @@ test('an already-open pull request for the branch is reused instead of duplicate
   try {
     const agent = request.agent(app.getHttpServer());
     await agent.post('/api/tenants').send(TENANT_PAYLOAD);
+    await agent.post('/api/admin/start-review/alpha-demo/v1').send({});
 
     const approveResponse = await agent.post('/api/admin/approve/alpha-demo/v1').send({});
 
@@ -185,19 +191,20 @@ test('an already-open pull request for the branch is reused instead of duplicate
   }
 });
 
-test('a GitHub failure leaves the request submitted so approval can be retried', async () => {
+test('a GitHub failure leaves the request in review so approval can be retried', async () => {
   stubGitHub({ failPulls: true });
   const app = await createTestApp();
 
   try {
     const agent = request.agent(app.getHttpServer());
     await agent.post('/api/tenants').send(TENANT_PAYLOAD);
+    await agent.post('/api/admin/start-review/alpha-demo/v1').send({});
 
     const approveResponse = await agent.post('/api/admin/approve/alpha-demo/v1').send({});
 
     expect(approveResponse.status).toBe(503);
     const detail = await agent.get('/api/tenants/alpha-demo');
-    expect(detail.body.tenant.Status).toBe('submitted');
+    expect(detail.body.tenant.Status).toBe('in_review');
     expect(detail.body.tenant.PrUrl).toBe('');
   } finally {
     await app.close();
@@ -212,11 +219,53 @@ test('approval without GitHub configuration still approves and opens no PR', asy
   try {
     const agent = request.agent(app.getHttpServer());
     await agent.post('/api/tenants').send(TENANT_PAYLOAD);
+    await agent.post('/api/admin/start-review/alpha-demo/v1').send({});
 
     const approveResponse = await agent.post('/api/admin/approve/alpha-demo/v1').send({});
 
     expect(approveResponse.status).toBe(201);
     expect(approveResponse.body).toEqual({ status: 'approved', pr_url: null, pr_number: null });
+    expect(calls).toHaveLength(0);
+  } finally {
+    await app.close();
+  }
+});
+
+test('review actions enforce submitted → in_review → approved | rejected', async () => {
+  const calls = stubGitHub();
+  const app = await createTestApp();
+
+  try {
+    const agent = request.agent(app.getHttpServer());
+    await agent.post('/api/tenants').send(TENANT_PAYLOAD);
+
+    expect((await agent.post('/api/admin/approve/alpha-demo/v1').send({})).status).toBe(409);
+    expect((await agent.post('/api/admin/reject/alpha-demo/v1').send({})).status).toBe(409);
+    expect(calls).toHaveLength(0);
+
+    const pending = await agent.get('/api/admin/dashboard');
+    expect(pending.body.pending.map((item: { Status: string }) => item.Status)).toEqual([
+      'submitted',
+    ]);
+
+    const startResponse = await agent
+      .post('/api/admin/start-review/alpha-demo/v1')
+      .send({ review_notes: 'Checking quotas' });
+    expect(startResponse.status).toBe(201);
+    expect(startResponse.body).toEqual({ status: 'in_review' });
+    expect((await agent.post('/api/admin/start-review/alpha-demo/v1').send({})).status).toBe(409);
+
+    const inReview = await agent.get('/api/admin/dashboard');
+    expect(inReview.body.pending.map((item: { Status: string }) => item.Status)).toEqual([
+      'in_review',
+    ]);
+
+    const rejectResponse = await agent.post('/api/admin/reject/alpha-demo/v1').send({});
+    expect(rejectResponse.status).toBe(201);
+    expect((await agent.post('/api/admin/approve/alpha-demo/v1').send({})).status).toBe(409);
+
+    const done = await agent.get('/api/admin/dashboard');
+    expect(done.body.pending).toHaveLength(0);
     expect(calls).toHaveLength(0);
   } finally {
     await app.close();

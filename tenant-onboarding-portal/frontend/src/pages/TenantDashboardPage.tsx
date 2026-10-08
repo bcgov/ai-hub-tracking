@@ -3,7 +3,7 @@ import { Link } from '@tanstack/react-router';
 
 import { api } from '../api';
 import { ProtectedRoute } from '../components/guards';
-import { EmptyState, InlineMessage, Panel } from '../components/ui';
+import { EmptyState, InlineMessage, Panel, StatusBadge } from '../components/ui';
 import type { TenantRecord } from '../types';
 import { formatDate, getErrorMessage } from '../utils/formatters';
 
@@ -102,9 +102,7 @@ function TenantDashboardContent() {
                     </td>
                     <td>{tenant.Ministry}</td>
                     <td>
-                      <span className={`status-badge status-badge--${tenant.Status}`}>
-                        {tenant.Status}
-                      </span>
+                      <StatusBadge status={tenant.Status} />
                     </td>
                     <td>{formatDate(tenant.UpdatedAt ?? tenant.CreatedAt)}</td>
                     <td>

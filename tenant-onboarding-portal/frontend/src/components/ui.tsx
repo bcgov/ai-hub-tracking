@@ -283,6 +283,26 @@ export function PullRequestLink({ prUrl, prNumber }: { prUrl?: string; prNumber?
   );
 }
 
+const STATUS_LABELS: Record<string, string> = {
+  submitted: 'Submitted',
+  in_review: 'In Review',
+  approved: 'Approved',
+  rejected: 'Rejected',
+};
+
+/**
+ * Renders a tenant request status as a coloured badge with a human-readable label.
+ * @param status - The raw status value (e.g. `in_review`); unknown values render as-is.
+ * @returns A `<span>` badge styled for the status.
+ */
+export function StatusBadge({ status }: { status: string }) {
+  return (
+    <span className={`status-badge status-badge--${status}`}>
+      {STATUS_LABELS[status] ?? status}
+    </span>
+  );
+}
+
 /**
  * Renders the business context captured on a tenant request (need, outcome, accountable
  * owners, intended users, and data classification) as a summary panel.

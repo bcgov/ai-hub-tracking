@@ -9,6 +9,7 @@ import {
   InlineMessage,
   Panel,
   PullRequestLink,
+  StatusBadge,
   SummaryRow,
   TagList,
 } from '../components/ui';
@@ -106,14 +107,7 @@ function TenantDetailContent() {
       <section className="detail-grid">
         <div className="panel stack-md">
           <h3>Request summary</h3>
-          <SummaryRow
-            label="Status"
-            value={
-              <span className={`status-badge status-badge--${detail.tenant.Status}`}>
-                {detail.tenant.Status}
-              </span>
-            }
-          />
+          <SummaryRow label="Status" value={<StatusBadge status={detail.tenant.Status} />} />
           <SummaryRow label="Ministry" value={detail.tenant.Ministry} />
           <SummaryRow label="Department" value={stringValue(formData.department)} />
           <SummaryRow label="Submitted by" value={detail.tenant.SubmittedBy} />
@@ -195,9 +189,7 @@ function TenantDetailContent() {
                 <tr key={version.RowKey}>
                   <td>{version.RowKey}</td>
                   <td>
-                    <span className={`status-badge status-badge--${version.Status}`}>
-                      {version.Status}
-                    </span>
+                    <StatusBadge status={version.Status} />
                   </td>
                   <td>{formatDate(version.CreatedAt)}</td>
                   <td>{version.ReviewedBy || 'Not reviewed'}</td>

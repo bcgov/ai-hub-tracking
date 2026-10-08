@@ -8,6 +8,7 @@ import {
   InlineMessage,
   Panel,
   PullRequestLink,
+  StatusBadge,
   SummaryRow,
 } from '../components/ui';
 import type { AdminDashboardResponse, TenantRecord } from '../types';
@@ -75,8 +76,8 @@ function AdminDashboardContent() {
           <p className="eyebrow">Administration</p>
           <h2>Review queue</h2>
           <p>
-            Approve or reject submitted tenant versions and inspect the current state across all
-            tenants.
+            Move submitted tenant versions into review, approve or reject them, and inspect the
+            current state across all tenants.
           </p>
         </div>
       </section>
@@ -103,6 +104,7 @@ function AdminDashboardContent() {
                 <tr>
                   <th>Request</th>
                   <th>Version</th>
+                  <th>Status</th>
                   <th>Submitted by</th>
                   <th>Submitted</th>
                   <th></th>
@@ -113,6 +115,9 @@ function AdminDashboardContent() {
                   <tr key={`${item.PartitionKey}-${item.RowKey}`}>
                     <td>{item.DisplayName}</td>
                     <td>{item.RowKey}</td>
+                    <td>
+                      <StatusBadge status={item.Status} />
+                    </td>
                     <td>{item.SubmittedBy}</td>
                     <td>{formatDate(item.CreatedAt)}</td>
                     <td>
@@ -153,9 +158,7 @@ function AdminDashboardContent() {
                 <tr key={`${item.PartitionKey}-${item.RowKey}`}>
                   <td>{item.DisplayName}</td>
                   <td>
-                    <span className={`status-badge status-badge--${item.Status}`}>
-                      {item.Status}
-                    </span>
+                    <StatusBadge status={item.Status} />
                   </td>
                   <td>
                     <PullRequestLink prNumber={item.PrNumber} prUrl={item.PrUrl} />
@@ -194,8 +197,10 @@ export function AdminReviewPage() {
 }
 
 /**
- * Fetches a specific tenant version for admin review and handles approve or reject decisions.
- * Renders submission metadata, generated tfvars per environment, and a notes textarea with action buttons.
+ * Fetches a specific tenant version for admin review and drives its review lifecycle:
+ * a `submitted` version can be moved to `in_review`, and an `in_review` version can be
+ * approved or rejected. Renders submission metadata, generated tfvars per environment,
+ * and a notes textarea with the actions valid for the current status.
  * @returns The review page JSX, or an inline error message if loading fails.
  */
 function AdminReviewContent() {
@@ -230,6 +235,19 @@ function AdminReviewContent() {
     return () => controller.abort();
   }, [tenantName, version]);
 
+  const handleStartReview = async () => {
+    setIsSaving(true);
+    setError('');
+    try {
+      await api.startReview(tenantName, version, notes);
+      setTenant((current) => (current ? { ...current, Status: 'in_review' } : current));
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleDecision = async (action: 'approve' | 'reject') => {
     setIsSaving(true);
     setError('');
@@ -251,7 +269,7 @@ function AdminReviewContent() {
     return <Panel title="Loading review" />;
   }
 
-  if (error || !tenant) {
+  if (!tenant) {
     return <InlineMessage tone="error" message={error || 'Unable to load review record.'} />;
   }
 
@@ -274,12 +292,7 @@ function AdminReviewContent() {
         <div className="panel stack-md">
           <h3>Submission details</h3>
           <SummaryRow label="Submitted by" value={tenant.SubmittedBy} />
-          <SummaryRow
-            label="Status"
-            value={
-              <span className={`status-badge status-badge--${tenant.Status}`}>{tenant.Status}</span>
-            }
-          />
+          <SummaryRow label="Status" value={<StatusBadge status={tenant.Status} />} />
           <SummaryRow label="Created" value={formatDate(tenant.CreatedAt)} />
           <SummaryRow label="Ministry" value={tenant.Ministry} />
           <SummaryRow
@@ -304,24 +317,38 @@ function AdminReviewContent() {
             value={notes}
           />
           {error ? <InlineMessage tone="error" message={error} /> : null}
-          <div className="button-row">
-            <button
-              className="button button--danger"
-              disabled={isSaving}
-              onClick={() => void handleDecision('reject')}
-              type="button"
-            >
-              Reject
-            </button>
-            <button
-              className="button button--primary"
-              disabled={isSaving}
-              onClick={() => void handleDecision('approve')}
-              type="button"
-            >
-              Approve
-            </button>
-          </div>
+          {tenant.Status === 'submitted' ? (
+            <div className="button-row">
+              <button
+                className="button button--primary"
+                disabled={isSaving}
+                onClick={() => void handleStartReview()}
+                type="button"
+              >
+                Start review
+              </button>
+            </div>
+          ) : null}
+          {tenant.Status === 'in_review' ? (
+            <div className="button-row">
+              <button
+                className="button button--danger"
+                disabled={isSaving}
+                onClick={() => void handleDecision('reject')}
+                type="button"
+              >
+                Reject
+              </button>
+              <button
+                className="button button--primary"
+                disabled={isSaving}
+                onClick={() => void handleDecision('approve')}
+                type="button"
+              >
+                Approve
+              </button>
+            </div>
+          ) : null}
         </div>
       </section>
 

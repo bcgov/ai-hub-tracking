@@ -73,6 +73,8 @@ test('admin can create, revise, and approve a tenant request', async ({ page }) 
 
   await expect(page.getByRole('heading', { name: displayName })).toBeVisible();
   await page.locator('textarea').fill(reviewNote);
+  await page.getByRole('button', { name: 'Start review' }).click();
+  await expect(page.locator('.status-badge--in_review')).toBeVisible();
   await page.getByRole('button', { name: 'Approve' }).click();
 
   await expect(page.getByRole('heading', { name: 'Review queue' })).toBeVisible();
