@@ -115,6 +115,9 @@ export type TenantRecord = {
   SubmittedBy: string;
   ReviewedBy?: string;
   ReviewNotes?: string;
+  PrUrl?: string;
+  PrNumber?: number;
+  BranchName?: string;
   CreatedAt: string;
   UpdatedAt?: string;
 };

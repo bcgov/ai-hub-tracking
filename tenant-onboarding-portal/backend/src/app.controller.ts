@@ -6,6 +6,7 @@ import {
   ForbiddenException,
   Get,
   Inject,
+  Logger,
   NotFoundException,
   Param,
   Post,
@@ -22,6 +23,7 @@ import { TokenValidatorService } from './auth/token-validator.service';
 import { FORM_SCHEMA } from './models/form-schema';
 import { parseTenantForm } from './models/tenant-form';
 import { ChesEmailService } from './services/ches-email.service';
+import { GitHubOpsService } from './services/github-ops.service';
 import { HubKeyVaultService } from './services/hub-keyvault.service';
 import { generateAllEnvTfvars } from './services/tfvars-generator';
 import { TenantStoreService } from './storage/tenant-store.service';
@@ -35,10 +37,13 @@ import type {
   RawApimTenantInfoResponse,
   TenantFormData,
   TenantRecord,
+  TenantStatus,
 } from './types';
 
 @Controller()
 export class AppController {
+  private readonly logger = new Logger(AppController.name);
+
   /**
    * Injects the services required by all route handlers.
    *
@@ -47,6 +52,7 @@ export class AppController {
    * @param tenantStore - Provides read and write access to tenant records.
    * @param hubKeyVault - Retrieves APIM credentials from Azure Key Vault per hub environment.
    * @param chesEmail - Sends admin email notifications through CHES.
+   * @param githubOps - Opens tenant onboarding pull requests on approval.
    */
   constructor(
     @Inject(AuthSessionService)
@@ -59,6 +65,8 @@ export class AppController {
     private readonly hubKeyVault: HubKeyVaultService,
     @Inject(ChesEmailService)
     private readonly chesEmail: ChesEmailService,
+    @Inject(GitHubOpsService)
+    private readonly githubOps: GitHubOpsService,
   ) {}
 
   /**
@@ -316,6 +324,34 @@ export class AppController {
   }
 
   /**
+   * Loads a tenant version for an admin decision and ensures it is in the status
+   * the decision expects, enforcing `submitted → in_review → approved | rejected`.
+   *
+   * @param tenantName - The partition key / project name of the tenant.
+   * @param version - The row key / version identifier.
+   * @param expectedStatus - The status the version must currently have.
+   * @returns The tenant version record.
+   * @throws NotFoundException when the version record does not exist.
+   * @throws ConflictException when the version is not in `expectedStatus`.
+   */
+  private async getVersionInStatus(
+    tenantName: string,
+    version: string,
+    expectedStatus: TenantStatus,
+  ): Promise<TenantRecord> {
+    const record = await this.tenantStore.getVersion(tenantName, version);
+    if (!record) {
+      throw new NotFoundException('Request not found');
+    }
+    if (record.Status !== expectedStatus) {
+      throw new ConflictException(
+        `Request is '${record.Status}'; this action requires it to be '${expectedStatus}'.`,
+      );
+    }
+    return record;
+  }
+
+  /**
    * Returns the admin dashboard data: all currently pending submissions and the
    * latest version of every tenant in the system. Requires admin access.
    *
@@ -327,7 +363,10 @@ export class AppController {
   async adminDashboard(@Req() request: Request, @Res({ passthrough: true }) response: Response) {
     await this.requireAdmin(request, response);
     return {
-      pending: await this.tenantStore.listByStatus('submitted'),
+      pending: [
+        ...(await this.tenantStore.listByStatus('submitted')),
+        ...(await this.tenantStore.listByStatus('in_review')),
+      ],
       all_tenants: await this.tenantStore.listAllCurrent(),
     };
   }
@@ -360,15 +399,56 @@ export class AppController {
   }
 
   /**
-   * Approves a tenant version, setting its status to `approved` and recording
-   * the reviewing admin's email and any review notes. Requires admin access.
+   * Moves a `submitted` tenant version to `in_review`, recording the reviewing
+   * admin's email and any review notes. Requires admin access.
+   *
+   * @param tenantName - The partition key / project name of the tenant.
+   * @param version - The row key / version identifier to start reviewing.
+   * @param payload - Optional request body containing `review_notes`.
+   * @param request - The incoming HTTP request containing the session cookie.
+   * @param response - The outgoing HTTP response used to refresh the session cookie.
+   * @returns An object with `status: 'in_review'`.
+   * @throws NotFoundException when the version record does not exist.
+   * @throws ConflictException when the version is not `submitted`.
+   */
+  @Post('api/admin/start-review/:tenantName/:version')
+  async startReview(
+    @Param('tenantName') tenantName: string,
+    @Param('version') version: string,
+    @Body() payload: { review_notes?: string } | undefined,
+    @Req() request: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const user = await this.requireAdmin(request, response);
+    await this.getVersionInStatus(tenantName, version, 'submitted');
+    await this.tenantStore.updateStatus(
+      tenantName,
+      version,
+      'in_review',
+      user.email,
+      payload?.review_notes ?? '',
+    );
+    return { status: 'in_review' };
+  }
+
+  /**
+   * Approves an `in_review` tenant version, setting its status to `approved` and
+   * recording the reviewing admin's email and any review notes. Requires admin access.
+   *
+   * When GitHub integration is configured, a pull request with the version's
+   * generated tfvars is opened first; the status only changes once the PR
+   * exists, so a failed approval leaves the request `in_review` and can be
+   * retried. Without GitHub configuration the request is approved as before.
    *
    * @param tenantName - The partition key / project name of the tenant.
    * @param version - The row key / version identifier to approve.
    * @param payload - Optional request body containing `review_notes`.
    * @param request - The incoming HTTP request containing the session cookie.
    * @param response - The outgoing HTTP response used to refresh the session cookie.
-   * @returns An object with `status: 'approved'`.
+   * @returns An object with `status: 'approved'` and the PR URL/number when one was opened.
+   * @throws NotFoundException when the version record does not exist.
+   * @throws ConflictException when the version is not `in_review`.
+   * @throws ServiceUnavailableException when the pull request cannot be opened.
    */
   @Post('api/admin/approve/:tenantName/:version')
   async approveRequest(
@@ -379,19 +459,95 @@ export class AppController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const user = await this.requireAdmin(request, response);
-    await this.tenantStore.updateStatus(
-      tenantName,
-      version,
-      'approved',
-      user.email,
-      payload?.review_notes ?? '',
-    );
-    return { status: 'approved' };
+    const record = await this.getVersionInStatus(tenantName, version, 'in_review');
+
+    const reviewNotes = payload?.review_notes ?? '';
+    const pr = await this.openTenantPr(record, user.email, reviewNotes);
+    await this.tenantStore.updateStatus(tenantName, version, 'approved', user.email, reviewNotes);
+    return { status: 'approved', pr_url: pr?.prUrl ?? null, pr_number: pr?.prNumber ?? null };
   }
 
   /**
-   * Rejects a tenant version, setting its status to `rejected` and recording
-   * the reviewing admin's email and any review notes. Requires admin access.
+   * Opens the GitHub pull request for an approved tenant version and records the
+   * PR metadata on the request. A version that already has a PR keeps it.
+   *
+   * @param record - The tenant version being approved.
+   * @param approvedBy - The email address of the approving admin.
+   * @param reviewNotes - The admin's review notes, included in the PR body.
+   * @returns The PR URL and number, or `null` when GitHub integration is not configured.
+   * @throws ServiceUnavailableException when the pull request cannot be opened.
+   */
+  private async openTenantPr(
+    record: TenantRecord,
+    approvedBy: string,
+    reviewNotes: string,
+  ): Promise<{ prUrl: string; prNumber: number } | null> {
+    if (record.PrUrl && record.PrNumber) {
+      return { prUrl: record.PrUrl, prNumber: record.PrNumber };
+    }
+    if (!this.githubOps.isEnabled()) {
+      this.logger.warn('GitHub integration not configured; approving without opening a PR.');
+      return null;
+    }
+
+    const tenantName = record.PartitionKey;
+    const version = record.RowKey;
+    const form = (record.FormData ?? {}) as Partial<TenantFormData>;
+    const files = Object.entries(record.GeneratedTfvars ?? {}).map(([env, content]) => ({
+      path: `infra-ai-hub/params/${env}/tenants/${tenantName}/tenant.tfvars`,
+      content,
+    }));
+    if (files.length === 0) {
+      throw new ServiceUnavailableException('No generated tfvars found for this request version.');
+    }
+
+    try {
+      const result = await this.githubOps.createTenantPR(
+        {
+          projectName: tenantName,
+          displayName: record.DisplayName,
+          ministry: record.Ministry,
+          department: form.department,
+          submittedBy: record.SubmittedBy,
+          approvedBy,
+          reviewNotes,
+          services: {
+            openai: Boolean(form.openai_enabled),
+            ai_search: Boolean(form.ai_search_enabled),
+            document_intelligence: Boolean(form.document_intelligence_enabled),
+            speech_services: Boolean(form.speech_services_enabled),
+            cosmos_db: Boolean(form.cosmos_db_enabled),
+            storage_account: Boolean(form.storage_account_enabled),
+            key_vault: Boolean(form.key_vault_enabled),
+          },
+          modelFamilies: form.model_families,
+          capacityTier: form.capacity_tier,
+          version,
+        },
+        files,
+      );
+      await this.tenantStore.setPrInfo(
+        tenantName,
+        version,
+        result.prUrl,
+        result.prNumber,
+        result.branch,
+      );
+      return { prUrl: result.prUrl, prNumber: result.prNumber };
+    } catch (error) {
+      this.logger.error(
+        `Failed to open tenant PR for ${tenantName}:${version}`,
+        error instanceof Error ? error.stack : String(error),
+      );
+      throw new ServiceUnavailableException(
+        'Failed to open the GitHub pull request. The request was not approved; please retry.',
+      );
+    }
+  }
+
+  /**
+   * Rejects an `in_review` tenant version, setting its status to `rejected` and
+   * recording the reviewing admin's email and any review notes. Requires admin access.
    *
    * @param tenantName - The partition key / project name of the tenant.
    * @param version - The row key / version identifier to reject.
@@ -399,6 +555,8 @@ export class AppController {
    * @param request - The incoming HTTP request containing the session cookie.
    * @param response - The outgoing HTTP response used to refresh the session cookie.
    * @returns An object with `status: 'rejected'`.
+   * @throws NotFoundException when the version record does not exist.
+   * @throws ConflictException when the version is not `in_review`.
    */
   @Post('api/admin/reject/:tenantName/:version')
   async rejectRequest(
@@ -409,6 +567,7 @@ export class AppController {
     @Res({ passthrough: true }) response: Response,
   ) {
     const user = await this.requireAdmin(request, response);
+    await this.getVersionInStatus(tenantName, version, 'in_review');
     await this.tenantStore.updateStatus(
       tenantName,
       version,

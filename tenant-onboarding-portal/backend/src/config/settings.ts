@@ -136,6 +136,13 @@ export function getSettings(): PortalSettings {
     chesClientId: process.env.PORTAL_CHES_CLIENT_ID ?? '',
     chesClientSecret: process.env.PORTAL_CHES_CLIENT_SECRET ?? '',
     chesFromAddress: process.env.PORTAL_CHES_FROM_ADDRESS ?? '',
+    githubToken: process.env.PORTAL_GITHUB_TOKEN ?? '',
+    githubRepo: (process.env.PORTAL_GITHUB_REPO ?? '').trim(),
+    githubBaseBranch: process.env.PORTAL_GITHUB_BASE_BRANCH || 'main',
+    githubApiUrl: (process.env.PORTAL_GITHUB_API_URL || 'https://api.github.com').replace(
+      /\/+$/,
+      '',
+    ),
   };
   return cachedSettings;
 }

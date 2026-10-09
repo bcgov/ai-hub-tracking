@@ -23,7 +23,9 @@ export default defineConfig({
   webServer: [
     {
       command: "node scripts/start-e2e-dev-server.cjs",
-      url: "http://127.0.0.1:4173",
+      // /healthz goes through the Vite proxy to the backend, so this waits for both
+      // servers; waiting on the Vite root alone races the slower backend start.
+      url: "http://127.0.0.1:4173/healthz",
       timeout: 120_000,
       reuseExistingServer,
     },

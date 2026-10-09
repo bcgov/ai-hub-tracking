@@ -155,6 +155,9 @@ export class TenantStoreService {
       ReviewedBy: '',
       ReviewNotes: '',
       FormVersion: typeof formData.form_version === 'string' ? formData.form_version : '',
+      PrUrl: '',
+      PrNumber: 0,
+      BranchName: '',
       CreatedAt: now,
       UpdatedAt: now,
     };
@@ -258,6 +261,51 @@ export class TenantStoreService {
           `Failed to move ${STATUS_INDEX_TABLE} entry ${tenantName}:${version} from ${oldStatus} → ${status}; index may be stale`,
           error instanceof Error ? error.stack : String(error),
         );
+      }
+    }
+  }
+
+  /**
+   * Persists pull request metadata (URL, number, branch) on an existing request
+   * so the portal UI can link to the PR opened on approval.
+   *
+   * @param tenantName - The tenant partition key.
+   * @param version - The specific version to update (e.g. `'v1'`).
+   * @param prUrl - The HTML URL of the pull request.
+   * @param prNumber - The pull request number.
+   * @param branch - The feature branch backing the pull request.
+   */
+  async setPrInfo(
+    tenantName: string,
+    version: string,
+    prUrl: string,
+    prNumber: number,
+    branch: string,
+  ): Promise<void> {
+    const now = new Date().toISOString();
+    const table = await this.requestsTable();
+    if (table) {
+      try {
+        const entity = await table.getEntity<Record<string, unknown>>(tenantName, version);
+        entity.PrUrl = prUrl;
+        entity.PrNumber = prNumber;
+        entity.BranchName = branch;
+        entity.UpdatedAt = now;
+        await table.upsertEntity(entity as TableEntity<Record<string, unknown>>, 'Replace');
+      } catch (error) {
+        this.logger.error(
+          `Failed to set PR info on ${REQUESTS_TABLE} entity ${tenantName}:${version}`,
+          error instanceof Error ? error.stack : String(error),
+        );
+        throw error;
+      }
+    } else {
+      const entity = this.memory[REQUESTS_TABLE][`${tenantName}:${version}`];
+      if (entity) {
+        entity.PrUrl = prUrl;
+        entity.PrNumber = prNumber;
+        entity.BranchName = branch;
+        entity.UpdatedAt = now;
       }
     }
   }

@@ -8,6 +8,8 @@ import {
   CredentialsPanel,
   InlineMessage,
   Panel,
+  PullRequestLink,
+  StatusBadge,
   SummaryRow,
   TagList,
 } from '../components/ui';
@@ -32,7 +34,7 @@ export function TenantDetailPage() {
 
 /**
  * Fetches tenant detail and form schema in parallel, then renders a summary grid,
- * API credentials, version history, and collapsible Azure-generated tfvars.
+ * API credentials, and version history.
  * @returns The detail page JSX, or an inline error message if loading fails.
  */
 function TenantDetailContent() {
@@ -78,7 +80,6 @@ function TenantDetailContent() {
   }
 
   const formData = normalizeForm(detail.tenant.FormData, schema);
-  const generatedTfvars = detail.tenant.GeneratedTfvars ?? {};
 
   return (
     <div className="stack-lg">
@@ -105,18 +106,17 @@ function TenantDetailContent() {
       <section className="detail-grid">
         <div className="panel stack-md">
           <h3>Request summary</h3>
-          <SummaryRow
-            label="Status"
-            value={
-              <span className={`status-badge status-badge--${detail.tenant.Status}`}>
-                {detail.tenant.Status}
-              </span>
-            }
-          />
+          <SummaryRow label="Status" value={<StatusBadge status={detail.tenant.Status} />} />
           <SummaryRow label="Ministry" value={detail.tenant.Ministry} />
           <SummaryRow label="Department" value={stringValue(formData.department)} />
           <SummaryRow label="Submitted by" value={detail.tenant.SubmittedBy} />
           <SummaryRow label="Created" value={formatDate(detail.tenant.CreatedAt)} />
+          <SummaryRow
+            label="Pull request"
+            value={
+              <PullRequestLink prNumber={detail.tenant.PrNumber} prUrl={detail.tenant.PrUrl} />
+            }
+          />
           <SummaryRow label="Review notes" value={detail.tenant.ReviewNotes || 'No review notes'} />
         </div>
 
@@ -188,9 +188,7 @@ function TenantDetailContent() {
                 <tr key={version.RowKey}>
                   <td>{version.RowKey}</td>
                   <td>
-                    <span className={`status-badge status-badge--${version.Status}`}>
-                      {version.Status}
-                    </span>
+                    <StatusBadge status={version.Status} />
                   </td>
                   <td>{formatDate(version.CreatedAt)}</td>
                   <td>{version.ReviewedBy || 'Not reviewed'}</td>
@@ -199,36 +197,6 @@ function TenantDetailContent() {
             </tbody>
           </table>
         </div>
-      </section>
-
-      <section className="panel stack-md">
-        <details className="detail-disclosure">
-          <summary className="detail-disclosure__summary">
-            <span>Generated tfvars</span>
-            <span className="detail-disclosure__hint">
-              {Object.keys(generatedTfvars).length === 0
-                ? 'No files attached'
-                : `${Object.keys(generatedTfvars).length} environment${
-                    Object.keys(generatedTfvars).length === 1 ? '' : 's'
-                  }`}
-            </span>
-          </summary>
-
-          <div className="stack-md detail-disclosure__content">
-            {Object.keys(generatedTfvars).length === 0 ? (
-              <p className="muted">No generated tfvars were attached to this request.</p>
-            ) : (
-              <div className="stack-md">
-                {Object.entries(generatedTfvars).map(([environment, content]) => (
-                  <div key={environment} className="code-block-wrap">
-                    <div className="code-block__header">{environment}.tfvars</div>
-                    <pre className="code-block">{content}</pre>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </details>
       </section>
     </div>
   );

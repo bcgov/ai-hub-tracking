@@ -88,7 +88,14 @@ export type PortalSettings = {
   chesClientId: string;
   chesClientSecret: string;
   chesFromAddress: string;
+  githubToken: string;
+  githubRepo: string;
+  githubBaseBranch: string;
+  githubApiUrl: string;
 };
+
+/** Review lifecycle of a tenant request version: `submitted → in_review → approved | rejected`. */
+export type TenantStatus = 'submitted' | 'in_review' | 'approved' | 'rejected';
 
 export type TenantRecord = {
   PartitionKey: string;
@@ -102,6 +109,9 @@ export type TenantRecord = {
   ReviewedBy?: string;
   ReviewNotes?: string;
   FormVersion?: string;
+  PrUrl?: string;
+  PrNumber?: number;
+  BranchName?: string;
   CreatedAt: string;
   UpdatedAt?: string;
 };

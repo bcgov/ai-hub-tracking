@@ -26,6 +26,11 @@
 #   PORTAL_OIDC_ADMIN_ROLE           – Keycloak role for admin access
 #   PORTAL_ENABLE_TABLE_RBAC         – true/false
 #   PORTAL_ADMIN_EMAILS              – comma-separated fallback admin emails
+#
+# Optional (GitHub PR on approval — leave unset to approve without a PR):
+#   TF_VAR_GITHUB_TOKEN  (secret)          – token with Contents + Pull requests write
+#   TF_VAR_GITHUB_REPO   (secret/variable) – owner/name of the repo receiving PRs
+#                                            (bcgov/ai-hub-tracking for tools)
 # =============================================================================
 
 name: Deploy Portal
@@ -130,6 +135,10 @@ jobs:
           TF_VAR_oidc_discovery_url: https://loginproxy.gov.bc.ca/auth/realms/standard/.well-known/openid-configuration
           TF_VAR_oidc_client_id: ai-hub-admin-portal-6366
           TF_VAR_oidc_client_secret: ${{ secrets.PORTAL_PROD_OIDC_CLIENT_SECRET }}
+          # GitHub PR on approval — empty values disable it.
+          TF_VAR_github_token: ${{ secrets.TF_VAR_GITHUB_TOKEN }}
+          TF_VAR_github_repo: ${{ secrets.TF_VAR_GITHUB_REPO || vars.TF_VAR_GITHUB_REPO }}
+          TF_VAR_github_base_branch: main
           TF_VAR_hub_keyvault_id_dev: ${{ needs.collect-hub-outputs.outputs.hub_kv_dev_id }}
           TF_VAR_hub_keyvault_id_test: ${{ needs.collect-hub-outputs.outputs.hub_kv_test_id }}
           TF_VAR_hub_keyvault_id_prod: ${{ needs.collect-hub-outputs.outputs.hub_kv_prod_id }}

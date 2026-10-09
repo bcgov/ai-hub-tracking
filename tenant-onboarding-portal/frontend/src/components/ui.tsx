@@ -95,7 +95,7 @@ export function Field({
       <FieldHeader info={info} />
       {children}
       {error ? <span className="field__error">{error}</span> : null}
-      <span className="field__help">{info.description}</span>
+      {info.description ? <span className="field__help">{info.description}</span> : null}
     </label>
   );
 }
@@ -262,6 +262,44 @@ export function SummaryRow({ label, value }: { label: string; value: ReactNode }
       <span className="summary-row__label">{label}</span>
       <span className="summary-row__value">{value}</span>
     </div>
+  );
+}
+
+/**
+ * Renders a link to the GitHub pull request opened when a tenant version was approved.
+ * @param prUrl - The pull request URL, if one has been opened.
+ * @param prNumber - The pull request number, used for the link text.
+ * @returns An external link, or `Not created` when no PR exists.
+ */
+export function PullRequestLink({ prUrl, prNumber }: { prUrl?: string; prNumber?: number }) {
+  if (!prUrl) {
+    return <>Not created</>;
+  }
+
+  return (
+    <a className="text-link" href={prUrl} rel="noreferrer" target="_blank">
+      {prNumber ? `PR #${prNumber}` : 'View pull request'}
+    </a>
+  );
+}
+
+const STATUS_LABELS: Record<string, string> = {
+  submitted: 'Submitted',
+  in_review: 'In Review',
+  approved: 'Approved',
+  rejected: 'Rejected',
+};
+
+/**
+ * Renders a tenant request status as a coloured badge with a human-readable label.
+ * @param status - The raw status value (e.g. `in_review`); unknown values render as-is.
+ * @returns A `<span>` badge styled for the status.
+ */
+export function StatusBadge({ status }: { status: string }) {
+  return (
+    <span className={`status-badge status-badge--${status}`}>
+      {STATUS_LABELS[status] ?? status}
+    </span>
   );
 }
 

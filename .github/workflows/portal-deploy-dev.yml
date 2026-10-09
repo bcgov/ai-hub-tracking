@@ -37,6 +37,11 @@
 # Optional variables:
 #   PORTAL_OIDC_ADMIN_ROLE            – Keycloak role granting admin access
 #   PORTAL_ADMIN_EMAILS               – comma-separated fallback admin emails
+#
+# Optional (GitHub PR on approval — leave unset to approve without a PR):
+#   TF_VAR_GITHUB_TOKEN  (secret)          – token with Contents + Pull requests write
+#   TF_VAR_GITHUB_REPO   (secret/variable) – owner/name of the repo receiving PRs
+#                                            (a personal fork for dev testing)
 # =============================================================================
 
 name: Deploy Portal (dev)
@@ -151,6 +156,10 @@ jobs:
           TF_VAR_oidc_client_secret: ${{ secrets.PORTAL_NONPROD_OIDC_CLIENT_SECRET }}
           TF_VAR_oidc_admin_role: ${{ vars.PORTAL_OIDC_ADMIN_ROLE || 'ai-hub-onboarding-portal-admin' }}
           TF_VAR_admin_emails: ${{ vars.PORTAL_ADMIN_EMAILS }}
+          # GitHub PR on approval — empty values disable it.
+          TF_VAR_github_token: ${{ secrets.TF_VAR_GITHUB_TOKEN }}
+          TF_VAR_github_repo: ${{ secrets.TF_VAR_GITHUB_REPO || vars.TF_VAR_GITHUB_REPO }}
+          TF_VAR_github_base_branch: main
           # Dev hub only — see the scope note in this file's header.
           TF_VAR_hub_keyvault_id_dev: ${{ steps.hub.outputs.hub_kv_id }}
           TF_VAR_hub_keyvault_url_dev: ${{ steps.hub.outputs.hub_kv_url }}
