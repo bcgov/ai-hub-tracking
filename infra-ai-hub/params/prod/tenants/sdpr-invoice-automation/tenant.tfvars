@@ -96,7 +96,8 @@ tenant = {
     # Capacity = 1% of regional quota limit per model
     # Quota limits: gpt-4.1=30k, gpt-4.1-mini=150k, gpt-4.1-nano=150k,
     #   gpt-4o=30k, gpt-4o-mini=150k, gpt-5-mini=10k, gpt-5-nano=150k,
-    #   gpt-5.1-chat=5k, gpt-5.1-codex-mini=10k, o4-mini=10k,
+    #   gpt-5.1-chat=5k, gpt-5.1-codex-mini=10k, gpt-5.4=10k,
+    #   gpt-5.6-luna/sol/terra=10k each, o4-mini=10k,
     #   text-embedding-ada-002=10k, text-embedding-3-large=10k,
     #   text-embedding-3-small=10k
     model_deployments = [
@@ -167,6 +168,37 @@ tenant = {
         scale_type    = "GlobalStandard"
         capacity      = 100 # 1% of 10,000
       },
+      # GPT-5.4
+      {
+        name          = "gpt-5.4"
+        model_name    = "gpt-5.4"
+        model_version = "2026-03-05"
+        scale_type    = "GlobalStandard"
+        capacity      = 100 # 1% of 10,000 (verified Canada East quota)
+      },
+      # GPT-5.6 Series — gpt-5.6 is not deployable by that name; the catalog offers
+      # three variants, each with its own 10,000 TPM GlobalStandard quota.
+      {
+        name          = "gpt-5.6-luna"
+        model_name    = "gpt-5.6-luna"
+        model_version = "2026-07-09"
+        scale_type    = "GlobalStandard"
+        capacity      = 100 # 1% of 10,000
+      },
+      {
+        name          = "gpt-5.6-sol"
+        model_name    = "gpt-5.6-sol"
+        model_version = "2026-07-09"
+        scale_type    = "GlobalStandard"
+        capacity      = 100 # 1% of 10,000
+      },
+      {
+        name          = "gpt-5.6-terra"
+        model_name    = "gpt-5.6-terra"
+        model_version = "2026-07-09"
+        scale_type    = "GlobalStandard"
+        capacity      = 100 # 1% of 10,000
+      },
       # Reasoning Models
       {
         name          = "o4-mini"
@@ -196,6 +228,15 @@ tenant = {
         model_version = "1"
         scale_type    = "GlobalStandard"
         capacity      = 100 # 1% of 10,000
+      },
+      # Mistral Document AI (format auto-detected as "Mistral AI" via model_format_prefixes in foundry stack)
+      # MaaS serverless (pay-per-token). mistral-document-ai-2505 is retired (2026-07-20).
+      {
+        name          = "mistral-document-ai-2512"
+        model_name    = "mistral-document-ai-2512"
+        model_version = "1"
+        scale_type    = "GlobalStandard"
+        capacity      = 1 # minimal allocation until document-model quota targets are defined
       },
     ]
   }
