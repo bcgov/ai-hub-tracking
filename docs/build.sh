@@ -13,8 +13,12 @@ CURRENT_YEAR=$(date +%Y)
 CURRENT_MONTH=$(date +%Y-%m)
 CURRENT_DATE=$(date +%Y-%m-%d)
 
+# Onboarding portal link in the "For Tenants" nav; override via PORTAL_URL env var
+PORTAL_URL="${PORTAL_URL:-https://ai-hub-onboarding.azurewebsites.net}"
+
 echo "Building documentation pages..."
 echo "  Date: $CURRENT_DATE"
+echo "  Portal URL: $PORTAL_URL"
 
 # Process each page in _pages directory
 for page in "$PAGES_DIR"/*.html; do
@@ -45,6 +49,8 @@ for page in "$PAGES_DIR"/*.html; do
 
         # Replace template variables in header
         header="${header//\{\{PAGE_TITLE\}\}/$page_title}"
+        # Quoted replacement so '&' in a URL is not expanded (bash 5.2 patsub_replacement)
+        header="${header//\{\{PORTAL_URL\}\}/"$PORTAL_URL"}"
 
         # Set active nav item FIRST (before clearing, so the active class survives)
         if [ -n "$nav_active" ]; then
