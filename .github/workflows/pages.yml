@@ -40,6 +40,9 @@ jobs:
           ./generate-tf-docs.sh
 
       - name: Build documentation
+        env:
+          # Optional repo variable; build.sh falls back to the default portal URL when unset
+          PORTAL_URL: ${{ vars.ONBOARDING_PORTAL_URL }}
         run: |
           cd docs
           chmod +x build.sh

@@ -78,72 +78,75 @@ tenant = {
     sku     = "S0"
     model_deployments = [
       {
-        name          = "text-embedding-ada-002"
-        model_name    = "text-embedding-ada-002"
-        model_version = "2"
-        scale_type    = "GlobalStandard"
-        capacity      = 100
-      },
-      {
-        name          = "text-embedding-3-large"
-        model_name    = "text-embedding-3-large"
-        model_version = "1"
-        scale_type    = "GlobalStandard"
-        capacity      = 100
-      },
-      {
-        name          = "text-embedding-3-small"
-        model_name    = "text-embedding-3-small"
-        model_version = "1"
-        scale_type    = "GlobalStandard"
-        capacity      = 100
-      },
-      {
-        name          = "gpt-4o"
-        model_name    = "gpt-4o"
-        model_version = "2024-11-20"
-        scale_type    = "GlobalStandard"
-        capacity      = 300
+        name           = "text-embedding-ada-002"
+        model_name     = "text-embedding-ada-002"
+        model_version  = "2"
+        scale_type     = "GlobalStandard"
+        capacity       = 100
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "gpt-4o-mini"
-        model_name    = "gpt-4o-mini"
-        model_version = "2024-07-18"
-        scale_type    = "GlobalStandard"
-        capacity      = 1500
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },      
-      {
-        name          = "gpt-5-mini"
-        model_name    = "gpt-5-mini"
-        model_version = "2025-08-07"
-        scale_type    = "GlobalStandard"
-        capacity      = 100
+        name           = "text-embedding-3-large"
+        model_name     = "text-embedding-3-large"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 100
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "gpt-5-nano"
-        model_name    = "gpt-5-nano"
-        model_version = "2025-08-07"
-        scale_type    = "GlobalStandard"
-        capacity      = 1500
+        name           = "text-embedding-3-small"
+        model_name     = "text-embedding-3-small"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 100
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "gpt-5.1"
-        model_name    = "gpt-5.1"
-        model_version = "2025-11-13"
-        scale_type    = "GlobalStandard"
-        capacity      = 300 # 1% of 30,000
+        name           = "gpt-4o"
+        model_name     = "gpt-4o"
+        model_version  = "2024-11-20"
+        scale_type     = "GlobalStandard"
+        capacity       = 300
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "gpt-5.1-codex-mini"
-        model_name    = "gpt-5.1-codex-mini"
-        model_version = "2025-11-13"
-        scale_type    = "GlobalStandard"
-        capacity      = 100
+        name           = "gpt-4o-mini"
+        model_name     = "gpt-4o-mini"
+        model_version  = "2024-07-18"
+        scale_type     = "GlobalStandard"
+        capacity       = 1500
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+      {
+        name           = "gpt-5-mini"
+        model_name     = "gpt-5-mini"
+        model_version  = "2025-08-07"
+        scale_type     = "GlobalStandard"
+        capacity       = 100
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+      {
+        name           = "gpt-5-nano"
+        model_name     = "gpt-5-nano"
+        model_version  = "2025-08-07"
+        scale_type     = "GlobalStandard"
+        capacity       = 1500
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+      {
+        name           = "gpt-5.1"
+        model_name     = "gpt-5.1"
+        model_version  = "2025-11-13"
+        scale_type     = "GlobalStandard"
+        capacity       = 300 # 1% of 30,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+      {
+        name           = "gpt-5.1-codex-mini"
+        model_name     = "gpt-5.1-codex-mini"
+        model_version  = "2025-11-13"
+        scale_type     = "GlobalStandard"
+        capacity       = 100
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
     ]
@@ -172,8 +175,8 @@ tenant = {
 
   apim_policies = {
     pii_redaction = {
-      enabled     = true
-      fail_closed = false
+      enabled             = true
+      fail_closed         = false
       excluded_categories = []
     }
     usage_logging = {

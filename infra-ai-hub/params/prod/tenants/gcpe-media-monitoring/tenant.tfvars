@@ -98,7 +98,7 @@ tenant = {
     # Capacity = 1% of regional quota limit per model
     # Quota limits: gpt-4.1=30k, gpt-4.1-mini=150k, gpt-4.1-nano=150k,
     #   gpt-4o=30k, gpt-4o-mini=150k, gpt-5-mini=10k, gpt-5-nano=150k,
-    #   gpt-5.1-chat=5k, gpt-5.1-codex-mini=10k, o4-mini=10k,
+    #   gpt-5.1-codex-mini=10k, o4-mini=10k,
     #   text-embedding-ada-002=10k, text-embedding-3-large=10k,
     #   text-embedding-3-small=10k
     model_deployments = [
@@ -247,26 +247,6 @@ tenant = {
       },
       # GPT-5.1 Series
       {
-        name          = "gpt-5.1-chat"
-        model_name    = "gpt-5.1-chat"
-        model_version = "2025-11-13"
-        scale_type    = "GlobalStandard"
-        capacity      = 50 # 1% of 5,000
-        content_filter = {
-          base_policy_name = "Microsoft.DefaultV2"
-          filters = [
-            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
-            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
-            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
-            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
-            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
-          ]
-        }
-      },
-      {
         name          = "gpt-5.1-codex-mini"
         model_name    = "gpt-5.1-codex-mini"
         model_version = "2025-11-13"
@@ -309,25 +289,28 @@ tenant = {
       },
       # Embeddings
       {
-        name          = "text-embedding-ada-002"
-        model_name    = "text-embedding-ada-002"
-        model_version = "2"
-        scale_type    = "GlobalStandard"
-        capacity      = 100 # 1% of 10,000
+        name           = "text-embedding-ada-002"
+        model_name     = "text-embedding-ada-002"
+        model_version  = "2"
+        scale_type     = "GlobalStandard"
+        capacity       = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "text-embedding-3-large"
-        model_name    = "text-embedding-3-large"
-        model_version = "1"
-        scale_type    = "GlobalStandard"
-        capacity      = 100 # 1% of 10,000
+        name           = "text-embedding-3-large"
+        model_name     = "text-embedding-3-large"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name          = "text-embedding-3-small"
-        model_name    = "text-embedding-3-small"
-        model_version = "1"
-        scale_type    = "GlobalStandard"
-        capacity      = 100 # 1% of 10,000
+        name           = "text-embedding-3-small"
+        model_name     = "text-embedding-3-small"
+        model_version  = "1"
+        scale_type     = "GlobalStandard"
+        capacity       = 100 # 1% of 10,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
     ]
   }
