@@ -51,8 +51,13 @@ shared_config = {
     publisher_name  = "AI Hub Production"
     publisher_email = "ai-hub-prod@example.com"
 
-    # VNet injection for Premium v2 (enhanced security)
-    vnet_injection_enabled = false
+    # Disable public network access - all inbound traffic via private endpoint only
+    # App Gateway connects to APIM through PE (FQDN resolves via private DNS zone)
+    public_network_access_enabled = false
+
+    # VNet integration required for outbound connectivity to private backends
+    # Backend services (OpenAI, DocInt, etc.) have public network access disabled
+    vnet_injection_enabled = true
     subnet_name            = "apim-subnet"
     subnet_prefix_length   = 27
 
