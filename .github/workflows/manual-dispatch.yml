@@ -57,10 +57,13 @@ jobs:
         if: inputs.deploy_tag != ''
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.deploy_tag }}
+          REPO: ${{ github.repository }}
         run: |
-          if ! git ls-remote --tags origin "refs/tags/${{ inputs.deploy_tag }}" | grep -q "${{ inputs.deploy_tag }}"; then
-            echo "::error::Tag '${{ inputs.deploy_tag }}' not found in remote. Available version tags:"
-            git ls-remote --tags origin 'refs/tags/v*' | tail -10
+          # No checkout in this job, so query the API rather than `git ls-remote origin`
+          if ! gh api "repos/${REPO}/git/ref/tags/${TAG}" --silent 2>/dev/null; then
+            echo "::error::Tag '${TAG}' not found in remote. Available version tags:"
+            gh api "repos/${REPO}/tags?per_page=10" --jq '.[].name'
             exit 1
           fi
 
