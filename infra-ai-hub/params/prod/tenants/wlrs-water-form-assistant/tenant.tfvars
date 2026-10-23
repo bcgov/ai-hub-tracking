@@ -32,6 +32,11 @@ tenant = {
     account_replication_type = "LRS"
     account_kind             = "StorageV2"
     access_tier              = "Hot"
+    diagnostics = {
+      log_groups        = []
+      log_categories    = []
+      metric_categories = ["Capacity", "Transaction"]
+    }
   }
 
   ai_search = {
@@ -53,17 +58,40 @@ tenant = {
     geo_redundant_backup_enabled = false
     automatic_failover_enabled   = false
     total_throughput_limit       = 1000
+    database_name                = "default"
+    container_name               = "cosmosContainer"
   }
 
   document_intelligence = {
     enabled = true
     sku     = "S0"
     kind    = "FormRecognizer"
+    diagnostics = {
+      log_groups        = ["allLogs"]
+      log_categories    = []
+      metric_categories = ["AllMetrics"]
+    }
+  }
+
+  # Speech Services - MUST be present even if disabled (map(any) type constraint)
+  speech_services = {
+    enabled = false
+  }
+
+  log_analytics = {
+    enabled        = true
+    retention_days = 90
+    sku            = "PerGB2018"
   }
 
   openai = {
     enabled = true
     sku     = "S0"
+    diagnostics = {
+      log_groups        = ["allLogs"]
+      log_categories    = []
+      metric_categories = ["AllMetrics"]
+    }
     # Capacity = 1% of regional quota limit per model
     # Quota limits: gpt-4.1=30k, gpt-4.1-mini=150k, gpt-4.1-nano=150k,
     #   gpt-4o=30k, gpt-4o-mini=150k, gpt-5-mini=10k, gpt-5-nano=150k,
@@ -182,6 +210,36 @@ tenant = {
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
     ]
+  }
+
+  apim_policies = {
+    rate_limiting = {
+      enabled           = true
+      tokens_per_minute = 1000
+    }
+    pii_redaction = {
+      enabled             = true                                                      # Redact emails, phone numbers, addresses, etc.
+      fail_closed         = false                                                     # Fail-open: allow requests through if PII service fails
+      excluded_categories = ["PersonType", "URL", "Organization", "Location", "City"] # Do not redact these PII categories for WLRS
+    }
+    usage_logging = {
+      enabled = true # Log AI model token usage
+    }
+    streaming_metrics = {
+      enabled = true # Emit metrics for streaming requests
+    }
+    tracking_dimensions = {
+      enabled = true # Extract tracking headers for analytics
+    }
+    intelligent_routing = {
+      enabled = false # Disabled until multi-backend setup
+    }
+  }
+
+  # Per-tenant APIM Diagnostics - logs go to tenant's own LAW
+  apim_diagnostics = {
+    sampling_percentage = 100
+    verbosity           = "information"
   }
 
   # APIM Authentication

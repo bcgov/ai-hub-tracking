@@ -33,6 +33,11 @@ tenant = {
     account_replication_type = "LRS"
     account_kind             = "StorageV2"
     access_tier              = "Hot"
+    diagnostics = {
+      log_groups        = []
+      log_categories    = []
+      metric_categories = ["Capacity", "Transaction"]
+    }
   }
 
   ai_search = {
@@ -54,12 +59,19 @@ tenant = {
     geo_redundant_backup_enabled = false
     automatic_failover_enabled   = false
     total_throughput_limit       = 1000
+    database_name                = "default"
+    container_name               = "cosmosContainer"
   }
 
   document_intelligence = {
     enabled = true
     sku     = "S0"
     kind    = "FormRecognizer"
+    diagnostics = {
+      log_groups        = ["allLogs"]
+      log_categories    = []
+      metric_categories = ["AllMetrics"]
+    }
   }
 
   # Speech Services - MUST be present even if disabled (map(any) type constraint)
@@ -76,6 +88,11 @@ tenant = {
   openai = {
     enabled = true
     sku     = "S0"
+    diagnostics = {
+      log_groups        = ["allLogs"]
+      log_categories    = []
+      metric_categories = ["AllMetrics"]
+    }
     model_deployments = [
       {
         name           = "text-embedding-ada-002"
@@ -173,7 +190,17 @@ tenant = {
     }
   }
 
+  # APIM Authentication
+  apim_auth = {
+    mode                 = "subscription_key"
+    key_rotation_enabled = false # Per-tenant opt-in for APIM key rotation
+  }
+
   apim_policies = {
+    rate_limiting = {
+      enabled           = true
+      tokens_per_minute = 1000
+    }
     pii_redaction = {
       enabled             = true
       fail_closed         = false
@@ -181,9 +208,6 @@ tenant = {
     }
     usage_logging = {
       enabled = true
-    }
-    custom_rai_filters = {
-      enabled = false
     }
     streaming_metrics = {
       enabled = true
