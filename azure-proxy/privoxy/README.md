@@ -56,7 +56,7 @@ docker run --rm -d --name privoxy \
   -p 127.0.0.1:8118:8118 \
   -e SOCKS_HOST=host.docker.internal \
   -e SOCKS_PORT=8228 \
-  ghcr.io/bcgov/ai-hub-tracking/azure-proxy/privoxy:latest
+  ghcr.io/bcgov/ai-services-hub/azure-proxy/privoxy:latest
 ```
 
 Or use the repo's [`docker-compose.yml`](../../docker-compose.yml): `docker compose up -d`.

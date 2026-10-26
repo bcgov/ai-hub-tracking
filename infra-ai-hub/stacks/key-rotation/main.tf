@@ -65,7 +65,7 @@ module "key_rotation" {
 
   # Container image from GHCR
   container_registry_url = lookup(local.key_rotation_config, "container_registry_url", "ghcr.io")
-  container_image_name   = lookup(local.key_rotation_config, "container_image_name", "bcgov/ai-hub-tracking/jobs/apim-key-rotation")
+  container_image_name   = lookup(local.key_rotation_config, "container_image_name", "bcgov/ai-services-hub/jobs/apim-key-rotation")
   container_image_tag    = var.container_image_tag_job_key_rotation != "" ? var.container_image_tag_job_key_rotation : lookup(local.key_rotation_config, "container_image_tag", "latest")
 
   # Container resources

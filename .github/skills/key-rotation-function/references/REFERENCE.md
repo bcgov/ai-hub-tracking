@@ -162,7 +162,7 @@ Stage 2: runtime (python:3.13-slim-bookworm)
 2. Triggers on changes to `jobs/apim-key-rotation/` or the workflow file itself
 3. Called from `pr-open.yml` on PRs
 
-Image path: `ghcr.io/<org>/ai-hub-tracking/jobs/apim-key-rotation:<tag>`
+Image path: `ghcr.io/<org>/ai-services-hub/jobs/apim-key-rotation:<tag>`
 
 ---
 

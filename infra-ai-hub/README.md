@@ -1526,7 +1526,7 @@ docker run --rm -d --name privoxy \
   --network host \
   -e SOCKS_HOST=127.0.0.1 \
   -e SOCKS_PORT=8228 \
-  ghcr.io/bcgov/ai-hub-tracking/azure-proxy/privoxy:latest
+  ghcr.io/bcgov/ai-services-hub/azure-proxy/privoxy:latest
 ```
 
 **Command breakdown**:

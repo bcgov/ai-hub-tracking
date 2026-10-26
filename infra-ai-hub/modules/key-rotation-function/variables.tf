@@ -49,7 +49,7 @@ variable "container_registry_url" {
 }
 
 variable "container_image_name" {
-  description = "Container image name (e.g., bcgov/ai-hub-tracking/apim-key-rotation)"
+  description = "Container image name (e.g., bcgov/ai-services-hub/apim-key-rotation)"
   type        = string
 }
 

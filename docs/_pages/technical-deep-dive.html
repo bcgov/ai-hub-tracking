@@ -284,7 +284,7 @@ az network bastion ssh \
 <p>Terraform and the Azure CLI speak to an HTTP proxy; privoxy forwards that to the Bastion SOCKS5 proxy with <code>forward-socks5t</code> (remote DNS, so private-endpoint hostnames resolve on the jumpbox side):</p>
 <pre><code>docker run -d --name privoxy --network host \
   -e SOCKS_HOST=127.0.0.1 -e SOCKS_PORT=1080 \
-  ghcr.io/&lt;org&gt;/ai-hub-tracking/azure-proxy/privoxy:latest
+  ghcr.io/&lt;org&gt;/ai-services-hub/azure-proxy/privoxy:latest
 
 # Terraform / az then use:
 export HTTP_PROXY=http://127.0.0.1:8118

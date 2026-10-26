@@ -20,7 +20,7 @@ variable "container_registry_url" {
 }
 
 variable "container_image_name" {
-  description = "Full image name within the registry (e.g. 'bcgov/ai-hub-tracking/jobs/pii-redaction-service')."
+  description = "Full image name within the registry (e.g. 'bcgov/ai-services-hub/jobs/pii-redaction-service')."
   type        = string
 }
 

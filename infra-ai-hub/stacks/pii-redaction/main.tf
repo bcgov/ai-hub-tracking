@@ -24,7 +24,7 @@ module "pii_redaction_service" {
   language_service_id          = data.terraform_remote_state.shared.outputs.language_service_id
 
   container_registry_url     = lookup(local.pii_redaction_config, "container_registry_url", "ghcr.io")
-  container_image_name       = lookup(local.pii_redaction_config, "container_image_name", "bcgov/ai-hub-tracking/pii-redaction-service")
+  container_image_name       = lookup(local.pii_redaction_config, "container_image_name", "bcgov/ai-services-hub/pii-redaction-service")
   container_image_tag        = var.container_image_tag_svc_pii_redaction != "" ? var.container_image_tag_svc_pii_redaction : lookup(local.pii_redaction_config, "container_image_tag", "latest")
   language_api_version       = var.language_api_version
   per_batch_timeout_seconds  = lookup(local.pii_redaction_config, "per_batch_timeout_seconds", 10)

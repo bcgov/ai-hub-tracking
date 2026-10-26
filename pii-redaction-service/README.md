@@ -173,7 +173,7 @@ Redacts PII from chat messages and returns the modified body.
 
 ## Container image
 
-Built via `.github/workflows/.builds.yml` and pushed to `ghcr.io/bcgov/ai-hub-tracking/pii-redaction-service`.
+Built via `.github/workflows/.builds.yml` and pushed to `ghcr.io/bcgov/ai-services-hub/pii-redaction-service`.
 
 Deployed as a Container App (HTTP-triggered, internal ingress only) in the shared Container App Environment.
 

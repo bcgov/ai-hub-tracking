@@ -4,7 +4,7 @@
 # Usage: open-bastion-tunnel.sh --privoxy-image <image>
 #
 #   --privoxy-image <image>   Full image ref for the privoxy container
-#                             e.g. ghcr.io/bcgov/ai-hub-tracking/azure-proxy/privoxy:latest
+#                             e.g. ghcr.io/bcgov/ai-services-hub/azure-proxy/privoxy:latest
 #
 # Reads env vars:
 #   BASTION_RESOURCE_GROUP   resource group containing bastion + jumpbox (from constants.sh).

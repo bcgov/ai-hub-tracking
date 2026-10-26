@@ -6,7 +6,7 @@
 # 3. Point tools at http://127.0.0.1:8118  (see azure-proxy/privoxy/README.md).
 services:
   privoxy:
-    image: ghcr.io/bcgov/ai-hub-tracking/azure-proxy/privoxy:latest
+    image: ghcr.io/bcgov/ai-services-hub/azure-proxy/privoxy:latest
     container_name: privoxy
     ports:
       - "0.0.0.0:8118:8118"
