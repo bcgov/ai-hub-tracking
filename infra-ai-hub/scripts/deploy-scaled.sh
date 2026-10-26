@@ -127,6 +127,9 @@ extract_import_target_from_tf_output() {
 tf_import_existing_resource_if_needed() {
   local tf_output_file="$1"
 
+  # Only auto-import on genuine "already exists" errors; other failures must surface as-is
+  grep -q "already exists" "$tf_output_file" 2>/dev/null || return 1
+
   local import_tf_args=()
   local arg
   for arg in "${CURRENT_IMPORT_ARGS[@]}"; do
@@ -203,7 +206,8 @@ tf_import_existing_resource_if_needed() {
         }
 
         id = extract_id(line)
-        if (id != "") {
+        # Only Azure resource IDs are importable; skip quoted error text (e.g. "(403) Forbidden")
+        if (id != "" && id ~ /^\/subscriptions\//) {
           pending_id = id
         }
 
@@ -358,6 +362,20 @@ tf_request_conflict_retry_if_needed() {
   return 1
 }
 
+tf_cae_restarting_retry_if_needed() {
+  local tf_output_file="$1"
+
+  # An idle Container Apps environment is stopped by Azure; the first call wakes
+  # it and returns 409 ContainerAppEnvironmentDisabled ("retry in ~5 minutes").
+  if grep -qiE 'ContainerAppEnvironmentDisabled' "$tf_output_file" 2>/dev/null; then
+    log_warning "Detected Container Apps environment restarting after inactivity; waiting 5 min before retry"
+    sleep 300
+    return 0
+  fi
+
+  return 1
+}
+
 tf_apim_validation_error_retry_if_needed() {
   local tf_output_file="$1"
 
@@ -456,6 +474,8 @@ run_terraform_with_retries() {
     elif tf_request_conflict_retry_if_needed "$tf_output_file"; then
       handled=true
     elif tf_transient_connection_retry_if_needed "$tf_output_file"; then
+      handled=true
+    elif tf_cae_restarting_retry_if_needed "$tf_output_file"; then
       handled=true
     elif [[ "$command" == "apply" ]] && tf_apim_validation_error_retry_if_needed "$tf_output_file"; then
       handled=true
