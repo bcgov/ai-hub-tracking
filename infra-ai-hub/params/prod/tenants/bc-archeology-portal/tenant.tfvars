@@ -128,14 +128,6 @@ tenant = {
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {
-        name           = "gpt-4o-mini"
-        model_name     = "gpt-4o-mini"
-        model_version  = "2024-07-18"
-        scale_type     = "GlobalStandard"
-        capacity       = 1500
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
-      {
         name           = "text-embedding-ada-002"
         model_name     = "text-embedding-ada-002"
         model_version  = "2"
