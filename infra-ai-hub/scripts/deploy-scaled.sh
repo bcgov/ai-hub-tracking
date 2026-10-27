@@ -190,31 +190,54 @@ tf_import_existing_resource_if_needed() {
           return trim(s)
         }
 
+        # azapi wraps the ID onto its own line: "/subscriptions/..."
+        if (match(line, /"\/subscriptions\/[^"]+"/)) {
+          s = substr(line, RSTART + 1, RLENGTH - 2)
+          return trim(s)
+        }
+
         return ""
       }
 
       BEGIN {
         pending_id = ""
+        pending_addr = ""
+        in_exists = 0
       }
 
       {
         gsub(/\r/, "", $0)
         line = $0
 
-        if (line ~ /already exists/) {
+        # Each "Error:" starts a new diagnostic; never pair an address/ID across diagnostics
+        if (line ~ /Error:/) {
+          pending_id = ""
+          pending_addr = ""
+          in_exists = (line ~ /already exists/)
+        } else if (line ~ /already exists/) {
           pending_id = ""
         }
 
         id = extract_id(line)
         # Only Azure resource IDs are importable; skip quoted error text (e.g. "(403) Forbidden")
         if (id != "" && id ~ /^\/subscriptions\//) {
+          # azapi order: "with <addr>," comes before the ID
+          if (pending_addr != "") {
+            print pending_addr "\t" id
+            pending_addr = ""
+            next
+          }
           pending_id = id
         }
 
         addr = extract_addr(line)
-        if (addr != "" && pending_id != "") {
-          print addr "\t" pending_id
-          pending_id = ""
+        if (addr != "") {
+          if (pending_id != "") {
+            print addr "\t" pending_id
+            pending_id = ""
+          } else if (in_exists) {
+            pending_addr = addr
+          }
         }
       }
     ' "$tf_output_file"
