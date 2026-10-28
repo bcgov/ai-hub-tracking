@@ -135,14 +135,6 @@ tenant = {
         capacity       = 300 # 1% of 30,000
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
-      {
-        name           = "gpt-4o-mini"
-        model_name     = "gpt-4o-mini"
-        model_version  = "2024-07-18"
-        scale_type     = "GlobalStandard"
-        capacity       = 1500 # 1% of 150,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
       # GPT-5 Series
       {
         name           = "gpt-5-mini"
@@ -200,15 +192,6 @@ tenant = {
         name           = "gpt-5.6-terra"
         model_name     = "gpt-5.6-terra"
         model_version  = "2026-07-09"
-        scale_type     = "GlobalStandard"
-        capacity       = 100 # 1% of 10,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
-      # Reasoning Models
-      {
-        name           = "o4-mini"
-        model_name     = "o4-mini"
-        model_version  = "2025-04-16"
         scale_type     = "GlobalStandard"
         capacity       = 100 # 1% of 10,000
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }

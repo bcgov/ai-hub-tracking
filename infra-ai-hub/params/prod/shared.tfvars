@@ -53,6 +53,7 @@ shared_config = {
 
     # Disable public network access - all inbound traffic via private endpoint only
     # App Gateway connects to APIM through PE (FQDN resolves via private DNS zone)
+    # NOTE: Azure rejects creating APIM with public access disabled; a fresh prod build must apply with true first
     public_network_access_enabled = false
 
     # VNet integration required for outbound connectivity to private backends

@@ -108,6 +108,7 @@ jobs:
       # Prod uses the semver-tagged image; dev/test use latest
       tag: ${{ inputs.environment == 'prod' && inputs.deploy_tag != '' && inputs.deploy_tag || 'latest' }}
       terraform_log_level: ${{ inputs.terraform_log_level }}
+      timeout-minutes: 180
     secrets: inherit
 
   create-prod-release:
