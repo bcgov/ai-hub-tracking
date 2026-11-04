@@ -98,7 +98,7 @@ tenant = {
     # Capacity = 1% of regional quota limit per model
     # Quota limits: gpt-4.1=30k, gpt-4.1-mini=150k, gpt-4.1-nano=150k,
     #   gpt-4o=30k, gpt-4o-mini=150k, gpt-5-mini=10k, gpt-5-nano=150k,
-    #   gpt-5.1-codex-mini=10k, o4-mini=10k,
+    #   gpt-5.1-codex-mini=10k, gpt-5.4=10k, gpt-5.6-luna/sol/terra=10k each, o4-mini=10k,
     #   text-embedding-ada-002=10k, text-embedding-3-large=10k,
     #   text-embedding-3-small=10k
     model_deployments = [
@@ -230,6 +230,89 @@ tenant = {
         name          = "gpt-5.1-codex-mini"
         model_name    = "gpt-5.1-codex-mini"
         model_version = "2025-11-13"
+        scale_type    = "GlobalStandard"
+        capacity      = 100 # 1% of 10,000
+        content_filter = {
+          base_policy_name = "Microsoft.DefaultV2"
+          filters = [
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+          ]
+        }
+      },
+      # GPT-5.4 Series
+      {
+        name          = "gpt-5.4"
+        model_name    = "gpt-5.4"
+        model_version = "2026-03-05"
+        scale_type    = "GlobalStandard"
+        capacity      = 100 # 1% of 10,000 (verified Canada East quota)
+        content_filter = {
+          base_policy_name = "Microsoft.DefaultV2"
+          filters = [
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+          ]
+        }
+      },
+      # GPT-5.6 Series — gpt-5.6 is not deployable by that name; the catalog offers
+      # three variants, each with its own 10,000 TPM GlobalStandard quota.
+      {
+        name          = "gpt-5.6-luna"
+        model_name    = "gpt-5.6-luna"
+        model_version = "2026-07-09"
+        scale_type    = "GlobalStandard"
+        capacity      = 100 # 1% of 10,000
+        content_filter = {
+          base_policy_name = "Microsoft.DefaultV2"
+          filters = [
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+          ]
+        }
+      },
+      {
+        name          = "gpt-5.6-sol"
+        model_name    = "gpt-5.6-sol"
+        model_version = "2026-07-09"
+        scale_type    = "GlobalStandard"
+        capacity      = 100 # 1% of 10,000
+        content_filter = {
+          base_policy_name = "Microsoft.DefaultV2"
+          filters = [
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "hate", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "violence", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "sexual", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Prompt" },
+            { name = "selfharm", severity_threshold = "High", blocking = true, enabled = true, source = "Completion" },
+          ]
+        }
+      },
+      {
+        name          = "gpt-5.6-terra"
+        model_name    = "gpt-5.6-terra"
+        model_version = "2026-07-09"
         scale_type    = "GlobalStandard"
         capacity      = 100 # 1% of 10,000
         content_filter = {
