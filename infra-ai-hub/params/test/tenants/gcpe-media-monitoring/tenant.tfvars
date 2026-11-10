@@ -430,8 +430,7 @@ tenant = {
   user_management = {
     seed_members = {
       admin = [
-        "jeremy.burbee@gov.bc.ca",
-        "alessia.yanchen@gov.bc.ca"
+        "jeremy.burbee@gov.bc.ca"
       ]
     }
   }
