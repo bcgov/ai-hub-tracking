@@ -108,12 +108,16 @@ tenant = {
     seed_members = {
       admin = [
         "pushkar.purohit@gov.bc.ca",
-        "mohinder.sasan@gov.bc.ca"
+        "mohinder.sasan@gov.bc.ca",
+        "nicholas.2.kan@gov.bc.ca",
+        "don.varghese@gov.bc.ca"
       ]
       write = [
         "kaushik.gummaraju@gov.bc.ca",
         "daniela.mitre@gov.bc.ca",
-        "blair.davies@gov.bc.ca"
+        "blair.davies@gov.bc.ca",
+        "nicholas.2.kan@gov.bc.ca",
+        "don.varghese@gov.bc.ca"
       ]
       read = [
         "abitinder.dhindsa@gov.bc.ca"
