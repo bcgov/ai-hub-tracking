@@ -430,8 +430,7 @@ tenant = {
   user_management = {
     seed_members = {
       admin = [
-        "jeremy.burbee@gov.bc.ca",
-        "alessia.yanchen@gov.bc.ca"
+        "jeremy.burbee@gov.bc.ca"
       ]
     }
   }
@@ -446,8 +445,8 @@ tenant = {
       tokens_per_minute = 1000
     }
     pii_redaction = {
-      enabled     = false # Redact emails, phone numbers, addresses, etc.
-      fail_closed = false # Fail-open: allow requests through if PII service fails
+      enabled             = false # Redact emails, phone numbers, addresses, etc.
+      fail_closed         = false # Fail-open: allow requests through if PII service fails
       excluded_categories = []
     }
     usage_logging = {
