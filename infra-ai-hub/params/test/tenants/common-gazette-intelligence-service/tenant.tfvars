@@ -98,43 +98,19 @@ tenant = {
     # with empty filters uses Azure's built-in policy (no custom RAI resource created).
     model_deployments = [
       {
-        name           = "gpt-4.1"
-        model_name     = "gpt-4.1"
-        model_version  = "2025-04-14"
-        scale_type     = "GlobalStandard"
-        capacity       = 300 # 1% of 30,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
-      {
-        name           = "gpt-4.1-mini"
-        model_name     = "gpt-4.1-mini"
-        model_version  = "2025-04-14"
-        scale_type     = "GlobalStandard"
-        capacity       = 1500 # 1% of 150,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
-      {
-        name           = "gpt-5"
-        model_name     = "gpt-5"
-        model_version  = "2025-08-07"
-        scale_type     = "GlobalStandard"
-        capacity       = 300 # 1% of 30,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
-      {
-        name           = "gpt-5.1"
-        model_name     = "gpt-5.1"
-        model_version  = "2025-11-13"
-        scale_type     = "GlobalStandard"
-        capacity       = 300 # 1% of 30,000
-        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
-      },
-      {
         name           = "gpt-5.4"
         model_name     = "gpt-5.4"
         model_version  = "2026-03-05"
         scale_type     = "GlobalStandard"
         capacity       = 300 # 1% of 30,000
+        content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
+      },
+      {
+        name           = "gpt-5.6-luna"
+        model_name     = "gpt-5.6-luna"
+        model_version  = "2026-07-09"
+        scale_type     = "GlobalStandard"
+        capacity       = 100 # 1% of 10,000
         content_filter = { base_policy_name = "Microsoft.DefaultV2", filters = [] }
       },
       {

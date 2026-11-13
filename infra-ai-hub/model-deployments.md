@@ -176,17 +176,20 @@ Quota allocation strategy: **1% per tenant** for all models. Only wlrs-water-for
 
 This tenant does not yet have a column in the environment tables above — neither do
 `bc-archeology-portal`, `common-component-workflow`, or `rsbc-dmer-ai-optimization`.
-Its GlobalStandard allocations are identical across all three environments:
+Its model set differs by environment. Test and prod dropped `gpt-4.1`, `gpt-4.1-mini`,
+`gpt-5`, and `gpt-5.1` and added `gpt-5.6-luna`; dev still has the original set.
+GlobalStandard allocations (— = not deployed):
 
-| Model | Version | Quota Limit | cgis (1%) |
-|-------|---------|------------:|----------:|
-| gpt-4.1 | 2025-04-14 | 30,000 | 300 |
-| gpt-4.1-mini | 2025-04-14 | 150,000 | 1,500 |
-| gpt-5 | 2025-08-07 | 30,000 | 300 |
-| gpt-5.1 | 2025-11-13 | 30,000 | 300 |
-| gpt-5.4 | 2026-03-05 | 10,000 | 300 * |
-| text-embedding-3-large | 1 | 10,000 | 100 |
-| text-embedding-3-small | 1 | 10,000 | 100 |
+| Model | Version | Quota Limit | dev | test / prod |
+|-------|---------|------------:|----:|------------:|
+| gpt-4.1 | 2025-04-14 | 30,000 | 300 | — |
+| gpt-4.1-mini | 2025-04-14 | 150,000 | 1,500 | — |
+| gpt-5 | 2025-08-07 | 30,000 | 300 | — |
+| gpt-5.1 | 2025-11-13 | 30,000 | 300 | — |
+| gpt-5.4 | 2026-03-05 | 10,000 | 300 * | 300 * |
+| gpt-5.6-luna | 2026-07-09 | 10,000 | — | 100 |
+| text-embedding-3-large | 1 | 10,000 | 100 | 100 |
+| text-embedding-3-small | 1 | 10,000 | 100 | 100 |
 
 > \* `gpt-5.4`'s Canada East quota was verified on 2026-09-17 with
 > `az cognitiveservices usage list --location canadaeast`: the real limit is
@@ -196,7 +199,7 @@ Its GlobalStandard allocations are identical across all three environments:
 > before the first prod apply, or record the 3% allocation as intentional.
 >
 > `gpt-5` is GlobalStandard-available in **Canada East only** — it is not offered in
-> Canada Central. Since `ai_location = "Canada East"`, this deployment is valid.
+> Canada Central. Since `ai_location = "Canada East"`, the dev deployment is valid.
 > `gpt-5.4` is available in both Canada regions.
 
 ---
