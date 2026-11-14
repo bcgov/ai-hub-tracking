@@ -104,6 +104,11 @@ shared_config = {
 
     frontend_hostname = "aihub.gov.bc.ca"
 
+    # SSL cert name on App GW for HTTPS listener (uploaded via ssl_certs/upload-cert-direct.sh)
+    # Enables HTTPS listener + HTTP→HTTPS redirect when set. Without it, every apply DELETES the
+    # HTTPS listener and aihub.gov.bc.ca goes down (outage 2026-11-10 22:50 UTC).
+    ssl_certificate_name = "api-prod-cert"
+
     # SSL certificates (configure with your Key Vault)
     # ssl_certificates = {
     #   primary = {
