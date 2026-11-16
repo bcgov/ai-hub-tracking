@@ -24,7 +24,7 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 1 0 10 10"/><path d="M12 6v6l4 2"/></svg>
             </div>
             <strong>Model Providers</strong>
-            <p style="font-size: 0.85rem; margin: 0.5rem 0 0; color: var(--text-secondary);">OpenAI baseline plus tenant-specific Cohere and Mistral</p>
+            <p style="font-size: 0.85rem; margin: 0.5rem 0 0; color: var(--text-secondary);">OpenAI catalog, models by tenant, Cohere and Mistral</p>
         </div>
     </a>
     <a href="#cognitive-services" class="card-link">
@@ -53,7 +53,9 @@
 
 <p>Each tenant accesses model deployments through its dedicated <strong>AI Foundry Project</strong> endpoint, routed via APIM. OpenAI is the baseline model family for tenants across environments. Additional provider families such as Cohere and Mistral are enabled only when they are explicitly deployed for a tenant.</p>
 
-<h3>OpenAI Baseline Models</h3>
+<h3>OpenAI Models</h3>
+
+<p>These are the OpenAI models currently provisioned for at least one tenant. A tenant can only call the deployments in its own project; see <a href="#models-by-tenant">Models by Tenant</a> for which tenant has which models. Retirement dates come from the Azure model catalog for Canada East, checked on 2026-11-16. Microsoft moves these dates, so treat them as a guide, not a guarantee.</p>
 
 <h3>Chat &amp; Reasoning Models</h3>
 
@@ -64,6 +66,7 @@
             <th>Kind</th>
             <th>Best For</th>
             <th>Quota (Canada East)</th>
+            <th>Lifecycle</th>
         </tr>
     </thead>
     <tbody>
@@ -72,93 +75,124 @@
             <td><span class="badge badge-blue">Chat</span></td>
             <td>Complex reasoning, long context</td>
             <td>30,000 TPM</td>
+            <td><span class="badge" style="background:#b45309;color:white;">Legacy</span> <span style="white-space: nowrap;">retires 2027-04-14</span></td>
         </tr>
         <tr>
             <td><strong>gpt-4.1-mini</strong></td>
             <td><span class="badge badge-blue">Chat</span></td>
             <td>Fast, cost-efficient tasks</td>
             <td>150,000 TPM</td>
+            <td><span class="badge" style="background:#b45309;color:white;">Legacy</span> <span style="white-space: nowrap;">retires 2027-04-14</span></td>
         </tr>
         <tr>
             <td><strong>gpt-4.1-nano</strong></td>
             <td><span class="badge badge-blue">Chat</span></td>
             <td>High-throughput simple tasks</td>
             <td>150,000 TPM</td>
+            <td><span class="badge" style="background:#b45309;color:white;">Legacy</span> <span style="white-space: nowrap;">retires 2027-04-14</span></td>
         </tr>
         <tr>
             <td><strong>gpt-4o</strong></td>
             <td><span class="badge badge-blue">Chat</span></td>
             <td>Multimodal inputs (text + images)</td>
             <td>30,000 TPM</td>
+            <td><span class="badge" style="background:#b45309;color:white;">Legacy</span> <span style="white-space: nowrap;">retires 2027-04-14</span></td>
         </tr>
         <tr>
             <td><strong>gpt-4o-mini</strong></td>
             <td><span class="badge badge-blue">Chat</span></td>
             <td>Fast multimodal tasks</td>
             <td>150,000 TPM</td>
+            <td><span class="badge" style="background:#b91c1c;color:white;">Deprecating</span> <span style="white-space: nowrap;">retires 2027-04-14</span></td>
         </tr>
         <tr>
             <td><strong>gpt-5</strong></td>
             <td><span class="badge badge-blue">Chat</span></td>
-            <td>Next-gen flagship reasoning and chat</td>
+            <td>Flagship reasoning and chat</td>
             <td>30,000 TPM</td>
+            <td><span class="badge" style="background:#15803d;color:white;">GA</span> <span style="white-space: nowrap;">retires 2027-02-09</span></td>
         </tr>
         <tr>
             <td><strong>gpt-5-mini</strong></td>
             <td><span class="badge badge-blue">Chat</span></td>
-            <td>Next-gen compact model</td>
+            <td>Compact reasoning and chat</td>
             <td>10,000 TPM</td>
+            <td><span class="badge" style="background:#15803d;color:white;">GA</span> <span style="white-space: nowrap;">retires 2027-07-13</span></td>
         </tr>
         <tr>
             <td><strong>gpt-5-nano</strong></td>
             <td><span class="badge badge-blue">Chat</span></td>
-            <td>Next-gen ultra-fast tasks</td>
+            <td>Ultra-fast, high-volume tasks</td>
             <td>150,000 TPM</td>
+            <td><span class="badge" style="background:#15803d;color:white;">GA</span> <span style="white-space: nowrap;">retires 2027-02-09</span></td>
         </tr>
         <tr>
             <td><strong>gpt-5.1</strong></td>
-            <td><span class="badge" style="background:#0f766e;color:white;">Provisioned Chat</span></td>
-            <td>Provisioned GPT-5.1 base model for sustained tenant workloads</td>
-            <td>4,750 input TPM/PTU; output weighted 8x</td>
-        </tr>
-        <tr>
-            <td><strong>gpt-5.1-chat</strong></td>
-            <td><span class="badge" style="background:#0369a1;color:white;">Chat Preview</span></td>
-            <td>Next-gen preview chat model</td>
-            <td>5,000 TPM</td>
-        </tr>
-        <tr>
-            <td><strong>gpt-5.4</strong></td>
             <td><span class="badge badge-blue">Chat</span></td>
-            <td>Latest-generation flagship chat model</td>
+            <td>General-purpose GPT-5.1 chat and reasoning</td>
             <td>30,000 TPM</td>
+            <td><span class="badge" style="background:#15803d;color:white;">GA</span> <span style="white-space: nowrap;">retires 2027-07-13</span></td>
         </tr>
         <tr>
-            <td><strong>o1</strong></td>
-            <td><span class="badge" style="background:#8b5cf6;color:white;">Reasoning</span></td>
-            <td>Step-by-step scientific / math problems</td>
-            <td>5,000 TPM</td>
-        </tr>
-        <tr>
-            <td><strong>o3-mini</strong></td>
-            <td><span class="badge" style="background:#8b5cf6;color:white;">Reasoning</span></td>
-            <td>Cost-efficient multi-step reasoning</td>
-            <td>5,000 TPM</td>
-        </tr>
-        <tr>
-            <td><strong>o4-mini</strong></td>
-            <td><span class="badge" style="background:#8b5cf6;color:white;">Reasoning</span></td>
-            <td>Latest compact reasoning model</td>
-            <td>10,000 TPM</td>
+            <td><strong>gpt-5.1</strong> (provisioned)</td>
+            <td><span class="badge" style="background:#0f766e;color:white;">Provisioned Chat</span></td>
+            <td>Provisioned GPT-5.1 for sustained tenant workloads (currently one test deployment)</td>
+            <td>4,750 input TPM/PTU; output weighted 8x</td>
+            <td><span class="badge" style="background:#15803d;color:white;">GA</span> <span style="white-space: nowrap;">retires 2027-07-13</span></td>
         </tr>
         <tr>
             <td><strong>gpt-5.1-codex-mini</strong></td>
             <td><span class="badge" style="background:#0891b2;color:white;">Code</span></td>
             <td>Code generation &amp; completion</td>
             <td>10,000 TPM</td>
+            <td><span class="badge" style="background:#15803d;color:white;">GA</span> <span style="white-space: nowrap;">retires 2027-05-15</span></td>
+        </tr>
+        <tr>
+            <td><strong>gpt-5.4</strong></td>
+            <td><span class="badge badge-blue">Chat</span></td>
+            <td>GPT-5.4 flagship chat model</td>
+            <td>10,000 TPM</td>
+            <td><span class="badge" style="background:#15803d;color:white;">GA</span> <span style="white-space: nowrap;">retires 2027-09-02</span></td>
+        </tr>
+        <tr>
+            <td><strong>gpt-5.6-luna</strong></td>
+            <td><span class="badge badge-blue">Chat</span></td>
+            <td>Newest GPT-5.6 generation (Luna variant)</td>
+            <td>10,000 TPM</td>
+            <td><span class="badge" style="background:#15803d;color:white;">GA</span> <span style="white-space: nowrap;">retires 2028-01-11</span></td>
+        </tr>
+        <tr>
+            <td><strong>gpt-5.6-sol</strong></td>
+            <td><span class="badge badge-blue">Chat</span></td>
+            <td>Newest GPT-5.6 generation (Sol variant)</td>
+            <td>10,000 TPM</td>
+            <td><span class="badge" style="background:#15803d;color:white;">GA</span> <span style="white-space: nowrap;">retires 2028-01-11</span></td>
+        </tr>
+        <tr>
+            <td><strong>gpt-5.6-terra</strong></td>
+            <td><span class="badge badge-blue">Chat</span></td>
+            <td>Newest GPT-5.6 generation (Terra variant)</td>
+            <td>10,000 TPM</td>
+            <td><span class="badge" style="background:#15803d;color:white;">GA</span> <span style="white-space: nowrap;">retires 2028-01-11</span></td>
         </tr>
     </tbody>
 </table>
+
+<p><code>gpt-5.6</code> cannot be deployed under that name. The catalog offers three variants, <code>gpt-5.6-luna</code>, <code>gpt-5.6-sol</code> and <code>gpt-5.6-terra</code>, and each has its own 10,000 TPM quota.</p>
+
+<div class="alert alert-warning" style="margin-top: 1rem;">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div>
+        <strong>Retired models removed from this list:</strong>
+        <ul style="margin: 0.5rem 0 0;">
+            <li><code>gpt-5.1-chat</code> has been retired and is no longer in the Canada East catalog. Use <code>gpt-5.1</code> instead.</li>
+            <li><code>o1</code>, <code>o3-mini</code> and <code>o4-mini</code> retire on 2026-11-19. Use a GPT-5 family model, such as <code>gpt-5-mini</code>, for reasoning workloads.</li>
+        </ul>
+        <p style="margin: 0.5rem 0 0;">A retired deployment can still appear in your project and in the tenant info panel, but requests to it fail.</p>
+    </div>
+</div>
 
 <h3>Embedding Models</h3>
 
@@ -171,6 +205,7 @@
             <th>Dimensions</th>
             <th>Best For</th>
             <th>Quota (Canada East)</th>
+            <th>Lifecycle</th>
         </tr>
     </thead>
     <tbody>
@@ -179,18 +214,21 @@
             <td>3,072</td>
             <td>Highest accuracy RAG retrieval</td>
             <td>10,000 TPM</td>
+            <td><span class="badge" style="background:#15803d;color:white;">GA</span> <span style="white-space: nowrap;">retires 2028-02-09</span></td>
         </tr>
         <tr>
             <td><strong>text-embedding-3-small</strong></td>
             <td>1,536</td>
             <td>Fast, cost-efficient semantic search</td>
             <td>10,000 TPM</td>
+            <td><span class="badge" style="background:#15803d;color:white;">GA</span> <span style="white-space: nowrap;">retires 2028-02-09</span></td>
         </tr>
         <tr>
             <td><strong>text-embedding-ada-002</strong></td>
             <td>1,536</td>
             <td>Legacy compatibility</td>
             <td>10,000 TPM</td>
+            <td><span class="badge" style="background:#15803d;color:white;">GA</span> <span style="white-space: nowrap;">retires 2028-02-09</span></td>
         </tr>
     </tbody>
 </table>
@@ -198,7 +236,7 @@
 <div class="alert alert-info" style="margin-top: 1rem;">
     <div class="alert-icon">💡</div>
     <div>
-        TPM = Tokens Per Minute. OpenAI quotas shown above are <strong>subscription-wide limits</strong>; each tenant is allocated a share. Current test/dev allocation is typically <strong>1% per tenant</strong>, but provider-specific deployments can use different quotas. See <a href="infra-ai-hub/model-deployments.md">model-deployments.md</a> for the current allocation source of truth.
+        TPM = Tokens Per Minute. OpenAI quotas shown above are <strong>subscription-wide limits</strong>; each tenant is allocated a share. Allocation is typically <strong>1% per tenant</strong> in each environment, but provider-specific deployments can use different quotas. See <a href="infra-ai-hub/model-deployments.md">model-deployments.md</a> for the current allocation source of truth.
     </div>
 </div>
 
@@ -211,14 +249,14 @@
 
 <h3>Tenant-Specific Provider Additions</h3>
 
-<p>The current test deployment for <strong>ai-hub-admin</strong> includes additional non-OpenAI provider families. These are not currently universal tenant defaults and should be treated as explicitly assigned deployments.</p>
+<p>Non-OpenAI provider families are deployed only for specific tenants. They are not tenant defaults and must be requested explicitly.</p>
 
 <table>
     <thead>
         <tr>
             <th>Provider</th>
-            <th>Currently Documented Deployments</th>
-            <th>Current Scope</th>
+            <th>Deployments</th>
+            <th>Tenants &amp; Environments</th>
             <th>Notes</th>
         </tr>
     </thead>
@@ -226,14 +264,99 @@
         <tr>
             <td><strong>Cohere</strong></td>
             <td><code>cohere-command-a</code>, <code>Cohere-rerank-v4.0-pro</code>, <code>Cohere-rerank-v4.0-fast</code></td>
-            <td><span class="badge" style="background:#92400e;color:white;">ai-hub-admin only</span> <span class="badge" style="background:#1d4ed8;color:white;">test</span></td>
+            <td><span class="badge" style="background:#92400e;color:white;">ai-hub-admin</span> dev, test</td>
             <td>Configured in tenant IaC and deployed through the Foundry stack. Several other Cohere catalog models were evaluated but are not currently available in BC Gov Private Marketplace.</td>
         </tr>
         <tr>
-            <td><strong>Mistral AI</strong></td>
-            <td><code>Mistral-Large-3</code>, <code>mistral-document-ai-2512</code></td>
-            <td><span class="badge" style="background:#92400e;color:white;">ai-hub-admin only</span> <span class="badge" style="background:#1d4ed8;color:white;">test</span></td>
-            <td>Chat traffic uses the OpenAI-compatible route <code>/openai/v1/chat/completions</code>. Document AI uses <code>/providers/mistral/azure/ocr</code>. The legacy non-OpenAI Mistral chat route is intentionally rejected by APIM.</td>
+            <td><strong>Mistral AI</strong> (chat)</td>
+            <td><code>Mistral-Large-3</code></td>
+            <td><span class="badge" style="background:#92400e;color:white;">ai-hub-admin</span> dev, test</td>
+            <td>Chat traffic uses the OpenAI-compatible route <code>/openai/v1/chat/completions</code>. The legacy non-OpenAI Mistral chat route is intentionally rejected by APIM.</td>
+        </tr>
+        <tr>
+            <td><strong>Mistral AI</strong> (document)</td>
+            <td><code>mistral-document-ai-2512</code></td>
+            <td><span class="badge" style="background:#92400e;color:white;">ai-hub-admin</span> dev, test<br><span class="badge" style="background:#92400e;color:white;">sdpr-invoice-automation</span> dev, test, prod</td>
+            <td>Document AI uses <code>/providers/mistral/azure/ocr</code>.</td>
+        </tr>
+    </tbody>
+</table>
+
+<h3 id="models-by-tenant">Models by Tenant</h3>
+
+<p>Model deployments configured for each tenant, taken from each tenant's configuration on 2026-11-16. Per-deployment capacity is in <a href="infra-ai-hub/model-deployments.md">model-deployments.md</a>. Retired and retiring models (<code style="white-space: nowrap;">gpt-5.1-chat</code>, <code style="white-space: nowrap;">o4-mini</code>) are left out, even where a dev or test project still has them configured.</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Tenant</th>
+            <th>Dev</th>
+            <th>Test</th>
+            <th>Prod</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>ai-hub-admin</strong></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-4.1-nano</code> <code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-4o-mini</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">gpt-5.1-codex-mini</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code> <code style="white-space: nowrap;">cohere-command-a</code> <code style="white-space: nowrap;">Cohere-rerank-v4.0-pro</code> <code style="white-space: nowrap;">Cohere-rerank-v4.0-fast</code> <code style="white-space: nowrap;">Mistral-Large-3</code> <code style="white-space: nowrap;">mistral-document-ai-2512</code></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-4.1-nano</code> <code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-4o-mini</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">gpt-5.1-codex-mini</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code> <code style="white-space: nowrap;">cohere-command-a</code> <code style="white-space: nowrap;">Cohere-rerank-v4.0-pro</code> <code style="white-space: nowrap;">Cohere-rerank-v4.0-fast</code> <code style="white-space: nowrap;">Mistral-Large-3</code> <code style="white-space: nowrap;">mistral-document-ai-2512</code></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><span style="color: var(--text-secondary);">Not onboarded</span></td>
+        </tr>
+        <tr>
+            <td><strong>bc-archeology-portal</strong></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-4.1-nano</code> <code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-4o-mini</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-4.1-nano</code> <code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-4o-mini</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-4.1-nano</code> <code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code></td>
+        </tr>
+        <tr>
+            <td><strong>clbc-ocr-service</strong></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><span style="color: var(--text-secondary);">Not onboarded</span></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><span style="color: var(--text-secondary);">No model deployments</span></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><span style="color: var(--text-secondary);">No model deployments</span></td>
+        </tr>
+        <tr>
+            <td><strong>common-component-workflow</strong></td>
+            <td colspan="3" style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-5.1</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <span class="badge" style="background:#475569;color:white;">dev, test, prod</span></td>
+        </tr>
+        <tr>
+            <td><strong>common-gazette-intelligence-service</strong></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-5</code> <code style="white-space: nowrap;">gpt-5.1</code> <code style="white-space: nowrap;">gpt-5.4</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-5.4</code> <code style="white-space: nowrap;">gpt-5.6-luna</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-5.4</code> <code style="white-space: nowrap;">gpt-5.6-luna</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code></td>
+        </tr>
+        <tr>
+            <td><strong>gcpe-media-monitoring</strong></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-4.1-nano</code> <code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-4o-mini</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">gpt-5.1-codex-mini</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-4.1-nano</code> <code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-4o-mini</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">gpt-5.1-codex-mini</code> <code style="white-space: nowrap;">gpt-5.4</code> <code style="white-space: nowrap;">gpt-5.6-luna</code> <code style="white-space: nowrap;">gpt-5.6-sol</code> <code style="white-space: nowrap;">gpt-5.6-terra</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-4.1-nano</code> <code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">gpt-5.1-codex-mini</code> <code style="white-space: nowrap;">gpt-5.4</code> <code style="white-space: nowrap;">gpt-5.6-luna</code> <code style="white-space: nowrap;">gpt-5.6-sol</code> <code style="white-space: nowrap;">gpt-5.6-terra</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code></td>
+        </tr>
+        <tr>
+            <td><strong>jag-csb-ai-services</strong></td>
+            <td colspan="3" style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-5</code> <code style="white-space: nowrap;">gpt-5.1</code> <code style="white-space: nowrap;">gpt-5.4</code> <code style="white-space: nowrap;">gpt-5.6-luna</code> <code style="white-space: nowrap;">gpt-5.6-sol</code> <code style="white-space: nowrap;">gpt-5.6-terra</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <span class="badge" style="background:#475569;color:white;">dev, test, prod</span></td>
+        </tr>
+        <tr>
+            <td><strong>nr-dap-fish-wildlife</strong></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-4.1-nano</code> <code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-4o-mini</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">gpt-5.1-codex-mini</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-4.1-nano</code> <code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-4o-mini</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">gpt-5.1-codex-mini</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-4.1-nano</code> <code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">gpt-5.1-codex-mini</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code></td>
+        </tr>
+        <tr>
+            <td><strong>rsbc-dmer-ai-optimization</strong></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-4o-mini</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">gpt-5.1</code> <code style="white-space: nowrap;">gpt-5.1-codex-mini</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-5.1</code></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-5.1</code></td>
+        </tr>
+        <tr>
+            <td><strong>sdpr-invoice-automation</strong></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-4.1-nano</code> <code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-4o-mini</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">gpt-5.1-codex-mini</code> <code style="white-space: nowrap;">gpt-5.4</code> <code style="white-space: nowrap;">gpt-5.6-luna</code> <code style="white-space: nowrap;">gpt-5.6-sol</code> <code style="white-space: nowrap;">gpt-5.6-terra</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code> <code style="white-space: nowrap;">mistral-document-ai-2512</code></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-4.1-nano</code> <code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-4o-mini</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">gpt-5.1-codex-mini</code> <code style="white-space: nowrap;">gpt-5.4</code> <code style="white-space: nowrap;">gpt-5.6-luna</code> <code style="white-space: nowrap;">gpt-5.6-sol</code> <code style="white-space: nowrap;">gpt-5.6-terra</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code> <code style="white-space: nowrap;">mistral-document-ai-2512</code></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-4.1-nano</code> <code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">gpt-5.1-codex-mini</code> <code style="white-space: nowrap;">gpt-5.4</code> <code style="white-space: nowrap;">gpt-5.6-luna</code> <code style="white-space: nowrap;">gpt-5.6-sol</code> <code style="white-space: nowrap;">gpt-5.6-terra</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code> <code style="white-space: nowrap;">mistral-document-ai-2512</code></td>
+        </tr>
+        <tr>
+            <td><strong>wlrs-water-form-assistant</strong></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-4.1-nano</code> <code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-4o-mini</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">gpt-5.1-codex-mini</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-4.1-nano</code> <code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-4o-mini</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">gpt-5.1 (PTU)</code> <code style="white-space: nowrap;">gpt-5.1-codex-mini</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code></td>
+            <td style="font-size: 0.85rem; line-height: 1.9;"><code style="white-space: nowrap;">gpt-4.1</code> <code style="white-space: nowrap;">gpt-4.1-mini</code> <code style="white-space: nowrap;">gpt-4.1-nano</code> <code style="white-space: nowrap;">gpt-4o</code> <code style="white-space: nowrap;">gpt-5-mini</code> <code style="white-space: nowrap;">gpt-5-nano</code> <code style="white-space: nowrap;">gpt-5.1</code> <code style="white-space: nowrap;">gpt-5.1-codex-mini</code> <code style="white-space: nowrap;">text-embedding-3-large</code> <code style="white-space: nowrap;">text-embedding-3-small</code> <code style="white-space: nowrap;">text-embedding-ada-002</code></td>
         </tr>
     </tbody>
 </table>
