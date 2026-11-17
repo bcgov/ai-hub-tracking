@@ -165,7 +165,8 @@ To add a new tenant:
 1. **Create tenant config**: `infra-ai-hub/params/{env}/tenants/{tenant-name}/tenant.tfvars`
    - Define the `tenant = { ... }` block with `enabled = true` and desired services
    - Tenant name must match `^[a-z0-9-]+$`
-   - See existing tenants for the full config shape (key_vault, storage_account, ai_search, cosmos_db, document_intelligence, speech_services, openai with model_deployments)
+   - See existing tenants for the full config shape (key_vault, storage_account, ai_search, cosmos_db, document_intelligence, speech_services, content_understanding, openai with model_deployments)
+   - `speech_services` and `content_understanding` blocks are **mandatory** in every tenant file in every environment, even when disabled (`map(any)` uniform-shape rule; a missing block fails with `all map elements must have the same type`)
 2. **Deploy**: `deploy-terraform.sh apply {env}` auto-merges all tenant tfvars
 3. **Stack order** (handled by `deploy-scaled.sh`):
    - Phase 1: `shared` (networking, hub resources)
@@ -174,6 +175,15 @@ To add a new tenant:
 4. **Update docs**: Update [Model Deployments](../../../infra-ai-hub/model-deployments.md) for the new tenant
 
 `enabled_tenants` is computed via `for key, config in var.tenants : key => config if try(config.enabled, false)` — setting `enabled = false` disables without deletion.
+
+### Content Understanding (Per-Tenant Opt-In)
+
+- Tenant tfvars carries only `content_understanding = { enabled = true|false }`. Region, SKU, model deployments, and diagnostics come from `shared_config.content_understanding` in `params/<env>/shared.tfvars` (same values in dev/test/prod). Keep that split: adding per-tenant attributes to the block would break the uniform `map(any)` shape.
+- `stacks/tenant/main.tf` builds the tenant module's `content_understanding` object from the tenant flag plus `shared_config`; `modules/tenant` calls `modules/content-understanding` (`module.content_understanding`, `count` on the flag). The sub-module wraps AVM `Azure/avm-res-cognitiveservices-account/azurerm` 0.7.1 (`kind = AIServices`, `cognitive_deployments`), with a separately managed diagnostic setting and the `wait-for-dns-zone.sh` DNS wait.
+- The account is `<tenant>-cu-<4-char suffix>` in the tenant RG, in **Canada Central** (Content Understanding is not offered in Canada East, the hub region). Public network access and local auth are disabled; private endpoint `pep-<name>` is in the tenant PE subnet. `location` is validated to Canada Central or Canada East, and a `check` block warns on Canada East.
+- The tenant stack outputs `tenant_content_understanding`; the `apim` stack (phase 3b) reads it through remote state to create the `<tenant>-cu` backend, `<tenant>-cu-endpoint` named value, and `Cognitive Services User` role assignment. Stack order is unchanged.
+- After first apply, each tenant needs a one-time `PATCH /contentunderstanding/defaults` through the gateway. Terraform can't set it (data plane behind a private endpoint; CI runs on GitHub-hosted runners).
+- When enabling it for a tenant, update the Content Understanding section of [Model Deployments](../../../infra-ai-hub/model-deployments.md) (canadacentral quota, not the Canada East hub quota).
 
 ## Related Tooling References
 

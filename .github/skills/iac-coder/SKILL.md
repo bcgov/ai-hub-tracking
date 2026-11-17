@@ -97,6 +97,7 @@ Follow BC Gov Azure Landing Zone guidance for networking and DNS behavior. This 
     local.default_model_format
   )
   ```
+- **Service blocks must be present in every tenant file.** `speech_services` and `content_understanding` are mandatory in every `tenant.tfvars` in every environment, even as `{ enabled = false }`. When adding a new tenant-level service block, add it to every tenant file and to the onboarding portal's tfvars generator in the same change. Keep tenant blocks minimal (for example, only `enabled`) and put shared settings in `shared_config`, as `content_understanding` does.
 - **When adding new list attributes** to any `map(any)` tenant variable (e.g., new field in `model_deployments`), you must add the field — or a safe default via `optional()` / `lookup()` — to **every** tenant tfvars entry in **every** environment simultaneously, or Terraform will fail to unify types.
 
 ### count / for_each — Plan-Time Values Only
