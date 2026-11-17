@@ -22,6 +22,7 @@ locals {
   cosmos_diagnostics  = try(var.cosmos_db.diagnostics, null)
   docint_diagnostics  = try(var.document_intelligence.diagnostics, null)
   speech_diagnostics  = try(var.speech_services.diagnostics, null)
+  cu_diagnostics      = try(var.content_understanding.diagnostics, null)
 
   # Note: AI Foundry model deployments diagnostics are handled at the Hub level
   # No per-tenant diagnostics needed - logs flow to the shared Hub's LAW

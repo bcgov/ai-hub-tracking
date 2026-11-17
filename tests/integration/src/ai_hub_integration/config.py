@@ -18,6 +18,7 @@ TENANT_ENV_VAR_NAMES = {
 
 DEFAULT_OPENAI_API_VERSION = "2024-10-21"
 DEFAULT_DOCINT_API_VERSION = "2024-11-30"
+DEFAULT_CONTENT_UNDERSTANDING_API_VERSION = "2025-11-01"
 DEFAULT_MODEL = "gpt-4.1-mini"
 OPENAI_CHAT_MODEL_PREFIXES = ("gpt-", "o1", "o3", "o4")
 REASONING_MODEL_PREFIXES = ("gpt-5", "o1", "o3", "o4")
@@ -174,6 +175,7 @@ class IntegrationConfig:
     enable_vault_key_fallback: bool = True
     openai_api_version: str = DEFAULT_OPENAI_API_VERSION
     docint_api_version: str = DEFAULT_DOCINT_API_VERSION
+    content_understanding_api_version: str = DEFAULT_CONTENT_UNDERSTANDING_API_VERSION
     default_model: str = DEFAULT_MODEL
 
     @classmethod
@@ -213,6 +215,9 @@ class IntegrationConfig:
                 enable_vault_key_fallback=_env_flag("ENABLE_VAULT_KEY_FALLBACK", True),
                 openai_api_version=os.getenv("OPENAI_API_VERSION", DEFAULT_OPENAI_API_VERSION),
                 docint_api_version=os.getenv("DOCINT_API_VERSION", DEFAULT_DOCINT_API_VERSION),
+                content_understanding_api_version=os.getenv(
+                    "CONTENT_UNDERSTANDING_API_VERSION", DEFAULT_CONTENT_UNDERSTANDING_API_VERSION
+                ),
                 default_model=os.getenv("DEFAULT_MODEL", DEFAULT_MODEL),
             )
 
@@ -264,6 +269,9 @@ class IntegrationConfig:
             enable_vault_key_fallback=_env_flag("ENABLE_VAULT_KEY_FALLBACK", True),
             openai_api_version=os.getenv("OPENAI_API_VERSION", DEFAULT_OPENAI_API_VERSION),
             docint_api_version=os.getenv("DOCINT_API_VERSION", DEFAULT_DOCINT_API_VERSION),
+            content_understanding_api_version=os.getenv(
+                "CONTENT_UNDERSTANDING_API_VERSION", DEFAULT_CONTENT_UNDERSTANDING_API_VERSION
+            ),
             default_model=os.getenv("DEFAULT_MODEL", DEFAULT_MODEL),
         )
 

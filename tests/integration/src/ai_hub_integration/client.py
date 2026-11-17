@@ -305,6 +305,50 @@ class ApimClient:
         with file_path.open("rb") as handle:
             return self.request("POST", tenant, path, files={"file": handle})
 
+    def content_understanding_set_defaults(self, tenant: str, model_deployments: dict[str, str]) -> requests.Response:
+        """Map Content Understanding model names/aliases to the tenant's deployments (idempotent PATCH)."""
+        path = f"/contentunderstanding/defaults?api-version={self.config.content_understanding_api_version}"
+        return self.request(
+            "PATCH",
+            tenant,
+            path,
+            raw_body=json.dumps({"modelDeployments": model_deployments}),
+            extra_headers={"Content-Type": "application/merge-patch+json"},
+            retry=True,
+        )
+
+    def content_understanding_get_defaults(self, tenant: str) -> requests.Response:
+        """Read the Content Understanding model-deployment defaults for the tenant's account."""
+        path = f"/contentunderstanding/defaults?api-version={self.config.content_understanding_api_version}"
+        return self.request("GET", tenant, path, retry=True)
+
+    def content_understanding_analyze(
+        self, tenant: str, analyzer: str, base64_content: str, mime_type: str = "application/pdf"
+    ) -> requests.Response:
+        """Submit a JSON Content Understanding analyze request with base64 `data` input."""
+        path = (
+            f"/contentunderstanding/analyzers/{analyzer}:analyze"
+            f"?api-version={self.config.content_understanding_api_version}"
+        )
+        body = {"inputs": [{"data": base64_content, "mimeType": mime_type}]}
+        return self.request("POST", tenant, path, json_body=body)
+
+    def content_understanding_analyze_binary(
+        self, tenant: str, analyzer: str, file_path: Path, content_type: str
+    ) -> requests.Response:
+        """Upload a document as raw bytes to the Content Understanding analyzeBinary endpoint."""
+        path = (
+            f"/contentunderstanding/analyzers/{analyzer}:analyzeBinary"
+            f"?api-version={self.config.content_understanding_api_version}"
+        )
+        return self.request(
+            "POST",
+            tenant,
+            path,
+            raw_body=file_path.read_bytes(),
+            extra_headers={"Content-Type": content_type},
+        )
+
     def extract_operation_path(self, tenant: str, operation_url: str) -> str:
         """Convert a fully-qualified operation URL into a tenant-relative path."""
         prefix = f"{self.config.apim_gateway_url.rstrip('/')}/{tenant}"
@@ -316,10 +360,12 @@ class ApimClient:
         while time.time() < deadline:
             response = self.request("GET", tenant, operation_path)
             payload = response.json()
-            status = payload.get("status")
+            # Document Intelligence uses lowercase states; Content Understanding uses
+            # NotStarted/Running/Succeeded/Failed/Canceled.
+            status = str(payload.get("status") or "").lower()
             if status in {"succeeded", "completed"}:
                 return response
-            if status == "failed":
+            if status in {"failed", "canceled"}:
                 raise AssertionError(f"Operation failed: {payload}")
             time.sleep(2)
         raise AssertionError(f"Operation timed out after {max_wait_seconds} seconds")

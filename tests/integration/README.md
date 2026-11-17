@@ -13,7 +13,7 @@ This directory is a Python project that hosts the live APIM/App Gateway integrat
 | Path | Purpose |
 |------|---------|
 | `src/ai_hub_integration/config.py` | Loads environment config from env vars or terraform outputs |
-| `src/ai_hub_integration/client.py` | Shared APIM/App Gateway/Document Intelligence client |
+| `src/ai_hub_integration/client.py` | Shared APIM/App Gateway/Document Intelligence/Content Understanding client |
 | `src/ai_hub_integration/evaluation.py` | Azure AI Evaluation SDK integration and threshold handling |
 | `tests/test_*.py` | Live pytest suites |
 | `tests/unit/` | Fast unit tests for shared helpers |
@@ -47,6 +47,8 @@ export NRDAP_SUBSCRIPTION_KEY="..."
 export HTTPS_PROXY="http://127.0.0.1:8118"  # only for proxy-only suites
 ```
 
+Optional API-version overrides: `OPENAI_API_VERSION` (default `2024-10-21`), `DOCINT_API_VERSION` (default `2024-11-30`), and `CONTENT_UNDERSTANDING_API_VERSION` (default `2025-11-01`).
+
 ## Running Tests
 
 ```bash
@@ -70,6 +72,7 @@ uv run pytest tests/unit -q
 # Run a specific suite alias
 ./run-tests.sh --env test tenant-info
 ./run-tests.sh --env test document-intelligence
+./run-tests.sh --env dev content-understanding
 ```
 
 ## AI Evaluation
@@ -110,8 +113,9 @@ If the judge-model variables are not configured, the evaluation command and pyte
 | `test_v1_chat_completions.py` | OpenAI-compatible `/openai/v1` routing, streaming, and Bearer auth |
 | `test_document_intelligence.py` | JSON and async Document Intelligence coverage |
 | `test_document_intelligence_binary.py` | Binary and multipart Document Intelligence coverage through App Gateway |
+| `test_content_understanding.py` | Content Understanding via APIM for `ai-hub-admin`: defaults `PATCH`/`GET`, JSON `analyze` with `Operation-Location` rewritten to the App Gateway host, full async `prebuilt-layout` flow, and `analyzeBinary`. Skips when tenant-info reports Content Understanding disabled (currently enabled in dev only) |
 | `test_app_gateway.py` | TLS, routing, auth normalization, and cross-key isolation |
-| `test_tenant_info.py` | `/internal/tenant-info` contract coverage |
+| `test_tenant_info.py` | `/internal/tenant-info` contract coverage, including the `services.content_understanding` block |
 | `test_apim_key_rotation.py` | `/internal/apim-keys` and Key Vault fallback coverage |
 | `test_mistral.py` | Mistral chat and OCR routing |
 | `test_ai_evaluation.py` | Azure AI Evaluation dataset scoring |

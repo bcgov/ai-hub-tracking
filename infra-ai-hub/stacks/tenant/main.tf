@@ -92,6 +92,16 @@ module "tenant" {
     diagnostics = lookup(lookup(each.value, "speech_services", {}), "diagnostics", null)
   }
 
+  # Tenant tfvars only carries the on/off flag (keeps the map(any) tenant shape uniform).
+  # Region, SKU, model deployments and diagnostics come from shared_config per environment.
+  content_understanding = {
+    enabled           = lookup(lookup(each.value, "content_understanding", {}), "enabled", false)
+    location          = try(var.shared_config.content_understanding.location, "Canada Central")
+    sku               = try(var.shared_config.content_understanding.sku, "S0")
+    model_deployments = try(var.shared_config.content_understanding.model_deployments, {})
+    diagnostics       = try(var.shared_config.content_understanding.diagnostics, null)
+  }
+
   ai_foundry_hub_id = data.terraform_remote_state.shared.outputs.ai_foundry_hub_id
   tags              = merge(var.common_tags, lookup(var.tenant_tags, each.key, {}))
 }

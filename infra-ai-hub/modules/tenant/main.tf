@@ -602,6 +602,37 @@ resource "azurerm_monitor_diagnostic_setting" "speech_services" {
 }
 
 # =============================================================================
+# CONTENT UNDERSTANDING
+# Tenant-scoped Foundry (AIServices) account + model deployments, in a
+# Content Understanding-supported region (Canada Central). The private endpoint
+# stays in the tenant's PE subnet region (var.location).
+# Includes its own diagnostics and DNS zone-group wait.
+# =============================================================================
+module "content_understanding" {
+  source = "../content-understanding"
+  count  = var.content_understanding.enabled ? 1 : 0
+
+  name                       = "${local.name_prefix}-cu-${random_string.suffix.result}"
+  location                   = var.content_understanding.location
+  private_endpoint_location  = var.location
+  resource_group_name        = local.resource_group_name
+  private_endpoint_subnet_id = var.private_endpoint_subnet_id
+  sku                        = var.content_understanding.sku
+  model_deployments          = var.content_understanding.model_deployments
+
+  enable_diagnostics         = local.has_log_analytics && local.cu_diagnostics != null
+  log_analytics_workspace_id = local.tenant_log_analytics_workspace_id
+  diagnostics                = local.cu_diagnostics
+
+  scripts_dir               = var.scripts_dir
+  private_endpoint_dns_wait = var.private_endpoint_dns_wait
+
+  tags = var.tags
+
+  depends_on = [azurerm_resource_group.tenant]
+}
+
+# =============================================================================
 # WAIT FOR POLICY-MANAGED DNS ZONE GROUPS
 # Uses shared script to wait for Azure Policy to create DNS zone groups
 # =============================================================================

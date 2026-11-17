@@ -153,6 +153,39 @@ output "speech_services_primary_key" {
 }
 
 # =============================================================================
+# CONTENT UNDERSTANDING OUTPUTS
+# =============================================================================
+output "content_understanding_id" {
+  description = "Resource ID of the Content Understanding (AIServices) account"
+  value       = var.content_understanding.enabled ? module.content_understanding[0].resource_id : null
+}
+
+output "content_understanding_name" {
+  description = "Name of the Content Understanding (AIServices) account"
+  value       = var.content_understanding.enabled ? module.content_understanding[0].name : null
+}
+
+output "content_understanding_endpoint" {
+  description = "Endpoint of the Content Understanding (AIServices) account"
+  value       = var.content_understanding.enabled ? module.content_understanding[0].endpoint : null
+}
+
+output "content_understanding_location" {
+  description = "Azure region of the Content Understanding account"
+  value       = var.content_understanding.enabled ? module.content_understanding[0].location : null
+}
+
+output "content_understanding_model_deployments" {
+  description = "Content Understanding deployment name per role (completion, completion_mini, embedding)"
+  value       = var.content_understanding.enabled ? module.content_understanding[0].model_deployments : null
+}
+
+output "content_understanding_default_model_deployments" {
+  description = "modelDeployments map for PATCH /contentunderstanding/defaults"
+  value       = var.content_understanding.enabled ? module.content_understanding[0].default_model_deployments : null
+}
+
+# =============================================================================
 # AI FOUNDRY HUB REFERENCE OUTPUTS
 # Model deployments are now in the foundry-project module
 # =============================================================================
@@ -219,6 +252,7 @@ output "enabled_resources" {
     cosmos_db             = var.cosmos_db.enabled
     document_intelligence = var.document_intelligence.enabled
     speech_services       = var.speech_services.enabled
+    content_understanding = var.content_understanding.enabled
     log_analytics         = var.log_analytics.enabled
   }
 }

@@ -96,7 +96,14 @@ def test_tenant_info_rate_limit_metadata_matches_capacity_metadata(tenant_info_p
 def test_tenant_info_contains_services_object_with_required_keys(tenant_info_payload: dict) -> None:
     """Verify that the services block reports enablement flags for each advertised service."""
     services = tenant_info_payload["services"]
-    for service_name in ["openai", "document_intelligence", "ai_search", "speech_services", "storage"]:
+    for service_name in [
+        "openai",
+        "document_intelligence",
+        "content_understanding",
+        "ai_search",
+        "speech_services",
+        "storage",
+    ]:
         assert isinstance(services[service_name]["enabled"], bool)
 
 
@@ -225,6 +232,22 @@ def test_enabled_document_intelligence_service_has_endpoint_and_example(tenant_i
 
     assert service["endpoint"].startswith("https://")
     assert "documentintelligence" in service["example"]
+
+
+def test_content_understanding_service_matches_enabled_flag(tenant_info_payload: dict) -> None:
+    """Verify Content Understanding details are published only when the service is enabled."""
+    service = tenant_info_payload["services"]["content_understanding"]
+    if not service["enabled"]:
+        for field in ("endpoint", "api_version", "example", "defaults_url", "model_deployments"):
+            assert service[field] is None
+        return
+
+    assert service["endpoint"].startswith("https://")
+    assert service["api_version"] == "2025-11-01"
+    assert "/contentunderstanding/analyzers/" in service["example"]
+    assert "/contentunderstanding/defaults" in service["defaults_url"]
+    for alias in ("prebuilt-analyzer-completion", "prebuilt-analyzer-completion-mini", "prebuilt-analyzer-embedding"):
+        assert service["model_deployments"][alias]
 
 
 def test_disabled_ai_search_only_exposes_enabled_false(tenant_info_payload: dict) -> None:

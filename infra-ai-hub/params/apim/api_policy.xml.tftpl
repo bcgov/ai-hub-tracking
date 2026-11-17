@@ -309,6 +309,14 @@
       endpoint = document_intelligence_enabled ? "${base_url}/${tenant_name}" : null
       example  = document_intelligence_enabled ? "${base_url}/${tenant_name}/documentintelligence/documentModels/prebuilt-layout:analyze?api-version=2024-11-30" : null
     }
+    content_understanding = {
+      enabled           = content_understanding_enabled
+      endpoint          = content_understanding_enabled ? "${base_url}/${tenant_name}" : null
+      api_version       = content_understanding_enabled ? "2025-11-01" : null
+      example           = content_understanding_enabled ? "${base_url}/${tenant_name}/contentunderstanding/analyzers/prebuilt-layout:analyze?api-version=2025-11-01" : null
+      defaults_url      = content_understanding_enabled ? "${base_url}/${tenant_name}/contentunderstanding/defaults?api-version=2025-11-01" : null
+      model_deployments = content_understanding_enabled ? content_understanding_defaults : null
+    }
     ai_search = {
       enabled  = ai_search_enabled
       endpoint = ai_search_enabled ? "${base_url}/${tenant_name}/ai-search" : null
@@ -327,6 +335,19 @@
   }
 })}</set-body>
                 </return-response>
+            </when>
+%{ endif ~}
+%{ if content_understanding_enabled ~}
+            <!-- Content Understanding requests: /contentunderstanding/* (analyze, analyzeBinary, analyzerResults, analyzers, defaults) -->
+            <!-- Evaluated before Document Intelligence/OpenAI so analyzer IDs containing those words still route here -->
+            <!-- Backend is the tenant's own Foundry (AIServices) account in Canada Central -->
+            <when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;contentunderstanding&quot;))">
+                <set-backend-service backend-id="${tenant_name}-cu" />
+                <authentication-managed-identity resource="https://cognitiveservices.azure.com" output-token-variable-name="msi-access-token" ignore-error="false" />
+                <set-header name="Authorization" exists-action="override">
+                    <value>@("Bearer " + (string)context.Variables["msi-access-token"])</value>
+                </set-header>
+                <set-header name="api-key" exists-action="delete" />
             </when>
 %{ endif ~}
 %{ if document_intelligence_enabled ~}
@@ -802,7 +823,7 @@
     </backend>
     <outbound>
         <base />
-%{ if document_intelligence_enabled ~}
+%{ if document_intelligence_enabled || content_understanding_enabled ~}
         <!-- Rewrite Operation-Location header to use App Gateway URL instead of direct backend URL -->
         <!-- This is critical for async operations (202 responses) to ensure clients poll through App Gateway -->
         <!-- Uses X-Forwarded-Host header from App Gateway if present (original client hostname) -->
@@ -815,8 +836,9 @@
                         {
                             // Replace the direct backend URL with gateway URL
                             // Pattern: https://{backend}.cognitiveservices.azure.com/{path}
+                            //      or https://{backend}.services.ai.azure.com/{path} (Foundry/AIServices host used by Content Understanding)
                             // Replace with: https://{gateway-host}/{tenant-api}/{path}
-                            var backendPattern = new System.Text.RegularExpressions.Regex(@"https://[^/]+\.cognitiveservices\.azure\.com/");
+                            var backendPattern = new System.Text.RegularExpressions.Regex(@"https://[^/]+\.(cognitiveservices\.azure\.com|services\.ai\.azure\.com)/");
                             
                             // Use X-Forwarded-Host if present (from App Gateway), otherwise fall back to OriginalUrl.Host (direct APIM)
                             var gatewayHost = context.Request.Headers.GetValueOrDefault("X-Forwarded-Host", context.Request.OriginalUrl.Host);

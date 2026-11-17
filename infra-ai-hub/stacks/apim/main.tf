@@ -113,6 +113,17 @@ resource "azurerm_api_management_named_value" "docint_endpoint" {
   secret              = false
 }
 
+resource "azurerm_api_management_named_value" "content_understanding_endpoint" {
+  for_each = local.tenants_with_content_understanding
+
+  name                = "${each.key}-cu-endpoint"
+  resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
+  api_management_name = module.apim[0].name
+  display_name        = "${local.sanitized_display_names[each.key]}_Content_Understanding_Endpoint"
+  value               = local.tenant_content_understanding_outputs[each.key].endpoint
+  secret              = false
+}
+
 resource "azurerm_api_management_named_value" "storage_endpoint" {
   for_each = local.tenants_with_storage_account
 
@@ -232,6 +243,33 @@ resource "azurerm_api_management_backend" "docint" {
 
   circuit_breaker_rule {
     name                       = "docint-breaker"
+    trip_duration              = "PT1M"
+    accept_retry_after_enabled = true
+
+    failure_condition {
+      count             = 3
+      interval_duration = "PT1M"
+
+      status_code_range {
+        min = 500
+        max = 599
+      }
+    }
+  }
+}
+
+resource "azurerm_api_management_backend" "content_understanding" {
+  for_each = local.tenants_with_content_understanding
+
+  name                = "${each.key}-cu"
+  resource_group_name = data.terraform_remote_state.shared.outputs.resource_group_name
+  api_management_name = module.apim[0].name
+  protocol            = "http"
+  url                 = local.tenant_content_understanding_outputs[each.key].endpoint
+  description         = "Content Understanding backend for ${each.value.display_name}"
+
+  circuit_breaker_rule {
+    name                       = "cu-breaker"
     trip_duration              = "PT1M"
     accept_retry_after_enabled = true
 
@@ -582,6 +620,7 @@ resource "azurerm_api_management_api_policy" "tenant" {
     azurerm_api_management_backend.openai,
     azurerm_api_management_backend.openai_ptu,
     azurerm_api_management_backend.docint,
+    azurerm_api_management_backend.content_understanding,
     azurerm_api_management_backend.storage,
     azurerm_api_management_backend.ai_search,
     azurerm_api_management_backend.speech_services_stt,
@@ -589,6 +628,7 @@ resource "azurerm_api_management_api_policy" "tenant" {
     azurerm_api_management_named_value.ai_foundry_endpoint,
     azurerm_api_management_named_value.openai_endpoint,
     azurerm_api_management_named_value.docint_endpoint,
+    azurerm_api_management_named_value.content_understanding_endpoint,
     azurerm_api_management_named_value.storage_endpoint,
     azurerm_api_management_named_value.ai_search_endpoint,
     azurerm_api_management_named_value.speech_services_endpoint,
@@ -624,6 +664,16 @@ resource "azurerm_role_assignment" "apim_docint_user" {
   for_each = local.tenants_with_document_intelligence
 
   scope                = local.tenant_document_intelligence_outputs[each.key].id
+  role_definition_name = "Cognitive Services User"
+  principal_id         = module.apim[0].principal_id
+}
+
+# Cognitive Services User grants Microsoft.CognitiveServices/* data actions, which covers
+# every Content Understanding data action (analyze, results, analyzers, defaults).
+resource "azurerm_role_assignment" "apim_content_understanding_user" {
+  for_each = local.tenants_with_content_understanding
+
+  scope                = local.tenant_content_understanding_outputs[each.key].id
   role_definition_name = "Cognitive Services User"
   principal_id         = module.apim[0].principal_id
 }

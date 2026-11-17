@@ -58,6 +58,19 @@ output "tenant_document_intelligence" {
   }
 }
 
+output "tenant_content_understanding" {
+  value = {
+    for tenant_key, tenant in module.tenant : tenant_key => {
+      id                        = tenant.content_understanding_id
+      name                      = tenant.content_understanding_name
+      endpoint                  = tenant.content_understanding_endpoint
+      location                  = tenant.content_understanding_location
+      model_deployments         = tenant.content_understanding_model_deployments
+      default_model_deployments = tenant.content_understanding_default_model_deployments
+    } if tenant.content_understanding_id != null
+  }
+}
+
 output "tenant_speech_services" {
   value = {
     for tenant_key, tenant in module.tenant : tenant_key => {
