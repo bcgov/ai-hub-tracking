@@ -1115,7 +1115,7 @@
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
             </div>
             <strong>Cognitive Services</strong>
-            <p style="font-size: 0.85rem; margin: 0.5rem 0 0; color: var(--text-secondary);">Document Intelligence, PII detection, Speech</p>
+            <p style="font-size: 0.85rem; margin: 0.5rem 0 0; color: var(--text-secondary);">Document Intelligence, Content Understanding, PII detection, Speech</p>
         </div>
     </a>
     <a href="#shared-vs-dedicated" class="card-link">
@@ -1364,7 +1364,7 @@
 
 <h3 id="models-by-tenant">Models by Tenant</h3>
 
-<p>Model deployments configured for each tenant, taken from each tenant's configuration on 2026-11-16. Per-deployment capacity is in <a href="infra-ai-hub/model-deployments.md">model-deployments.md</a>. Retired and retiring models (<code style="white-space: nowrap;">gpt-5.1-chat</code>, <code style="white-space: nowrap;">o4-mini</code>) are left out, even where a dev or test project still has them configured.</p>
+<p>Model deployments configured for each tenant, taken from each tenant's configuration on 2026-11-16. Per-deployment capacity is in <a href="infra-ai-hub/model-deployments.md">model-deployments.md</a>. Retired and retiring models (<code style="white-space: nowrap;">gpt-5.1-chat</code>, <code style="white-space: nowrap;">o4-mini</code>) are left out, even where a dev or test project still has them configured. Content Understanding model deployments are not in this table because they run on separate per-tenant resources; see <a href="#content-understanding">Using Content Understanding</a>.</p>
 
 <table>
     <thead>
@@ -1463,6 +1463,14 @@
         <p>Extract structured data from unstructured documents — forms, invoices, PDFs, scanned images. Supports custom models trained on your document types.</p>
         <p style="margin-bottom: 0;"><small>Dedicated instance per tenant &mdash; <a href="document-intelligence.html">View setup guide →</a></small></p>
     </div>
+    <div class="card" style="border-left-color: #d97706;">
+        <div class="feature-icon" style="background: rgba(217,119,6,0.1);">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#d97706" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h6"/><polyline points="14 2 14 8 20 8"/><circle cx="17" cy="17" r="3"/><line x1="21" y1="21" x2="19.1" y2="19.1"/></svg>
+        </div>
+        <h3 id="content-understanding-1" style="margin-top: 0;">Content Understanding</h3>
+        <p>Analyze documents with Azure Content Understanding analyzers, such as <code>prebuilt-layout</code>, and get the content back as Markdown. Runs on its own Microsoft Foundry resource in Canada Central.</p>
+        <p style="margin-bottom: 0;"><small>Dedicated instance per tenant, opt-in &mdash; <a href="#content-understanding">See how to use it ↓</a></small></p>
+    </div>
     <div class="card" style="border-left-color: #ef4444;">
         <div class="feature-icon" style="background: rgba(239,68,68,0.1);">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
@@ -1486,6 +1494,174 @@
         <h3 id="ai-search" style="margin-top: 0;">AI Search</h3>
         <p>Managed vector + full-text search service for building RAG pipelines, semantic search over documents, and hybrid retrieval. Integrates directly with AI Foundry for grounding model responses.</p>
         <p style="margin-bottom: 0;"><small>Dedicated instance per tenant</small></p>
+    </div>
+</div>
+
+<h3 id="content-understanding">Using Content Understanding</h3>
+
+<p><a href="https://learn.microsoft.com/azure/ai-services/content-understanding/overview">Azure Content Understanding</a> is available to tenants that opt in, through the generally available API version <code>2025-11-01</code>. It does not run on the shared AI Foundry Hub. Each enabled tenant gets its own Microsoft Foundry resource, with its own model deployments, in the tenant resource group.</p>
+
+<p>The reason is region. The shared hub runs in Canada East. Microsoft's <a href="https://learn.microsoft.com/azure/ai-services/content-understanding/language-region-support">Content Understanding region list</a> (page updated 2026-10-19, checked 2026-11-16) includes Canada Central but not Canada East, so these resources are deployed in Canada Central.</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Item</th>
+            <th>Details</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><strong>How to enable</strong></td>
+            <td>Set <code>content_understanding = { enabled = true }</code> in <code>params/&lt;env&gt;/tenants/&lt;tenant&gt;/tenant.tfvars</code>. Every tenant file must contain this block, set to <code>true</code> or <code>false</code>, because the <code>tenants</code> variable is <code>map(any)</code>. Region, models, and capacity come from <code>shared_config.content_understanding</code> in <code>params/&lt;env&gt;/shared.tfvars</code>.</td>
+        </tr>
+        <tr>
+            <td><strong>Enabled today</strong></td>
+            <td><span class="badge" style="background:#92400e;color:white;">ai-hub-admin</span> dev only. Disabled for every other tenant in dev, test, and prod.</td>
+        </tr>
+        <tr>
+            <td><strong>Resource</strong></td>
+            <td>Microsoft Foundry resource (kind <code>AIServices</code>) named <code>&lt;tenant&gt;-cu-&lt;4-character suffix&gt;</code>, in the tenant resource group, in <strong>Canada Central</strong>, with a system-assigned managed identity.</td>
+        </tr>
+        <tr>
+            <td><strong>Network</strong></td>
+            <td>Public network access is disabled. The resource has a private endpoint, <code>pep-&lt;name&gt;</code>, in the tenant's private endpoint subnet. The Landing Zone policy manages its DNS record.</td>
+        </tr>
+        <tr>
+            <td><strong>Authentication</strong></td>
+            <td>Call the gateway with your tenant's APIM subscription key in the <code>api-key</code> header, the same key you use for other services. The gateway removes that header and calls the resource with its own managed identity, which has the <code>Cognitive Services User</code> role on the resource. Key (local) authentication is disabled on the resource.</td>
+        </tr>
+        <tr>
+            <td><strong>Rate limits</strong></td>
+            <td>Content Understanding requests count toward the tenant's existing per-minute request limit for non-OpenAI services.</td>
+        </tr>
+    </tbody>
+</table>
+
+<h4>Model deployments</h4>
+
+<p>Each tenant Content Understanding resource gets the same three deployments. The deployment name is the model name. Values are identical in dev, test, and prod.</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Role</th>
+            <th>Deployment</th>
+            <th>Version</th>
+            <th>Type</th>
+            <th>Capacity</th>
+            <th>Retires</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Completion</td>
+            <td><strong>gpt-5.4</strong></td>
+            <td>2026-03-05</td>
+            <td>GlobalStandard</td>
+            <td>100</td>
+            <td><span style="white-space: nowrap;">2027-09-02</span></td>
+        </tr>
+        <tr>
+            <td>Completion (mini)</td>
+            <td><strong>gpt-5.4-mini</strong></td>
+            <td>2026-03-17</td>
+            <td>GlobalStandard</td>
+            <td>100</td>
+            <td><span style="white-space: nowrap;">2027-09-21</span></td>
+        </tr>
+        <tr>
+            <td>Embedding</td>
+            <td><strong>text-embedding-3-large</strong></td>
+            <td>1</td>
+            <td>GlobalStandard</td>
+            <td>100</td>
+            <td><span style="white-space: nowrap;">2028-02-09</span></td>
+        </tr>
+    </tbody>
+</table>
+
+<p>A capacity of 100 is 1% of the 10,000 GlobalStandard quota for each model in Canada Central, as seen in the tools subscription on 2026-11-16. Versions and retirement dates come from <code>az cognitiveservices model list -l canadacentral</code>, run on 2026-11-16. Microsoft moves these dates, so treat them as a guide. Deployments move to a new version only when the current one expires (<code>OnceCurrentVersionExpired</code>). See <a href="https://learn.microsoft.com/azure/ai-services/content-understanding/service-limits">Content Understanding service limits</a> for the models it supports.</p>
+
+<h4>Calling Content Understanding</h4>
+
+<p>The base URL is <code>https://&lt;gateway&gt;/&lt;tenant&gt;</code>. The <a href="apim-internal-endpoints.html#tenant-info">tenant-info endpoint</a> returns it as <code>services.content_understanding.endpoint</code>.</p>
+
+<table>
+    <thead>
+        <tr>
+            <th>Method</th>
+            <th>Path (add <code>?api-version=2025-11-01</code>)</th>
+            <th>Purpose</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code>POST</code></td>
+            <td><code>/contentunderstanding/analyzers/{analyzerId}:analyze</code></td>
+            <td>Analyze a file given by URL, <code>{"inputs":[{"url":"..."}]}</code>, or as base64, <code>{"inputs":[{"data":"&lt;base64&gt;","mimeType":"application/pdf"}]}</code>. Returns <code>202</code> with an <code>Operation-Location</code> header.</td>
+        </tr>
+        <tr>
+            <td><code>POST</code></td>
+            <td><code>/contentunderstanding/analyzers/{analyzerId}:analyzeBinary</code></td>
+            <td>Analyze a file sent as the raw request body. Returns <code>202</code> with an <code>Operation-Location</code> header.</td>
+        </tr>
+        <tr>
+            <td><code>GET</code></td>
+            <td><code>/contentunderstanding/analyzerResults/{resultId}</code></td>
+            <td>Get the result. <code>status</code> is <code>NotStarted</code>, <code>Running</code>, <code>Succeeded</code>, <code>Failed</code>, or <code>Canceled</code>. The extracted Markdown is in <code>result.contents[].markdown</code>.</td>
+        </tr>
+        <tr>
+            <td><code>GET</code> / <code>PATCH</code></td>
+            <td><code>/contentunderstanding/defaults</code></td>
+            <td>Read or set the model defaults. See the one-time setup below.</td>
+        </tr>
+    </tbody>
+</table>
+
+<pre># Analyze a document by URL with the prebuilt-layout analyzer
+curl -i -X POST "https://&lt;gateway&gt;/&lt;tenant&gt;/contentunderstanding/analyzers/prebuilt-layout:analyze?api-version=2025-11-01" \
+  -H "api-key: &lt;your-subscription-key&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{"inputs":[{"url":"https://example.com/document.pdf"}]}'
+
+# 202 Accepted. Poll the Operation-Location URL until status is Succeeded.
+curl -s "&lt;Operation-Location value&gt;" -H "api-key: &lt;your-subscription-key&gt;"</pre>
+
+<p>The gateway rewrites the <code>Operation-Location</code> header so that it points at the gateway host instead of the resource, as it does for Document Intelligence. Polling therefore goes through the gateway with the same subscription key.</p>
+
+<div class="alert alert-warning" style="margin-top: 1rem;">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+    </div>
+    <div>
+        <strong>One-time setup per tenant: model defaults.</strong>
+        Content Understanding has to be told which deployments to use. A single <code>PATCH</code> per tenant maps the model names and the prebuilt-analyzer aliases to the tenant's deployments. Terraform cannot set this: it is a data-plane setting, the resource has no public network access, and deployments run on GitHub-hosted runners. Apply it through the gateway instead. <code>prebuilt-layout</code>, <code>prebuilt-read</code>, and <code>prebuilt-digitalParse</code> do not need a language or embedding model (<a href="https://learn.microsoft.com/azure/ai-services/content-understanding/concepts/prebuilt-analyzers">Prebuilt analyzers</a>).
+    </div>
+</div>
+
+<pre>curl -X PATCH "https://&lt;gateway&gt;/&lt;tenant&gt;/contentunderstanding/defaults?api-version=2025-11-01" \
+  -H "api-key: &lt;your-subscription-key&gt;" \
+  -H "Content-Type: application/merge-patch+json" \
+  -d '{
+    "modelDeployments": {
+      "gpt-5.4": "gpt-5.4",
+      "gpt-5.4-mini": "gpt-5.4-mini",
+      "text-embedding-3-large": "text-embedding-3-large",
+      "prebuilt-analyzer-completion": "gpt-5.4",
+      "prebuilt-analyzer-completion-mini": "gpt-5.4-mini",
+      "prebuilt-analyzer-embedding": "text-embedding-3-large"
+    }
+  }'</pre>
+
+<p>The same map is in the tenant-info response as <code>services.content_understanding.model_deployments</code>, and a <code>GET</code> on <code>/contentunderstanding/defaults</code> shows what is currently set. See <a href="https://learn.microsoft.com/azure/ai-services/content-understanding/concepts/models-deployments">Models and deployments</a> for how defaults work.</p>
+
+<div class="alert alert-info" style="margin-top: 1rem;">
+    <div class="alert-icon">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/></svg>
+    </div>
+    <div>
+        <strong>Data residency:</strong> data at rest stays in Canada Central. GlobalStandard is the only deployment type for these models in Canada Central, so inference may be processed outside Canada. This is the same posture as the existing model deployments on the shared hub.
     </div>
 </div>
 
@@ -1513,6 +1689,7 @@
             <li><strong>AI Foundry Project</strong> — your own API endpoint &amp; prompt flows</li>
             <li><strong>Model Deployments</strong> — OpenAI baseline plus any tenant-specific Cohere or Mistral deployments assigned to your project</li>
             <li><strong>Document Intelligence</strong> — your own instance &amp; models</li>
+            <li><strong>Content Understanding</strong> — your own Microsoft Foundry resource and model deployments in Canada Central (when enabled)</li>
             <li><strong>AI Search</strong> — your own indexes for RAG</li>
             <li><strong>Speech Services</strong> — your own instance</li>
             <li><strong>Key Vault</strong> — your secrets, isolated from other tenants</li>

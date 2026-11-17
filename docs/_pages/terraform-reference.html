@@ -38,12 +38,6 @@
 <table>
 <tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
 <tr>
-<td><code>app_env</code></td>
-<td><code>string</code></td>
-<td><code>required</code></td>
-<td>Application environment (dev, test, prod)</td>
-</tr>
-<tr>
 <td><code>app_name</code></td>
 <td><code>string</code></td>
 <td><code>required</code></td>
@@ -197,6 +191,10 @@
 <h4>Outputs</h4>
 <table>
 <tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>log_analytics_workspace_id</code></td>
+<td>Resource ID of the shared Log Analytics workspace. Consumed by the Bastion deployer (.github/workflows/.deployer.yml) as a bring-your-own workspace for Bastion audit diagnostics.</td>
+</tr>
 <tr>
 <td><code>github_runners_environment_name</code></td>
 <td>Name of the Container App Environment for GitHub runners</td>
@@ -519,12 +517,6 @@
 <td>Resource group name where the virtual network exists</td>
 </tr>
 <tr>
-<td><code>web_subnet_name</code></td>
-<td><code>string</code></td>
-<td><code>web-subnet</code></td>
-<td>Name of the web subnet for APIM deployment</td>
-</tr>
-<tr>
 <td><code>apim_subnet_name</code></td>
 <td><code>string</code></td>
 <td><code>apim-subnet</code></td>
@@ -797,6 +789,14 @@
 <td>ACA subnet ID for Container App Environment</td>
 </tr>
 <tr>
+<td><code>app_service_subnet_id</code></td>
+<td>App Service integration subnet ID (null if not enabled). Consumed by the tenant onboarding portal Terraform root.</td>
+</tr>
+<tr>
+<td><code>app_service_subnet_cidr</code></td>
+<td>App Service integration subnet CIDR (null if not enabled)</td>
+</tr>
+<tr>
 <td><code>container_app_environment_id</code></td>
 <td>Container App Environment resource ID (null if not enabled)</td>
 </tr>
@@ -1015,6 +1015,10 @@
 </tr>
 <tr>
 <td><code>tenant_document_intelligence</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>tenant_content_understanding</code></td>
 <td><em>No description</em></td>
 </tr>
 <tr>
@@ -1292,6 +1296,7 @@
 <li><code>azurerm_api_management_named_value (ai_foundry_endpoint)</code></li>
 <li><code>azurerm_api_management_named_value (openai_endpoint)</code></li>
 <li><code>azurerm_api_management_named_value (docint_endpoint)</code></li>
+<li><code>azurerm_api_management_named_value (content_understanding_endpoint)</code></li>
 <li><code>azurerm_api_management_named_value (storage_endpoint)</code></li>
 <li><code>azurerm_api_management_named_value (ai_search_endpoint)</code></li>
 <li><code>azurerm_api_management_named_value (speech_services_endpoint)</code></li>
@@ -1299,6 +1304,7 @@
 <li><code>azurerm_api_management_backend (openai)</code></li>
 <li><code>azurerm_api_management_backend (openai_ptu)</code></li>
 <li><code>azurerm_api_management_backend (docint)</code></li>
+<li><code>azurerm_api_management_backend (content_understanding)</code></li>
 <li><code>azurerm_api_management_backend (storage)</code></li>
 <li><code>azurerm_api_management_backend (ai_search)</code></li>
 <li><code>azurerm_api_management_backend (speech_services_stt)</code></li>
@@ -1318,7 +1324,9 @@
 <li><code>azurerm_api_management_policy_fragment (tracking_dimensions)</code></li>
 <li><code>azurerm_api_management_api_policy (tenant)</code></li>
 <li><code>azurerm_role_assignment (apim_openai_user)</code></li>
+<li><code>azurerm_role_assignment (apim_ai_services_user)</code></li>
 <li><code>azurerm_role_assignment (apim_docint_user)</code></li>
+<li><code>azurerm_role_assignment (apim_content_understanding_user)</code></li>
 <li><code>azurerm_role_assignment (apim_storage_reader)</code></li>
 <li><code>azurerm_role_assignment (apim_search_contributor)</code></li>
 <li><code>azurerm_role_assignment (apim_search_service_contributor)</code></li>
@@ -2487,6 +2495,140 @@
 <li><code>null_resource (wait_for_dns_acr)</code></li>
 </ul>
 </div>
+<h3 id="hub-content-understanding">content-understanding</h3>
+<div class="card" style="border-left-color: #22c55e;">
+<p>Per-tenant Foundry (AIServices) account in Canada Central hosting Azure Content Understanding, with its model deployments, private endpoint and diagnostics</p>
+<p><strong>Location:</strong> <code>infra-ai-hub/modules/content-understanding/</code></p>
+<details>
+<summary style="cursor: pointer; color: var(--bc-blue-light);">Files (5)</summary>
+<ul style="margin-top: 0.5rem;">
+<li><code>locals.tf</code></li>
+<li><code>main.tf</code></li>
+<li><code>outputs.tf</code></li>
+<li><code>variables.tf</code></li>
+<li><code>versions.tf</code></li>
+</ul>
+</details>
+<h4>Variables</h4>
+<table>
+<tr><th>Name</th><th>Type</th><th>Default</th><th>Description</th></tr>
+<tr>
+<td><code>name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the Foundry (AIServices) account that hosts Content Understanding. Also used as the custom subdomain, so it must be globally unique.</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region for the Content Understanding account. Restricted to the Canadian regions; see https://learn.microsoft.com/azure/ai-services/content-understanding/language-region-support for which of them Content Understanding currently supports.</td>
+</tr>
+<tr>
+<td><code>private_endpoint_location</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Azure region of the private endpoint. Must match the region of the VNet that owns private_endpoint_subnet_id.</td>
+</tr>
+<tr>
+<td><code>resource_group_name</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Name of the tenant resource group that will contain the account and its private endpoint.</td>
+</tr>
+<tr>
+<td><code>private_endpoint_subnet_id</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Subnet ID for the account's private endpoint.</td>
+</tr>
+<tr>
+<td><code>sku</code></td>
+<td><code>string</code></td>
+<td><code>S0</code></td>
+<td>SKU of the Foundry (AIServices) account. S0 is the only SKU for kind AIServices.</td>
+</tr>
+<tr>
+<td><code>model_deployments</code></td>
+<td><code>optional(string,</code></td>
+<td><code>required</code></td>
+<td><em>No description</em></td>
+</tr>
+<tr>
+<td><code>enable_diagnostics</code></td>
+<td><code>bool</code></td>
+<td><code>false</code></td>
+<td>Create a diagnostic setting that sends logs/metrics to log_analytics_workspace_id. Must be a plan-time value.</td>
+</tr>
+<tr>
+<td><code>log_analytics_workspace_id</code></td>
+<td><code>string</code></td>
+<td><code>null</code></td>
+<td>Log Analytics workspace ID for diagnostics. Required when enable_diagnostics is true.</td>
+</tr>
+<tr>
+<td><code>diagnostics</code></td>
+<td><code>object({</code></td>
+<td><code>null</code></td>
+<td>Diagnostic categories to enable when enable_diagnostics is true.</td>
+</tr>
+<tr>
+<td><code>scripts_dir</code></td>
+<td><code>string</code></td>
+<td><code>required</code></td>
+<td>Path to the shared scripts directory (wait-for-dns-zone.sh). Empty string skips the DNS wait.</td>
+</tr>
+<tr>
+<td><code>private_endpoint_dns_wait</code></td>
+<td><code>object({</code></td>
+<td><code>{}</code></td>
+<td>Timeout and poll interval used while waiting for the policy-managed DNS zone group.</td>
+</tr>
+<tr>
+<td><code>tags</code></td>
+<td><code>map(string)</code></td>
+<td><code>{}</code></td>
+<td>Tags applied to the account and its private endpoint.</td>
+</tr>
+</table>
+<h4>Outputs</h4>
+<table>
+<tr><th>Name</th><th>Description</th></tr>
+<tr>
+<td><code>resource_id</code></td>
+<td>Resource ID of the Content Understanding (AIServices) account</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td>Name of the Content Understanding (AIServices) account</td>
+</tr>
+<tr>
+<td><code>endpoint</code></td>
+<td>Endpoint of the Content Understanding (AIServices) account</td>
+</tr>
+<tr>
+<td><code>location</code></td>
+<td>Azure region of the Content Understanding account</td>
+</tr>
+<tr>
+<td><code>principal_id</code></td>
+<td>Principal ID of the account's system-assigned managed identity</td>
+</tr>
+<tr>
+<td><code>model_deployments</code></td>
+<td>Deployment name per role (completion, completion_mini, embedding)</td>
+</tr>
+<tr>
+<td><code>default_model_deployments</code></td>
+<td>modelDeployments map for PATCH /contentunderstanding/defaults (model names and prebuilt-analyzer aliases -> deployment names)</td>
+</tr>
+</table>
+<h4>Resources Created</h4>
+<ul>
+<li><code>azurerm_monitor_diagnostic_setting (this)</code></li>
+<li><code>null_resource (wait_for_dns)</code></li>
+</ul>
+</div>
 <h3 id="hub-defender">defender</h3>
 <div class="card" style="border-left-color: #22c55e;">
 <p>Microsoft Defender for Cloud Subscription Pricing</p>
@@ -3114,6 +3256,18 @@
 <td>Resource ID of the ACA NSG (null if not enabled)</td>
 </tr>
 <tr>
+<td><code>app_service_subnet_id</code></td>
+<td>Resource ID of the App Service integration subnet (null if not enabled)</td>
+</tr>
+<tr>
+<td><code>app_service_subnet_cidr</code></td>
+<td>CIDR of the App Service integration subnet (null if not enabled)</td>
+</tr>
+<tr>
+<td><code>app_service_nsg_id</code></td>
+<td>Resource ID of the App Service NSG (null if not enabled)</td>
+</tr>
+<tr>
 <td><code>vnet_id</code></td>
 <td>Resource ID of the target VNet</td>
 </tr>
@@ -3135,6 +3289,8 @@
 <li><code>azapi_resource (appgw_subnet)</code></li>
 <li><code>azurerm_network_security_group (aca)</code></li>
 <li><code>azapi_resource (aca_subnet)</code></li>
+<li><code>azurerm_network_security_group (app_service)</code></li>
+<li><code>azapi_resource (app_service_subnet)</code></li>
 </ul>
 </div>
 <h3 id="hub-pii-redaction-service">pii-redaction-service</h3>
@@ -3516,6 +3672,12 @@
 <td>Azure Speech Services configuration for the tenant</td>
 </tr>
 <tr>
+<td><code>content_understanding</code></td>
+<td><code>optional(string,</code></td>
+<td><code>{</code></td>
+<td>Azure Content Understanding configuration for the tenant</td>
+</tr>
+<tr>
 <td><code>ai_foundry_hub_id</code></td>
 <td><code>string</code></td>
 <td><code>null</code></td>
@@ -3634,6 +3796,30 @@
 <tr>
 <td><code>speech_services_primary_key</code></td>
 <td>Primary access key for the Speech Services account</td>
+</tr>
+<tr>
+<td><code>content_understanding_id</code></td>
+<td>Resource ID of the Content Understanding (AIServices) account</td>
+</tr>
+<tr>
+<td><code>content_understanding_name</code></td>
+<td>Name of the Content Understanding (AIServices) account</td>
+</tr>
+<tr>
+<td><code>content_understanding_endpoint</code></td>
+<td>Endpoint of the Content Understanding (AIServices) account</td>
+</tr>
+<tr>
+<td><code>content_understanding_location</code></td>
+<td>Azure region of the Content Understanding account</td>
+</tr>
+<tr>
+<td><code>content_understanding_model_deployments</code></td>
+<td>Content Understanding deployment name per role (completion, completion_mini, embedding)</td>
+</tr>
+<tr>
+<td><code>content_understanding_default_model_deployments</code></td>
+<td>modelDeployments map for PATCH /contentunderstanding/defaults</td>
 </tr>
 <tr>
 <td><code>openai_endpoint</code></td>
