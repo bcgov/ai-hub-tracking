@@ -800,7 +800,9 @@ These settings are applied at **deploy time** to the global policy:
 ### Content Understanding Configuration
 
 Tenants opt in to [Azure Content Understanding](https://learn.microsoft.com/azure/ai-services/content-understanding/overview)
-(GA API version `2025-11-01`). It is currently enabled only for `ai-hub-admin` in **dev**.
+(GA API version `2025-11-01`). It is currently enabled for `ai-hub-admin` in **dev** and for
+`sdpr-invoice-automation` in **dev** and **test** (see the enabled-tenants table in
+[`model-deployments.md`](model-deployments.md#content-understanding-per-tenant-accounts-canada-central)).
 
 **Configuration split:**
 

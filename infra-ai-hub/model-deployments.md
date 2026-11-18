@@ -267,13 +267,16 @@ Enabled tenants:
 
 | Environment | Tenants |
 |-------------|---------|
-| dev | ai-hub-admin |
-| test | — |
+| dev | ai-hub-admin, sdpr-invoice-automation |
+| test | sdpr-invoice-automation |
 | prod | — |
 
 > - **Quota:** capacity 100 is 1% of the 10,000 canadacentral GlobalStandard quota seen for each model in the tools
 >   subscription on 2026-11-16. Quota is per subscription per region, so confirm it in each environment's subscription
->   before enabling more tenants (`az cognitiveservices usage list --location "canadacentral"`).
+>   before enabling more tenants (`az cognitiveservices usage list --location "canadacentral"`). On 2026-11-17 the dev
+>   subscription showed `gpt-5.4` 400 / 10,000, `gpt-5.4-mini` 0 / 10,000 and `text-embedding-3-large`
+>   1,000 / 30,000 used, which leaves room for both dev tenants. The test subscription showed `gpt-5.4` 600 / 10,000,
+>   `gpt-5.4-mini` 0 / 10,000 and `text-embedding-3-large` 900 / 30,000.
 > - **Lifecycle dates** are from `az cognitiveservices model list -l canadacentral` on 2026-11-16. GlobalStandard is
 >   the only deployment type available for these models in canadacentral.
 > - **Why not `gpt-4.1`:** it is Legacy in canadacentral (retires 2027-04-14).

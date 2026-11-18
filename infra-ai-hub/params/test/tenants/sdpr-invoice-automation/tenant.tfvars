@@ -84,7 +84,7 @@ tenant = {
   # IMPORTANT: This block MUST be present in every tenant (even if disabled) to keep
   # the map(any) type consistent across all tenant entries.
   content_understanding = {
-    enabled = false
+    enabled = true
   }
 
   log_analytics = {
@@ -311,8 +311,8 @@ tenant = {
       tokens_per_minute = 1000
     }
     pii_redaction = {
-      enabled     = false
-      fail_closed = true # Block requests if PII service fails (not applicable when disabled)
+      enabled             = false
+      fail_closed         = true # Block requests if PII service fails (not applicable when disabled)
       excluded_categories = []
     }
     usage_logging = {

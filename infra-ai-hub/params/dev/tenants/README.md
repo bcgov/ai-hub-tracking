@@ -221,7 +221,8 @@ The `tenants` variable is `map(any)`, so every tenant entry must have the same s
 plan with `all map elements must have the same type` (the same rule applies to `speech_services`).
 
 The tenant file carries **only** `enabled`. Region (`Canada Central`), SKU, model deployments, and diagnostics come from
-`shared_config.content_understanding` in `params/dev/shared.tfvars`. In dev it is enabled for `ai-hub-admin` only.
+`shared_config.content_understanding` in `params/dev/shared.tfvars`. In dev it is enabled for `ai-hub-admin` and
+`sdpr-invoice-automation`.
 
 To opt a tenant in:
 
