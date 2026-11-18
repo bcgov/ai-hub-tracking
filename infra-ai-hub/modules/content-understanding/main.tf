@@ -13,8 +13,9 @@
 # - Content Understanding defaults and analyzers are scoped to the account, so a
 #   per-tenant account keeps tenants isolated and costs attributable.
 #
-# NOTE: private_endpoints_manage_dns_zone_group = false because in the Azure
-# Landing Zone, private DNS zone groups are policy-managed.
+# NOTE: The private endpoint is created in this module, not by AVM, so that it
+# waits for the model deployments (see PRIVATE ENDPOINT below). Its DNS zone
+# group is policy-managed in the Azure Landing Zone.
 # =============================================================================
 
 # =============================================================================
@@ -45,16 +46,9 @@ module "account" {
 
   cognitive_deployments = local.cognitive_deployments
 
-  # CRITICAL: Set to false to let Azure Policy manage DNS zone groups
-  private_endpoints_manage_dns_zone_group = false
-
-  private_endpoints = {
-    primary = {
-      subnet_resource_id = var.private_endpoint_subnet_id
-      location           = var.private_endpoint_location
-      tags               = var.tags
-    }
-  }
+  # Private endpoint is created below (azurerm_private_endpoint.this), after the
+  # model deployments. Do not add it back here; see the PRIVATE ENDPOINT section.
+  private_endpoints = {}
 
   # Diagnostic settings managed separately to control lifecycle and prevent drift
   diagnostic_settings = {}
@@ -112,17 +106,60 @@ resource "azurerm_monitor_diagnostic_setting" "this" {
 }
 
 # =============================================================================
+# PRIVATE ENDPOINT
+# Created here instead of by the AVM module so that it waits for the model
+# deployments. In AVM 0.7.1 both the private endpoint and the deployments depend
+# only on the account, so they start at the same time. The first TEST apply
+# (2026-11-18) failed that way: the private endpoint got a 400
+# AccountProvisioningStateInvalid ("account ... in state Accepted") while the
+# deployments were being written, most likely because those writes put the
+# account back into Accepted. depends_on = [module.account] makes the private
+# endpoint wait for every resource in the AVM module, deployments included.
+#
+# Name, connection name and settings match what AVM 0.7.1 created, so the
+# moved block below relocates existing endpoints without replacing them.
+# =============================================================================
+resource "azurerm_private_endpoint" "this" {
+  name                = "pep-${var.name}"
+  location            = var.private_endpoint_location
+  resource_group_name = var.resource_group_name
+  subnet_id           = var.private_endpoint_subnet_id
+  tags                = var.tags
+
+  private_service_connection {
+    name                           = "pse-${var.name}"
+    private_connection_resource_id = module.account.resource_id
+    is_manual_connection           = false
+    subresource_names              = ["account"]
+  }
+
+  lifecycle {
+    # DNS zone group is managed by Azure Policy in the Landing Zone
+    ignore_changes = [private_dns_zone_group]
+  }
+
+  depends_on = [module.account]
+}
+
+# State migration: the private endpoint used to live inside the AVM module.
+# Existing endpoints (dev: ai-hub-admin, sdpr-invoice-automation; test:
+# sdpr-invoice-automation) move to the new address with no changes. Keep this
+# block until every environment has applied it.
+moved {
+  from = module.account.azurerm_private_endpoint.this_unmanaged_dns_zone_groups["primary"]
+  to   = azurerm_private_endpoint.this
+}
+
+# =============================================================================
 # WAIT FOR POLICY-MANAGED DNS ZONE GROUP
-# Cognitive Services AVM does not output unmanaged PEs, so the PE name is built
-# from the AVM naming convention "pep-${resource_name}".
 # =============================================================================
 resource "null_resource" "wait_for_dns" {
   count = var.scripts_dir != "" ? 1 : 0
 
   triggers = {
-    private_endpoint_id   = module.account.resource_id
+    private_endpoint_id   = azurerm_private_endpoint.this.id
     resource_group_name   = var.resource_group_name
-    private_endpoint_name = "pep-${module.account.name}"
+    private_endpoint_name = azurerm_private_endpoint.this.name
     timeout               = var.private_endpoint_dns_wait.timeout
     interval              = var.private_endpoint_dns_wait.poll_interval
     scripts_dir           = var.scripts_dir
@@ -139,5 +176,5 @@ resource "null_resource" "wait_for_dns" {
     EOT
   }
 
-  depends_on = [module.account]
+  depends_on = [azurerm_private_endpoint.this]
 }

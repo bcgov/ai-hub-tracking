@@ -21,11 +21,24 @@ It is called from `modules/tenant` when `content_understanding.enabled = true`.
 |---|---|
 | Foundry account (AVM `avm-res-cognitiveservices-account` 0.7.1, kind `AIServices`) | Public network access disabled, local (key) auth disabled, system-assigned identity, custom subdomain = `name` |
 | Model deployments (`cognitive_deployments`) | One per role: `completion`, optional `completion_mini`, `embedding`. Deployment name = model name |
-| Private endpoint `pep-<name>` (subresource `account`) | Placed in `private_endpoint_location` (the VNet region). DNS zone group is Landing Zone policy-managed |
+| Private endpoint `pep-<name>` (subresource `account`) | `azurerm_private_endpoint.this`, created in this module (not by AVM) after the model deployments. Placed in `private_endpoint_location` (the VNet region). DNS zone group is Landing Zone policy-managed |
 | Diagnostic setting `<name>-diag` | Only when `enable_diagnostics = true` |
 | `null_resource.wait_for_dns` | Runs `scripts/wait-for-dns-zone.sh` when `scripts_dir` is set |
 
 A `check` block warns (without failing the plan) when `location` is Canada East.
+
+## Why the private endpoint waits for the deployments
+
+AVM 0.7.1 can create the private endpoint itself, but there it depends only on the account, so it starts at the
+same time as the model deployments. On the first TEST apply (2026-11-18) the private endpoint failed with
+`400 AccountProvisioningStateInvalid ... in state Accepted`. The deployments were being written to the account at
+the time and most likely put it back into `Accepted`. A re-run succeeded once the account had settled.
+
+The module therefore passes `private_endpoints = {}` to AVM and creates `azurerm_private_endpoint.this` with
+`depends_on = [module.account]`, which waits for every resource in the AVM module, including the deployments.
+A `moved` block moved existing endpoints (dev and test) from
+`module.account.azurerm_private_endpoint.this_unmanaged_dns_zone_groups["primary"]` to the new address without
+recreating them. Do not move the private endpoint back into the AVM module.
 
 ## Inputs
 
