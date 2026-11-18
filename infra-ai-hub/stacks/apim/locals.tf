@@ -24,6 +24,11 @@ locals {
     key => try(data.terraform_remote_state.tenant[key].outputs.tenant_speech_services[key], null)
   }
 
+  tenant_content_understanding_outputs = {
+    for key, _config in local.enabled_tenants :
+    key => try(data.terraform_remote_state.tenant[key].outputs.tenant_content_understanding[key], null)
+  }
+
   tenant_log_analytics_outputs = {
     for key, _config in local.enabled_tenants :
     key => try(data.terraform_remote_state.tenant[key].outputs.tenant_log_analytics[key], null)
@@ -47,6 +52,11 @@ locals {
   tenants_with_speech_services = {
     for key, config in local.enabled_tenants : key => config
     if local.apim_config.enabled && try(config.speech_services.enabled, false) && local.tenant_speech_service_outputs[key] != null
+  }
+
+  tenants_with_content_understanding = {
+    for key, config in local.enabled_tenants : key => config
+    if local.apim_config.enabled && try(config.content_understanding.enabled, false) && local.tenant_content_understanding_outputs[key] != null
   }
 
   tenants_with_app_insights_logger = {
@@ -233,6 +243,8 @@ locals {
         document_intelligence_enabled  = contains(keys(local.tenants_with_document_intelligence), key)
         ai_search_enabled              = contains(keys(local.tenants_with_ai_search), key)
         speech_services_enabled        = contains(keys(local.tenants_with_speech_services), key)
+        content_understanding_enabled  = contains(keys(local.tenants_with_content_understanding), key)
+        content_understanding_defaults = try(local.tenant_content_understanding_outputs[key].default_model_deployments, {})
         storage_enabled                = contains(keys(local.tenants_with_storage_account), key)
         rate_limiting_enabled          = try(config.apim_policies.rate_limiting.enabled, true)
         non_openai_requests_per_minute = try(config.apim_policies.rate_limiting.non_openai_requests_per_minute, 300)

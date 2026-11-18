@@ -8,6 +8,10 @@ Capacity values for **GlobalStandard** deployments are in **thousands of Tokens 
 Provisioned deployments use **PTU** instead, and their effective input TPM depends on the model-specific PTU throughput table published by Microsoft Learn.
 Percentage values show the share of the regional quota limit consumed by each tenant.
 
+Content Understanding model deployments are not on the Canada East hub. They live on per-tenant Content Understanding
+accounts in Canada Central and are tracked separately in
+[Content Understanding](#content-understanding-per-tenant-accounts-canada-central).
+
 ## Regional Quota Limits (Canada East)
 
 These are the maximum TPM quotas available per model across the entire subscription.
@@ -241,6 +245,49 @@ GlobalStandard allocations are identical across all three environments:
 
 ---
 
+## Content Understanding (per-tenant accounts, Canada Central)
+
+Tenants that set `content_understanding = { enabled = true }` get their own Foundry account (`kind: AIServices`),
+named `<tenant>-cu-<suffix>`, in the tenant resource group in **Canada Central**. Content Understanding is not offered in
+Canada East, where the shared hub runs
+([region list](https://learn.microsoft.com/azure/ai-services/content-understanding/language-region-support), checked
+2026-11-16). These deployments sit on that account, not on the hub, and draw on the **canadacentral** quota.
+
+The models come from `shared_config.content_understanding.model_deployments` in `params/<env>/shared.tfvars`, so every
+enabled tenant gets the same set. The values are identical in dev, test, and prod. Deployment name = model name, and
+`version_upgrade_option = OnceCurrentVersionExpired`.
+
+| Role | Deployment / Model | Version | Scale Type | Capacity | Inference retirement |
+|------|--------------------|---------|------------|---------:|----------------------|
+| `completion` | gpt-5.4 | 2026-03-05 | GlobalStandard | 100 | 2027-09-02 |
+| `completion_mini` | gpt-5.4-mini | 2026-03-17 | GlobalStandard | 100 | 2027-09-21 |
+| `embedding` | text-embedding-3-large | 1 | GlobalStandard | 100 | 2028-02-09 |
+
+Enabled tenants:
+
+| Environment | Tenants |
+|-------------|---------|
+| dev | ai-hub-admin, sdpr-invoice-automation |
+| test | sdpr-invoice-automation |
+| prod | — |
+
+> - **Quota:** capacity 100 is 1% of the 10,000 canadacentral GlobalStandard quota seen for each model in the tools
+>   subscription on 2026-11-16. Quota is per subscription per region, so confirm it in each environment's subscription
+>   before enabling more tenants (`az cognitiveservices usage list --location "canadacentral"`). On 2026-11-17 the dev
+>   subscription showed `gpt-5.4` 400 / 10,000, `gpt-5.4-mini` 0 / 10,000 and `text-embedding-3-large`
+>   1,000 / 30,000 used, which leaves room for both dev tenants. The test subscription showed `gpt-5.4` 600 / 10,000,
+>   `gpt-5.4-mini` 0 / 10,000 and `text-embedding-3-large` 900 / 30,000.
+> - **Lifecycle dates** are from `az cognitiveservices model list -l canadacentral` on 2026-11-16. GlobalStandard is
+>   the only deployment type available for these models in canadacentral.
+> - **Why not `gpt-4.1`:** it is Legacy in canadacentral (retires 2027-04-14).
+> - **Supported models:** the deployed models must be on the
+>   [Content Understanding supported-model list](https://learn.microsoft.com/azure/ai-services/content-understanding/service-limits).
+> - **Defaults:** each tenant needs a one-time `PATCH /contentunderstanding/defaults` that maps model names and the
+>   `prebuilt-analyzer-*` aliases to these deployments. See
+>   [`modules/content-understanding/README.md`](modules/content-understanding/README.md#model-defaults).
+
+---
+
 ## Content Filters (RAI Policies)
 
 By default every model deployment uses the Azure built-in `Microsoft.DefaultV2` content filter. Tenants can override this per deployment by adding an optional `content_filter` block to `model_deployments` in their `tenant.tfvars`.
@@ -300,6 +347,8 @@ When adding a new tenant or modifying model deployments:
 2. Run `deploy-terraform.sh apply <env>` to apply changes
 3. **Update the corresponding environment table above** with the new capacity values and percentages
 4. Verify totals don't exceed regional quota limits
+5. When enabling or disabling `content_understanding` for a tenant, or changing `shared_config.content_understanding`,
+   update the [Content Understanding](#content-understanding-per-tenant-accounts-canada-central) section (canadacentral quota)
 
 ### Calculating Capacity from Percentage
 
@@ -317,3 +366,5 @@ az cognitiveservices usage list \
   --subscription "<subscription-id>" \
   -o table
 ```
+
+For Content Understanding deployments, use `--location "canadacentral"`.

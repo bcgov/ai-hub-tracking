@@ -61,7 +61,7 @@ Reasoning:
 
 ## Outbound Policies
 
-- **Document Intelligence** (`document_intelligence_enabled`): rewrites the `Operation-Location` response header to replace the backend `cognitiveservices.azure.com` URL with the App Gateway URL. This is required for async (202) polling to work through the gateway.
+- **Document Intelligence / Content Understanding** (`document_intelligence_enabled || content_understanding_enabled`): rewrites the `Operation-Location` response header to replace the backend URL with the App Gateway URL. The regex matches both `*.cognitiveservices.azure.com` and `*.services.ai.azure.com` (the Foundry/AIServices host Content Understanding returns). This is required for async (202) polling to work through the gateway.
 - **OpenAI usage logging — unified** (`usage_logging_enabled`): A single `<choose>` block fires for all OpenAI paths (streaming and non-streaming). It calls `openai-token-extraction` then `openai-usage-logging` fragments in sequence. Token extraction reads actual counts from the JSON response body (non-streaming) or from the SSE usage chunk (streaming, enabled by `stream_options.include_usage` injected inbound). Both modes emit a single `openai-usage` App Insights event with an `is-streaming` dimension for LAW query filtering.
 
 ### Streaming Detection
@@ -91,6 +91,16 @@ PTU backends are deployed per-tenant (`{tenant_name}-openai-ptu`). If concurrent
 - **`prebuilt-invoice`**: Very slow (~90-150s for the same file on S0 tier). Performs field extraction, table parsing, and key-value analysis on top of layout. Cold-start variance adds 20-40s.
 - Each tenant gets its own dedicated DocInt Cognitive Services account (S0, 15 TPS quota).
 - **CI tests use `prebuilt-layout`** for async flow validation because `prebuilt-invoice` exceeds reliable CI timeout thresholds.
+
+## Content Understanding
+
+- Backend `${tenant_name}-cu` points at the tenant's own Foundry (`AIServices`) account in Canada Central (Content Understanding is not offered in Canada East, the hub region). Named value `${tenant_name}-cu-endpoint`. Circuit breaker on 5xx, like DocInt.
+- Auth: MSI token for `https://cognitiveservices.azure.com`, `Authorization: Bearer` set, `api-key` deleted. The APIM identity has `Cognitive Services User` on the CU account; its `Microsoft.CognitiveServices/*` data actions cover all Content Understanding data actions (a superset of the built-in "Cognitive Services Content Understanding Contributor" role's `Microsoft.CognitiveServices/accounts/MultiModalIntelligence/*`).
+- API version `2025-11-01`. Tenant calls: `POST /contentunderstanding/analyzers/{id}:analyze` (JSON `inputs` with `url` or `data` + `mimeType`), `POST .../{id}:analyzeBinary` (raw bytes), `GET /contentunderstanding/analyzerResults/{id}`, `GET`/`PATCH /contentunderstanding/defaults` (`PATCH` uses `application/merge-patch+json`).
+- Result status values are PascalCase (`NotStarted`, `Running`, `Succeeded`, `Failed`, `Canceled`), unlike DocInt's lowercase.
+- Analyzers that use models need a one-time defaults `PATCH` per tenant; Terraform can't set it (data plane behind a private endpoint). `prebuilt-layout`, `prebuilt-read`, and `prebuilt-digitalParse` need no model.
+- Template variables: `content_understanding_enabled`, `content_understanding_defaults` (from `stacks/apim/locals.tf` locals `tenants_with_content_understanding` and `tenant_content_understanding_outputs`). Tenant-info publishes `services.content_understanding` = `{enabled, endpoint, api_version, example, defaults_url, model_deployments}` (all but `enabled` are `null` when disabled).
+- Rate limiting: falls under the existing non-OpenAI request-count limit; no token limits.
 
 ## Backend Section
 
@@ -138,11 +148,11 @@ The Azure Portal visual designer cannot render policy tiles when `backend-id` is
 
 ## Testing Notes
 
-- Validate routing for `/openai/*`, `/documentintelligence/*`, `/speech/recognition`, `/cognitiveservices/voices`, `/ai-search/*`, and `/storage/*`.
+- Validate routing for `/openai/*`, `/contentunderstanding/*`, `/documentintelligence/*`, `/speech/recognition`, `/cognitiveservices/voices`, `/ai-search/*`, and `/storage/*`.
 - Confirm tenant-prefixed deployment names (`{tenant}-{model}`) are correctly rewritten for OpenAI requests.
 - Confirm MSI auth works per backend type; verify `api-key` is removed.
 - Ensure non-matching paths return 404 JSON error.
-- For Document Intelligence async ops, confirm `Operation-Location` header is rewritten to the App Gateway URL.
+- For Document Intelligence and Content Understanding async ops, confirm `Operation-Location` header is rewritten to the App Gateway URL (no `cognitiveservices.azure.com`, `services.ai.azure.com`, or `azure-api.net` host).
 - Verify Speech backends receive `/stt/` or `/tts/` path prefix after the rewrite.
 - For `/v1/` endpoints: verify model field is tenant-prefixed in request body, validate 400 errors for missing model / invalid JSON.
 - For Bearer token auth: verify requests with `Authorization: Bearer <key>` are accepted (key mapping is done at App Gateway layer).
@@ -199,6 +209,8 @@ Use this table for every APIM change review/runbook:
 | `/openai/v1/chat/completions` | `openai_enabled` | `${tenant_name}-openai` | MSI (`cognitiveservices`) | 2xx/4xx; model field tenant-prefixed in body |
 | `/providers/mistral/models/Mistral-Large-3/chat/completions` | `openai_enabled` | none | n/a | 400 `InvalidMistralRoute`; instruct client to use `/openai/v1/chat/completions` |
 | `/providers/mistral/azure/ocr` | `openai_enabled` | `${tenant_name}-openai` | MSI (`cognitiveservices`) | 2xx/4xx from Mistral OCR backend |
+| `/contentunderstanding/analyzers/{id}:analyze` (also `:analyzeBinary`, `analyzerResults/...`, `defaults`) | `content_understanding_enabled` | `${tenant_name}-cu` | MSI (`cognitiveservices`) | 202 with rewritten `Operation-Location` for analyze; 2xx for results/defaults |
+| `/contentunderstanding/analyzers/my-documentintelligence-analyzer:analyze` | `content_understanding_enabled` | `${tenant_name}-cu` (not `-docint`) | MSI (`cognitiveservices`) | CU route wins because it is evaluated first |
 | `/documentintelligence/...` | `document_intelligence_enabled` | `${tenant_name}-docint` | MSI (`cognitiveservices`) | 2xx/202 with rewritten `Operation-Location` |
 | `/speech/recognition...` | `speech_services_enabled` | `${tenant_name}-speech-stt` | backend credential | 2xx/4xx from speech backend |
 | `/cognitiveservices/voices...` | `speech_services_enabled` | `${tenant_name}-speech-tts` | backend credential | 2xx/4xx from speech backend |
@@ -220,8 +232,8 @@ Use this table for every APIM change review/runbook:
 ### OpenAI requests timeout on large payloads
 - Confirm token limiting and prompt estimation are scoped to OpenAI paths only.
 
-### DocInt async polling fails
-- Verify `Operation-Location` rewrite is still active and points to App Gateway host.
+### DocInt / Content Understanding async polling fails
+- Verify `Operation-Location` rewrite is still active and points to App Gateway host. For Content Understanding, the rewrite block must be emitted when only `content_understanding_enabled` is true, and the regex must match `*.services.ai.azure.com`.
 
 ### Key rotation failures
 - Check the Container App Job logs (Log Stream in Azure Portal or Log Analytics) for authentication or SDK errors.
@@ -230,7 +242,7 @@ Use this table for every APIM change review/runbook:
 
 ### Circuit breaker tripped (clients receiving `503` with `x-circuit-breaker-open: true`)
 - Confirm it is a circuit breaker trip by checking the `x-circuit-breaker-open: true` response header (absent on backend 429 rate-limit pass-throughs from Azure OpenAI).
-- The circuit trips on **5xx server errors only** — not on backend 429s. Failure thresholds: 3 errors/minute for AI service backends (OpenAI, DocInt, AI Search, Speech); 5 errors/minute for Storage.
+- The circuit trips on **5xx server errors only** — not on backend 429s. Failure thresholds: 3 errors/minute for AI service backends (OpenAI, DocInt, Content Understanding, AI Search, Speech); 5 errors/minute for Storage.
 - Backend 429s pass through `<outbound>` directly with the real `Retry-After` from Azure OpenAI — they do not open the circuit. This is correct for a single-backend-per-tenant deployment: unlike a [backend pool design](https://techcommunity.microsoft.com/blog/fasttrackforazureblog/using-azure-api-management-circuit-breaker-and-load-balancing-with-azure-openai-/4041003) where tripping on 429 routes to a healthy replica, there is no failover target here.
 - 503 is semantically correct per [RFC 7231 §6.6.4](https://www.rfc-editor.org/rfc/rfc7231#section-6.6.4) (server-scoped unavailability). [RFC 6585 §4](https://www.rfc-editor.org/rfc/rfc6585#section-4) defines 429 as a client-scoped rate limit — a different condition.
 - **SDK exception type:** The OpenAI Python SDK retries 503 automatically as `openai.InternalServerError` (not `RateLimitError`). Application code branching on `RateLimitError` will miss circuit-breaker trips. Rely on `x-circuit-breaker-open: true` to distinguish. See [openai-python retry logic](https://deepwiki.com/openai/openai-python/3.4-error-handling-and-retry-logic).

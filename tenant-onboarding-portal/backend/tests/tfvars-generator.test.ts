@@ -50,3 +50,10 @@ test('environment tags and tenant name are emitted', () => {
   expect(result.test).toMatch(/environment = "test"/);
   expect(result.prod).toMatch(/environment = "prod"/);
 });
+
+test('content_understanding block is always emitted (map(any) type constraint)', () => {
+  const result = generateAllEnvTfvars(sampleForm());
+  for (const env of ['dev', 'test', 'prod'] as const) {
+    expect(result[env]).toMatch(/ {2}content_understanding = \{\n {4}enabled = false\n {2}\}/);
+  }
+});

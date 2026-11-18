@@ -993,6 +993,10 @@
             <div class="nav-dropdown">
                 <span class="nav-trigger">For Tenants</span>
                 <div class="nav-dropdown-menu">
+                    <a href="https://ai-hub-onboarding.azurewebsites.net" target="_blank" rel="noopener noreferrer">
+                        Onboarding Portal
+                        <small>Request AI Services, Models</small>
+                    </a>
                     <a href="services.html" class="">
                         AI Services
                         <small>Available models &amp; services catalogue</small>
@@ -1201,7 +1205,7 @@
     <p>Use this endpoint to:</p>
     <ul>
         <li>Discover which models are available, including the weighted PTU limit, raw fallback cap, and other provisioned-throughput metadata.</li>
-        <li>Confirm which AI services (Document Intelligence, AI Search, Speech, etc.) are enabled for your tenant.</li>
+        <li>Confirm which AI services (Document Intelligence, Content Understanding, AI Search, Speech, etc.) are enabled for your tenant.</li>
         <li>Drive UI dropdowns or config auto-discovery without maintaining a separate config file.</li>
     </ul>
 </div>
@@ -1225,6 +1229,7 @@
         <li>APIM validates the incoming subscription key.</li>
         <li>The policy matches paths ending in <code>internal/tenant-info</code> and returns the pre-rendered JSON body directly &mdash; no backend service is called.</li>
         <li>The JSON is generated once by Terraform's <code>templatefile()</code> from values in <code>tenant.tfvars</code> (<code>openai.model_deployments</code>, service feature flags) and embedded in the APIM policy at deploy time.</li>
+        <li>For Content Understanding, the APIM stack reads the tenant stack output <code>tenant_content_understanding</code> through remote state and passes the template variables <code>content_understanding_enabled</code> and <code>content_understanding_defaults</code> (the model defaults map).</li>
     </ol>
     <div class="alert alert-info" style="margin-top: 0.75rem;">
         <div>
@@ -1314,6 +1319,14 @@
       "endpoint": "https://aihub.gov.bc.ca/wlrs-water-form-assistant",
       "example": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/documentintelligence/documentModels/prebuilt-layout:analyze?api-version=2024-11-30"
     },
+    "content_understanding": {
+      "enabled": false,
+      "endpoint": null,
+      "api_version": null,
+      "example": null,
+      "defaults_url": null,
+      "model_deployments": null
+    },
     "ai_search": {
       "enabled": true,
       "endpoint": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/ai-search",
@@ -1329,6 +1342,23 @@
       "endpoint": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/storage",
       "example": "https://aihub.gov.bc.ca/wlrs-water-form-assistant/storage/{container-name}/{blob-name}"
     }
+  }
+}</pre>
+
+    <p>Content Understanding is opt-in, and the tenant above does not have it enabled. For an enabled tenant (currently <code>ai-hub-admin</code> in dev, and <code>sdpr-invoice-automation</code> in dev and test), the block looks like this:</p>
+    <pre>"content_understanding": {
+  "enabled": true,
+  "endpoint": "https://&lt;gateway&gt;/ai-hub-admin",
+  "api_version": "2025-11-01",
+  "example": "https://&lt;gateway&gt;/ai-hub-admin/contentunderstanding/analyzers/prebuilt-layout:analyze?api-version=2025-11-01",
+  "defaults_url": "https://&lt;gateway&gt;/ai-hub-admin/contentunderstanding/defaults?api-version=2025-11-01",
+  "model_deployments": {
+    "gpt-5.4": "gpt-5.4",
+    "gpt-5.4-mini": "gpt-5.4-mini",
+    "text-embedding-3-large": "text-embedding-3-large",
+    "prebuilt-analyzer-completion": "gpt-5.4",
+    "prebuilt-analyzer-completion-mini": "gpt-5.4-mini",
+    "prebuilt-analyzer-embedding": "text-embedding-3-large"
   }
 }</pre>
 
@@ -1361,10 +1391,15 @@
             <tr><td><code>models[].endpoints.openai_compatible.base_url</code></td><td>string</td><td>Base URL for the OpenAI SDK (<code>OpenAI(base_url=...)</code>).</td></tr>
             <tr><td><code>models[].endpoints.openai_compatible.model</code></td><td>string</td><td>Model name to pass in request body for the OpenAI SDK.</td></tr>
             <tr><td><code>models[].endpoints.openai_compatible.url</code></td><td>string</td><td>Full URL for this deployment&rsquo;s chat completions via OpenAI-compatible format.</td></tr>
-            <tr><td><code>services.&lt;name&gt;.enabled</code></td><td>bool</td><td><code>true</code> when the service is enabled for this tenant; <code>false</code> otherwise (only <code>enabled</code> key present).</td></tr>
+            <tr><td><code>services.&lt;name&gt;.enabled</code></td><td>bool</td><td><code>true</code> when the service is enabled for this tenant; <code>false</code> otherwise, in which case the service's other fields are <code>null</code>.</td></tr>
             <tr><td><code>services.openai.endpoints</code></td><td>object</td><td>Top-level OpenAI endpoints: <code>azure_openai</code>, <code>openai_compatible</code>, and recommended <code>api_version</code>.</td></tr>
             <tr><td><code>services.document_intelligence.endpoint</code></td><td>string</td><td>Base endpoint for Document Intelligence API calls.</td></tr>
             <tr><td><code>services.document_intelligence.example</code></td><td>string</td><td>Example URL for the prebuilt-layout analyze operation.</td></tr>
+            <tr><td><code>services.content_understanding.endpoint</code></td><td>string|null</td><td>Base endpoint for Content Understanding calls (<code>https://&lt;gateway&gt;/&lt;tenant&gt;</code>); paths start with <code>/contentunderstanding</code>. See <a href="services.html#content-understanding">Using Content Understanding</a>.</td></tr>
+            <tr><td><code>services.content_understanding.api_version</code></td><td>string|null</td><td>API version to send: <code>2025-11-01</code>.</td></tr>
+            <tr><td><code>services.content_understanding.example</code></td><td>string|null</td><td>Example URL for the <code>prebuilt-layout</code> analyze operation.</td></tr>
+            <tr><td><code>services.content_understanding.defaults_url</code></td><td>string|null</td><td>URL for <code>GET</code> / <code>PATCH</code> of the tenant's Content Understanding model defaults.</td></tr>
+            <tr><td><code>services.content_understanding.model_deployments</code></td><td>object|null</td><td>The <code>modelDeployments</code> map to send in the one-time <code>PATCH</code> to <code>defaults_url</code>. Maps model names and the prebuilt-analyzer aliases to the tenant's deployment names.</td></tr>
             <tr><td><code>services.ai_search.endpoint</code></td><td>string</td><td>Base endpoint for AI Search API calls (includes <code>/ai-search</code> prefix).</td></tr>
             <tr><td><code>services.ai_search.example</code></td><td>string</td><td>Example URL for a search index query.</td></tr>
             <tr><td><code>services.speech_services.stt_endpoint</code></td><td>string</td><td>Full endpoint for Speech-to-Text recognition requests (includes path and default language).</td></tr>

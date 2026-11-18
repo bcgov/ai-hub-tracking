@@ -163,7 +163,7 @@ Bootstrap directory for one-time environment setup. Contains the main setup auto
 ### `infra-ai-hub/`
 Multi-tenant AI Services Hub infrastructure. Manages the stack-based Terraform deployment for APIM, AI Foundry, per-tenant resources, networking, WAF, and published model availability.
 
-- **modules/**: Reusable Terraform modules for shared infra, tenant resources, PII redaction, and key rotation
+- **modules/**: Reusable Terraform modules for shared infra, tenant resources (including the opt-in per-tenant Azure Content Understanding account in `content-understanding/`), PII redaction, and key rotation
 - **params/**: Environment configs with per-tenant `tenant.tfvars` files plus shared APIM templates and fragments
 - **scripts/**: Deployment helpers, import extraction, DNS wait logic, and Foundry cleanup tooling
 - **stacks/**: Isolated Terraform roots for `shared`, `tenant`, `foundry`, `apim`, `tenant-user-mgmt`, `pii-redaction`, and `key-rotation`
@@ -173,7 +173,7 @@ Multi-tenant AI Services Hub infrastructure. Manages the stack-based Terraform d
 Python FastAPI service used by APIM for fail-closed PII redaction via Azure AI Language. Contains the app runtime, tests, container packaging, and service-specific documentation.
 
 ### `tests/`
-Python/pytest-based integration test suite for validating deployed infrastructure. Tests cover chat completions, document intelligence, PII redaction (fail-closed/fail-open), tenant isolation, binary uploads, and user management.
+Python/pytest-based integration test suite for validating deployed infrastructure. Tests cover chat completions, document intelligence, Azure Content Understanding, PII redaction (fail-closed/fail-open), tenant isolation, binary uploads, and user management.
 
 ### `jobs/`
 Container App Jobs source code. Contains the APIM key rotation job (`apim-key-rotation/`), a Python-based cron job that automatically rotates APIM subscription keys using an alternating primary/secondary pattern. Deployed as a custom container from GHCR via `.builds.yml`, with the Terraform module at `infra-ai-hub/modules/key-rotation-function/` and stack at `infra-ai-hub/stacks/key-rotation/`.

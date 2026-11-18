@@ -146,6 +146,8 @@ The template receives these variables from `locals.tf`:
 | `tokens_per_minute` | `apim_policies.rate_limiting.tokens_per_minute` | Rate limit setting |
 | `openai_enabled` | `tenant.openai.enabled` | Routes `/openai/*` paths |
 | `document_intelligence_enabled` | `tenant.document_intelligence.enabled` | Routes `/documentintelligence/*` paths |
+| `content_understanding_enabled` | `tenant.content_understanding.enabled` AND the tenant stack published `tenant_content_understanding` for the tenant | Routes `/contentunderstanding/*` paths; also turns on the `Operation-Location` rewrite |
+| `content_understanding_defaults` | `tenant_content_understanding[tenant].default_model_deployments` (tenant stack remote state) | `modelDeployments` map published in tenant-info |
 | `ai_search_enabled` | `tenant.ai_search.enabled` | Routes `/ai-search/*` paths |
 | `storage_enabled` | `tenant.storage_account.enabled` | Routes `/storage/*` paths |
 | `rate_limiting_enabled` | `apim_policies.rate_limiting.enabled` | Wraps `llm-token-limit` policy |
@@ -173,6 +175,7 @@ Policies are included **only when enabled**:
 
 Routes requests to appropriate backends based on enabled services:
 - `/openai/*` → `{tenant}-openai` backend (if `openai_enabled = true`)
+- `/contentunderstanding/*` → `{tenant}-cu` backend (if `content_understanding_enabled = true`). This route is evaluated **before** the Document Intelligence and OpenAI routes, so analyzer IDs that contain those words still route to Content Understanding
 - `/documentintelligence/*`, `/formrecognizer/*`, `/documentmodels/*` → `{tenant}-docint` backend (if `document_intelligence_enabled = true`)
 - `/ai-search/*` → `{tenant}-ai-search` backend (if `ai_search_enabled = true`)
 - `/storage/*` → `{tenant}-storage` backend (if `storage_enabled = true`)
@@ -185,6 +188,44 @@ Each route uses `include-fragment` to include the appropriate authentication:
 - `storage-auth` - For Blob Storage
 - `keyvault-auth` - For Key Vault
 
+The Document Intelligence and Content Understanding routes authenticate inline instead: `authentication-managed-identity` for `https://cognitiveservices.azure.com`, then `Authorization: Bearer <token>` is set and the `api-key` header is deleted.
+
+### Content Understanding Route
+
+Tenants with `content_understanding = { enabled = true }` get a route to their own Content Understanding account (a Foundry `AIServices` account in Canada Central). API version: `2025-11-01`.
+
+| Item | Value |
+|------|-------|
+| Path match | path contains `contentunderstanding` (case-insensitive) |
+| Backend | `{tenant}-cu` (circuit breaker on 5xx, like `{tenant}-docint`) |
+| Named value | `{tenant}-cu-endpoint` |
+| Auth | Managed identity token for `https://cognitiveservices.azure.com`, `Authorization: Bearer` set, `api-key` deleted |
+| APIM RBAC | `Cognitive Services User` on the Content Understanding account. Its data actions (`Microsoft.CognitiveServices/*`) cover all Content Understanding data actions, a superset of the built-in "Cognitive Services Content Understanding Contributor" role (`Microsoft.CognitiveServices/accounts/MultiModalIntelligence/*`) |
+| Rate limiting | Existing non-OpenAI request-count limit (`non_openai_requests_per_minute`); no token limits |
+| Async polling | `Operation-Location` rewritten to the gateway host (see below) |
+
+Tenant-facing calls (base `https://<gateway>/<tenant>`, all with `?api-version=2025-11-01`):
+
+- `POST /contentunderstanding/analyzers/{id}:analyze` with `{"inputs":[{"url":"..."}]}` or `{"inputs":[{"data":"<base64>","mimeType":"..."}]}`
+- `POST /contentunderstanding/analyzers/{id}:analyzeBinary` with raw bytes
+- `GET /contentunderstanding/analyzerResults/{id}` (status `NotStarted`, `Running`, `Succeeded`, `Failed`, or `Canceled`; markdown at `result.contents[].markdown`)
+- `GET` / `PATCH /contentunderstanding/defaults` (`PATCH` uses `Content-Type: application/merge-patch+json` and body `{"modelDeployments": {...}}`)
+
+Analyzers that use models need a one-time defaults `PATCH` per tenant. Terraform can't set it (data plane behind a private endpoint; CI runs on GitHub-hosted runners). `prebuilt-layout`, `prebuilt-read`, and `prebuilt-digitalParse` need no model. See [`modules/content-understanding/README.md`](../../modules/content-understanding/README.md#model-defaults).
+
+**Tenant info:** `GET /{tenant}/internal/tenant-info` includes `services.content_understanding`:
+
+| Field | Value when enabled | When disabled |
+|-------|--------------------|---------------|
+| `enabled` | `true` | `false` |
+| `endpoint` | `https://<gateway>/<tenant>` | `null` |
+| `api_version` | `2025-11-01` | `null` |
+| `example` | `.../contentunderstanding/analyzers/prebuilt-layout:analyze?api-version=2025-11-01` | `null` |
+| `defaults_url` | `.../contentunderstanding/defaults?api-version=2025-11-01` | `null` |
+| `model_deployments` | The `modelDeployments` map for the defaults `PATCH` | `null` |
+
+No App Gateway or WAF change is needed: WAF rules p3–p5 already allow any request carrying `api-key`, `Ocp-Apim-Subscription-Key`, or `Authorization: Bearer`.
+
 ### Custom Headers
 
 - `X-Tenant-Id`: Identifies the tenant for downstream services and logging
@@ -193,7 +234,9 @@ Each route uses `include-fragment` to include the appropriate authentication:
 
 ### Document Intelligence Async Operations (Operation-Location Header Rewrite)
 
-For Document Intelligence async operations that return `202 Accepted` responses, APIM automatically rewrites the `Operation-Location` header to route subsequent polling requests back through the APIM gateway.
+For Document Intelligence and Content Understanding async operations that return `202 Accepted` responses, APIM automatically rewrites the `Operation-Location` header to route subsequent polling requests back through the APIM gateway.
+
+The outbound rewrite is emitted when `document_intelligence_enabled || content_understanding_enabled`. Its backend-host regex matches both `*.cognitiveservices.azure.com` and `*.services.ai.azure.com` (the Foundry/AIServices host used by Content Understanding). For example, a Content Understanding analyze returns a polling URL under `/contentunderstanding/analyzerResults/{id}`, which is rewritten to `https://<gateway>/<tenant>/contentunderstanding/analyzerResults/{id}?...`.
 
 **Background:**
 - Document Intelligence async operations (e.g., document analysis, custom model training) return a `202 Accepted` status with an `Operation-Location` header
@@ -211,7 +254,7 @@ For Document Intelligence async operations that return `202 Accepted` responses,
 **APIM Solution:**
 The tenant policy template includes an `<outbound>` policy that rewrites the `Operation-Location` header when present:
 - Detects `Operation-Location` header in backend responses
-- Replaces the backend hostname (`{resource}.cognitiveservices.azure.com`) with the APIM gateway host
+- Replaces the backend hostname (`{resource}.cognitiveservices.azure.com` or `{resource}.services.ai.azure.com`) with the gateway host (`X-Forwarded-Host` from App Gateway when present, otherwise the APIM host)
 - Preserves the request path (e.g., `/documentintelligence/documentModels/...`)
 - Inserts the tenant API path prefix (e.g., `/{tenant}`)
 
@@ -425,7 +468,7 @@ If `piiAnonymizationEnabled != "true"`, the fragment sets `piiAnonymizedContent`
 ### Template Generation Mechanics: `api_policy.xml.tftpl`
 
 Tenant API policies are generated dynamically from `api_policy.xml.tftpl` using tenant configuration:
-- Routing blocks are generated only for services enabled for that tenant (for example OpenAI, Document Intelligence, AI Search, Storage)
+- Routing blocks are generated only for services enabled for that tenant (for example OpenAI, Document Intelligence, Content Understanding, AI Search, Storage)
 - APIM policy features are included only when enabled by per-tenant flags (for example rate limiting, PII redaction, usage logging, tracking dimensions)
 
 **PII Redaction Flow (OpenAI Requests):**
@@ -482,6 +525,7 @@ PII anonymization adds an extra network call from APIM to the external PII redac
 APIM backends are created per tenant in Terraform:
 - `{tenant}-openai` - Routes to Azure OpenAI endpoint
 - `{tenant}-docint` - Routes to Document Intelligence endpoint  
+- `{tenant}-cu` - Routes to the tenant's Content Understanding (Foundry `AIServices`) account endpoint
 - `{tenant}-storage` - Routes to Storage Account blob endpoint
 
 ## Application Insights Integration

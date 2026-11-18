@@ -22,7 +22,7 @@ Use this skill profile when creating, modifying, or debugging integration tests 
 Required context before making test changes:
 - Which tenant(s), API paths, and backend behaviors are under test
 - Whether the scenario requires App Gateway, Key Vault fallback, or the secure tunnel
-- Any feature flags that gate the behavior (`document_intelligence_enabled`, key rotation, tenant capabilities)
+- Any feature flags that gate the behavior (`document_intelligence_enabled`, `content_understanding_enabled`, key rotation, tenant capabilities)
 
 ## Output Contract
 Every test change should deliver:
@@ -56,9 +56,10 @@ Every test change should deliver:
 | `tests/test_v1_chat_completions.py` | OpenAI `/openai/v1` format, streaming SSE, Bearer auth, and rate-limit regression checks |
 | `tests/test_document_intelligence.py` | JSON and async Document Intelligence coverage centered on `ai-hub-admin` |
 | `tests/test_document_intelligence_binary.py` | WAF/App Gateway allow-rules for binary and multipart Document Intelligence uploads |
+| `tests/test_content_understanding.py` | Content Understanding for `ai-hub-admin` (alias `content-understanding`): defaults `PATCH`/`GET`, JSON `analyze` 202 with `Operation-Location` rewritten to the App Gateway host, full async `prebuilt-layout` flow, and `analyzeBinary`. Skips when tenant-info reports the service disabled |
 | `tests/test_app_gateway.py` | App Gateway TLS, routing, auth normalization, and the retained cross-key verification |
 | `tests/test_apim_key_rotation.py` | `/internal/apim-keys` endpoint, rotation metadata, and Key Vault fallback coverage |
-| `tests/test_tenant_info.py` | Tenant info endpoint, model metadata, and service feature flags for `ai-hub-admin` |
+| `tests/test_tenant_info.py` | Tenant info endpoint, model metadata, and service feature flags for `ai-hub-admin` (including `services.content_understanding`) |
 | `tests/test_mistral.py` | Mistral chat and OCR routing via APIM |
 | `tests/test_ai_evaluation.py` | Optional Azure AI Evaluation SDK scoring |
 
@@ -100,6 +101,7 @@ uv run python ./run-tests.py --env test --group proxy
 | `require_key(config, tenant)` | Test requires a tenant subscription key |
 | `require_appgw(config)` | Test requires App Gateway to be deployed |
 | `integration_config.is_apim_key_rotation_enabled()` | Key-rotation endpoint can be disabled per environment |
+| tenant-info `services.<service>.enabled` is false → `pytest.skip(...)` | Per-tenant, per-environment services such as Content Understanding (see the `cu_service` fixture in `test_content_understanding.py`) |
 | `pytest.skip(...)` | Inline skip for unavailable infrastructure or optional evaluation config |
 
 ## CI Model
@@ -116,7 +118,7 @@ uv run python ./run-tests.py --env test --group proxy
 3. `uv run ruff format --check .` is clean
 4. `uv run pytest tests/unit -q` passes
 5. Live tests keep retry-safe behavior for 429/503-prone endpoints
-6. Async Document Intelligence flows still poll through `wait_for_operation`
+6. Async Document Intelligence and Content Understanding flows still poll through `wait_for_operation`
 7. Every Python function and method in the touched integration files has a meaningful docstring before handoff
 
 ## Detailed References

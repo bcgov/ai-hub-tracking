@@ -12,6 +12,8 @@ SUITE_ALIASES = {
     "document-intelligence-binary.bats": "tests/test_document_intelligence_binary.py",
     "document-intelligence-binary": "tests/test_document_intelligence_binary.py",
     "test_document_intelligence_binary.py": "tests/test_document_intelligence_binary.py",
+    "content-understanding": "tests/test_content_understanding.py",
+    "test_content_understanding.py": "tests/test_content_understanding.py",
     "app-gateway.bats": "tests/test_app_gateway.py",
     "app-gateway": "tests/test_app_gateway.py",
     "test_app_gateway.py": "tests/test_app_gateway.py",

@@ -58,7 +58,7 @@ Client → WAF (custom rules) → App Gateway (rewrite rules) → APIM global po
 - There is **one global policy** for all APIs:
   `infra-ai-hub/params/apim/global_policy.xml`
 - The API policy is rendered per-tenant in `stacks/apim/locals.tf` via `templatefile()` (not `file()`).
-- All routing sections are conditional — enabled/disabled per tenant via `tenant.tfvars` feature flags (e.g., `openai_enabled`, `speech_services_enabled`, `document_intelligence_enabled`, `ai_search_enabled`, `storage_enabled`, `key_rotation_enabled`).
+- All routing sections are conditional — enabled/disabled per tenant via `tenant.tfvars` feature flags (e.g., `openai_enabled`, `speech_services_enabled`, `document_intelligence_enabled`, `content_understanding_enabled`, `ai_search_enabled`, `storage_enabled`, `key_rotation_enabled`).
 - There are **no per-tenant XML files**. Do not create `tenants/{tenant}/api_policy.xml` files.
 
 > **PII integration test impact**: changes to `infra-ai-hub/params/apim/fragments/pii-anonymization.xml` or any PII-related section of `api_policy.xml.tftpl` **require** reviewing the Python integration harness under `tests/integration/tests/` and adding or updating scenario coverage when the error contract changes. The shared harness no longer keeps dedicated `pii-*.bats` suites. See [PII Redaction Service](../pii-redaction-service/SKILL.md) for service-specific validation guidance.
@@ -70,6 +70,7 @@ All routes live inside a single `<choose>` block in the inbound section. Routes 
 |---|---|---|
 | APIM keys internal endpoint | path ends with `internal/apim-keys` | `apim_keys_endpoint_enabled` |
 | Tenant info internal endpoint | path ends with `internal/tenant-info` | `tenant_info_enabled` (always `true`) |
+| Content Understanding | path contains `contentunderstanding` → backend `${tenant_name}-cu`. Must stay **before** Document Intelligence and OpenAI so analyzer IDs containing those words still route here | `content_understanding_enabled` |
 | Document Intelligence | path contains `documentintelligence`, `formrecognizer`, or `documentmodels` | `document_intelligence_enabled` |
 | OpenAI | path contains `openai` | `openai_enabled` (auto-set when `model_deployments` is non-empty) |
 | Speech STT | path contains `speech/recognition` or `/stt/` | `speech_services_enabled` |
@@ -89,7 +90,7 @@ MSI target varies by backend type — do not assume `cognitiveservices.azure.com
 
 | Backend | MSI resource | Notes |
 |---|---|---|
-| OpenAI / Document Intelligence | `https://cognitiveservices.azure.com` | Standard cognitive services MSI |
+| OpenAI / Document Intelligence / Content Understanding | `https://cognitiveservices.azure.com` | Standard cognitive services MSI. Content Understanding: APIM identity has `Cognitive Services User` on the tenant's CU account |
 | AI Search | `https://search.azure.com` | |
 | Storage | `https://storage.azure.com` | |
 | Key Vault (key rotation) | `https://vault.azure.net` | Uses `kv-token` variable name |
@@ -107,7 +108,7 @@ Always:
 - If `model_deployments` is empty, a single subscription-level token limit applies.
 - Emit `x-ratelimit-remaining-tokens` header for observability.
 - Controlled by `rate_limiting_enabled` flag.
-- **Rate limiting MUST be scoped to OpenAI paths only** (wrapped in `<when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;))">"`). Token counting is meaningless for DocInt/Speech/Search/Storage, and `estimate-prompt-tokens="true"` on large binary payloads (e.g., 500KB base64 images) causes APIM to hang reading/estimating the body before forwarding — resulting in curl timeouts (status 28) on the upstream caller.
+- **Rate limiting MUST be scoped to OpenAI paths only** (wrapped in `<when condition="@(context.Request.Url.Path.ToLower().Contains(&quot;openai&quot;))">"`). Token counting is meaningless for DocInt/Content Understanding/Speech/Search/Storage (they use the non-OpenAI request-count limit), and `estimate-prompt-tokens="true"` on large binary payloads (e.g., 500KB base64 images) causes APIM to hang reading/estimating the body before forwarding — resulting in curl timeouts (status 28) on the upstream caller.
 
 ### PTU Backend Isolation and Concurrency
 

@@ -90,6 +90,12 @@ tenant = {
     kind    = "FormRecognizer"
   }
 
+  # Content Understanding - MUST be present even if disabled (map(any) type constraint).
+  # Region, models and capacity come from shared_config.content_understanding.
+  content_understanding = {
+    enabled = false
+  }
+
   log_analytics = {
     enabled        = true
     retention_days = 30
@@ -200,6 +206,35 @@ Each service can be independently enabled/disabled via the `enabled` flag (JSON 
   }
 }
 ```
+
+## Content Understanding (Opt-In)
+
+Every `tenant.tfvars` in every environment **must** include a `content_understanding` block, even when disabled:
+
+```hcl
+content_understanding = {
+  enabled = false
+}
+```
+
+The `tenants` variable is `map(any)`, so every tenant entry must have the same shape. A tenant without the block fails the
+plan with `all map elements must have the same type` (the same rule applies to `speech_services`).
+
+The tenant file carries **only** `enabled`. Region (`Canada Central`), SKU, model deployments, and diagnostics come from
+`shared_config.content_understanding` in `params/dev/shared.tfvars`. In dev it is enabled for `ai-hub-admin` and
+`sdpr-invoice-automation`.
+
+To opt a tenant in:
+
+1. Set `content_understanding = { enabled = true }` in the tenant's `tenant.tfvars`.
+2. Check the canadacentral quota in this environment's subscription and update the Content Understanding section of
+   `infra-ai-hub/model-deployments.md`.
+3. Run `./scripts/deploy-terraform.sh plan dev`, then `apply`. The tenant stack creates a Foundry account
+   (`<tenant>-cu-<suffix>`) in Canada Central with a private endpoint in the tenant's PE subnet; the APIM stack adds the
+   `/contentunderstanding/*` route.
+4. Send the one-time `PATCH /contentunderstanding/defaults` through the gateway (map in the tenant-info response at
+   `services.content_understanding.model_deployments`). See
+   [`modules/content-understanding/README.md`](../../../modules/content-understanding/README.md#model-defaults).
 
 ## SKU Reference
 

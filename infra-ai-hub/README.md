@@ -80,6 +80,7 @@ flowchart TB
 |-----------|---------|----------|
 | AI Foundry Hub | Shared AI Services account with OpenAI endpoints | Canada East |
 | AI Projects | Per-tenant project within the Hub | Linked to Hub |
+| Content Understanding accounts | Opt-in, per-tenant Foundry account (`kind: AIServices`) for Azure Content Understanding, with its own model deployments | Canada Central (tenant RG) |
 | Log Analytics | Centralized logging and diagnostics | Canada Central |
 | Application Insights | APM and tracing for AI applications | Canada Central |
 | Private Endpoints | Secure connectivity to all PaaS services | Canada Central |
@@ -132,6 +133,18 @@ module "ai_foundry_hub" {
 | GPT-4o-mini | ❌ | ✅ |
 | text-embedding-3-large | ❌ | ✅ |
 | GPT-4 Turbo | ✅ | ✅ |
+
+### Exception: Azure Content Understanding (Canada Central)
+
+Content Understanding does not run on the Canada East hub. Microsoft's
+[Content Understanding region list](https://learn.microsoft.com/azure/ai-services/content-understanding/language-region-support)
+(page updated 2026-10-19, checked 2026-11-16) includes Canada Central but not Canada East. Each tenant that opts in
+gets its own Foundry account (`kind: AIServices`) in **Canada Central**, in the tenant resource group, with its own
+model deployments. See [Content Understanding Configuration](#content-understanding-configuration) and
+[`modules/content-understanding/README.md`](modules/content-understanding/README.md).
+
+The module accepts `Canada Central` or `Canada East` (validated), but a Terraform `check` block warns if Canada East
+is chosen.
 
 ---
 
@@ -221,6 +234,7 @@ flowchart TD
     NET --> ACA
     
     HUB --> TENANT
+    TENANT --> CU[content-understanding<br/>optional]
     WAF --> APPGW
     
     style NET fill:#50c878,color:#fff
@@ -339,6 +353,7 @@ flowchart TB
             SRCH[AI Search]
             OAI[OpenAI]
             DOC[Doc Intelligence]
+            CU[Content Understanding<br/>AIServices, Canada Central<br/>optional]
         end
         
         subgraph "Connections"
@@ -353,6 +368,7 @@ flowchart TB
     RG --> SRCH
     RG --> OAI
     RG --> DOC
+    RG --> CU
     
     PROJ --> CONN
     CONN --> KV
@@ -377,6 +393,7 @@ flowchart TB
 | `cosmos_db` | object | ❌ | Cosmos DB configuration |
 | `openai` | object | ❌ | OpenAI configuration |
 | `document_intelligence` | object | ❌ | Document Intelligence config |
+| `content_understanding` | object | ❌ | Content Understanding config: `enabled`, `location` (default `Canada Central`), `sku` (default `S0`), `model_deployments`, `diagnostics`. The tenant stack sets `enabled` from tenant tfvars and everything else from `shared_config.content_understanding` |
 | `project_connections` | object | ❌ | Auto-create project connections |
 | `role_assignments` | map | ❌ | Custom RBAC assignments |
 
@@ -389,6 +406,26 @@ flowchart TB
 | `key_vault_id` | Key Vault resource ID |
 | `storage_account_id` | Storage account ID |
 | `openai_endpoint` | OpenAI endpoint URL |
+| `content_understanding_id` / `_name` / `_endpoint` / `_location` | Content Understanding account details (`null` when disabled) |
+| `content_understanding_model_deployments` | Deployment name per role (`completion`, `completion_mini`, `embedding`) |
+| `content_understanding_default_model_deployments` | `modelDeployments` map for `PATCH /contentunderstanding/defaults` |
+
+#### Content Understanding Sub-Module
+
+When `content_understanding.enabled = true`, the tenant module calls `modules/content-understanding`
+(`module.content_understanding`, `count` on the flag). It wraps AVM `Azure/avm-res-cognitiveservices-account/azurerm`
+0.7.1 and creates:
+
+- A Foundry account (`kind: AIServices`) named `<tenant>-cu-<4-char suffix>` in the tenant resource group, in Canada Central,
+  with public network access disabled, local (key) auth disabled, and a system-assigned managed identity
+- Model deployments (`cognitive_deployments`) from `shared_config.content_understanding.model_deployments`
+- A private endpoint `pep-<name>` in the tenant's PE subnet. Landing Zone policy manages the DNS zone group;
+  `scripts/wait-for-dns-zone.sh` waits for it
+- A separately managed diagnostic setting, when the tenant has a Log Analytics workspace and diagnostics are configured
+
+The tenant stack outputs `tenant_content_understanding` (`{id, name, endpoint, location, model_deployments, default_model_deployments}`
+per enabled tenant). The `apim` stack reads it through remote state. Stack deploy order is unchanged. See
+[`modules/content-understanding/README.md`](modules/content-understanding/README.md).
 
 ---
 
@@ -416,7 +453,7 @@ API Management for exposing AI services with per-tenant products and path-based 
 Each tenant gets:
 1. **Product** - Subscription container for tenant APIs
 2. **API** - Path `/{tenant-name}` with wildcard operations `/{service}/{*path}`
-3. **Named Values** - Endpoints for tenant services (`{tenant}-openai-endpoint`, `{tenant}-docint-endpoint`, `{tenant}-storage-endpoint`)
+3. **Named Values** - Endpoints for tenant services (`{tenant}-openai-endpoint`, `{tenant}-docint-endpoint`, `{tenant}-cu-endpoint`, `{tenant}-storage-endpoint`)
 4. **Policy** - Custom XML routing policies per tenant (loaded from `params/apim/tenants/{tenant}/api_policy.xml`)
 5. **RBAC** - APIM managed identity granted access to tenant resources
 
@@ -433,6 +470,7 @@ flowchart TB
     subgraph "Tenant Resources"
         OAI["OpenAI<br/>{{wlrs-openai-endpoint}}"]
         DOCINT["Doc Intelligence<br/>{{wlrs-docint-endpoint}}"]
+        CU["Content Understanding<br/>{{wlrs-cu-endpoint}}"]
         STG["Storage<br/>{{wlrs-storage-endpoint}}"]
     end
     
@@ -441,13 +479,20 @@ flowchart TB
     API --> POLICY
     POLICY -->|/openai/*| OAI
     POLICY -->|/docint/*| DOCINT
+    POLICY -->|/contentunderstanding/*| CU
     POLICY -->|/storage/*| STG
     
     APIM_ID["APIM Managed Identity"]
     APIM_ID -->|OpenAI User| OAI
     APIM_ID -->|CogServices User| DOCINT
+    APIM_ID -->|CogServices User| CU
     APIM_ID -->|Storage Reader| STG
 ```
+
+For Content Understanding, the `apim` stack creates the `<tenant>-cu` backend (circuit breaker on 5xx, like Document
+Intelligence), the `<tenant>-cu-endpoint` named value, and a `Cognitive Services User` role assignment for the APIM
+managed identity on the tenant's Content Understanding account. That role's data actions (`Microsoft.CognitiveServices/*`)
+cover all Content Understanding data actions. See [`params/apim/README.md`](params/apim/README.md#content-understanding-route).
 
 #### Global Policy
 
@@ -665,6 +710,12 @@ tenants = {
       sku     = "S0"
     }
 
+    # Mandatory in every tenant file (map(any) type constraint). Only the flag lives here;
+    # region, SKU, models and diagnostics come from shared_config.content_understanding.
+    content_understanding = {
+      enabled = false
+    }
+
     log_analytics = {
       enabled        = true
       retention_days = 30
@@ -700,6 +751,7 @@ Each tenant can independently enable or disable services by setting the `enabled
 | Cosmos DB | `cosmos_db.enabled` | false | Document database |
 | OpenAI | `openai.enabled` | false | LLM endpoints |
 | Doc Intel | `document_intelligence.enabled` | false | Document parsing |
+| Content Understanding | `content_understanding.enabled` | false | Per-tenant Foundry account in Canada Central. Block is **mandatory** in every tenant file |
 | Tenant Log Analytics | `log_analytics.enabled` | false | Per-tenant LAW + diagnostics |
 | Content Safety | `content_safety.*` | PII: true | PII redaction |
 
@@ -745,6 +797,68 @@ These settings are applied at **deploy time** to the global policy:
 - When disabled, the global policy skips PII redaction for that tenant
 - Configuration in `params/{env}/tenants.tfvars` controls behavior independently per tenant
 
+### Content Understanding Configuration
+
+Tenants opt in to [Azure Content Understanding](https://learn.microsoft.com/azure/ai-services/content-understanding/overview)
+(GA API version `2025-11-01`). It is currently enabled for `ai-hub-admin` in **dev** and for
+`sdpr-invoice-automation` in **dev** and **test** (see the enabled-tenants table in
+[`model-deployments.md`](model-deployments.md#content-understanding-per-tenant-accounts-canada-central)).
+
+**Configuration split:**
+
+- **Tenant tfvars** carries only the flag. The block must be present in every tenant file in every environment, for the same
+  reason as `speech_services`: the `tenants` variable is `map(any)`, and a missing attribute fails the plan with
+  `all map elements must have the same type`.
+
+  ```hcl
+  content_understanding = {
+    enabled = true   # false for tenants that have not opted in
+  }
+  ```
+
+- **`shared_config.content_understanding`** in `params/<env>/shared.tfvars` sets the region (`Canada Central`), SKU (`S0`),
+  model deployments, and diagnostics. The values are the same in dev, test, and prod.
+
+**Model deployments** (per Content Understanding account; details in [model-deployments.md](model-deployments.md#content-understanding-per-tenant-accounts-canada-central)):
+
+| Role | Deployment / model | Version | Scale type | Capacity |
+|------|--------------------|---------|------------|---------:|
+| `completion` | `gpt-5.4` | 2026-03-05 | GlobalStandard | 100 |
+| `completion_mini` | `gpt-5.4-mini` | 2026-03-17 | GlobalStandard | 100 |
+| `embedding` | `text-embedding-3-large` | 1 | GlobalStandard | 100 |
+
+**One-time defaults PATCH per tenant.** Analyzers that use models need the account's model defaults set. Terraform can't
+set them: they are data-plane settings, the account sits behind a private endpoint, and CI runs on GitHub-hosted runners.
+After the first apply, send this through the gateway with the tenant's APIM key:
+
+```bash
+curl -X PATCH "https://<gateway>/<tenant>/contentunderstanding/defaults?api-version=2025-11-01" \
+  -H "api-key: <tenant APIM key>" \
+  -H "Content-Type: application/merge-patch+json" \
+  -d '{"modelDeployments": {
+        "gpt-5.4": "gpt-5.4",
+        "gpt-5.4-mini": "gpt-5.4-mini",
+        "text-embedding-3-large": "text-embedding-3-large",
+        "prebuilt-analyzer-completion": "gpt-5.4",
+        "prebuilt-analyzer-completion-mini": "gpt-5.4-mini",
+        "prebuilt-analyzer-embedding": "text-embedding-3-large"
+      }}'
+```
+
+The same map is published by the tenant-info endpoint (`services.content_understanding.model_deployments`).
+`prebuilt-layout`, `prebuilt-read`, and `prebuilt-digitalParse` need no model.
+
+**Tenant-facing calls** (base `https://<gateway>/<tenant>`, tenant's APIM key, all with `?api-version=2025-11-01`):
+
+| Call | Purpose |
+|------|---------|
+| `POST /contentunderstanding/analyzers/{id}:analyze` | JSON body `{"inputs":[{"url":"..."}]}` or `{"inputs":[{"data":"<base64>","mimeType":"..."}]}`; returns `202` + `Operation-Location` |
+| `POST /contentunderstanding/analyzers/{id}:analyzeBinary` | Raw document bytes |
+| `GET /contentunderstanding/analyzerResults/{id}` | Poll; `status` is `NotStarted`, `Running`, `Succeeded`, `Failed`, or `Canceled`. Markdown is at `result.contents[].markdown` |
+| `GET` / `PATCH /contentunderstanding/defaults` | Read or set model defaults (`PATCH` uses `Content-Type: application/merge-patch+json`) |
+
+**Data residency:** data at rest stays in Canada Central. The `GlobalStandard` deployments may process inference outside
+Canada, the same posture as the existing hub deployments.
 
 ### APIM Authentication Configuration
 
@@ -900,7 +1014,7 @@ Before creating the tenant config, determine which PE subnet to assign:
 2. **Prod**: Check current PE count per subnet to find the one with most remaining capacity:
    - Azure Portal → VNet → Subnets → each `privateendpoints-subnet*` → "Connected devices" count
    - Or CLI: `az network vnet subnet show --resource-group <rg> --vnet-name <vnet> --name privateendpoints-subnet --query 'ipConfigurations | length(@)'`
-3. Each `/24` PE subnet holds ~251 usable IPs; each tenant uses up to 6 PE IPs (Cosmos DB = 2 IPs: sql global + canadacentral regional)
+3. Each `/24` PE subnet holds ~251 usable IPs; each tenant uses up to 6 PE IPs (Cosmos DB = 2 IPs: sql global + canadacentral regional). Enabling `content_understanding` adds one more private endpoint (`pep-<tenant>-cu-<suffix>`) in the same subnet
 4. Record the chosen key (e.g., `privateendpoints-subnet-1`) — it is **immutable** after first deploy
 
 #### 1. Create Tenant Configuration File
@@ -937,10 +1051,14 @@ tenant = {
   cosmos_db = { enabled = false }
   openai = { enabled = true, model_deployments = [...] }
   document_intelligence = { enabled = true }
+  speech_services       = { enabled = false }  # mandatory block (map(any) type constraint)
+  content_understanding = { enabled = false }  # mandatory block (map(any) type constraint)
 }
 ```
 
 > ⚠️ **`pe_subnet_key` is mandatory.** Terraform plan will fail if it's missing from any enabled tenant.
+>
+> ⚠️ **`speech_services` and `content_understanding` blocks are mandatory** in every tenant file, even when disabled. A missing block fails the plan with `all map elements must have the same type`.
 
 Refer to `params/test/tenants/README.md` for complete configuration options.
 
@@ -1279,7 +1397,7 @@ ApiManagementGatewayLogs
 infra-ai-hub/
 ├── stacks/                            # Isolated Terraform root modules (one state file each)
 │   ├── shared/                        # Phase 1: VNet, subnets, AI Foundry Hub, App GW, WAF, KV, ACR, monitoring
-│   ├── tenant/                        # Phase 2: Per-tenant resources (AI Search, CosmosDB, DI, Storage, KV)
+│   ├── tenant/                        # Phase 2: Per-tenant resources (AI Search, CosmosDB, DI, Content Understanding, Storage, KV)
 │   ├── foundry/                       # Phase 3: AI Foundry projects per tenant (parallelism=1)
 │   ├── apim/                          # Phase 3: API Management gateway, policies, tenant subscriptions
 │   └── tenant-user-mgmt/             # Phase 3: Entra ID user/group assignments (requires Graph API)
@@ -1288,6 +1406,7 @@ infra-ai-hub/
 │   ├── network/               # Subnet infrastructure
 │   ├── ai-foundry-hub/        # Shared AI Foundry
 │   ├── tenant/                # Per-tenant resources
+│   ├── content-understanding/ # Per-tenant Content Understanding account (AIServices, Canada Central), called by tenant/
 │   ├── apim/                  # API Management
 │   ├── app-gateway/           # Application Gateway
 │   ├── waf-policy/            # WAF rules

@@ -79,6 +79,14 @@ tenant = {
     enabled = false
   }
 
+  # Content Understanding - per-tenant Foundry (AIServices) account in Canada Central.
+  # Region, models and capacity come from shared_config.content_understanding.
+  # IMPORTANT: This block MUST be present in every tenant (even if disabled) to keep
+  # the map(any) type consistent across all tenant entries.
+  content_understanding = {
+    enabled = true
+  }
+
   log_analytics = {
     enabled        = true
     retention_days = 30
@@ -285,8 +293,8 @@ tenant = {
       tokens_per_minute = 1000
     }
     pii_redaction = {
-      enabled     = true
-      fail_closed = true # Block requests if PII service fails (not applicable when disabled)
+      enabled             = true
+      fail_closed         = true # Block requests if PII service fails (not applicable when disabled)
       excluded_categories = []
     }
     usage_logging = {

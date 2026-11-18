@@ -13,6 +13,7 @@ Supplementary reference for the [Integration Testing skill](../SKILL.md). Load t
 | `HUB_KEYVAULT_NAME` | terraform output | Hub Key Vault for key rotation fallback |
 | `OPENAI_API_VERSION` | hardcoded | `2024-10-21` |
 | `DOCINT_API_VERSION` | hardcoded | `2024-11-30` |
+| `CONTENT_UNDERSTANDING_API_VERSION` | env var, default in `config.py` | `2025-11-01` (`IntegrationConfig.content_understanding_api_version`) |
 | `DEFAULT_MODEL` | hardcoded | `gpt-4.1-mini` |
 | `PRIMARY_TENANT` | test helper constant | `ai-hub-admin` |
 | `LOW_QUOTA_TENANT` | test helper constant | `nr-dap-fish-wildlife` |
@@ -43,6 +44,10 @@ Subscription keys are loaded per tenant from env vars or terraform outputs, most
 | `ApimClient.docint_analyze_binary()` | Sends file as `application/octet-stream` |
 | `ApimClient.docint_analyze_pdf()` | Sends file as `application/pdf` |
 | `ApimClient.docint_analyze_multipart()` | Sends file as `multipart/form-data` |
+| `ApimClient.content_understanding_set_defaults()` | `PATCH /contentunderstanding/defaults` with `{"modelDeployments": {...}}` (`application/merge-patch+json`, idempotent, retried) |
+| `ApimClient.content_understanding_get_defaults()` | `GET /contentunderstanding/defaults` |
+| `ApimClient.content_understanding_analyze()` | `POST /contentunderstanding/analyzers/{id}:analyze` with JSON `inputs[].data` (base64) + `mimeType` |
+| `ApimClient.content_understanding_analyze_binary()` | `POST /contentunderstanding/analyzers/{id}:analyzeBinary` with raw bytes and the given `Content-Type` |
 
 ### Response Parsing
 | Function | Purpose |
@@ -61,7 +66,7 @@ Subscription keys are loaded per tenant from env vars or terraform outputs, most
 ### Async Polling
 | Function | Purpose |
 |---|---|
-| `ApimClient.wait_for_operation()` | Polls Document Intelligence operation path every 2s until `succeeded`/`completed`/`failed` or timeout |
+| `ApimClient.wait_for_operation()` | Polls a Document Intelligence or Content Understanding operation path every 2s until `succeeded`/`completed` (returns) or `failed`/`canceled` (raises), or timeout. Status matching is case-insensitive (DocInt uses lowercase; Content Understanding uses `NotStarted`/`Running`/`Succeeded`/`Failed`/`Canceled`) |
 
 ### Key Vault Fallback
 | Function | Purpose |
@@ -91,7 +96,23 @@ Subscription keys are loaded per tenant from env vars or terraform outputs, most
 ### Operation-Location Validation
 - **Must contain** App Gateway hostname (`${APPGW_HOSTNAME}`)
 - **Must NOT contain** `cognitiveservices.azure.com` (direct backend leak)
+- **Must NOT contain** `services.ai.azure.com` (direct Foundry/AIServices backend leak; Content Understanding)
 - **Must NOT contain** `azure-api.net` (direct APIM, bypasses App GW)
+
+## Content Understanding Async Flow
+
+`tests/test_content_understanding.py` targets `PRIMARY_TENANT` (`ai-hub-admin`) and only runs where tenant-info reports `services.content_understanding.enabled = true` (currently dev only):
+
+```
+1. Discover → GET /internal/tenant-info → services.content_understanding (skip if disabled)
+2. Defaults → `ApimClient.content_understanding_set_defaults(tenant, service["model_deployments"])` (once per module)
+3. Submit   → `ApimClient.content_understanding_analyze(tenant, "prebuilt-layout", base64, "image/jpeg")` → 202
+4. Path     → `ApimClient.extract_operation_path(tenant, operation_location(response))`
+5. Poll     → `ApimClient.wait_for_operation(tenant, path, 120)`
+6. Assert   → `status == "Succeeded"`; markdown from `result.contents[].markdown` contains "Monthly Report"
+```
+
+The `Operation-Location` host check requires App Gateway (`require_appgw`). The `analyzeBinary` test sends `test_form_small.jpg` as raw `image/jpeg` and expects 202.
 
 ## GPT-5 Model Handling
 

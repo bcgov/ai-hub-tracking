@@ -210,6 +210,48 @@ variable "speech_services" {
 }
 
 # -----------------------------------------------------------------------------
+# Content Understanding Configuration
+# Per-tenant Foundry (AIServices) account in a Content Understanding-supported
+# Canadian region, with its own completion + embedding model deployments.
+# -----------------------------------------------------------------------------
+variable "content_understanding" {
+  description = "Azure Content Understanding configuration for the tenant"
+  type = object({
+    enabled  = bool
+    location = optional(string, "Canada Central")
+    sku      = optional(string, "S0")
+    model_deployments = optional(map(object({
+      model_name             = string
+      model_version          = string
+      scale_type             = optional(string, "GlobalStandard")
+      capacity               = number
+      version_upgrade_option = optional(string, "OnceCurrentVersionExpired")
+    })), {})
+    diagnostics = optional(object({
+      log_groups        = optional(list(string), [])
+      log_categories    = optional(list(string), [])
+      metric_categories = optional(list(string), [])
+    }))
+  })
+  default = {
+    enabled = false
+  }
+
+  validation {
+    condition     = contains(["canadacentral", "canadaeast"], lower(replace(var.content_understanding.location, " ", "")))
+    error_message = "content_understanding.location must be \"Canada Central\" or \"Canada East\"."
+  }
+
+  validation {
+    condition = !var.content_understanding.enabled || (
+      contains(keys(var.content_understanding.model_deployments), "completion") &&
+      contains(keys(var.content_understanding.model_deployments), "embedding")
+    )
+    error_message = "content_understanding.model_deployments must define \"completion\" and \"embedding\" when content_understanding.enabled is true (set them in shared_config.content_understanding)."
+  }
+}
+
+# -----------------------------------------------------------------------------
 # AI Foundry Hub Reference (for outputs)
 # -----------------------------------------------------------------------------
 variable "ai_foundry_hub_id" {

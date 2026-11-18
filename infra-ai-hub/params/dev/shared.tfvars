@@ -29,6 +29,55 @@ shared_config = {
   }
 
   # ---------------------------------------------------------------------------
+  # Azure Content Understanding (per-tenant opt-in)
+  # ---------------------------------------------------------------------------
+  # Tenants opt in with `content_understanding = { enabled = true }` in their
+  # tenant.tfvars. Each enabled tenant gets its own Foundry (AIServices) account
+  # with these model deployments, in the tenant resource group.
+  #
+  # Region: Content Understanding supports Canada Central but NOT Canada East
+  # (the shared hub's region), per Microsoft's region list checked 2026-11-16:
+  # https://learn.microsoft.com/azure/ai-services/content-understanding/language-region-support
+  #
+  # Models: must be on the supported list and deployable in the region.
+  # https://learn.microsoft.com/azure/ai-services/content-understanding/service-limits
+  # canadacentral (az cognitiveservices model list, 2026-11-16), GlobalStandard only:
+  #   gpt-5.4 (2026-03-05) retires 2027-09-02, gpt-5.4-mini (2026-03-17) retires 2027-09-21,
+  #   text-embedding-3-large (1) retires 2028-02-09.
+  # Capacity = 1% of the canadacentral GlobalStandard quota (10,000 each, tools subscription
+  # view 2026-11-16). Quota is per subscription per region; confirm in this environment's
+  # subscription before enabling more tenants.
+  content_understanding = {
+    location = "Canada Central"
+    sku      = "S0"
+    model_deployments = {
+      completion = {
+        model_name    = "gpt-5.4"
+        model_version = "2026-03-05"
+        scale_type    = "GlobalStandard"
+        capacity      = 100 # 1% of 10,000
+      }
+      completion_mini = {
+        model_name    = "gpt-5.4-mini"
+        model_version = "2026-03-17"
+        scale_type    = "GlobalStandard"
+        capacity      = 100 # 1% of 10,000
+      }
+      embedding = {
+        model_name    = "text-embedding-3-large"
+        model_version = "1"
+        scale_type    = "GlobalStandard"
+        capacity      = 100 # 1% of 10,000
+      }
+    }
+    diagnostics = {
+      log_groups        = ["allLogs"]
+      log_categories    = []
+      metric_categories = ["AllMetrics"]
+    }
+  }
+
+  # ---------------------------------------------------------------------------
   # Log Analytics Workspace
   # ---------------------------------------------------------------------------
   # Centralized logging for all resources. Required for diagnostics.
